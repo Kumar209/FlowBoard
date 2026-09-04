@@ -20,13 +20,13 @@
 
 | Phase | Tasks | Completed | Status |
 |-------|-------|-----------|--------|
-| Phase 0: Setup & Foundation | 0.1 - 0.5 | 1/5 | In Progress |
+| Phase 0: Setup & Foundation | 0.1 - 0.5 | 2/5 | In Progress |
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 0/5 | Pending |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 0/5 | Pending |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **26 Tasks** | **1/26** | **In Progress** |
+| **Total** | **26 Tasks** | **2/26** | **In Progress** |
 
 ---
 
@@ -66,9 +66,36 @@ Before coding, we need a single source of tracking for 26 tasks across 6 phases 
 
 ## Task 0.1: Git Init + GitHub + Backend/Frontend Sibling Structure + README
 
-**Status:** `Pending` | **Date:** - | **Phase:** 0
+**Status:** `Completed` | **Date:** 04 Sep 2026 | **Phase:** 0 - Setup
 
-*To be updated after completion.*
+**Why:**
+The project lacked a version-controlled root with correct sibling structure. Starting with `backend/` + `frontend/` as siblings (not nested) prevents coupling of deploys (MonsterASP.net vs Vercel) and matches enterprise MNC repo layout. Git must be initialized at `FlowBoard/` root before any code, so all future tasks have a single commit history and GitHub as backup/portfolio link for recruiters. This task blocks 0.2-0.3 scaffolds.
+
+**What Used:**
+- Git + GitHub (`https://github.com/Kumar209/FlowBoard.git`, branch `main`)
+- `.gitignore` (Visual Studio + Angular + Env: bin/, obj/, node_modules/, dist/, .env, appsettings.Development.json)
+- `backend/.gitkeep` + `frontend/.gitkeep` as sibling placeholders
+- `README.md` with pitch, stack badges, live demo placeholders, architecture snippet, 6-role table, sibling structure
+- Git config `user.name`/`user.email` (Prashant Kumar Verma)
+
+**Why Useful:**
+- Proves MNC-expected repo hygiene: correct `.gitignore` prevents secrets/bin leak, sibling structure shows you understand separate deploy pipelines (backend to MonsterASP.net via FTP, frontend to Vercel). GitHub link is the first thing recruiters open - a clean README with badges/architecture gives instant credibility. Sets up single source of truth for 26 tasks.
+
+**What It Does:**
+- Initializes `git` at `X:\Projects + coding\Dot Net\Full Stack Projects\FlowBoard` with remote `origin` to GitHub `Kumar209/FlowBoard`
+- Creates `backend/` and `frontend/` empty sibling dirs (kept via `.gitkeep`), `Documents/` already holds SDD v1.2 + Tasks Plan v1.0
+- Provides `README.md` with enterprise pitch (Angular 22 + .NET 10), YARP architecture, 6-role matrix (PM can create projects), sibling layout
+- Provides `.gitignore` that ignores build artifacts and secret env files (same keys local/prod are not committed)
+
+**What Achieved:**
+- `git init` at FlowBoard root, `git remote add origin https://github.com/Kumar209/FlowBoard.git`, initial commit `b800a66 feat: Task 0.1 - Git init + backend/frontend sibling structure + README + docs` with 8 files (`.gitignore`, `README.md`, `Documents/*.docx`, `TASK_LOG.md`, `SESSION_RESUME.md`, `backend/.gitkeep`, `frontend/.gitkeep`)
+- `git push -u origin main` succeeded - GitHub `main` now tracks local, `git status` clean
+- Folder verified: `FlowBoard/backend/`, `FlowBoard/frontend/`, `FlowBoard/Documents/`, `TASK_LOG.md` (now 2/26)
+
+**Future Help:**
+- All next scaffolds (Task 0.2 .NET 10 sln in `backend/`, Task 0.3 Angular 22 in `frontend/flowboard-web`) will be created inside these siblings without nesting - enabling independent `dotnet build` and `ng build` + separate Vercel/MonsterASP.net deploys
+- `.gitignore` ensures future `Upstash/CloudAMQP/Cloudinary/Brevo/Gemini` keys in `appsettings.Development.json` are not leaked
+- GitHub `main` is ready for PR workflow (`feature/task-0-2-*` -> `main`) and GitHub Actions `ubuntu-latest` CI (Task 5.2)
 
 ---
 
