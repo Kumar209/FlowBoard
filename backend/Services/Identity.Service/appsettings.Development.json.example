@@ -1,0 +1,6 @@
+{
+  "ConnectionStrings": { "Default": "Server=(localdb)\\mssqllocaldb;Database=flowboard_identity;Trusted_Connection=True;MultipleActiveResultSets=true" },
+  "Jwt": { "Key": "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256", "Issuer": "FlowBoard.Identity", "Audience": "FlowBoard.Gateway", "ExpiryMinutes": "15", "RefreshDays": "7" },
+  "Brevo": { "ApiKey": "xkeysib-PASTE_YOUR_BREVO_API_KEY" },
+  "FrontendUrl": "http://localhost:4200"
+}
