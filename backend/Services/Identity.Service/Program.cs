@@ -23,7 +23,7 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Pr
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
-builder.Services.AddHttpClient<BrevoEmailService>();
+builder.Services.AddHttpClient<IBrevoEmailService, BrevoEmailService>();
 
 // 4. JWT Authentication - reads Jwt:Key/Issuer/Audience from config (32+ chars, HS256, 15m)
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key missing - set in appsettings.Development.json");

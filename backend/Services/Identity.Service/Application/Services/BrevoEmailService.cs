@@ -1,12 +1,14 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Identity.Service.Application.Interfaces;
 
 namespace Identity.Service.Application.Services;
 
 // Brevo Transactional API - sends invite emails (300/day free, same key local/prod)
 // Docs: https://developers.brevo.com/docs/transactional-emails
-public class BrevoEmailService
+// Enterprise: Implements IBrevoEmailService (Application interface) - DIP
+public class BrevoEmailService : IBrevoEmailService
 {
     private readonly HttpClient _http;
     private readonly IConfiguration _config;

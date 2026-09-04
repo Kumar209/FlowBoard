@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Identity.Service.Application.Interfaces;
-using Identity.Service.Application.Services;
 using Identity.Service.Domain.Entities;
 using Identity.Service.Domain.Enums;
 
@@ -15,9 +14,9 @@ namespace Identity.Service.Api.Controllers;
 public class WorkspacesController : ControllerBase
 {
     private readonly IApplicationDbContext _db;
-    private readonly BrevoEmailService _brevo;
+    private readonly IBrevoEmailService _brevo;
 
-    public WorkspacesController(IApplicationDbContext db, BrevoEmailService brevo)
+    public WorkspacesController(IApplicationDbContext db, IBrevoEmailService brevo)
     {
         _db = db;
         _brevo = brevo;
