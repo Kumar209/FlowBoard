@@ -18,13 +18,13 @@
 
 | Phase | Task Range | Completed | Status |
 |-------|------------|-----------|--------|
-| Phase 0: Setup & Foundation | 0.1 - 0.5 | 4/5 | In Progress |
+| Phase 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 0/5 | Pending |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 0/5 | Pending |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **4/26** | **In Progress** |
+| **Total** | **0.1 - 5.4** | **5/26** | **In Progress** |
 
 ---
 
@@ -313,13 +313,66 @@ Angular 22 Standalone + Signals is the 2026 MNC standard for .NET shops (Infosys
 
 ---
 
-## Task 0.4: Environment Setup (Same Keys Local/Prod - Upstash, CloudAMQP, Cloudinary, Brevo, Gemini)
+## Task 0.4: Environment Setup (Same Keys Local/Prod - Upstash, CloudAMQP, Cloudinary, Brevo, Gemini) + Angular No Internal CSS
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | - | 0 - Setup | - | 1h | Chore |
+| Completed | 04 Sep 2026 | 0 - Setup | 47d498a | 1h | Chore |
 
-*To be updated after completion.*
+### 1. Overview
+Configured environment handling so all 5 external services use **same keys for Local and Production** (only API URLs differ) and enforced **no internal CSS** for Angular components - all styling via Tailwind + DaisyUI global utilities.
+
+### 2. Objectives
+- Create `.env.example` at repo root documenting 5 keys (Upstash, CloudAMQP, Cloudinary, Brevo, Gemini) + JWT + SQL connection with `PASTE_...` placeholders
+- Create `appsettings.Development.json.example` for each of 5 backend projects (Gateway + 4 Services) with same-key placeholders for `dotnet User Secrets` vs MonsterASP.net App Settings
+- Enforce Angular `style: none` for all future components (no internal CSS) via `angular.json` schematics
+- Ensure `dotnet build` and `ng build` still pass with new config
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Env | .env.example | - | Single source for 5 external keys (git-committed template) |
+| Env | appsettings.Development.json.example (5x) | - | Per-service template (Gateway, Identity, Project, File, Notification) |
+| Env | .gitignore | - | Ignores `appsettings.Development.json` (real secrets) but not `.example` |
+| Frontend | angular.json schematics | 22.1.5 | `@schematics/angular:component {style: none}` |
+| Frontend | Tailwind + DaisyUI | 3.4.17 + 4.12.14 | Global styling only (src/styles.css) |
+
+### 4. Implementation Details
+- Wrote `.env.example` (45 lines) at `FlowBoard/.env.example` with 5 sections: `Redis__Connection` (rediss://...@unbiased-puma-upstash), `RabbitMQ__Host` (amqps://...cloudamqp), `Cloudinary__*` (CloudName/ApiKey/ApiSecret), `Brevo__ApiKey` (xkeysib-...), `Gemini__ApiKey` (AIza...), plus `Jwt__Key/Issuer/Audience` and `ConnectionStrings__Default` for LocalDB vs `mssql.monsterasp.net`, and Frontend `NG_APP_API_URL` local vs prod
+- Created 5 `appsettings.Development.json.example` files (each with service-specific keys): `Gateway.YARP` (Jwt, Redis), `Identity.Service` (Jwt, Brevo, ConnectionStrings), `Project.Service` (Jwt, Redis, RabbitMQ, Gemini), `File.Service` (Jwt, Cloudinary, RabbitMQ), `Notification.Service` (Jwt, Redis, RabbitMQ, Brevo) - all with `PASTE_YOUR_...` placeholders, same values for local/prod
+- Updated `frontend/flowboard-web/angular.json` schematics: added `"@schematics/angular:component": { "style": "none", "skipTests": true }` under `projects.flowboard-web.schematics` - future `ng generate component` will not create `.css` file, enforcing Tailwind-only styling
+- Verified existing `src/styles.css` already has `@tailwind base/components/utilities` and `src/app/app.css` is 0 bytes (empty) - compliant with no internal CSS rule; `tailwind.config.js` content globs cover all future components
+- Kept `.gitignore` rule `**/appsettings.Development.json` (ignores real secrets) but `.example` files are tracked - user copies `.example` to `.json` and fills real keys locally, same keys also set in MonsterASP.net Panel + Vercel Env Vars for prod
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| .env.example | Created | 45 lines - 5 keys + JWT + SQL + Frontend URLs, same local/prod documented |
+| backend/Gateway.YARP/appsettings.Development.json.example | Created | Gateway template (Jwt, Redis, ReverseProxy placeholder) |
+| backend/Services/Identity.Service/appsettings.Development.json.example | Created | Identity template (ConnectionStrings, Jwt, Brevo, FrontendUrl) |
+| backend/Services/Project.Service/appsettings.Development.json.example | Created | Project template (Jwt, Redis, RabbitMQ, Gemini) |
+| backend/Services/File.Service/appsettings.Development.json.example | Created | File template (Jwt, Cloudinary, RabbitMQ) |
+| backend/Services/Notification.Service/appsettings.Development.json.example | Created | Notification template (Jwt, Redis, RabbitMQ, Brevo, Gemini) |
+| frontend/flowboard-web/angular.json | Modified | Added schematics `style: none` to enforce no internal CSS |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Env example | Passed | `.env.example` at `FlowBoard/.env.example` (45 lines, 5 keys with PASTE_ placeholders) |
+| Backend examples | Passed | 5 `appsettings.Development.json.example` files in `backend/` (each service-specific, not ignored) |
+| Angular schematics | Passed | `angular.json` -> `schematics.@schematics/angular:component.style = "none"` |
+| No internal CSS | Passed | `src/app/app.css` 0 bytes, `src/styles.css` has Tailwind directives only, future components will have no .css |
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` -> `0 Warning(s) 0 Error(s)` |
+| Build frontend | Passed | `npx ng build --configuration production` -> `daisyUI 3 themes`, `229.10 kB` still passes |
+| Git | Passed | Commit `47d498a` (7 files) pushed to `origin/main`, `.gitignore` correctly ignores real `appsettings.Development.json` |
+
+### 7. Enterprise Relevance (MNC Value)
+"Same keys local/prod, only URLs differ" is the MNC standard for personal projects - avoids staging complexity and double key management, yet proves you understand env separation (local `http://localhost:5000` vs prod `https://gateway-xxxxx.monsterasp.net`). Providing `.example` files (not real secrets) shows secure secret handling - recruiters check for leaked `xkeysib-` or `AIza` in Git history. Enforcing `style: none` for Angular components proves you follow Tailwind + DaisyUI enterprise convention (global utilities, no scattered component CSS) - this scales to 50+ components and keeps responsive design consistent.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 1.1 will copy `.example` to `appsettings.Development.json` and fill your provided Upstash/CloudAMQP/Cloudinary/Brevo/Gemini keys to connect Identity DbContext (you will provide keys); Task 1.4 Angular Auth pages will be created with `style: none` (only Tailwind classes in HTML)
+- Depends on: Task 0.3 (Angular structure with `src/environments` must exist before env templates)
+- Follow-up: When you receive keys, fill both `backend/*/appsettings.Development.json` (copy from `.example`) and set same values in MonsterASP.net App Settings + Vercel Env Vars for prod; `Phase 0 Completed (5/5)` - next is Phase 1 Identity (you chose Task 0.1-0.4 done before coding)
 
 ---
 
