@@ -1,0 +1,39 @@
+<div class="min-h-screen bg-base-100">
+  <div class="navbar bg-base-100 shadow">
+    <div class="flex-1">
+      <a class="btn btn-ghost text-xl">FlowBoard</a>
+      <span class="badge badge-primary ml-2">Enterprise • Single DB flowboard</span>
+    </div>
+    <div class="flex-none gap-2">
+      <span class="text-sm hidden md:inline">Hi, {{ auth.currentUser()?.fullName }}</span>
+      <div class="badge badge-outline">{{ auth.currentUser()?.email }}</div>
+      <button class="btn btn-sm btn-ghost" (click)="logout()">Logout</button>
+    </div>
+  </div>
+  <div class="p-4 md:p-8">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="card bg-base-100 shadow border">
+        <div class="card-body">
+          <h2 class="card-title">Workspaces</h2>
+          <p class="text-sm opacity-70">Your personal workspace is ready (OrgAdmin). Create more in next tasks.</p>
+          <div class="card-actions justify-end"><button class="btn btn-sm btn-primary" disabled>Create Workspace</button></div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow border">
+        <div class="card-body">
+          <h2 class="card-title">Projects</h2>
+          <p class="text-sm opacity-70">Projects live inside workspaces. PM can create projects (Phase 2).</p>
+          <div class="card-actions justify-end"><button class="btn btn-sm" disabled>View Projects</button></div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow border">
+        <div class="card-body">
+          <h2 class="card-title">Auth Status</h2>
+          <p class="text-sm">JWT 15m + Refresh 7d via HttpOnly cookie</p>
+          <p class="text-xs opacity-50">Role: OrgAdmin (can invite to workspace)</p>
+        </div>
+      </div>
+    </div>
+    <div class="alert alert-info mt-6"><span>Phase 1 Identity complete (6 roles, single DB [identity]). Next: Project Core (Task 2.1)</span></div>
+  </div>
+</div>
