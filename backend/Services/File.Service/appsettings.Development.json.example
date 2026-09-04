@@ -1,6 +1,18 @@
 {
-  "ConnectionStrings": { "Default": "Server=(localdb)\\mssqllocaldb;Database=flowboard_file;Trusted_Connection=True;MultipleActiveResultSets=true" },
-  "Jwt": { "Key": "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256", "Issuer": "FlowBoard.Identity", "Audience": "FlowBoard.Gateway" },
-  "Cloudinary": { "CloudName": "PASTE_YOUR_CLOUDINARY_CLOUD_NAME", "ApiKey": "PASTE_YOUR_CLOUDINARY_API_KEY", "ApiSecret": "PASTE_YOUR_CLOUDINARY_API_SECRET" },
-  "RabbitMQ": { "Host": "amqps://PASTE_YOUR_CLOUDAMQP_USER:PASSWORD@puffin.rmq2.cloudamqp.com/vhost" }
+  "ConnectionStrings": {
+    "Default": "Server=localhost;Database=flowboard;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+  },
+  "Jwt": {
+    "Key": "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256",
+    "Issuer": "FlowBoard.Identity",
+    "Audience": "FlowBoard.Gateway"
+  },
+  "Cloudinary": {
+    "CloudName": "PASTE_YOUR_CLOUDINARY_CLOUD_NAME",
+    "ApiKey": "PASTE_YOUR_CLOUDINARY_API_KEY",
+    "ApiSecret": "PASTE_YOUR_CLOUDINARY_API_SECRET"
+  },
+  "RabbitMQ": {
+    "Host": "amqps://PASTE_YOUR_CLOUDAMQP_USER:PASSWORD@puffin.rmq2.cloudamqp.com/vhost"
+  }
 }

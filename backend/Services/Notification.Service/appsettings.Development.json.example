@@ -1,8 +1,19 @@
 {
-  "ConnectionStrings": { "Default": "Server=(localdb)\\mssqllocaldb;Database=flowboard_notification;Trusted_Connection=True;MultipleActiveResultSets=true" },
-  "Jwt": { "Key": "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256", "Issuer": "FlowBoard.Identity", "Audience": "FlowBoard.Gateway" },
-  "Redis": { "Connection": "rediss://default:PASTE_YOUR_UPSTASH_PASSWORD@unbiased-puma-160813.upstash.io:6379" },
-  "RabbitMQ": { "Host": "amqps://PASTE_YOUR_CLOUDAMQP_USER:PASSWORD@puffin.rmq2.cloudamqp.com/vhost" },
-  "Brevo": { "ApiKey": "xkeysib-PASTE_YOUR_BREVO_API_KEY" },
-  "Gemini": { "ApiKey": "AIzaSyPASTE_YOUR_GEMINI_API_KEY" }
+  "ConnectionStrings": {
+    "Default": "Server=localhost;Database=flowboard;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+  },
+  "Jwt": {
+    "Key": "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256",
+    "Issuer": "FlowBoard.Identity",
+    "Audience": "FlowBoard.Gateway"
+  },
+  "Redis": {
+    "Connection": "rediss://default:PASTE_YOUR_UPSTASH_PASSWORD@unbiased-puma-160813.upstash.io:6379"
+  },
+  "RabbitMQ": {
+    "Host": "amqps://PASTE_YOUR_CLOUDAMQP_USER:PASSWORD@puffin.rmq2.cloudamqp.com/vhost"
+  },
+  "Brevo": {
+    "ApiKey": "xkeysib-PASTE_YOUR_BREVO_API_KEY"
+  }
 }

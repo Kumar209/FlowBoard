@@ -1,7 +1,21 @@
 {
-  "Logging": { "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" } },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
   "AllowedHosts": "*",
-  "Jwt": { "Key": "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256", "Issuer": "FlowBoard.Identity", "Audience": "FlowBoard.Gateway" },
-  "Redis": { "Connection": "rediss://default:PASTE_YOUR_UPSTASH_PASSWORD@unbiased-puma-160813.upstash.io:6379" },
-  "ReverseProxy": { "Routes": {}, "Clusters": {} }
+  "Jwt": {
+    "Key": "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256",
+    "Issuer": "FlowBoard.Identity",
+    "Audience": "FlowBoard.Gateway"
+  },
+  "Redis": {
+    "Connection": "rediss://default:PASTE_YOUR_UPSTASH_PASSWORD@unbiased-puma-160813.upstash.io:6379"
+  },
+  "ReverseProxy": {
+    "Routes": {},
+    "Clusters": {}
+  }
 }
