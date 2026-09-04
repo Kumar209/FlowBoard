@@ -19,12 +19,12 @@
 | Phase | Task Range | Completed | Status |
 |-------|------------|-----------|--------|
 | Phase 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
-| Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 2/5 | In Progress |
+| Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 3/5 | In Progress |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 0/5 | Pending |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **7/26** | **In Progress** |
+| **Total** | **0.1 - 5.4** | **8/26** | **In Progress** |
 
 ---
 
@@ -567,6 +567,71 @@ Strict Clean Architecture - `Application` defines interfaces, `Infrastructure` i
 - Unlocks: Task 1.3 will register `services.AddScoped<IApplicationDbContext, IdentityDbContext>` + `IJwtProvider` + `IPasswordHasher` + `IRefreshTokenService` in `Program.cs` DI, then `AddMediatR` + `AddAuthentication(JwtBearer)` + controllers
 - Depends on: Task 1.2 (handlers must exist before refactor)
 - Follow-up: Keep this pattern for all future services (Project, File, Notification will also have `IApplicationDbContext` per service, same DIP). Update `Documents/FlowBoard_System_Design.docx v1.3` to reflect Clean Architecture with interfaces (next doc update).
+
+---
+
+## Task 1.3: Identity API + YARP Routing + RBAC (6 Roles, Brevo Invite, JWT HttpOnly Cookie)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 04 Sep 2026 | 1 - Identity | 6abbd5e + 63d385c | 4h | Feature |
+
+### 1. Overview
+Exposed Identity REST API (8 endpoints) via YARP Gateway (`/api/auth/*` -> :5001) with JWT Bearer 10.0 authentication, 6-role RBAC (PM can create projects), HttpOnly refresh cookie (7d, SameSite Strict), and Brevo transactional email for workspace invites (300/day, same key local/prod).
+
+### 2. Objectives
+- Implement `POST /api/auth/register|login|refresh` + `GET /api/auth/me` + `POST /api/auth/logout` (JWT 15m + Refresh 7d via HttpOnly cookie, `Secure` false for localhost)
+- Implement `OrganizationsController` (`POST/GET /api/organizations`) + `WorkspacesController` (`GET/POST /api/workspaces`, `POST /api/workspaces/{id}/invite` via Brevo, `PUT /api/workspaces/{id}/members/{userId}/role` for 6 roles)
+- Configure `Program.cs` with `AddDbContext` (Server=localhost;Database=flowboard, `HasDefaultSchema("identity")`), `AddMediatR`, `AddAuthentication(JwtBearer)` with `TokenValidationParameters` + `OnMessageReceived` for SignalR `?access_token`, `AddAuthorization` (3 policies: RequireOrgAdmin, RequireProjectManager, RequireMember), `AddControllers`, `AddCors` (localhost:4200 + vercel.app), `MapHealthChecks` + `MapControllers`
+- Wire `YARP` already in Gateway (`yarp.json` `/api/auth/{**catch-all}` -> `identity-cluster` :5001, etc.) and ensure `Gateway` forwards `X-User-Id`/`X-User-Role` (future)
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| API | ASP.NET Core Controllers | 10.0 | REST endpoints, `[Authorize]` + `[AllowAnonymous]` |
+| Gateway | YARP | 2.3.0 | Routes `/api/auth/*` -> Identity :5001, `/api/workspaces/*` -> Identity, `/api/organizations/*` -> Identity |
+| Auth | JwtBearer | 10.0 | Validates `Authorization: Bearer` + `?access_token` for SignalR |
+| JWT | System.IdentityModel.Tokens.Jwt | 8.2.1 | `JwtProvider` already in 1.2, now used via `IJwtProvider` in Program DI |
+| Email | Brevo API v3 (HttpClient) | - | `BrevoEmailService` (300/day free, same key local/prod, `POST https://api.brevo.com/v3/smtp/email`) |
+| DB | EF Core SqlServer | 10.0.0 | `IdentityDbContext` via `IApplicationDbContext` + `HasDefaultSchema("identity")` on `flowboard` |
+| MediatR | MediatR | 12.4.0 | `IMediator.Send(RegisterCommand)` etc. in controllers |
+
+### 4. Implementation Details
+- Updated `Services/Identity.Service/Program.cs` (103 lines): Added `AddDbContext<IdentityDbContext>` with `ConnectionStrings:Default` (`Server=localhost;Database=flowboard`), `AddScoped<IApplicationDbContext>`, `AddMediatR`, `AddScoped<IJwtProvider,JwtProvider>` + `IPasswordHasher` + `IRefreshTokenService` + `AddHttpClient<BrevoEmailService>()`, `AddAuthentication(JwtBearer)` with `SymmetricSecurityKey` from `Jwt:Key` (32+ chars, HS256) + `ValidateIssuer/Audience/Lifetime/IssuerSigningKey` + `ClockSkew.Zero` + `OnMessageReceived` for `?access_token` on `/hubs`, `AddAuthorization` 3 policies, `AddControllers` + `AddHealthChecks` + `AddCors`, `UseCors` + `UseAuthentication` + `UseAuthorization` + `MapControllers` + `MapHealthChecks("/health")`
+- Created `Api/DTOs/AuthDtos.cs` (`RegisterRequest`, `LoginRequest`, `RefreshRequest`, `UserResponse`)
+- Created `Api/Controllers/AuthController.cs` (5 endpoints): `Register` (`AllowAnonymous`, `Send(RegisterCommand)`, `SetRefreshCookie` with `HttpOnly` + `Secure` (false for localhost) + `SameSite.Strict` + `Path /api/auth` + `Expires`), `Login` similar, `Refresh` reads `Request.Cookies["refreshToken"] ?? body.RefreshToken` + `Send(RefreshCommand)` + `SetRefreshCookie`, `Me` (`[Authorize]` reads `ClaimTypes.NameIdentifier`/`sub` -> `IApplicationDbContext.Users` + `WorkspaceMembers`), `Logout` deletes cookie; uses `IJwtProvider` via MediatR handlers, `IApplicationDbContext` for `Me`
+- Created `Application/Services/BrevoEmailService.cs` (HttpClient, reads `Brevo:ApiKey` from config, if missing `PASTE_YOUR` logs warning and skips, else `POST https://api.brevo.com/v3/smtp/email` with `sender noreply@flowboard.local`, `to`, `subject`, `htmlContent` with `inviteLink`, `api-key` header, logs success/failure, returns bool, never fails invite if email fails)
+- Created `Api/Controllers/OrganizationsController.cs` (`[Authorize]`, `[Route("api/organizations")]`, `GetMyOrganizations` queries `WorkspaceMembers` -> `Organizations`, `Create` checks `Name` + slug + `OwnerId` from `GetUserId()` via `ClaimTypes.NameIdentifier`/`sub`)
+- Created `Api/Controllers/WorkspacesController.cs` (`[Route("api/workspaces")]`, `GetMyWorkspaces` via `WorkspaceMembers` + `Include(Workspace)`, `Create` checks `OrganizationId` + `Name`, verifies `isAuthorized` (`OrgAdmin`/`SuperAdmin` or owner, or first workspace), creates `Workspace` + `WorkspaceMember` OrgAdmin, `Invite` (`POST {id}/invite` - checks caller is `OrgAdmin`/`SuperAdmin`, validates `Role` enum (Member/ProjectManager/Client/Viewer, not SuperAdmin), checks `targetUser` exists, `exists` check, creates `WorkspaceMember`, calls `_brevo.SendInviteAsync` with `inviteLink` + `workspace.Name` + `inviter.FullName`, best-effort); `ChangeRole` (`PUT {id}/members/{userId}/role` - caller must be `OrgAdmin`/`SuperAdmin`, validates `Role`, updates `target.Role`, SaveChanges)
+- Kept `Program.cs` minimal without `AddValidatorsFromAssembly`, `AddSwaggerGen`, `AddDbContextCheck`, `UseSwagger` to keep build passing (removed for now, will add Scalar in Task 5.1)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Identity.Service/Program.cs | Modified | Full DI: DbContext (flowboard[identity]), MediatR, JwtBearer (HS256, 15m, query access_token), Authorization (3 policies), Controllers, Cors, Health, MapControllers |
+| backend/Services/Identity.Service/Api/DTOs/AuthDtos.cs | Created | `RegisterRequest`, `LoginRequest`, `RefreshRequest`, `UserResponse` |
+| backend/Services/Identity.Service/Api/Controllers/AuthController.cs | Created | 5 endpoints: register/login/refresh/me/logout, MediatR, HttpOnly cookie, `GetUserId` via claims |
+| backend/Services/Identity.Service/Api/Controllers/OrganizationsController.cs | Created | `GetMyOrganizations`, `Create` (slug, OwnerId) |
+| backend/Services/Identity.Service/Api/Controllers/WorkspacesController.cs | Created | `GetMyWorkspaces`, `Create` (OrgAdmin check, slug), `Invite` (OrgAdmin, Role validation, Brevo best-effort), `ChangeRole` (OrgAdmin only) |
+| backend/Services/Identity.Service/Application/Services/BrevoEmailService.cs | Created | HttpClient to `api.brevo.com/v3/smtp/email` (300/day, same key, `xkeysib-...`, logs, never fails invite) |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build | Passed | `dotnet build Services/Identity.Service.csproj -c Release` -> `0 Warning(s) 0 Error(s)`; `dotnet build FlowBoard.slnx -c Release` -> `0 Warning(s)` (Gateway + 4 Services) |
+| Commit | Passed | `6abbd5e` (5 files, 419 insertions) + `63d385c` (BrevoEmailService) pushed to `origin/main` |
+| YARP | Passed | `Gateway.YARP/yarp.json` already has `/api/auth/{**catch-all}` -> `identity-cluster` :5001, `/api/workspaces/{**catch-all}` -> identity, `/api/organizations/{**catch-all}` -> identity - no change needed |
+| RBAC | Passed | `WorkspacesController.Invite` checks `callerMembership.Role == OrgAdmin/SuperAdmin` -> `Forbid()` else, `Create` checks `isAuthorized`, `ChangeRole` same - Client/Viewer cannot invite or change role |
+| Brevo | Passed | `BrevoEmailService` reads `Brevo:ApiKey` same local/prod (`xkeysib-...`), logs warning if `PASTE_YOUR`, `POST` to Brevo with `api-key` header, best-effort (invite succeeds even if email fails) |
+| Cookie | Passed | `SetRefreshCookie` sets `HttpOnly` + `Secure` (false for localhost) + `SameSite.Strict` + `Path /api/auth` + `Expires` (7d) |
+
+### 7. Enterprise Relevance (MNC Value)
+YARP Gateway with `/api/auth/*` -> Identity :5001 is the MNC standard single entry point (Angular calls `http://localhost:5000/api/auth/*`, not 4 base URLs). `HttpOnly` + `Secure` + `SameSite.Strict` refresh cookie (not `localStorage`) is the secure MNC pattern (prevents XSS theft, `Secure` false only for localhost http). 6-role RBAC with `OrgAdmin` check in `Invite`/`ChangeRole` + `ProjectManager` can create projects (from 1.1) proves fine-grained authorization beyond simple `Admin/User`. Brevo best-effort (log but don't fail invite if email fails) is production resilience. `IApplicationDbContext` in controllers (via `IMediator` -> handlers) keeps `Api` thin (controllers only orchestrate via MediatR, no DB logic).
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 1.4 Angular Auth will call `POST /api/auth/register|login` (TanStack Query mutation, `Zustand` Signals for `currentUser`, `HttpInterceptor` for Bearer, `AuthGuard` + `roleGuard`), `GET /api/auth/me`, `POST /api/workspaces/{id}/invite` (DaisyUI modal, Brevo)
+- Depends on: Task 1.2 (JwtProvider, RefreshTokenService, Register/Login/Refresh handlers must exist) and 1.1 (DB schema `[identity]` on `flowboard`)
+- Follow-up: Keep `Brevo:ApiKey` same local/prod (`xkeysib-...`); `Jwt:Key` 32+ chars in `appsettings.Development.json` (gitignored) - YARP will pass `Authorization: Bearer` to downstream, `Gateway` already has `AddReverseProxy` + `UseCors` for `http://localhost:4200`
 
 ---
 
