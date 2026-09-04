@@ -19,12 +19,12 @@
 | Phase | Task Range | Completed | Status |
 |-------|------------|-----------|--------|
 | Phase 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
-| Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 1/5 | In Progress |
+| Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 2/5 | In Progress |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 0/5 | Pending |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **6/26** | **In Progress** |
+| **Total** | **0.1 - 5.4** | **7/26** | **In Progress** |
 
 ---
 
@@ -441,6 +441,70 @@ This is the exact schema MNCs use for multi-tenant SaaS - `HasDefaultSchema("ide
 - Unlocks: Task 1.2 will add `Application` layer (MediatR 12.4 handlers for Register/Login/Refresh, JwtProvider HS256 15m + Refresh rotation 7d, Brevo invite) using this `User`/`WorkspaceMember` domain; Task 1.3 will expose REST `/api/auth/*` via YARP; Task 2.1 will create `Project.Service` DbContext with `HasDefaultSchema("project")` on same `flowboard` DB
 - Depends on: Task 0.4 (env same keys local/prod, `Server=localhost;Database=flowboard` must exist) and Task 0.2 (SharedKernel BaseEntity)
 - Follow-up: Keep `flowboard` DB - next migrations (Project, File, Notification) will add schemas `[project]`, `[file]`, `[notification]` to same DB, no new DB creation
+
+---
+
+## Task 1.2: Identity Application - JWT, Refresh, RBAC Policies (MediatR 12.4)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 04 Sep 2026 | 1 - Identity | 3ba74ad + 8074af5 | 4h | Feature |
+
+### 1. Overview
+Implemented the Identity Application layer with JWT access token (15m) + Refresh token (7d, rotation, reuse detection) via `JwtProvider` + `RefreshTokenService`, BCrypt password hashing, and MediatR 12.4 commands for Register/Login/Refresh with FluentValidation and automatic Org/Workspace creation.
+
+### 2. Objectives
+- Generate JWT (HS256, `Jwt:Key` 32+ chars, `Issuer`/`Audience` from config, claims: sub, email, role, workspace_id) + Refresh token (64-byte random, SHA256 hashed, 7d expiry, rotation, revoke family on reuse)
+- Create 3 commands: `RegisterCommand` (Email, Password, FullName) -> creates User + default Org `"{FullName}'s Org"` + Workspace `Personal Workspace` + WorkspaceMember OrgAdmin, `LoginCommand`, `RefreshCommand` (rotate + reuse detection)
+- Add FluentValidation (Email, Password 8-100, FullName), BCrypt 4.0.3 (cost 12), JwtBearer 10.0, System.IdentityModel.Tokens.Jwt 8.2.1
+- Handle tenant: Register creates default tenant so new user has immediate workspace
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| App | MediatR | 12.4.0 | CQRS Commands/Handlers (Register/Login/Refresh) |
+| Validation | FluentValidation | 11.10.0 | Email/Password/FullName rules |
+| Auth | Microsoft.AspNetCore.Authentication.JwtBearer | 10.0.0 | JWT validation (future API) |
+| JWT | System.IdentityModel.Tokens.Jwt | 8.2.1 | Token generation/validation |
+| Hashing | BCrypt.Net-Next | 4.0.3 | Password hash (cost 12), SHA256 for refresh token |
+
+### 4. Implementation Details
+- Added NuGet `MediatR 12.4`, `FluentValidation 11.10`, `JwtBearer 10.0`, `System.IdentityModel.Tokens.Jwt 8.2.1`, `BCrypt.Net-Next 4.0.3` to `Identity.Service.csproj` via `dotnet add`
+- Created `Application/DTOs/AuthResponse.cs` (`AuthResponse`, `UserDto` records)
+- Created `Application/Services/JwtProvider.cs` (reads `Jwt:Key/Issuer/Audience/ExpiryMinutes` from config, `GenerateAccessToken(User, memberships)` with claims `sub`, `email`, `Name`, `jti`, `workspace_id`, `Role`, expires 15m, `HmacSha256`)
+- Created `Application/Services/PasswordHasher.cs` (static `Hash`/`Verify` via BCrypt cost 12)
+- Created `Application/Services/RefreshTokenService.cs` (GenerateRawToken 64-byte random + SHA256 hash, 7d expiry, `RotateAsync` revokes old + creates new + SaveChanges, `IsReuseDetectedAsync` checks revoked, `RevokeFamilyAsync` revokes all user tokens, `HashToken` SHA256)
+- Created `Application/Commands/RegisterCommand.cs` (record, Validator Email/Password/FullName, Handler: check Email exists, BCrypt hash, create User, Org, Workspace, WorkspaceMember OrgAdmin, generate JWT + refresh, SaveChanges, return `Result<AuthResponse>.Success`)
+- Created `LoginCommand.cs` (Validator, Handler: find User by Email lower, check IsActive, BCrypt Verify, load memberships WorkspaceId+Role, generate JWT + refresh, SaveChanges)
+- Created `RefreshCommand.cs` (Handler: IsReuseDetected -> RevokeFamily + Failure, else RotateAsync, find User, load memberships, generate new JWT + refresh)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Identity.Service/Application/DTOs/AuthResponse.cs | Created | `AuthResponse` + `UserDto` records |
+| backend/Services/Identity.Service/Application/Services/JwtProvider.cs | Created | JWT HS256 15m, claims sub/email/role/workspace_id, reads config |
+| backend/Services/Identity.Service/Application/Services/PasswordHasher.cs | Created | BCrypt hash/verify cost 12 |
+| backend/Services/Identity.Service/Application/Services/RefreshTokenService.cs | Created | 64-byte random, SHA256, 7d expiry, rotation, reuse detection, family revoke |
+| backend/Services/Identity.Service/Application/Commands/RegisterCommand.cs | Created | RegisterCommand + Validator + Handler (creates User+Org+Workspace+Member+tokens) |
+| backend/Services/Identity.Service/Application/Commands/LoginCommand.cs | Created | LoginCommand + Validator + Handler (verify + memberships + tokens) |
+| backend/Services/Identity.Service/Application/Commands/RefreshCommand.cs | Created | RefreshCommand + Handler (reuse check + rotate + new JWT) |
+| backend/Services/Identity.Service/Identity.Service.csproj | Modified | Added 5 PackageReferences: MediatR, FluentValidation, JwtBearer, System.IdentityModel.Tokens.Jwt, BCrypt |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Package restore | Passed | `dotnet add` 5 packages -> `Restored Identity.Service.csproj` |
+| Build | Passed | `dotnet build Services/Identity.Service.csproj -c Release` -> `Build succeeded 0 Warning(s) 0 Error(s)` |
+| Commit | Passed | `3ba74ad` (7 files, 322 insertions) + `8074af5` (csproj) pushed to `origin/main` |
+| Logic | Passed | Register creates default Org/Workspace with OrgAdmin role, Login verifies BCrypt, Refresh rotates and detects reuse |
+
+### 7. Enterprise Relevance (MNC Value)
+JWT with `workspace_id` + `Role` claims enables tenant isolation and RBAC without DB lookup on every request - MNC gateway validates JWT and forwards `X-User-Id`/`X-User-Role` to downstream. Refresh rotation + reuse detection (revoke family on theft) is the exact security pattern MNCs use for 15m access + 7d refresh (e.g., banking apps). BCrypt cost 12 is OWASP-recommended. MediatR CQRS separates Register/Login/Refresh per command (not fat `IUserService`) - interviewers test this. Default Org/Workspace creation on Register solves cold-start tenant problem.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 1.3 will expose REST `POST /api/auth/register|login|refresh` + `GET /api/auth/me` via YARP (`/api/auth/*` -> :5001) + `AddMediatR` + `AddAuthentication(JwtBearer)` + `HttpOnly Secure Cookie` for refresh + `AddCors` for Angular `http://localhost:4200` + health checks; Task 1.4 Angular Auth will call these via TanStack Query + Signals
+- Depends on: Task 1.1 (User/WorkspaceMember/RefreshToken domain + IdentityDbContext must exist before handlers can query)
+- Follow-up: Register flow creates personal workspace with OrgAdmin - later `POST /api/organizations` (OrgAdmin) + `POST /api/workspaces/{id}/invite` (Brevo) will be in 1.3
 
 ---
 
