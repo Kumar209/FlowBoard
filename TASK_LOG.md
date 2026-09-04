@@ -508,6 +508,68 @@ JWT with `workspace_id` + `Role` claims enables tenant isolation and RBAC withou
 
 ---
 
+## Task 1.2.1: Enterprise Refactor - DIP with Interfaces (Production-Grade)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 04 Sep 2026 | 1 - Identity | 33f58c5 | 0.5h | Refactor |
+
+### 1. Overview
+Refactored Task 1.2 to strict Clean Architecture / DIP - Application now depends on abstractions (`IApplicationDbContext`, `IJwtProvider`, `IPasswordHasher`, `IRefreshTokenService`) not concrete `IdentityDbContext`/`JwtProvider` - handlers are now testable via mocks without SQL Server.
+
+### 2. Objectives
+- Create `Application/Interfaces` (4 interfaces) in Application layer (abstractions)
+- Make `IdentityDbContext : IApplicationDbContext`, `JwtProvider : IJwtProvider`, `PasswordHasher : IPasswordHasher` (was static, now instance), `RefreshTokenService : IRefreshTokenService` (now depends on `IApplicationDbContext`)
+- Update 3 handlers (`Register/Login/RefreshCommandHandler`) to inject `IApplicationDbContext` + `IJwtProvider` + `IRefreshTokenService` + `IPasswordHasher` via constructor
+- Keep `dotnet build` passing, no logic change - only DIP
+
+### 3. Technical Stack
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| Pattern | Clean Architecture + DIP + MediatR CQRS | Enterprise production-grade |
+| Interfaces | IApplicationDbContext, IJwtProvider, IPasswordHasher, IRefreshTokenService | Abstractions in Application, implementations in Infrastructure/Application.Services |
+| Mocking | Moq (future) | Unit tests can mock `IApplicationDbContext` without SQL Server |
+
+### 4. Implementation Details
+- Created `Application/Interfaces/IApplicationDbContext.cs` (DbSet<User>, Organizations, Workspaces, WorkspaceMembers, RefreshTokens + SaveChangesAsync) - Application defines, Infrastructure implements
+- Created `IJwtProvider.cs`, `IPasswordHasher.cs`, `IRefreshTokenService.cs` (GenerateRawToken, RotateAsync, IsReuseDetectedAsync, RevokeFamilyAsync, HashToken)
+- Updated `Infrastructure/Persistence/IdentityDbContext.cs` to `: IApplicationDbContext` (added `using Application.Interfaces`)
+- Updated `Application/Services/JwtProvider.cs` to `: IJwtProvider`, `PasswordHasher.cs` from `static class` to `class : IPasswordHasher` (instance Hash/Verify), `RefreshTokenService.cs` to `: IRefreshTokenService` (changed `IdentityDbContext _db` -> `IApplicationDbContext _db`, made `HashToken` instance + kept `HashTokenStatic` helper)
+- Updated `Application/Commands/RegisterCommand.cs`, `LoginCommand.cs`, `RefreshCommand.cs` to inject `IApplicationDbContext`/`IJwtProvider`/`IRefreshTokenService`/`IPasswordHasher` (changed `PasswordHasher.Hash` static -> `_passwordHasher.Hash`, `RefreshTokenService.HashToken` static -> `_refreshService.HashToken`)
+- Verified `dotnet build Services/Identity.Service.csproj -c Release` still `0 Warning(s) 0 Error(s)` - `SharedKernel -> Identity.Service.dll` with interfaces
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Identity.Service/Application/Interfaces/IApplicationDbContext.cs | Created | Interface with 5 DbSets + SaveChangesAsync |
+| backend/Services/Identity.Service/Application/Interfaces/IJwtProvider.cs | Created | GenerateAccessToken |
+| backend/Services/Identity.Service/Application/Interfaces/IPasswordHasher.cs | Created | Hash/Verify |
+| backend/Services/Identity.Service/Application/Interfaces/IRefreshTokenService.cs | Created | GenerateRawToken, RotateAsync, IsReuseDetectedAsync, RevokeFamilyAsync, HashToken |
+| backend/Services/Identity.Service/Infrastructure/Persistence/IdentityDbContext.cs | Modified | Implements IApplicationDbContext, added Ignore<DomainEvent> already |
+| backend/Services/Identity.Service/Application/Services/JwtProvider.cs | Modified | Implements IJwtProvider |
+| backend/Services/Identity.Service/Application/Services/PasswordHasher.cs | Modified | Static -> instance class : IPasswordHasher |
+| backend/Services/Identity.Service/Application/Services/RefreshTokenService.cs | Modified | Implements IRefreshTokenService, depends on IApplicationDbContext, HashToken instance |
+| backend/Services/Identity.Service/Application/Commands/RegisterCommand.cs | Modified | Injects IApplicationDbContext/IJwtProvider/IRefreshTokenService/IPasswordHasher |
+| backend/Services/Identity.Service/Application/Commands/LoginCommand.cs | Modified | Same DIP |
+| backend/Services/Identity.Service/Application/Commands/RefreshCommand.cs | Modified | Same DIP + _refreshService.HashToken |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build | Passed | `dotnet build Services/Identity.Service.csproj -c Release` -> `0 Warning(s) 0 Error(s)` |
+| Commit | Passed | `33f58c5 refactor: Task 1.2 enterprise - DIP with IApplicationDbContext...` (11 files) pushed to `origin/main` |
+| DIP | Passed | Handlers now depend on `IApplicationDbContext` (Application) not concrete `IdentityDbContext` (Infrastructure) - interviewer can no longer point out violation |
+
+### 7. Enterprise Relevance (MNC Value)
+Strict Clean Architecture - `Application` defines interfaces, `Infrastructure` implements - is the MNC production standard (Infosys/Accenture code reviews check for direct `DbContext` in handlers). Now handlers are unit-testable with `Mock<IApplicationDbContext>` without SQL Server (mocks `DbSet` via `Mock<DbSet<User>>`), and `IJwtProvider` can be mocked to return fixed token. This is the boilerplate you granted - 4 interfaces + 11 file changes - that makes the project interview-proof. No logic changed, only architecture.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 1.3 will register `services.AddScoped<IApplicationDbContext, IdentityDbContext>` + `IJwtProvider` + `IPasswordHasher` + `IRefreshTokenService` in `Program.cs` DI, then `AddMediatR` + `AddAuthentication(JwtBearer)` + controllers
+- Depends on: Task 1.2 (handlers must exist before refactor)
+- Follow-up: Keep this pattern for all future services (Project, File, Notification will also have `IApplicationDbContext` per service, same DIP). Update `Documents/FlowBoard_System_Design.docx v1.3` to reflect Clean Architecture with interfaces (next doc update).
+
+---
+
 <!-- Future tasks follow same 8-section template - copy block below -->
 
 <!--
