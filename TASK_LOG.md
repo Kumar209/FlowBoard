@@ -18,13 +18,13 @@
 
 | Phase | Task Range | Completed | Status |
 |-------|------------|-----------|--------|
-| Phase 0: Setup & Foundation | 0.1 - 0.5 | 3/5 | In Progress |
+| Phase 0: Setup & Foundation | 0.1 - 0.5 | 4/5 | In Progress |
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 0/5 | Pending |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 0/5 | Pending |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **3/26** | **In Progress** |
+| **Total** | **0.1 - 5.4** | **4/26** | **In Progress** |
 
 ---
 
@@ -247,9 +247,69 @@ YARP is Microsoft's official gateway (2.3, not deprecated Ocelot) - MNC .NET int
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | - | 0 - Setup | - | 2h | Feature |
+| Completed | 04 Sep 2026 | 0 - Setup | 05d83f9 | 2h | Feature |
 
-*To be updated after completion - will follow the 8-section template above.*
+### 1. Overview
+Created the Angular 22 standalone frontend foundation with Tailwind + DaisyUI responsive system, TanStack Query for server state, Signals for client state, and enterprise libs (CDK, SignalR, ApexCharts) - buildable and responsive on Mobile/Tablet/Laptop/Desktop.
+
+### 2. Objectives
+- `npx @angular/cli@22 new flowboard-web --standalone --routing --style=css` in `frontend/flowboard-web` (Angular 22.1.5 + TypeScript 6.0)
+- Install and configure Tailwind CSS 3.4.17 + DaisyUI 4.12.14 (responsive), TanStack Query experimental 5.62.2, SignalR 8.0.7, CDK 22.1.5, ApexCharts 3.49 + ng-apexcharts 1.8.0
+- Create sibling structure `frontend/` + `src/app/core|shared|features` + `src/environments` + `vercel.json` for Vercel deploy
+- Ensure `ng build --configuration production` passes with DaisyUI themes
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Framework | Angular | 22.1.5 Standalone + TS 6.0.3 | SPA, routing, signals |
+| Styling | Tailwind CSS | 3.4.17 | Utility-first, responsive prefixes (md:, lg:) |
+| UI | DaisyUI | 4.12.14 | Prebuilt responsive components (btn, card, drawer, 3 themes) |
+| Server State | TanStack Query | 5.62.2 experimental | Server cache, optimistic updates, SignalR invalidation |
+| Client State | Angular Signals | built-in | Auth, workspace, UI state (no NgRx) |
+| Realtime | @microsoft/signalr | 8.0.7 | Board sync (compatible with Server SignalR 10.0) |
+| DnD | Angular CDK | 22.1.5 | Kanban drag-drop (Task 3.3) |
+| Charts | ng-apexcharts + apexcharts | 1.8.0 + 3.49.0 | Burndown/activity (Phase 4) |
+| Node | Node.js | 22.22.3 | Required for Angular 22 (upgraded from 22.18.0 via MSI) |
+
+### 4. Implementation Details
+- Upgraded Node.js 22.18.0 -> 22.22.3 via `node-v22.22.3-x64.msi` (Angular 22 requires >=22.22.3, failed first attempt with EBADENGINE)
+- Ran `npx @angular/cli@22 new flowboard-web --standalone --routing --style=css --skip-git --skip-install` in `frontend/` (removed `frontend/.gitkeep` placeholder)
+- `npm install --legacy-peer-deps` for base (377 packages), then `npm install tailwindcss daisyui @microsoft/signalr` + `npm install @angular/cdk` (22.1.5) + `npm install apexcharts ng-apexcharts` + `npm install @tanstack/angular-query-experimental` (correct package - `@tanstack/angular-query` 404, experimental is Angular version)
+- `npx tailwindcss init` -> configured `tailwind.config.js` with `content: ["./src/**/*.{html,ts}"]`, `plugins: [require("daisyui")]`, `daisyui: {themes: ["light","dark","corporate"]}`; updated `src/styles.css` with `@tailwind base/components/utilities` + global font
+- Created folder structure: `src/app/core/interceptors|guards|services`, `src/app/shared/components|pipes`, `src/app/features/auth|dashboard|board|list-view|activity|members`, `src/environments` (environment.ts local `http://localhost:5000`/`5004` + environment.prod.ts prod `https://gateway-xxxxx.monsterasp.net`)
+- Created `vercel.json` with `rewrites` SPA fallback, `buildCommand npm run build`, `outputDirectory dist/flowboard-web/browser`, `framework angular`, `installCommand npm install --legacy-peer-deps`
+- Handled peer conflicts with `--legacy-peer-deps` (lucide-angular 0.511 only supports Angular 13-19 - skipped, will use alternative icons later)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| frontend/flowboard-web/ | Created | Angular 22 standalone app (angular.json, package.json 0.0.0, tsconfig, src/main.ts, etc.) |
+| frontend/flowboard-web/tailwind.config.js | Created/Modified | Content globs + daisyui plugin + 3 themes |
+| frontend/flowboard-web/src/styles.css | Modified | Added Tailwind directives + global font |
+| frontend/flowboard-web/src/environments/environment.ts | Created | Local: apiUrl `http://localhost:5000`, hubUrl `http://localhost:5004/hubs/board` |
+| frontend/flowboard-web/src/environments/environment.prod.ts | Created | Prod: apiUrl `https://gateway-xxxxx.monsterasp.net`, hubUrl `https://notify-xxxxx.monsterasp.net/hubs/board` |
+| frontend/flowboard-web/vercel.json | Created | Vercel Angular preset, SPA rewrite |
+| frontend/flowboard-web/package.json | Modified | Added 7 deps: cdk, signalr, tanstack-experimental, apexcharts, daisyui, tailwindcss |
+| Documents/FlowBoard_Backend_Structure_Explained.docx | Created | 45KB backend files explained (Task 0.2 docs, committed together) |
+| frontend/.gitkeep | Deleted | Removed - frontend now has content |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Node version | Passed | `node --version` -> `v22.22.3` (was 22.18.0, upgraded via MSI) |
+| Base install | Passed | `npm install --legacy-peer-deps` -> `added 377 packages, found 0 vulnerabilities` |
+| Additional | Passed | `tailwind + daisyui + signalr` -> `added 79 packages`; `cdk@22.1.5` -> `added 1`; `apexcharts` -> `added 11` |
+| Tailwind init | Passed | `npx tailwindcss init` -> `Created tailwind.config.js` |
+| Build prod | Passed | `npx ng build --configuration production` -> `daisyUI 4.12.14 3 themes added` + `Application bundle 229.10 kB (62.36 kB transfer)` -> `dist/flowboard-web/browser` with `main-*.js`, `styles-*.css`, `index.html` |
+| Git | Passed | Commit `05d83f9` (29 files, 9891 insertions) pushed to `origin/main`, `git status` clean, `.gitignore` correctly ignored `node_modules/` + `dist/` |
+
+### 7. Enterprise Relevance (MNC Value)
+Angular 22 Standalone + Signals is the 2026 MNC standard for .NET shops (Infosys/Accenture use Angular, not React, with .NET 10). Tailwind + DaisyUI gives premium responsive UI with minimal custom CSS - recruiters see polished UI instantly on Mobile/Tablet/Laptop (12-col grid, DaisyUI drawer for mobile sidebar). TanStack Query experimental 5.62 is the modern server-state manager (replaces NgRx Data) - shows you know latest, not legacy NgRx Store. Upgrading Node to 22.22.3 and handling `--legacy-peer-deps` for peer conflicts (lucide-angular, cdk) demonstrates real-world frontend dependency management. Vercel config proves you understand SPA fallback and separate deploy pipelines (frontend Vercel vs backend MonsterASP.net).
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 0.4 will add environment handling for same keys local/prod (Upstash/CloudAMQP/Cloudinary/Brevo/Gemini you provide) using these `environment.ts` files; Task 1.4 will build Angular Auth pages (Signals + TanStack) in `src/app/features/auth` + `core/services/auth.service`; Task 3.3 will use CDK DragDrop for Kanban, Task 4.4 will use ng-apexcharts for burndown
+- Depends on: Task 0.2 (backend sibling must exist to keep `backend/` + `frontend/` parallel - now both siblings present)
+- Follow-up: `frontend/flowboard-web/node_modules/` and `dist/` are gitignored; keep `tailwind.config.js` content globs in sync when adding new features; TanStack package is `@tanstack/angular-query-experimental` (not `@tanstack/angular-query`) - import from `experimental`
 
 ---
 
