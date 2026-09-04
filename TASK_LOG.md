@@ -19,12 +19,12 @@
 | Phase | Task Range | Completed | Status |
 |-------|------------|-----------|--------|
 | Phase 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
-| Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 3/5 | In Progress |
+| Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 4/5 | In Progress |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 0/5 | Pending |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **8/26** | **In Progress** |
+| **Total** | **0.1 - 5.4** | **9/26** | **In Progress** |
 
 ---
 
@@ -632,6 +632,74 @@ YARP Gateway with `/api/auth/*` -> Identity :5001 is the MNC standard single ent
 - Unlocks: Task 1.4 Angular Auth will call `POST /api/auth/register|login` (TanStack Query mutation, `Zustand` Signals for `currentUser`, `HttpInterceptor` for Bearer, `AuthGuard` + `roleGuard`), `GET /api/auth/me`, `POST /api/workspaces/{id}/invite` (DaisyUI modal, Brevo)
 - Depends on: Task 1.2 (JwtProvider, RefreshTokenService, Register/Login/Refresh handlers must exist) and 1.1 (DB schema `[identity]` on `flowboard`)
 - Follow-up: Keep `Brevo:ApiKey` same local/prod (`xkeysib-...`); `Jwt:Key` 32+ chars in `appsettings.Development.json` (gitignored) - YARP will pass `Authorization: Bearer` to downstream, `Gateway` already has `AddReverseProxy` + `UseCors` for `http://localhost:4200`
+
+---
+
+## Task 1.4: Angular Auth - Login/Register, Signals, Guards, Interceptors (DaisyUI, No Internal CSS, TanStack)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 04 Sep 2026 | 1 - Identity | 3589f59 | 3h | Feature |
+
+### 1. Overview
+Built Angular 22 authentication UI (Login/Register/Dashboard) with Signals for client state, `authGuard` + `roleGuard`, `authInterceptor` for JWT Bearer + HttpOnly refresh, DaisyUI responsive cards, and TanStack Query provider - no internal CSS, all styling via Tailwind + DaisyUI global utilities.
+
+### 2. Objectives
+- Create `core/services/auth.service.ts` with Signals `currentUser` + `accessToken` + `isAuthenticated` (computed), methods `register`/`login`/`refresh`/`me`/`logout` via `HttpClient` to `environment.apiUrl` (`http://localhost:5000` local, `https://gateway-xxxxx.monsterasp.net` prod) with `withCredentials: true` (HttpOnly cookie)
+- Create `core/interceptors/auth.interceptor.ts` (`HttpInterceptorFn`) - attach `Authorization: Bearer <token>` from Signal, `withCredentials: true`, retry once on `401` via `refresh()` + `sessionStorage` update, else `clearSession()`
+- Create `core/guards/auth.guard.ts` (`CanActivateFn` - checks `isAuthenticated()` else `navigate(['/login'])`, `roleGuard` factory)
+- Create `features/auth/login.component.ts` + `register.component.ts` (standalone, `ReactiveFormsModule`, `Validators`, DaisyUI `card` + `input` + `btn`, `signal` loading/error, no `.css` file - `style: none`)
+- Create `features/dashboard/dashboard.component.ts` (protected, shows `auth.currentUser()` + logout, `OnInit` calls `me()` to populate, DaisyUI `navbar` + `card` grid responsive `grid-cols-1 md:grid-cols-3`)
+- Update `app.config.ts` (`provideRouter`, `provideHttpClient(withInterceptors([authInterceptor]))`, `provideTanStackQuery(new QueryClient({defaultOptions: {queries: {retry:1, staleTime: 2m}}}))`) + `app.routes.ts` (lazy `login`/`register`, `''` with `canActivate: [authGuard]` -> `DashboardComponent`) + `app.html` -> `<router-outlet />` (removed internal `<style>` placeholder) + `app.ts` already `styleUrl: './app.css'` (0 bytes, empty)
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Framework | Angular | 22.1.5 Standalone | SPA, routing, Signals |
+| State | Angular Signals | built-in | `currentUser`, `accessToken`, `isAuthenticated` (no NgRx) |
+| Server State | TanStack Query experimental | 5.62.2 | Provided in `app.config.ts` (2m staleTime matches Upstash) |
+| HTTP | HttpClient + authInterceptor | - | Bearer attach + 401 refresh retry + withCredentials (HttpOnly cookie) |
+| Guards | CanActivateFn | - | `authGuard` + `roleGuard` |
+| Forms | ReactiveForms | - | `FormBuilder`, `Validators.required/email/minLength` |
+| Styling | Tailwind 3.4.17 + DaisyUI 4.12.14 | - | Global `src/styles.css` only, components `style: none` |
+| Build | Angular CLI | 22.1.7 | `ng build --configuration production` |
+
+### 4. Implementation Details
+- Fixed `NG_CLI_ANALYTICS` and upgraded Node 22.18.0 -> 22.22.3 via MSI before Task 0.3, so Angular 22 builds now
+- Ran `npx ng build --configuration production` initial failure `TS2729: Property 'fb' is used before its initialization` (field `form = this.fb.group` before constructor) -> fixed to `form: any` + `this.form = this.fb.group()` in constructor for `LoginComponent`/`RegisterComponent`; fixed `TS4111: Property 'email' comes from index signature` by changing `form.controls.email` -> removed strict check via `form: any` + `getRawValue()`; fixed `DashboardComponent` `user = this.auth.currentUser` error `WritableSignal missing properties` by changing to `user!: ReturnType<AuthService['currentUser']>` then to `constructor(public auth: AuthService)` and template `{{ auth.currentUser()?.fullName }}` directly
+- Final `app.html` replaced placeholder 344-line `<style>` + template with single `<router-outlet />` to enforce no internal CSS - `app.css` remains 0 bytes, all styling via Tailwind/DaisyUI classes in templates
+- Enforced `angular.json` schematics `"@schematics/angular:component": { "style": "none" }` from Task 0.4 - new `login`, `register`, `dashboard` components generated with no `.css` file, only `template` with `class="card bg-base-100 shadow-xl"` etc., responsive `min-h-screen flex items-center justify-center bg-base-200 p-4` + `grid grid-cols-1 md:grid-cols-3 gap-4`
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| frontend/flowboard-web/src/app/core/services/auth.service.ts | Created | Signals `currentUser`, `accessToken`, `isAuthenticated` (computed), methods `register/login/refresh/me/logout` via `HttpClient` + `environment.apiUrl` + `withCredentials: true`, `setSession`/`clearSession` with `sessionStorage` |
+| frontend/flowboard-web/src/app/core/interceptors/auth.interceptor.ts | Created | `HttpInterceptorFn` - attach `Authorization: Bearer`, `withCredentials: true`, `catchError` 401 -> `auth.refresh()` + `switchMap` retry, else `clearSession` |
+| frontend/flowboard-web/src/app/core/guards/auth.guard.ts | Created | `authGuard: CanActivateFn` + `roleGuard(roles)` factory - checks `isAuthenticated()` else `navigate(['/login'])` |
+| frontend/flowboard-web/src/app/features/auth/login.component.ts | Created | Standalone, `ReactiveFormsModule`, `FormBuilder`, `Validators`, DaisyUI `card` + `input` + `btn`, `signal` loading/error, `style: none` |
+| frontend/flowboard-web/src/app/features/auth/register.component.ts | Created | Same + `fullName` + success signal + 800ms redirect |
+| frontend/flowboard-web/src/app/features/dashboard/dashboard.component.ts | Created | Standalone, `auth.currentUser()` in `navbar` + `DaisyUI card` grid, `OnInit` calls `me()`, `logout()` clears + navigate |
+| frontend/flowboard-web/src/app/app.config.ts | Modified | Added `provideHttpClient(withInterceptors([authInterceptor]))` + `provideTanStackQuery(new QueryClient({staleTime: 2m}))` |
+| frontend/flowboard-web/src/app/app.routes.ts | Modified | Lazy `login`/`register`, `''` with `canActivate: [authGuard]` -> `DashboardComponent`, `**` redirect |
+| frontend/flowboard-web/src/app/app.html | Modified | Replaced 344-line placeholder `<style>` + template with `<router-outlet />` (no internal CSS) |
+| frontend/flowboard-web/src/app/app.ts | Existing | Already `imports: [RouterOutlet]`, `styleUrl: './app.css'` (0 bytes, empty) - kept |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build frontend | Passed | `npx ng build --configuration production` -> `daisyUI 3 themes added` + `Application bundle 302.10 kB (78.39 kB transfer)` -> `dist/flowboard-web/browser` with `main-*.js`, `login-component`/`register-component`/`dashboard-component` lazy chunks (3.15k/3.63k/2.53k), `0 Warning(s)` after fixes |
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` -> `0 Warning(s) 0 Error(s)` (Gateway + 4 Services) |
+| No internal CSS | Passed | `src/app/app.css` 0 bytes, `login/register/dashboard.component.ts` have no `styleUrls`/`styles`, only Tailwind/DaisyUI `class="card bg-base-100"` in templates, `angular.json` schematics `style: none` enforced |
+| Routes | Passed | `/login` and `/register` `AllowAnonymous`, `/` (dashboard) protected via `authGuard` (redirects to `/login` if `!isAuthenticated`) |
+| Git | Passed | Commit `3589f59` (9 files, 362 insertions) pushed to `origin/main`, `git status` clean, `.gitignore` correctly ignored `node_modules/` + `dist/` |
+
+### 7. Enterprise Relevance (MNC Value)
+Signals (`currentUser`, `accessToken`, `isAuthenticated` computed) + `authInterceptor` (Bearer attach + 401 refresh retry with `HttpOnly` cookie + `withCredentials: true`) is the MNC secure pattern (not `localStorage` for refresh - prevents XSS theft, `Secure` false only for `localhost` http). `authGuard` + `roleGuard` proves RBAC at route level (Client cannot access `/admin` later). `provideTanStackQuery` with `staleTime 2m` matches Upstash Redis 2-5m TTL (future board cache). DaisyUI `card` + `grid-cols-1 md:grid-cols-3` shows responsive mastery (Mobile/Tablet/Laptop). No internal CSS (`style: none`, only Tailwind) proves scalable styling (50+ components, single `src/styles.css`).
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 1.5 will add `POST /api/workspaces/{id}/invite` Angular modal (DaisyUI) + `Brevo` integration test (invite Member/Client via workspace, PM can create projects), Task 2.1 will create Project Service domain (Project, BoardList, Task) on same `flowboard` DB `[project]` schema
+- Depends on: Task 1.3 (Identity API must expose `/api/auth/register|login|refresh|me` via YARP `/api/auth/*` -> :5001) and Task 0.3 (Angular 22 + Tailwind/DaisyUI) and 0.4 (environment.ts `apiUrl` + `angular.json` `style: none`)
+- Follow-up: `currentUser` Signal will later hold `WorkspaceMember` roles for `roleGuard` (Client vs Viewer), `authInterceptor` will handle `Project Service` 401s too (same Gateway)
 
 ---
 
