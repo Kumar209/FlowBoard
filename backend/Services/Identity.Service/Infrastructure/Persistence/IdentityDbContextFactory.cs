@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Identity.Service.Infrastructure.Persistence;
 
-// Design-time factory for `dotnet ef migrations` - reads appsettings.Development.json (Server=localhost;Database=flowboard)
+// Single top comment: This factory is ONLY for `dotnet ef` CLI at design time (migrations add/update) - when you run `dotnet ef migrations add` or `dotnet ef database update`, EF needs a DbContext instance but Program.cs isn't running. This factory tells EF how to create IdentityDbContext by reading appsettings.Development.json (Server=localhost;Database=flowboard) and configuring UseSqlServer with MigrationsHistoryTable in schema [identity]. At runtime (dotnet run), Program.cs creates DbContext via DI, not this factory.
 public class IdentityDbContextFactory : IDesignTimeDbContextFactory<IdentityDbContext>
 {
     public IdentityDbContext CreateDbContext(string[] args)
