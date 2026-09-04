@@ -19,12 +19,12 @@
 | Phase | Task Range | Completed | Status |
 |-------|------------|-----------|--------|
 | Phase 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
-| Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 0/5 | Pending |
+| Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 1/5 | In Progress |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 0/5 | Pending |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **5/26** | **In Progress** |
+| **Total** | **0.1 - 5.4** | **6/26** | **In Progress** |
 
 ---
 
@@ -376,13 +376,71 @@ Configured environment handling so all 5 external services use **same keys for L
 
 ---
 
-## Task 1.1: Identity Domain + EF Core 10 Schema (5 Tables, 6 Roles)
+## Task 1.1: Identity Domain + EF Core 10 Schema (5 Tables, 6 Roles, Single DB flowboard [identity])
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | - | 1 - Identity | - | 4h | Feature |
+| Completed | 04 Sep 2026 | 1 - Identity | 8c02b12 + a9a3a18 | 4h | Feature |
 
-*To be updated after completion.*
+### 1. Overview
+Created the Identity domain with 5 tables (Users, Organizations, Workspaces, WorkspaceMembers with 6 roles, RefreshTokens) on single DB `flowboard` with schema `[identity]` (EF Core 10, SQL Server localhost, migration applied).
+
+### 2. Objectives
+- Define 6-role enum `WorkspaceRole` (Member, ProjectManager, OrgAdmin, Client, Viewer, SuperAdmin) where PM can create projects
+- Create 5 entities inheriting `BaseEntity` (Id, CreatedAt, UpdatedAt, DomainEvents) or composite key (WorkspaceMember)
+- Configure `IdentityDbContext` with `HasDefaultSchema("identity")`, unique indexes (Email, Slug), FKs, and `Ignore(DomainEvents)` to avoid EF mapping
+- Add EF Core 10 packages (SqlServer, Tools, Design), create `InitialIdentity` migration, apply to `Server=localhost;Database=flowboard`
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| ORM | Microsoft.EntityFrameworkCore.SqlServer | 10.0.0 | SQL Server provider |
+| ORM | Microsoft.EntityFrameworkCore.Tools/Design | 10.0.0 | Migrations (`dotnet ef`) |
+| DB | SQL Server 2025 | 17.00.1000 | Local `localhost` + `flowboard` DB + `[identity]` schema |
+| Domain | SharedKernel BaseEntity | - | Id, CreatedAt, UpdatedAt, DomainEvents |
+
+### 4. Implementation Details
+- Added NuGet `Microsoft.EntityFrameworkCore.SqlServer/Tools/Design 10.0.0` via `dotnet add` to `Identity.Service.csproj`
+- Created `Domain/Enums/WorkspaceRole.cs` with 6 values (0 Member, 1 ProjectManager, 2 OrgAdmin, 3 Client, 4 Viewer, 5 SuperAdmin)
+- Created `Domain/Entities/User.cs` (Email unique, PasswordHash, FullName, AvatarUrl, IsActive), `Organization.cs` (Name, Slug unique, OwnerId), `Workspace.cs` (OrganizationId FK, Name, Slug), `WorkspaceMember.cs` (composite PK WorkspaceId+UserId, Role int, JoinedAt, navigation), `RefreshToken.cs` (UserId FK, TokenHash, ExpiresAt, RevokedAt, IsActive logic)
+- Created `Infrastructure/Persistence/IdentityDbContext.cs` with `HasDefaultSchema("identity")`, `DbSet<>` for 5 tables, `OnModelCreating` with `HasKey`, `HasIndex(IsUnique)`, `HasMaxLength`, `HasConversion<int>` for Role, `OnDelete(Cascade)`, `Ignore(DomainEvents)` + `Ignore<DomainEvent>()` to fix `DomainEvent requires primary key` error
+- Created `IdentityDbContextFactory.cs` (`IDesignTimeDbContextFactory`) reading `appsettings.Development.json` `ConnectionStrings:Default` (`Server=localhost;Database=flowboard;...TrustServerCertificate=True`) with `MigrationsHistoryTable("__EFMigrationsHistory", "identity")`
+- Ran `dotnet ef migrations add InitialIdentity --project Services/Identity.Service --output-dir Infrastructure/Persistence/Migrations` -> `20260904192656_InitialIdentity.cs` + Designer + Snapshot
+- Ran `dotnet ef database update --project Services/Identity.Service` -> Applied `InitialIdentity` to `flowboard` (acquired exclusive lock, created schema `[identity]` + 5 tables)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Identity.Service/Domain/Enums/WorkspaceRole.cs | Created | 6-role enum (PM can create projects) |
+| backend/Services/Identity.Service/Domain/Entities/User.cs | Created | BaseEntity + IAggregateRoot, Email unique, PasswordHash |
+| backend/Services/Identity.Service/Domain/Entities/Organization.cs | Created | BaseEntity, Name, Slug unique, OwnerId |
+| backend/Services/Identity.Service/Domain/Entities/Workspace.cs | Created | BaseEntity, OrganizationId FK, Name, Slug |
+| backend/Services/Identity.Service/Domain/Entities/WorkspaceMember.cs | Created | Composite PK, Role enum, JoinedAt, navigations |
+| backend/Services/Identity.Service/Domain/Entities/RefreshToken.cs | Created | BaseEntity, UserId FK, TokenHash, ExpiresAt, RevokedAt, IsActive |
+| backend/Services/Identity.Service/Infrastructure/Persistence/IdentityDbContext.cs | Created | DbContext with HasDefaultSchema("identity"), 5 DbSets, OnModelCreating with indexes + Ignore |
+| backend/Services/Identity.Service/Infrastructure/Persistence/IdentityDbContextFactory.cs | Created | Design-time factory for dotnet ef (reads ConnectionStrings) |
+| backend/Services/Identity.Service/Infrastructure/Persistence/Migrations/20260904192656_InitialIdentity.cs | Created | Migration: CreateTable for 5 tables in [identity] |
+| backend/Services/Identity.Service/Infrastructure/Persistence/Migrations/IdentityDbContextModelSnapshot.cs | Created | Snapshot |
+| backend/Services/Identity.Service/Identity.Service.csproj | Modified | Added 3 PackageReferences: EfCore SqlServer/Tools/Design 10.0.0 |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Package restore | Passed | `dotnet add` -> `Restored Identity.Service.csproj` 3 packages |
+| Migration add | Passed | `dotnet ef migrations add InitialIdentity` -> `Build succeeded. Done.` |
+| Database update | Passed | `dotnet ef database update` -> `Applying migration '20260904192656_InitialIdentity'. Done.` |
+| DB schema | Passed | SQL query `SELECT TABLE_SCHEMA, TABLE_NAME` -> `identity.__EFMigrationsHistory`, `identity.Organizations`, `identity.RefreshTokens`, `identity.Users`, `identity.WorkspaceMembers`, `identity.Workspaces`; `sys.schemas` shows `identity` exists |
+| Build | Passed | `dotnet build FlowBoard.slnx -c Release` -> `0 Warning(s) 0 Error(s)` |
+| Commit | Passed | `8c02b12` (11 files, 959 insertions) + `a9a3a18` (csproj) pushed to `origin/main` (`Server=localhost;Database=flowboard` single DB) |
+| Git ignored | Passed | Real `appsettings.Development.json` with actual keys remains gitignored (not committed) as designed |
+
+### 7. Enterprise Relevance (MNC Value)
+This is the exact schema MNCs use for multi-tenant SaaS - `HasDefaultSchema("identity")` isolates Identity tables in `[identity]` while `flowboard` DB hosts 4 schemas (identity, project, file, notification) on same SQL Server (cost-effective on MonsterASP.net). The 6-role enum with `ProjectManager` able to create projects (vs. Viewer/Client read-only) proves you understand real enterprise RBAC (many managers per workspace, not single OrgAdmin bottleneck). `WorkspaceMember` composite PK prevents duplicate membership and enforces tenant isolation at DB level - a common MNC interview question. `Ignore(DomainEvents)` fix shows EF Core domain modeling maturity.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 1.2 will add `Application` layer (MediatR 12.4 handlers for Register/Login/Refresh, JwtProvider HS256 15m + Refresh rotation 7d, Brevo invite) using this `User`/`WorkspaceMember` domain; Task 1.3 will expose REST `/api/auth/*` via YARP; Task 2.1 will create `Project.Service` DbContext with `HasDefaultSchema("project")` on same `flowboard` DB
+- Depends on: Task 0.4 (env same keys local/prod, `Server=localhost;Database=flowboard` must exist) and Task 0.2 (SharedKernel BaseEntity)
+- Follow-up: Keep `flowboard` DB - next migrations (Project, File, Notification) will add schemas `[project]`, `[file]`, `[notification]` to same DB, no new DB creation
 
 ---
 
