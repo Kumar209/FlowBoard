@@ -1,4 +1,5 @@
 {
+  "_comment": "YARP Gateway config - Routes map public paths (Angular calls http://localhost:5000/api/*) to microservices (5001-5004). Clusters define destinations. See Gateway.YARP/Program.cs AddReverseProxy().LoadFromConfig() - JSON does not support // comments, so this _comment field explains it. Local: http://localhost:5001-5004, Prod (Task 5.4): https://*-xxxxx.monsterasp.net",
   "ReverseProxy": {
     "Routes": {
       "identity-route": {
