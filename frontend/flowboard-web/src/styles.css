@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* FlowBoard Global - DaisyUI + Tailwind */
+html, body { height: 100%; }
+body { font-family: Inter, system-ui, -apple-system, sans-serif; }

@@ -1,0 +1,7 @@
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/flowboard-web/browser",
+  "framework": "angular",
+  "installCommand": "npm install --legacy-peer-deps"
+}
