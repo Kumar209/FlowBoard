@@ -666,9 +666,10 @@ Built Angular 22 authentication UI (Login/Register/Dashboard) with Signals for c
 
 ### 4. Implementation Details
 - Fixed `NG_CLI_ANALYTICS` and upgraded Node 22.18.0 -> 22.22.3 via MSI before Task 0.3, so Angular 22 builds now
-- Ran `npx ng build --configuration production` initial failure `TS2729: Property 'fb' is used before its initialization` (field `form = this.fb.group` before constructor) -> fixed to `form: any` + `this.form = this.fb.group()` in constructor for `LoginComponent`/`RegisterComponent`; fixed `TS4111: Property 'email' comes from index signature` by changing `form.controls.email` -> removed strict check via `form: any` + `getRawValue()`; fixed `DashboardComponent` `user = this.auth.currentUser` error `WritableSignal missing properties` by changing to `user!: ReturnType<AuthService['currentUser']>` then to `constructor(public auth: AuthService)` and template `{{ auth.currentUser()?.fullName }}` directly
-- Final `app.html` replaced placeholder 344-line `<style>` + template with single `<router-outlet />` to enforce no internal CSS - `app.css` remains 0 bytes, all styling via Tailwind/DaisyUI classes in templates
-- Enforced `angular.json` schematics `"@schematics/angular:component": { "style": "none" }` from Task 0.4 - new `login`, `register`, `dashboard` components generated with no `.css` file, only `template` with `class="card bg-base-100 shadow-xl"` etc., responsive `min-h-screen flex items-center justify-center bg-base-200 p-4` + `grid grid-cols-1 md:grid-cols-3 gap-4`
+- Ran `npx ng build --configuration production` initial failure `TS2729: Property 'fb' is used before its initialization` -> fixed to `form: any` + `this.form = this.fb.group()` in constructor for `LoginComponent`/`RegisterComponent`; fixed `TS4111` via `form: any` + `getRawValue()`; fixed `DashboardComponent` by using `public auth: AuthService` + template `{{ auth.currentUser()?.fullName }}` directly
+- Refactored to proper `ng g component` 3-file pattern (per user request): Each component now has its own folder with 3 files - e.g., `login/login.component.ts` + `login.component.html` + `login.component.css` (empty, `/* No internal CSS */`), `register/register.component.*`, `dashboard/dashboard.component.*`. Updated `login/register/dashboard.component.ts` from inline `template: `...`` to `templateUrl: './login.component.html'` + `styleUrls: ['./login.component.css']`, moved HTML to separate files with Tailwind/DaisyUI classes
+- Updated `angular.json` schematics from `"style": "none"` (Task 0.4, no CSS file) to `"style": "css"` to generate 3 files per component via `ng g component` (future tasks will create `features/board/board/board.component.*` etc., each in its own folder, with empty CSS). Enforced no internal CSS by keeping `.css` files empty (only comment) and using Tailwind utilities in HTML
+- Final `app.html` replaced 344-line placeholder `<style>` with `<router-outlet />` - `app.css` 0 bytes, `angular.json` now `style: css` for 3-file pattern
 
 ### 5. Files & Changes
 | Path | Action | Description |
@@ -676,13 +677,19 @@ Built Angular 22 authentication UI (Login/Register/Dashboard) with Signals for c
 | frontend/flowboard-web/src/app/core/services/auth.service.ts | Created | Signals `currentUser`, `accessToken`, `isAuthenticated` (computed), methods `register/login/refresh/me/logout` via `HttpClient` + `environment.apiUrl` + `withCredentials: true`, `setSession`/`clearSession` with `sessionStorage` |
 | frontend/flowboard-web/src/app/core/interceptors/auth.interceptor.ts | Created | `HttpInterceptorFn` - attach `Authorization: Bearer`, `withCredentials: true`, `catchError` 401 -> `auth.refresh()` + `switchMap` retry, else `clearSession` |
 | frontend/flowboard-web/src/app/core/guards/auth.guard.ts | Created | `authGuard: CanActivateFn` + `roleGuard(roles)` factory - checks `isAuthenticated()` else `navigate(['/login'])` |
-| frontend/flowboard-web/src/app/features/auth/login.component.ts | Created | Standalone, `ReactiveFormsModule`, `FormBuilder`, `Validators`, DaisyUI `card` + `input` + `btn`, `signal` loading/error, `style: none` |
-| frontend/flowboard-web/src/app/features/auth/register.component.ts | Created | Same + `fullName` + success signal + 800ms redirect |
-| frontend/flowboard-web/src/app/features/dashboard/dashboard.component.ts | Created | Standalone, `auth.currentUser()` in `navbar` + `DaisyUI card` grid, `OnInit` calls `me()`, `logout()` clears + navigate |
+| frontend/flowboard-web/src/app/features/auth/login/login.component.ts | Created | Standalone, `ReactiveFormsModule`, `FormBuilder`, `Validators`, `templateUrl: ./login.component.html`, `styleUrls: [./login.component.css]` (empty, no internal CSS) |
+| frontend/flowboard-web/src/app/features/auth/login/login.component.html | Created | DaisyUI `card` + `input` + `btn`, `formGroup`, `routerLink`, responsive `min-h-screen flex` - all Tailwind classes |
+| frontend/flowboard-web/src/app/features/auth/login/login.component.css | Created | Empty `/* No internal CSS - all via Tailwind + DaisyUI */` - file exists for 3-file pattern |
+| frontend/flowboard-web/src/app/features/auth/register/register.component.ts | Created | Same 3-file pattern with `templateUrl`/`styleUrls`, `fullName` + success signal + 800ms redirect |
+| frontend/flowboard-web/src/app/features/auth/register/register.component.html | Created | DaisyUI card, 3 inputs, Tailwind responsive |
+| frontend/flowboard-web/src/app/features/auth/register/register.component.css | Created | Empty - 3-file pattern |
+| frontend/flowboard-web/src/app/features/dashboard/dashboard.component.ts | Modified | Standalone, `templateUrl: ./dashboard.component.html`, `styleUrls: [./dashboard.component.css]` (was inline `template` + `template:` now separate files), uses `auth.currentUser()` |
+| frontend/flowboard-web/src/app/features/dashboard/dashboard.component.html | Created | DaisyUI `navbar` + `grid-cols-1 md:grid-cols-3` cards, `{{ auth.currentUser()?.fullName }}` |
+| frontend/flowboard-web/src/app/features/dashboard/dashboard.component.css | Created | Empty - 3-file pattern |
 | frontend/flowboard-web/src/app/app.config.ts | Modified | Added `provideHttpClient(withInterceptors([authInterceptor]))` + `provideTanStackQuery(new QueryClient({staleTime: 2m}))` |
-| frontend/flowboard-web/src/app/app.routes.ts | Modified | Lazy `login`/`register`, `''` with `canActivate: [authGuard]` -> `DashboardComponent`, `**` redirect |
+| frontend/flowboard-web/src/app/app.routes.ts | Modified | Updated lazy paths to new folder structure: `login/login.component`, `register/register.component`, `dashboard/dashboard.component` |
 | frontend/flowboard-web/src/app/app.html | Modified | Replaced 344-line placeholder `<style>` + template with `<router-outlet />` (no internal CSS) |
-| frontend/flowboard-web/src/app/app.ts | Existing | Already `imports: [RouterOutlet]`, `styleUrl: './app.css'` (0 bytes, empty) - kept |
+| frontend/flowboard-web/angular.json | Modified | Changed schematics `@schematics/angular:component` from `style: none` to `style: css` to generate 3 files per component via `ng g component` (future tasks will create folder per component) |
 
 ### 6. Verification & Results
 | Check | Result | Evidence |
