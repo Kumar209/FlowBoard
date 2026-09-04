@@ -1,18 +1,19 @@
 using System.Security.Cryptography;
 using System.Text;
+using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
-using Identity.Service.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Identity.Service.Application.Services;
 
 // Handles refresh token generation (64-byte random, SHA256 hashed), rotation, and revocation
-public class RefreshTokenService
+// Enterprise: Implements IRefreshTokenService (Application interface) - DIP, depends on IApplicationDbContext not concrete DbContext
+public class RefreshTokenService : IRefreshTokenService
 {
-    private readonly IdentityDbContext _db;
+    private readonly IApplicationDbContext _db;
     private readonly IConfiguration _config;
 
-    public RefreshTokenService(IdentityDbContext db, IConfiguration config)
+    public RefreshTokenService(IApplicationDbContext db, IConfiguration config)
     {
         _db = db;
         _config = config;
@@ -28,7 +29,14 @@ public class RefreshTokenService
         return (raw, hash, expiresAt);
     }
 
-    public static string HashToken(string rawToken)
+    public string HashToken(string rawToken)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawToken));
+        return Convert.ToHexString(bytes);
+    }
+
+    // Static helper for handlers that need hash without instance (kept for convenience, calls instance logic)
+    public static string HashTokenStatic(string rawToken)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawToken));
         return Convert.ToHexString(bytes);

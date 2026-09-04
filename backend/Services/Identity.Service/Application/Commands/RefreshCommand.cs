@@ -2,8 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel;
 using Identity.Service.Application.DTOs;
-using Identity.Service.Application.Services;
-using Identity.Service.Infrastructure.Persistence;
+using Identity.Service.Application.Interfaces;
 
 namespace Identity.Service.Application.Commands;
 
@@ -11,11 +10,11 @@ public record RefreshCommand(string RefreshToken) : IRequest<Result<AuthResponse
 
 public class RefreshCommandHandler : IRequestHandler<RefreshCommand, Result<AuthResponse>>
 {
-    private readonly IdentityDbContext _db;
-    private readonly JwtProvider _jwt;
-    private readonly RefreshTokenService _refreshService;
+    private readonly IApplicationDbContext _db;
+    private readonly IJwtProvider _jwt;
+    private readonly IRefreshTokenService _refreshService;
 
-    public RefreshCommandHandler(IdentityDbContext db, JwtProvider jwt, RefreshTokenService refreshService)
+    public RefreshCommandHandler(IApplicationDbContext db, IJwtProvider jwt, IRefreshTokenService refreshService)
     {
         _db = db;
         _jwt = jwt;
@@ -29,7 +28,7 @@ public class RefreshCommandHandler : IRequestHandler<RefreshCommand, Result<Auth
         if (isReuse)
         {
             // Try to find user from hash and revoke all tokens (security)
-            var hash = RefreshTokenService.HashToken(request.RefreshToken);
+            var hash = _refreshService.HashToken(request.RefreshToken);
             var token = await _db.RefreshTokens.FirstOrDefaultAsync(x => x.TokenHash == hash, ct);
             if (token != null) await _refreshService.RevokeFamilyAsync(token.UserId);
             return Result<AuthResponse>.Failure("Refresh token reuse detected - all tokens revoked");

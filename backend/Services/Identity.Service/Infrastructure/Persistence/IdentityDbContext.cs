@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
 using Identity.Service.Domain.Enums;
 
@@ -6,7 +7,8 @@ namespace Identity.Service.Infrastructure.Persistence;
 
 // Single DB flowboard with schema [identity] - 4 schemas total (identity, project, file, notification)
 // Each service has its own DbContext with HasDefaultSchema, same ConnectionStrings Default = Server=localhost;Database=flowboard
-public class IdentityDbContext : DbContext
+// Enterprise: Implements IApplicationDbContext (defined in Application) - DIP, testable via mock
+public class IdentityDbContext : DbContext, IApplicationDbContext
 {
     public IdentityDbContext(DbContextOptions<IdentityDbContext> options) : base(options) { }
 

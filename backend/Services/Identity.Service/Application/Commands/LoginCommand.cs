@@ -3,9 +3,8 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel;
 using Identity.Service.Application.DTOs;
-using Identity.Service.Application.Services;
+using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
-using Identity.Service.Infrastructure.Persistence;
 
 namespace Identity.Service.Application.Commands;
 
@@ -22,22 +21,24 @@ public class LoginCommandValidator : AbstractValidator<LoginCommand>
 
 public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResponse>>
 {
-    private readonly IdentityDbContext _db;
-    private readonly JwtProvider _jwt;
-    private readonly RefreshTokenService _refreshService;
+    private readonly IApplicationDbContext _db;
+    private readonly IJwtProvider _jwt;
+    private readonly IRefreshTokenService _refreshService;
+    private readonly IPasswordHasher _passwordHasher;
 
-    public LoginCommandHandler(IdentityDbContext db, JwtProvider jwt, RefreshTokenService refreshService)
+    public LoginCommandHandler(IApplicationDbContext db, IJwtProvider jwt, IRefreshTokenService refreshService, IPasswordHasher passwordHasher)
     {
         _db = db;
         _jwt = jwt;
         _refreshService = refreshService;
+        _passwordHasher = passwordHasher;
     }
 
     public async Task<Result<AuthResponse>> Handle(LoginCommand request, CancellationToken ct)
     {
         var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == request.Email.ToLowerInvariant(), ct);
         if (user == null || !user.IsActive) return Result<AuthResponse>.Failure("Invalid credentials");
-        if (!PasswordHasher.Verify(request.Password, user.PasswordHash)) return Result<AuthResponse>.Failure("Invalid credentials");
+        if (!_passwordHasher.Verify(request.Password, user.PasswordHash)) return Result<AuthResponse>.Failure("Invalid credentials");
 
         var memberships = await _db.WorkspaceMembers
             .Where(x => x.UserId == user.Id)

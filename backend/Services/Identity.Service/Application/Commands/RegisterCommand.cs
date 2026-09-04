@@ -3,9 +3,8 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel;
 using Identity.Service.Application.DTOs;
-using Identity.Service.Application.Services;
+using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
-using Identity.Service.Infrastructure.Persistence;
 
 namespace Identity.Service.Application.Commands;
 
@@ -23,15 +22,17 @@ public class RegisterCommandValidator : AbstractValidator<RegisterCommand>
 
 public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result<AuthResponse>>
 {
-    private readonly IdentityDbContext _db;
-    private readonly JwtProvider _jwt;
-    private readonly RefreshTokenService _refreshService;
+    private readonly IApplicationDbContext _db;
+    private readonly IJwtProvider _jwt;
+    private readonly IRefreshTokenService _refreshService;
+    private readonly IPasswordHasher _passwordHasher;
 
-    public RegisterCommandHandler(IdentityDbContext db, JwtProvider jwt, RefreshTokenService refreshService)
+    public RegisterCommandHandler(IApplicationDbContext db, IJwtProvider jwt, IRefreshTokenService refreshService, IPasswordHasher passwordHasher)
     {
         _db = db;
         _jwt = jwt;
         _refreshService = refreshService;
+        _passwordHasher = passwordHasher;
     }
 
     public async Task<Result<AuthResponse>> Handle(RegisterCommand request, CancellationToken ct)
@@ -39,7 +40,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result<Au
         var exists = await _db.Users.AnyAsync(x => x.Email == request.Email.ToLowerInvariant(), ct);
         if (exists) return Result<AuthResponse>.Failure("Email already registered");
 
-        var hash = PasswordHasher.Hash(request.Password);
+        var hash = _passwordHasher.Hash(request.Password);
         var user = new User(request.Email, hash, request.FullName);
         _db.Users.Add(user);
 
