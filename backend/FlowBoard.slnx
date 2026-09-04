@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/BuildingBlocks/">
+    <Project Path="BuildingBlocks/Shared.Contracts/Shared.Contracts.csproj" />
+    <Project Path="BuildingBlocks/SharedKernel/SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/Services/">
+    <Project Path="Services/File.Service/File.Service.csproj" />
+    <Project Path="Services/Identity.Service/Identity.Service.csproj" />
+    <Project Path="Services/Notification.Service/Notification.Service.csproj" />
+    <Project Path="Services/Project.Service/Project.Service.csproj" />
+  </Folder>
+  <Project Path="Gateway.YARP/Gateway.YARP.csproj" />
+</Solution>

@@ -1,0 +1,69 @@
+{
+  "ReverseProxy": {
+    "Routes": {
+      "identity-route": {
+        "ClusterId": "identity-cluster",
+        "Match": { "Path": "/api/auth/{**catch-all}" }
+      },
+      "workspace-route": {
+        "ClusterId": "identity-cluster",
+        "Match": { "Path": "/api/workspaces/{**catch-all}" }
+      },
+      "org-route": {
+        "ClusterId": "identity-cluster",
+        "Match": { "Path": "/api/organizations/{**catch-all}" }
+      },
+      "project-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/workspaces/{**catch-all}" },
+        "Order": 1
+      },
+      "project-api-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/projects/{**catch-all}" }
+      },
+      "task-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/tasks/{**catch-all}" }
+      },
+      "file-route": {
+        "ClusterId": "file-cluster",
+        "Match": { "Path": "/api/files/{**catch-all}" }
+      },
+      "file-attachments-route": {
+        "ClusterId": "file-cluster",
+        "Match": { "Path": "/api/tasks/{**catch-all}/attachments" }
+      },
+      "notification-route": {
+        "ClusterId": "notification-cluster",
+        "Match": { "Path": "/api/notifications/{**catch-all}" }
+      },
+      "hub-route": {
+        "ClusterId": "notification-cluster",
+        "Match": { "Path": "/hubs/{**catch-all}" }
+      }
+    },
+    "Clusters": {
+      "identity-cluster": {
+        "Destinations": {
+          "identity": { "Address": "http://localhost:5001" }
+        }
+      },
+      "project-cluster": {
+        "Destinations": {
+          "project": { "Address": "http://localhost:5002" }
+        }
+      },
+      "file-cluster": {
+        "Destinations": {
+          "file": { "Address": "http://localhost:5003" }
+        }
+      },
+      "notification-cluster": {
+        "Destinations": {
+          "notification": { "Address": "http://localhost:5004" }
+        }
+      }
+    }
+  }
+}
