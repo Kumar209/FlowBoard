@@ -20,13 +20,13 @@
 
 | Phase | Tasks | Completed | Status |
 |-------|-------|-----------|--------|
-| Phase 0: Setup & Foundation | 0.1 - 0.5 | 2/5 | In Progress |
+| Phase 0: Setup & Foundation | 0.1 - 0.5 | 3/5 | In Progress |
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 0/5 | Pending |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 0/5 | Pending |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **26 Tasks** | **2/26** | **In Progress** |
+| **Total** | **26 Tasks** | **3/26** | **In Progress** |
 
 ---
 
@@ -101,9 +101,39 @@ The project lacked a version-controlled root with correct sibling structure. Sta
 
 ## Task 0.2: Backend Solution Scaffold (.NET 10 + YARP 2.3 + BuildingBlocks)
 
-**Status:** `Pending` | **Date:** - | **Phase:** 0
+**Status:** `Completed` | **Date:** 04 Sep 2026 | **Phase:** 0 - Setup
 
-*To be updated after completion.*
+**Why:**
+Before business logic, we need a buildable .NET 10 foundation with correct sibling solution layout. This establishes Clean Architecture boundaries (SharedKernel + Shared.Contracts) and YARP Gateway routing skeleton so all 4 future microservices can be added modularly without restructuring. This blocks Identity (1.1) and Project (2.1) domains.
+
+**What Used:**
+- .NET 10.0.400 SDK (slnx XML format - new for .NET 10)
+- `dotnet new sln` -> `backend/FlowBoard.slnx`, `dotnet new webapi -f net10.0 --no-https` for 4 Services + Gateway
+- `BuildingBlocks/SharedKernel` (Classlib net10.0): `BaseEntity`, `DomainEvent`, `Result<T>`, `IAggregateRoot`
+- `BuildingBlocks/Shared.Contracts` (Classlib net10.0): `Events/TaskEvents.cs` (`TaskCreatedEvent`, `TaskMovedEvent`, `TaskCommentedEvent`, `FileUploadedEvent` + `IIntegrationEvent`)
+- `Yarp.ReverseProxy 2.3.0` via `dotnet add package` (Gateway.YARP)
+- `dotnet sln add` + `dotnet add reference` for inter-project references
+- New minimal `Program.cs` per service (health endpoints `/health` + `/health/ready` + `/`)
+
+**Why Useful:**
+- Proves MNC-expected solution structure: `.slnx` (modern .NET 10), `BuildingBlocks` for shared kernel, Gateway with YARP (Microsoft's official reverse proxy 2.3, not deprecated Ocelot) - interviewers recognize YARP instantly. `BaseEntity` + `Result<T>` pattern is standard for enterprise DDD. `Shared.Contracts` pre-defines integration events so Project -> Notification communication is type-safe from day one.
+
+**What It Does:**
+- Creates 7-project solution: `Gateway.YARP` (yarp.json with 11 routes -> Identity/Project/File/Notification clusters at localhost:5001-5004), `SharedKernel`, `Shared.Contracts`, `Services/Identity.Service`, `Project.Service`, `File.Service`, `Notification.Service` (each minimal Web API with CORS for `http://localhost:4200` + `https://flowboard.vercel.app`, health checks)
+- `yarp.json` maps `/api/auth/*` -> Identity, `/api/projects/*`/`/api/tasks/*` -> Project, `/api/files/*` -> File, `/api/notifications/*` + `/hubs/*` -> Notification, plus `/health` pass-through
+- `Gateway Program.cs` loads `yarp.json` via `AddJsonFile` + `AddReverseProxy().LoadFromConfig()`, CORS, health endpoints, reverse proxy mapping
+
+**What Achieved:**
+- `dotnet build backend/FlowBoard.slnx -c Release` -> `Build succeeded 0 Warning(s) 0 Error(s)` - 7 projects restored and compiled, `Gateway.YARP` references YARP 2.3, Services reference SharedKernel/Shared.Contracts correctly
+- `backend/.gitkeep` removed (now has content), `backend/` contains `FlowBoard.slnx`, `Gateway.YARP/yarp.json`, `BuildingBlocks/*`, `Services/*`
+- Commit `3c0c24d` pushed to `origin/main` (`35 files changed`)
+
+**Future Help:**
+- Task 0.3 Angular scaffold will sit in `frontend/flowboard-web` as sibling - keeps `backend/` clean for `dotnet build`
+- Task 1.1 will add `Identity.Service/Domain` + `EF Core 10` DbContext onto this skeleton (BaseEntity already provides Id/CreatedAt/UpdatedAt/DomainEvents)
+- Task 1.2 will add MediatR handlers that publish `Shared.Contracts.Events` to CloudAMQP via MassTransit
+- Task 3.1 will add `MassTransit 8.3` to Project/Notification using the same `Shared.Contracts` events
+- YARP will be extended in Task 5.1 with rate limiting + Serilog + CorrelationId - current skeleton already routes to :5001-5004
 
 ---
 
