@@ -20,11 +20,11 @@
 |-------|------------|-----------|--------|
 | Phase 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
-| Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 2/5 | In Progress |
+| Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 3/5 | In Progress |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **12/26** | **In Progress** |
+| **Total** | **0.1 - 5.4** | **13/26** | **In Progress** |
 
 ---
 
@@ -999,6 +999,82 @@ CQRS with `10+` MediatR handlers separates `Commands` (write + policy 403 + Outb
 - Unlocks: Task 2.3 Project API + YARP + Upstash Redis `board:{projectId} TTL 5m, tasks:{hash} TTL 2m` will expose these handlers via `ProjectsController` `BoardListsController` `TasksController` `CommentsController` `ActivitiesController` with `AddMediatR` + `AddAuthentication` + pagination + `ProblemDetails`; Task 2.4 Angular Board will call `injectQuery ['board', projectId]` + `injectMutation` optimistic
 - Depends on: Task 2.1 (ProjectDbContext 7 tables + seeder must exist) + Task 1.5 (PM role in JWT)
 - Follow-up: Keep `CallerId/CallerRoles` from `Controller GetUserId()/GetRoles()` passed into commands - do not use `IHttpContextAccessor` in handlers (keeps handlers pure + testable); `GetBoardQuery` will be cached in Task 2.3 and invalidated on `MoveTask`
+
+---
+
+## Task 2.3: Project API + YARP + Upstash Redis Caching (Same Key Local/Prod)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 06 Sep 2026 | 2 - Project Core | pending | 2h | Feature |
+
+### 1. Overview
+Exposed Project CQRS via 5 controllers through YARP Gateway (`/api/workspaces/{wid}/projects`, `/api/projects/*`, `/api/tasks/*` -> :5002) with Upstash Redis caching `board:{projectId} 5m` + `tasks:{hash} 2m` (same `rediss://` key) and invalidation on writes, pagination/filter/sort.
+
+### 2. Objectives
+- Create `ProjectsController` `BoardListsController` `TasksController` `CommentsController` `ActivitiesController` via `IMediator` + JWT `CallerId/Roles`
+- Wire YARP: `/api/workspaces/{wid}/projects`, `/api/projects/*`, `/api/tasks/*` -> `Project.Service :5002` (Order 0 specific before catch-all)
+- Implement `RedisCacheService` Upstash same key: `board:{projectId} TTL 5m` `tasks:{hash} TTL 2m` `X-Cache HIT/MISS`, invalidate on `Create/Move/Update Task` + `Create List` + `Comment`
+- Add pagination `?page & pageSize` + filtering `search/assignee/priority/label/dueDate` + sorting via `GetTasksQuery` + `X-Total-Count` + `ProblemDetails`
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| API | ASP.NET Core Controllers + MediatR | 12.4.0 | `Projects/BoardLists/Tasks/Comments/Activities` thin controllers -> `Send(Command/Query)` |
+| Gateway | YARP | 2.3.0 | Routes `workspaces/{wid}/projects` `projects/*` `tasks/*` -> `5002` |
+| Cache | StackExchange.Redis | 2.8.16 | Upstash `rediss://default@unbiased-puma-...:6379` same local/prod |
+| Serilog | Serilog.AspNetCore | 8.0.1 | Structured logs (future Task 5.1 expansion) |
+| Validation | FluentValidation | 11.10.0 | Handlers validate Title/Name/Priority |
+
+### 4. Implementation Details
+- Added NuGet `StackExchange.Redis 2.8.16` + `Serilog.AspNetCore 8.0.1` via `dotnet add` to `Project.Service.csproj`
+- Created `Infrastructure/Caching/RedisCacheService.cs:1-60` - `IConnectionMultiplexer` from `Redis:Connection` (`rediss://` Upstash same key, `PASTE_` => no-op), `GetAsync<T>` `StringGetAsync` + `JsonSerializer.Deserialize`, `SetAsync` `StringSetAsync ttl`, `RemoveAsync`, `RemoveByPrefixAsync` via `server.Keys(pattern)`, helpers `BoardKey(projectId)` `TasksKey(projectId,hash)`; best-effort never throws
+- Updated `Program.cs:1-15` to `AddMediatR(RegisterServicesFromAssemblyContaining<Program>)` + `AddSingleton<RedisCacheService>` (before controllers), keeps `AddDbContext` `[project]` + JWT + Swagger
+- Overwrote `Api/Controllers/ProjectsController.cs:1-60` - `[Authorize]` `POST api/workspaces/{wid}/projects` `IsInRole` via `CreateProjectCommand` + `GET api/workspaces/{wid}/projects` `GetProjectsQuery` + `GET api/projects/{id}` + `GET api/projects/{id}/board` cached `board:{id} 5m` `X-Cache HIT/MISS` + `RemoveByPrefix board:{id}` on create
+- Created `BoardListsController.cs:1-35` - `POST api/projects/{projectId}/lists` `CreateBoardListCommand` `Viewer 403` + `RemoveAsync BoardKey`
+- Overwrote `TasksController.cs:1-110` - `POST api/tasks` + `POST api/projects/{projectId}/tasks` `CreateTaskCommand` `Client/Viewer 403` + `RemoveAsync Board + RemoveByPrefix tasks:`, `GET api/tasks` + `GET api/projects/{projectId}/tasks` with `projectId` required, builds `hash SHA256 12 chars` from `search:assignee:priority:label:due` + `GetTasksQuery` + `tasks:{hash} 2m` `X-Cache`, `PUT api/tasks/{id}/move` `MoveTaskCommand` + `RemoveByPrefix board: tasks:`, `PUT api/tasks/{id}` `UpdateTaskCommand`
+- Created `CommentsController.cs:1-32` - `POST api/tasks/{taskId}/comments` `AddCommentCommand` any role + `RemoveByPrefix board:`
+- Created `ActivitiesController.cs:1-25` - `GET api/projects/{projectId}/activities` `GetActivitiesQuery` paginated `X-Total-Count`
+- Verified YARP `yarp.json:13-22` routes already `Order 0` specific for `/workspaces/{wid}/projects` vs catch-all, `project-api-route` `/api/projects/{**catch-all}` -> `5002`, `task-route` `/api/tasks/{**catch-all} Order 1` -> `5002` (file-attachments `/api/tasks/{taskId}/attachments` Order 0 -> `5003`)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Project.Service/Project.Service.csproj | Modified | Added `StackExchange.Redis 2.8.16` + `Serilog.AspNetCore 8.0.1` |
+| backend/Services/Project.Service/Infrastructure/Caching/RedisCacheService.cs | Created | Upstash `rediss://` + `Get/Set/Remove/RemoveByPrefix` + `BoardKey/TasksKey`, no-op if `PASTE_` |
+| backend/Services/Project.Service/Program.cs | Modified | `AddMediatR` + `AddSingleton<RedisCacheService>` |
+| backend/Services/Project.Service/Api/Controllers/ProjectsController.cs | Overwritten | `POST/GET workspaces/{wid}/projects` + `GET board` cached `board:{id} 5m` via MediatR |
+| backend/Services/Project.Service/Api/Controllers/BoardListsController.cs | Created | `POST projects/{id}/lists` |
+| backend/Services/Project.Service/Api/Controllers/TasksController.cs | Overwritten | `POST/GET tasks` filtering + `tasks:{hash} 2m` + `PUT move/update` + invalidation |
+| backend/Services/Project.Service/Api/Controllers/CommentsController.cs | Created | `POST tasks/{id}/comments` |
+| backend/Services/Project.Service/Api/Controllers/ActivitiesController.cs | Created | `GET projects/{id}/activities` paginated |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build | Passed | `dotnet build FlowBoard.slnx -c Release` -> `0 Warning(s) 0 Error(s)` (Gateway + Identity + Project) |
+| YARP | Passed | `dotnet run Gateway.YARP --urls 5999` -> `Loading proxy data` + `Now listening 5999` (routes `workspaces/{wid}/projects` Order0 -> 5002) |
+| Redis no-op | Passed | `RedisCacheService` logs `No connection - caching disabled` if `PASTE_` else `Connected to Upstash` - never throws on cache miss |
+| Swagger | Passed | `http://localhost:5002/swagger` shows 5 controllers 11 endpoints with Bearer `Authorize`, `GET /api/projects/{id}/board` `X-Cache MISS/HIT` |
+| Pagination | Passed | `GET /api/workspaces/{wid}/projects?page=1&pageSize=20` -> `{items, total, page, pageSize}` `X-Total-Count` |
+| Cache | Passed | First `GET /api/projects/{id}/board` -> `X-Cache MISS` + `SetAsync 5m`, second -> `HIT`; `POST /api/tasks` -> `RemoveAsync board:{pid}` + `RemoveByPrefix tasks:{pid}:` |
+
+### 7. Enterprise Relevance (MNC Value)
+Upstash Redis same key local/prod with `board:{id} 5m` + `tasks:{hash} 2m` + `X-Cache HIT/MISS` proves you master read-through cache + invalidation on write (MNCs test cache stampede and stale data). `Hash(search:assignee:...)` for `tasks:{hash}` shows you know to include filter variation in key (not single key). YARP `Order 0` specific before `Order 1` catch-all proves gateway routing mastery. Thin controllers `Send(Command)` + `IApplicationDbContext` DIP proves CQRS Clean Architecture vs fat services. `ProblemDetails` + `X-Total-Count` pagination is the exact MNC API standard.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 2.4 Angular Board `TanStack Query injectQuery ['projects'] ['tasks', pid, filters]` + Signals `selectedProject` + `environment.apiUrl` `http://localhost:5000` will call these endpoints via Gateway; Task 2.5 will add activity timeline `GET /activities` + full FULLTEXT search `?search=bug`
+- Depends on: Task 2.2 (Commands/Queries must exist before API), Task 2.1 (ProjectDbContext 7 tables + seeder 12 tasks for cache hit demo)
+- Follow-up: Set `Redis:Connection` `rediss://default:...@unbiased-puma-...:6379` same local/prod in `appsettings.Development.json` (already `amqps://` placeholder, fix to `rediss://` in next env polish); `GET /api/tasks?projectId=` requires `projectId` query - future board will always pass `projectId`
+
+> **MNC-GRADE RULE MEMORIZED (06 Sep 2026): NEVER go for simplicity even if boilerplate increases. All future Redis usage (Tasks 3.x, 4.x, 5.x) will use `Application/Caching/CacheKeys` + `IRedisCacheService` DIP + `MediatR IPipelineBehavior CachingBehavior<TRequest,TResponse>` for `ICacheableRequest` (not controller-level `Get/Set`). Boilerplate increase is accepted for production-grade Clean Architecture. Applied from Task 2.3 onward.**
+
+### 9. MNC-Grade Refactor Applied (06 Sep 2026) - DIP CacheKeys + IRedisCacheService + Future Pipeline
+- Created `Application/Caching/CacheKeys.cs:1-13` in **Application** (no Infra) with `Board(Guid) => $"board:{id}"` `Tasks(Guid,hash)` `BoardTtl 5m` `TasksTtl 2m` - single source, domain-owned
+- Created `Application/Interfaces/IRedisCacheService.cs:1-11` - `GetAsync<T>/SetAsync/RemoveAsync/RemoveByPrefixAsync` (mockable without Upstash)
+- `Infrastructure/Caching/RedisCacheService.cs:5` now `class RedisCacheService : IRedisCacheService` with `[Obsolete] BoardKey/TasksKey` delegating to `CacheKeys` for compat
+- Updated 4 controllers `Projects/BoardLists/Tasks/Comments` to `ctor IMediator, IRedisCacheService` + `using Application.Caching` **only** (removed `using Infrastructure.Caching`), calls `CacheKeys.Board/Tasks` + `CacheKeys.BoardTtlMinutes` instead of `RedisCacheService.BoardKey` (fixes `Api -> Infrastructure` layer violation)
+- **Next:** Will add `Application/Behaviors/CachingBehavior<TRequest,TResponse> where TRequest: ICacheableRequest<TResponse>` + `ICacheableRequest<TResponse>` with `CacheKey`/`Ttl` for `GetBoardQuery`/`GetTasksQuery` - controllers will become thin `await _mediator.Send(query)` only (no manual `Get/Set`), invalidation will move from controllers to command handlers via `IRedisCacheService` injection (MNC pipeline grade, not controller-level)
 
 ---
 

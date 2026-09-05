@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using SharedKernel;
+using Project.Service.Application.Caching;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
 
@@ -24,7 +25,8 @@ public class UpdateTaskValidator : AbstractValidator<UpdateTaskCommand>
 public class UpdateTaskHandler : IRequestHandler<UpdateTaskCommand, Result<TaskDto>>
 {
     private readonly IApplicationDbContext _db;
-    public UpdateTaskHandler(IApplicationDbContext db) => _db = db;
+    private readonly IRedisCacheService _cache;
+    public UpdateTaskHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
 
     public async Task<Result<TaskDto>> Handle(UpdateTaskCommand req, CancellationToken ct)
     {
@@ -39,7 +41,8 @@ public class UpdateTaskHandler : IRequestHandler<UpdateTaskCommand, Result<TaskD
 
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, req.CallerId, "TaskUpdated", $"{{\"title\":\"{req.Title}\"}}"));
         await _db.SaveChangesAsync(ct);
-
+        await _cache.RemoveAsync(CacheKeys.Board(task.ProjectId));
+        await _cache.RemoveByPrefixAsync($"tasks:{task.ProjectId}:");
         return Result<TaskDto>.Success(new TaskDto(task.Id, task.ProjectId, task.ListId, task.Title, task.Description, task.Priority.ToString(), task.LabelsJson, task.AssigneeId, task.Position, task.CreatedAt));
     }
 }

@@ -8,3 +8,4 @@ public record BoardListDto(Guid Id, Guid ProjectId, string Name, int Position);
 public record TaskDto(Guid Id, Guid ProjectId, Guid ListId, string Title, string? Description, string Priority, string? LabelsJson, Guid? AssigneeId, int Position, DateTime CreatedAt);
 public record CommentDto(Guid Id, Guid TaskId, Guid AuthorId, string Content, DateTime CreatedAt);
 public record ActivityDto(Guid Id, Guid ProjectId, Guid? TaskId, Guid ActorId, string Action, string PayloadJson, DateTime OccurredAt);
+public record PaginatedResult<T>(List<T> Items, int Total, int Page, int PageSize);

@@ -1,39 +1,79 @@
 using System.Security.Claims;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Project.Service.Application.Commands;
+using Project.Service.Application.Queries;
 
 namespace Project.Service.Api.Controllers;
 
+/// <summary>
+/// Tasks API - thin controllers (MNC-grade pipeline caching for queries, invalidation in handlers). YARP /api/tasks/{**catch-all} -> :5002. Filtering via GetTasksQuery.
+/// </summary>
 [ApiController]
 [Authorize]
 public class TasksController : ControllerBase
 {
-    // POST /api/tasks - Create task (Member, PM, OrgAdmin, SuperAdmin can, Client/Viewer cannot - Task 1.5)
+    private readonly IMediator _mediator;
+    public TasksController(IMediator mediator) => _mediator = mediator;
+
     [HttpPost("api/tasks")]
-    public IActionResult CreateTask([FromBody] CreateTaskRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Title)) return BadRequest(new { error = "Title required" });
-        var roles = GetRoles();
-        if (roles.Contains("Client") || roles.Contains("Viewer")) return StatusCode(403, new { error = "Forbidden - Client/Viewer cannot create tasks. Only Member/PM/OrgAdmin/SuperAdmin can." });
-        // Allow Member, ProjectManager, OrgAdmin, SuperAdmin
-        if (!IsInRole("Member", "ProjectManager", "OrgAdmin", "SuperAdmin")) return StatusCode(403, new { error = "Forbidden - need Member+ role" });
-
-        return StatusCode(201, new { id = Guid.NewGuid(), title = request.Title, message = "Task created stub (Task 2.1 will persist)" });
-    }
-
-    // POST /api/projects/{projectId}/tasks - alternative route for same check
     [HttpPost("api/projects/{projectId}/tasks")]
-    public IActionResult CreateTaskInProject(Guid projectId, [FromBody] CreateTaskRequest request)
+    public async Task<IActionResult> Create([FromRoute] Guid? projectId, [FromBody] CreateTaskBody body)
     {
-        return CreateTask(request);
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var roles = GetRoles();
+        var pid = projectId ?? body.ProjectId;
+        var lid = body.ListId;
+        if (pid == Guid.Empty || lid == Guid.Empty) return BadRequest(new { error = "ProjectId and ListId required" });
+        var result = await _mediator.Send(new CreateTaskCommand(pid, lid, body.Title, body.Description, body.Priority ?? "Medium", body.LabelsJson, body.AssigneeId, userId.Value, roles));
+        if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return StatusCode(201, result.Value);
     }
 
-    // GET /api/tasks - any authenticated can view (filtered later)
     [HttpGet("api/tasks")]
-    public IActionResult GetTasks() => Ok(new[] { new { id = Guid.NewGuid(), title = "Sample Task (stub)" } });
+    public async Task<IActionResult> Get([FromQuery] Guid projectId, [FromQuery] string? search, [FromQuery] Guid? assigneeId, [FromQuery] string? priority, [FromQuery] string? label, [FromQuery] DateTime? dueFrom, [FromQuery] DateTime? dueTo, [FromQuery] string? sortBy, [FromQuery] bool sortDesc = false, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        if (projectId == Guid.Empty) return BadRequest(new { error = "projectId query required (?projectId=...)" });
+        // MNC-grade: caching via CachingBehavior pipeline (ICacheableRequest), not controller manual Get/Set
+        var result = await _mediator.Send(new GetTasksQuery(projectId, search, assigneeId, priority, label, dueFrom, dueTo, sortBy, sortDesc, page, pageSize));
+        return Ok(result);
+    }
 
-    private bool IsInRole(params string[] roles) => roles.Any(r => User.IsInRole(r) || GetRoles().Contains(r));
+    [HttpGet("api/projects/{projectId}/tasks")]
+    public async Task<IActionResult> GetByProject(Guid projectId, [FromQuery] string? search, [FromQuery] Guid? assigneeId, [FromQuery] string? priority, [FromQuery] string? label, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        return await Get(projectId, search, assigneeId, priority, label, null, null, null, false, page, pageSize);
+    }
+
+    [HttpPut("api/tasks/{taskId}/move")]
+    public async Task<IActionResult> Move(Guid taskId, [FromBody] MoveTaskBody body)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var roles = GetRoles();
+        var result = await _mediator.Send(new MoveTaskCommand(taskId, body.ToListId, body.NewPosition, userId.Value, roles));
+        if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(new { message = "Moved" });
+    }
+
+    [HttpPut("api/tasks/{taskId}")]
+    public async Task<IActionResult> Update(Guid taskId, [FromBody] UpdateTaskBody body)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var roles = GetRoles();
+        var result = await _mediator.Send(new UpdateTaskCommand(taskId, body.Title, body.Description, body.Priority ?? "Medium", body.LabelsJson, body.AssigneeId, body.DueDate, userId.Value, roles));
+        if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    private Guid? GetUserId()
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(sub, out var g) ? g : null;
+    }
     private List<string> GetRoles() => User.FindAll(ClaimTypes.Role).Select(c => c.Value).Concat(User.FindAll("role").Select(c => c.Value)).Distinct().ToList();
 }
 
-public record CreateTaskRequest(string Title, string? Description);
+public record CreateTaskBody(Guid ProjectId, Guid ListId, string Title, string? Description, string? Priority, string? LabelsJson, Guid? AssigneeId);
+public record MoveTaskBody(Guid ToListId, int NewPosition);
+public record UpdateTaskBody(string Title, string? Description, string? Priority, string? LabelsJson, Guid? AssigneeId, DateTime? DueDate);

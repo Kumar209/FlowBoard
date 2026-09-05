@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel;
+using Project.Service.Application.Caching;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
 using System.Text.Json;
@@ -27,7 +28,8 @@ public class CreateTaskValidator : AbstractValidator<CreateTaskCommand>
 public class CreateTaskHandler : IRequestHandler<CreateTaskCommand, Result<TaskDto>>
 {
     private readonly IApplicationDbContext _db;
-    public CreateTaskHandler(IApplicationDbContext db) => _db = db;
+    private readonly IRedisCacheService _cache;
+    public CreateTaskHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
 
     public async Task<Result<TaskDto>> Handle(CreateTaskCommand req, CancellationToken ct)
     {
@@ -51,6 +53,10 @@ public class CreateTaskHandler : IRequestHandler<CreateTaskCommand, Result<TaskD
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(req.ProjectId, task.Id, req.CallerId, "TaskCreated", JsonSerializer.Serialize(new { task.Title, list.Name })));
 
         await _db.SaveChangesAsync(ct);
+
+        // MNC-grade: invalidate read caches via pipeline invalidation (not controller) - keeps Api thin
+        await _cache.RemoveAsync(CacheKeys.Board(req.ProjectId));
+        await _cache.RemoveByPrefixAsync($"tasks:{req.ProjectId}:");
 
         var dto = new TaskDto(task.Id, task.ProjectId, task.ListId, task.Title, task.Description, task.Priority.ToString(), task.LabelsJson, task.AssigneeId, task.Position, task.CreatedAt);
         return Result<TaskDto>.Success(dto);

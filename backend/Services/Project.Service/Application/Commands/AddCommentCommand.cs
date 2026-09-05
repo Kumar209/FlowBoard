@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using SharedKernel;
+using Project.Service.Application.Caching;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
 using System.Text.Json;
@@ -24,7 +25,8 @@ public class AddCommentValidator : AbstractValidator<AddCommentCommand>
 public class AddCommentHandler : IRequestHandler<AddCommentCommand, Result<CommentDto>>
 {
     private readonly IApplicationDbContext _db;
-    public AddCommentHandler(IApplicationDbContext db) => _db = db;
+    private readonly IRedisCacheService _cache;
+    public AddCommentHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
 
     public async Task<Result<CommentDto>> Handle(AddCommentCommand req, CancellationToken ct)
     {
@@ -39,6 +41,7 @@ public class AddCommentHandler : IRequestHandler<AddCommentCommand, Result<Comme
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, req.TaskId, req.CallerId, "TaskCommented", JsonSerializer.Serialize(new { req.Content })));
 
         await _db.SaveChangesAsync(ct);
+        await _cache.RemoveAsync(CacheKeys.Board(task.ProjectId));
         return Result<CommentDto>.Success(new CommentDto(comment.Id, comment.TaskId, comment.AuthorId, comment.Content, comment.CreatedAt));
     }
 }

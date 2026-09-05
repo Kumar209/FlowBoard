@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel;
+using Project.Service.Application.Caching;
 using Project.Service.Application.Interfaces;
 using System.Text.Json;
 
@@ -25,7 +26,8 @@ public class MoveTaskValidator : AbstractValidator<MoveTaskCommand>
 public class MoveTaskHandler : IRequestHandler<MoveTaskCommand, Result>
 {
     private readonly IApplicationDbContext _db;
-    public MoveTaskHandler(IApplicationDbContext db) => _db = db;
+    private readonly IRedisCacheService _cache;
+    public MoveTaskHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
 
     public async Task<Result> Handle(MoveTaskCommand req, CancellationToken ct)
     {
@@ -47,6 +49,9 @@ public class MoveTaskHandler : IRequestHandler<MoveTaskCommand, Result>
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, req.CallerId, "TaskMoved", JsonSerializer.Serialize(new { fromListId, toListId = req.ToListId })));
 
         await _db.SaveChangesAsync(ct);
+        await _cache.RemoveAsync(CacheKeys.Board(task.ProjectId));
+        await _cache.RemoveByPrefixAsync($"tasks:{task.ProjectId}:");
+        await _cache.RemoveByPrefixAsync("board:");
         return Result.Success();
     }
 }

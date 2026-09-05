@@ -2,14 +2,27 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Project.Service.Application.Behaviors;
+using Project.Service.Application.Interfaces;
+using Project.Service.Infrastructure.Caching;
 using Project.Service.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 // DbContext - Same DB flowboard with schema [project] (Task 2.1) - DIP with IApplicationDbContext (like Identity Task 1.2.1)
 var cs = builder.Configuration.GetConnectionString("Default") ?? "Server=localhost;Database=flowboard;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 builder.Services.AddDbContext<ProjectDbContext>(o => o.UseSqlServer(cs, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "project")));
-builder.Services.AddScoped<Project.Service.Application.Interfaces.IApplicationDbContext>(sp => sp.GetRequiredService<ProjectDbContext>());
+builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ProjectDbContext>());
 
+// MNC-GRADE MediatR PIPELINE - Register all handlers from this assembly + add CachingBehavior as IPipelineBehavior
+// What this line does: For EVERY MediatR Send(request), MediatR will first create CachingBehavior<TRequest,TResponse> (if TRequest is ICacheableRequest) and call its Handle() before the actual Handler.
+// Why used: Keeps Api thin (controller just Send(query)), caching is auto for any ICacheableRequest (GetBoard, GetTasks) via pipeline, reuse across all services (File, Notification, Gemini). Without this, each controller would repeat GetAsync/SetAsync manually (duplication, missed invalidation). Boilerplate is intentional for MNC prod-grade.
+// Concrete class CachingBehavior implements interface IPipelineBehavior<,> (MediatR's abstraction) - we always write concrete class, MediatR calls it via interface.
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssemblyContaining<Program>();
+    cfg.AddBehavior(typeof(MediatR.IPipelineBehavior<,>), typeof(CachingBehavior<,>));
+});
+builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(o =>

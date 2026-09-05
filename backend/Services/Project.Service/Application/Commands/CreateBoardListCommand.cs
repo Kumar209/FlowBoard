@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel;
+using Project.Service.Application.Caching;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
 
@@ -24,7 +25,8 @@ public class CreateBoardListValidator : AbstractValidator<CreateBoardListCommand
 public class CreateBoardListHandler : IRequestHandler<CreateBoardListCommand, Result<BoardListDto>>
 {
     private readonly IApplicationDbContext _db;
-    public CreateBoardListHandler(IApplicationDbContext db) => _db = db;
+    private readonly IRedisCacheService _cache;
+    public CreateBoardListHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
 
     public async Task<Result<BoardListDto>> Handle(CreateBoardListCommand req, CancellationToken ct)
     {
@@ -38,7 +40,7 @@ public class CreateBoardListHandler : IRequestHandler<CreateBoardListCommand, Re
 
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(req.ProjectId, null, req.CallerId, "ListCreated", $"{{\"name\":\"{req.Name}\"}}"));
         await _db.SaveChangesAsync(ct);
-
+        await _cache.RemoveAsync(CacheKeys.Board(req.ProjectId));
         return Result<BoardListDto>.Success(new BoardListDto(list.Id, list.ProjectId, list.Name, list.Position));
     }
 }

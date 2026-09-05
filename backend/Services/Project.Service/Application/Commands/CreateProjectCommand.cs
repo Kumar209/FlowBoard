@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel;
+using Project.Service.Application.Caching;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
 using ProjectEntity = Project.Service.Domain.Entities.Project;
@@ -26,7 +27,8 @@ public class CreateProjectValidator : AbstractValidator<CreateProjectCommand>
 public class CreateProjectHandler : IRequestHandler<CreateProjectCommand, Result<ProjectDto>>
 {
     private readonly IApplicationDbContext _db;
-    public CreateProjectHandler(IApplicationDbContext db) => _db = db;
+    private readonly IRedisCacheService _cache;
+    public CreateProjectHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
 
     public async Task<Result<ProjectDto>> Handle(CreateProjectCommand req, CancellationToken ct)
     {
@@ -52,6 +54,9 @@ public class CreateProjectHandler : IRequestHandler<CreateProjectCommand, Result
         // Activity log
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(project.Id, null, req.CallerId, "ProjectCreated", $"{{\"name\":\"{req.Name}\",\"key\":\"{key}\"}}"));
         await _db.SaveChangesAsync(ct);
+
+        // MNC-grade: invalidate workspace projects cache (pipeline will MISS next GET)
+        await _cache.RemoveByPrefixAsync($"projects:{req.WorkspaceId}:");
 
         var dto = new ProjectDto(project.Id, project.WorkspaceId, project.Name, project.Key, project.Description, project.OwnerId, project.CreatedAt);
         return Result<ProjectDto>.Success(dto);
