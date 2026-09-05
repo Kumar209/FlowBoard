@@ -43,7 +43,14 @@ export class BoardComponent {
   }));
 
   newTitle = signal('');
+  newListName = signal('');
   selectedListId = signal<string>('');
+  showCreateList = signal(false);
+
+  createListMutation = injectMutation(() => ({
+    mutationFn: (name: string) => firstValueFrom(this.projectService.createList(this.projectId(), name)),
+    onSuccess: () => { this.queryClient.invalidateQueries({ queryKey: ['board', this.projectId()] }); this.showCreateList.set(false); this.newListName.set(''); },
+  }));
 
   createMutation = injectMutation(() => ({
     mutationFn: (vars: { listId: string; title: string }) =>

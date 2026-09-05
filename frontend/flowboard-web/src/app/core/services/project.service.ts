@@ -38,6 +38,9 @@ export class ProjectService {
   deleteProject(projectId: string) {
     return this.http.delete(`${environment.apiUrl}/api/projects/${projectId}`, { withCredentials: true });
   }
+  createList(projectId: string, name: string) {
+    return this.http.post<BoardList>(`${environment.apiUrl}/api/projects/${projectId}/lists`, { name }, { withCredentials: true });
+  }
 
   // Board
   getBoard(projectId: string) {

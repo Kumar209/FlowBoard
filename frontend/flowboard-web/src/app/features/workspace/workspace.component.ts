@@ -36,6 +36,10 @@ export class WorkspaceComponent {
   editing = signal<any>(null);
   createError = signal<string | null>(null);
 
+  search = signal('');
+  page = signal(1);
+  pageSize = 12;
+
   // Fetch workspace name for title (Image 3 fix: show Marketing not generic Workspace)
   workspacesQuery = injectQuery(() => ({
     queryKey: ['workspaces'] as const,
@@ -66,6 +70,17 @@ export class WorkspaceComponent {
     queryKey: ['projects', this.workspaceId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getProjects(this.workspaceId())),
   }));
+  filteredProjects = computed(() => {
+    const s = this.search().toLowerCase();
+    const items = this.projectsQuery.data()?.items || [];
+    return s ? items.filter((p:any)=> p.name.toLowerCase().includes(s) || p.key.toLowerCase().includes(s)) : items;
+  });
+  total = computed(() => this.filteredProjects().length);
+  totalPages = computed(() => Math.max(1, Math.ceil(this.total()/this.pageSize)));
+  paginatedProjects = computed(() => {
+    const start = (this.page()-1)*this.pageSize;
+    return this.filteredProjects().slice(start, start+this.pageSize);
+  });
 
   createMutation = injectMutation(() => ({
     mutationFn: (vars: { name: string }) => firstValueFrom(this.projectService.createProject(this.workspaceId(), vars.name)),

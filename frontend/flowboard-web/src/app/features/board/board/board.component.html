@@ -8,12 +8,29 @@
       <span class="badge badge-primary badge-sm rounded-full">{{ boardQuery.data()?.project?.key }}</span>
       @if (roleLabel()) { <span class="badge badge-ghost badge-xs">{{ roleLabel() }}</span> }
       @if (!canCreateTask()) { <span class="badge badge-ghost badge-xs">View only</span> }
+      @if (canCreateTask()) { <button class="btn btn-primary btn-xs rounded-full" (click)="showCreateList.set(!showCreateList())">+ New List</button> }
       @if (boardQuery.isPending()) { <span class="loading loading-spinner loading-xs"></span> }
     </div>
+
+    @if (showCreateList()) {
+      <div class="card bg-base-100 rounded-2xl shadow border p-3 mb-4 max-w-sm flex gap-2">
+        <input type="text" placeholder="List name (e.g., To Do)" [value]="newListName()" (input)="newListName.set($any($event.target).value)" class="input input-bordered input-sm flex-1 rounded-xl" />
+        <button class="btn btn-primary btn-sm rounded-xl" (click)="createListMutation.mutate(newListName())" [class.loading]="createListMutation.isPending()">Create</button>
+        <button class="btn btn-ghost btn-sm rounded-xl" (click)="showCreateList.set(false)">Cancel</button>
+      </div>
+    }
 
     @if (boardQuery.isError()) {
       <div class="alert alert-error rounded-xl">Failed to load board - check Project :5002 + JWT</div>
     } @else if (boardQuery.data()) {
+      @if ((boardQuery.data()!.lists || []).length === 0) {
+        <div class="text-center py-12 bg-base-100 rounded-2xl border border-dashed">
+          <p class="font-semibold">No lists yet</p>
+          <p class="text-sm opacity-60">Create your first list (To Do, In Progress, Done) — then add tasks.</p>
+          @if (canCreateTask()) { <button class="btn btn-primary btn-sm rounded-full mt-3" (click)="showCreateList.set(true)">+ New List</button> }
+          @else { <span class="badge badge-ghost badge-xs mt-2">View only — PM/OrgAdmin can create lists</span> }
+        </div>
+      } @else {
       <!-- Kanban: horizontal scroll on mobile, grid on desktop -->
       <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory lg:grid lg:grid-cols-3 lg:overflow-visible">
         @for (list of boardQuery.data()!.lists; track list.id) {
@@ -46,6 +63,7 @@
           </div>
         }
       </div>
+      }
 
       <!-- List-view alternative: DaisyUI table desktop -> cards mobile (Task 2.4 spec) -->
       <div class="mt-8">

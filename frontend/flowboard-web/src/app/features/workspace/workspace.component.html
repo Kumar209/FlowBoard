@@ -27,6 +27,11 @@
     <app-project-modal [open]="editOpen()" mode="update" [initialName]="editing()?.name || ''" [initialDescription]="editing()?.description || ''" [loading]="updateMutation.isPending()" (closed)="editOpen.set(false)" (submitted)="onEditSubmit($event)" />
     <app-confirm-delete [open]="deleteOpen()" [title]="'Delete project &quot;'+(editing()?.name||'')+'&quot;?'" message="This will delete the project and its board. Cannot be undone." [loading]="deleteMutation.isPending()" (cancelled)="deleteOpen.set(false)" (confirmed)="onDeleteConfirm()" />
 
+    <div class="flex flex-col sm:flex-row gap-2 mb-4">
+      <input type="text" placeholder="Search projects by name/key..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
+      <span class="text-xs opacity-40 self-center">Page {{ page() }} / {{ totalPages() }} • Total {{ total() }}</span>
+    </div>
+
     <!-- Loading / Error -->
     @if (projectsQuery.isPending()) {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -37,7 +42,7 @@
     } @else {
       <!-- Projects grid: 1 col mobile, 2 tablet, 3 desktop -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        @for (project of projectsQuery.data()?.items || []; track project.id) {
+        @for (project of paginatedProjects(); track project.id) {
           <div class="card bg-base-100 rounded-2xl shadow border border-base-200 hover:shadow-xl hover:-translate-y-1 transition-all group">
             <div class="card-body p-5 sm:p-6">
               <div class="flex justify-between items-start gap-2">
@@ -74,7 +79,12 @@
           <div class="mt-2 text-xs opacity-40">Total: {{ projectsQuery.data()?.total }} • page {{ projectsQuery.data()?.page }}</div>
         </div>
       }
-      <div class="mt-4 text-xs opacity-40 text-center sm:text-left">Total {{ projectsQuery.data()?.total }} • TanStack staleTime 2m (Upstash 5m) • Responsive grid</div>
+      <div class="flex justify-center gap-2 mt-6">
+        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+        @for (p of [].constructor(totalPages()); track $index) { @if ($index < 7) { <button class="btn btn-sm rounded-full" [class.btn-primary]="page()===$index+1" [class.btn-ghost]="page()!==$index+1" (click)="page.set($index+1)">{{ $index+1 }}</button> } }
+        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+      </div>
+      <div class="mt-2 text-xs opacity-40 text-center sm:text-left">Total {{ total() }} filtered • TanStack staleTime 2m (Upstash 5m) • Responsive grid</div>
     }
   </div>
 </div>
