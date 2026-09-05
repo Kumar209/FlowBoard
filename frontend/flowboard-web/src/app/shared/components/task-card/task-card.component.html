@@ -1,0 +1,15 @@
+<div class="card bg-base-100 border border-base-200 shadow-sm hover:shadow-md transition-shadow rounded-xl p-3 sm:p-4 cursor-pointer">
+  <div class="flex justify-between items-start gap-2">
+    <h3 class="font-semibold text-sm leading-tight line-clamp-2">{{ title() }}</h3>
+    <span class="badge badge-xs rounded-full shrink-0" [ngClass]="priorityColor()">{{ priority() }}</span>
+  </div>
+  @if (labels().length) {
+    <div class="flex flex-wrap gap-1 mt-2">
+      @for (label of labels(); track label) { <span class="badge badge-ghost badge-xs rounded-full">{{ label }}</span> }
+    </div>
+  }
+  <div class="flex justify-between items-center mt-3">
+    <span class="text-xs opacity-40">FB • {{ assigneeId() ? assigneeId()!.slice(0,4) : 'Unassigned' }}</span>
+    <div class="w-6 h-6 rounded-full bg-base-300 flex items-center justify-center text-xs">◈</div>
+  </div>
+</div>

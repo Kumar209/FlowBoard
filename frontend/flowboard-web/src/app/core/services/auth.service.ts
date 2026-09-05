@@ -15,18 +15,64 @@ export interface AuthResponse {
   accessTokenExpiresAt: string;
 }
 
+export enum WorkspaceRole {
+  Member = 0,
+  ProjectManager = 1,
+  OrgAdmin = 2,
+  Client = 3,
+  Viewer = 4,
+  SuperAdmin = 5
+}
+
+export interface Membership {
+  workspaceId: string;
+  role: WorkspaceRole | number;
+  roleName?: string;
+}
+
+export interface MeResponse {
+  user: User;
+  workspaces: { workspaceId: string; role: string | number }[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   // Signals - client state (no NgRx, enterprise modern)
   currentUser = signal<User | null>(null);
   accessToken = signal<string | null>(null);
+  memberships = signal<Membership[]>([]);
 
   isAuthenticated = computed(() => this.currentUser() !== null && this.accessToken() !== null);
+
+  // Global role helpers - computed memoized (OnPush reads)
+  hasAnyRole = computed(() => this.memberships().length > 0);
+  isSuperAdmin = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.SuperAdmin || m.roleName === 'SuperAdmin'));
+  isOrgAdmin = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.OrgAdmin || m.roleName === 'OrgAdmin') || this.isSuperAdmin());
+  isProjectManager = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.ProjectManager || m.roleName === 'ProjectManager'));
+  isMember = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.Member));
+  isClient = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.Client || m.roleName === 'Client'));
+  isViewer = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.Viewer || m.roleName === 'Viewer'));
+
+  // Enterprise: workspace-scoped checks
+  isManagerFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && Number(m.role) === WorkspaceRole.ProjectManager);
+  isOrgAdminFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && (Number(m.role) === WorkspaceRole.OrgAdmin || Number(m.role) === WorkspaceRole.SuperAdmin));
+  canCreateProject = computed(() => this.isOrgAdmin() || this.isProjectManager() || this.isSuperAdmin());
+  canCreateWorkspace = computed(() => this.isOrgAdmin() || this.isSuperAdmin());
+  canCreateTask = computed(() => !this.isClient() && !this.isViewer()); // Client 403, Viewer 403 per Task 1.5
+  canComment = computed(() => !this.isViewer()); // Viewer no comment, Client can comment
 
   constructor(private http: HttpClient) {
     // Try restore from sessionStorage (optional, refresh via cookie will re-auth)
     const saved = sessionStorage.getItem('accessToken');
     if (saved) this.accessToken.set(saved);
+    const savedUser = sessionStorage.getItem('currentUser');
+    if (savedUser) {
+      try { this.currentUser.set(JSON.parse(savedUser)); } catch {}
+    }
+    const savedMemb = sessionStorage.getItem('memberships');
+    if (savedMemb) {
+      try { this.memberships.set(JSON.parse(savedMemb)); } catch {}
+    }
   }
 
   register(email: string, password: string, fullName: string) {
@@ -42,22 +88,51 @@ export class AuthService {
   }
 
   me() {
-    return this.http.get<{ user: User; workspaces: any[] }>(`${environment.apiUrl}/api/auth/me`, { withCredentials: true });
+    return this.http.get<MeResponse>(`${environment.apiUrl}/api/auth/me`, { withCredentials: true });
+  }
+
+  hydrateFromMe(res: MeResponse) {
+    if (res.user) {
+      this.currentUser.set(res.user);
+      sessionStorage.setItem('currentUser', JSON.stringify(res.user));
+    }
+    if (res.workspaces) {
+      const mapped: Membership[] = res.workspaces.map(w => {
+        const raw = (w as any).role;
+        let roleNum: number = Number(raw);
+        let roleName: string | undefined = typeof raw === 'string' ? raw : undefined;
+        if (isNaN(roleNum) && roleName) {
+          const map: Record<string, number> = { Member: 0, ProjectManager: 1, OrgAdmin: 2, Client: 3, Viewer: 4, SuperAdmin: 5 };
+          roleNum = map[roleName] ?? 0;
+        }
+        return { workspaceId: (w as any).workspaceId ?? (w as any).workspaceID ?? (w as any).id, role: isNaN(roleNum) ? raw : roleNum, roleName };
+      });
+      this.memberships.set(mapped);
+      sessionStorage.setItem('memberships', JSON.stringify(mapped));
+    }
   }
 
   logout() {
     return this.http.post(`${environment.apiUrl}/api/auth/logout`, {}, { withCredentials: true });
   }
 
-  setSession(user: User, token: string) {
+  setSession(user: User, token: string, memberships?: Membership[]) {
     this.currentUser.set(user);
     this.accessToken.set(token);
     sessionStorage.setItem('accessToken', token);
+    sessionStorage.setItem('currentUser', JSON.stringify(user));
+    if (memberships) {
+      this.memberships.set(memberships);
+      sessionStorage.setItem('memberships', JSON.stringify(memberships));
+    }
   }
 
   clearSession() {
     this.currentUser.set(null);
     this.accessToken.set(null);
+    this.memberships.set([]);
     sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('currentUser');
+    sessionStorage.removeItem('memberships');
   }
 }

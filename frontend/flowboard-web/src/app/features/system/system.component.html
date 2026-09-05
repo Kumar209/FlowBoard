@@ -1,0 +1,13 @@
+<div class="bg-base-200 min-h-full">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">System</h1>
+    <p class="text-sm opacity-60 mt-1">Health — OrgAdmin/SuperAdmin only. Others are redirected.</p>
+    <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="card bg-base-100 rounded-2xl shadow border p-5"><h3 class="font-semibold">Gateway YARP</h3><p class="text-xs opacity-60">:5000 /health → 5001-5004</p><span class="badge badge-success badge-xs mt-2">2.3.0</span></div>
+      <div class="card bg-base-100 rounded-2xl shadow border p-5"><h3 class="font-semibold">Identity :5001</h3><p class="text-xs opacity-60">JWT 15m + Brevo 300/day</p><span class="badge badge-success badge-xs mt-2">DB flowboard [identity]</span></div>
+      <div class="card bg-base-100 rounded-2xl shadow border p-5"><h3 class="font-semibold">Project :5002</h3><p class="text-xs opacity-60">Redis board 5m / tasks 2m</p><span class="badge badge-success badge-xs mt-2">[project] FB-3</span></div>
+      <div class="card bg-base-100 rounded-2xl shadow border p-5"><h3 class="font-semibold">SignalR :5004</h3><p class="text-xs opacity-60">BoardHub realtime</p><span class="badge badge-ghost badge-xs mt-2">10.0 / JS 8.0.7</span></div>
+      <div class="card bg-base-100 rounded-2xl shadow border p-5"><h3 class="font-semibold">User</h3><p class="text-xs opacity-60 truncate">{{ auth.currentUser()?.email }} • {{ auth.memberships().length }} memberships</p></div>
+    </div>
+  </div>
+</div>

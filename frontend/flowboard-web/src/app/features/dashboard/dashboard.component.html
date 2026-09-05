@@ -1,6 +1,4 @@
-<app-header />
-
-<main class="min-h-[calc(100vh-3.5rem)] bg-base-200">
+<div class="bg-base-200">
   <div class="mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-5 sm:py-5 lg:px-7 lg:py-6">
 
     <section class="rounded-2xl border border-base-300 bg-base-100 shadow-sm">
@@ -99,8 +97,8 @@
           </p>
 
           <div class="mt-4 flex gap-2">
-            <button type="button" class="btn btn-primary btn-sm rounded-lg px-4">Create workspace</button>
-            <button type="button" class="btn btn-ghost btn-sm rounded-lg">Invite</button>
+            <a [routerLink]="['/w', workspaceId()]" class="btn btn-primary btn-sm rounded-lg px-4">Create workspace</a>
+            <a [routerLink]="['/w', workspaceId()]" class="btn btn-ghost btn-sm rounded-lg">Invite</a>
           </div>
         </article>
 
@@ -124,7 +122,7 @@
           </p>
 
           <div class="mt-4">
-            <button type="button" class="btn btn-secondary btn-sm rounded-lg px-4">View projects</button>
+            <a [routerLink]="['/w', workspaceId()]" class="btn btn-secondary btn-sm rounded-lg px-4">View projects</a>
           </div>
         </article>
 
@@ -211,4 +209,4 @@
       <span class="badge badge-ghost badge-sm">Cloud Native</span>
     </div>
   </div>
-</main>
+</div>

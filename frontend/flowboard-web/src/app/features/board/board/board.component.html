@@ -1,0 +1,75 @@
+<div class="bg-base-200 min-h-full">
+  <div class="max-w-[1600px] mx-auto p-3 sm:p-4 md:p-6">
+    <!-- Breadcrumb -->
+    <div class="flex flex-wrap items-center gap-2 text-sm mb-4">
+      <a [routerLink]="['/w', workspaceId()]" class="link link-hover opacity-60">← Workspace</a>
+      <span class="opacity-30">/</span>
+      <span class="font-semibold">{{ boardQuery.data()?.project?.name || 'Board' }}</span>
+      <span class="badge badge-primary badge-sm rounded-full">{{ boardQuery.data()?.project?.key }}</span>
+      @if (roleLabel()) { <span class="badge badge-ghost badge-xs">{{ roleLabel() }}</span> }
+      @if (!canCreateTask()) { <span class="badge badge-ghost badge-xs">View only</span> }
+      @if (boardQuery.isPending()) { <span class="loading loading-spinner loading-xs"></span> }
+    </div>
+
+    @if (boardQuery.isError()) {
+      <div class="alert alert-error rounded-xl">Failed to load board - check Project :5002 + JWT</div>
+    } @else if (boardQuery.data()) {
+      <!-- Kanban: horizontal scroll on mobile, grid on desktop -->
+      <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory lg:grid lg:grid-cols-3 lg:overflow-visible">
+        @for (list of boardQuery.data()!.lists; track list.id) {
+          <div class="min-w-[300px] sm:min-w-[340px] lg:min-w-0 snap-center bg-base-100 rounded-2xl shadow border border-base-200 flex flex-col max-h-[70vh] lg:max-h-none">
+            <div class="p-4 border-b border-base-200 flex justify-between items-center sticky top-0 bg-base-100 rounded-t-2xl">
+              <h2 class="font-bold">{{ list.name }}</h2>
+              <span class="badge badge-ghost badge-sm rounded-full">{{ tasksForList(list.id).length }}</span>
+            </div>
+
+            <div class="p-3 space-y-3 overflow-y-auto flex-1">
+              @for (task of tasksForList(list.id); track task.id) {
+                <app-task-card [title]="task.title" [priority]="task.priority" [labelsJson]="task.labelsJson" [assigneeId]="task.assigneeId ?? ''" />
+              }
+              @if (tasksForList(list.id).length === 0) {
+                <div class="text-center py-8 opacity-30 text-sm">No tasks</div>
+              }
+            </div>
+
+            <!-- Add task (optimistic) - hidden for Client/Viewer -->
+            @if (canCreateTask()) {
+              <div class="p-3 border-t border-base-200">
+                <div class="flex gap-2">
+                  <input type="text" placeholder="Add task..." [value]="newTitle()" (input)="newTitle.set($any($event.target).value)" (keydown.enter)="createTask(list.id)" class="input input-bordered input-sm flex-1 rounded-xl" />
+                  <button class="btn btn-primary btn-sm rounded-xl" (click)="createTask(list.id)" [class.loading]="createMutation.isPending() && selectedListId()===list.id">+</button>
+                </div>
+              </div>
+            } @else {
+              <div class="p-3 border-t border-base-200 text-xs opacity-40 text-center">View only — Client/Viewer cannot create tasks</div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- List-view alternative: DaisyUI table desktop -> cards mobile (Task 2.4 spec) -->
+      <div class="mt-8">
+        <h3 class="font-bold mb-3">List View (DaisyUI table on desktop → cards on mobile)</h3>
+        <!-- Desktop table -->
+        <div class="hidden md:block overflow-x-auto bg-base-100 rounded-2xl shadow border border-base-200">
+          <table class="table table-sm">
+            <thead><tr><th>Title</th><th>List</th><th>Priority</th><th>Pos</th></tr></thead>
+            <tbody>
+              @for (task of boardQuery.data()!.tasks; track task.id) {
+                <tr><td class="font-medium">{{ task.title }}</td><td><span class="badge badge-ghost badge-xs">{{ task.listId.slice(0,4) }}</span></td><td><span class="badge badge-xs" [ngClass]="task.priority==='High'?'badge-warning': task.priority==='Urgent'?'badge-error':'badge-info'">{{ task.priority }}</span></td><td>{{ task.position }}</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <!-- Mobile cards -->
+        <div class="md:hidden space-y-2">
+          @for (task of boardQuery.data()!.tasks; track task.id) {
+            <app-task-card [title]="task.title" [priority]="task.priority" [labelsJson]="task.labelsJson" />
+          }
+        </div>
+      </div>
+    }
+
+    <div class="mt-4 text-xs opacity-40 text-center">TanStack board 2m (Upstash 5m) • Signals selectedProject • Responsive: snap scroll mobile → grid desktop</div>
+  </div>
+</div>

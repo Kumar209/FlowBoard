@@ -1,16 +1,21 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { HeaderComponent } from '../../../shared/components/header/header.component';
 
+/**
+ * RegisterComponent - MNC-grade: OnPush + signals + ReactiveForms typed + always-enabled button + input-error below.
+ * Boilerplate (hasError with touched||dirty||submitted, markAllAsTouched on submit) is intentional for production UX (a11y, not disabled).
+ */
 @Component({
   selector: 'app-register',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, HeaderComponent],
   templateUrl: './register.component.html',
-  styleUrls: ['./register.component.css']
+  styleUrls: ['./register.component.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RegisterComponent {
   form: any;
@@ -64,7 +69,10 @@ export class RegisterComponent {
           },
           res.accessToken
         );
-
+        this.auth.me().subscribe({
+          next: me => this.auth.hydrateFromMe(me as any),
+          error: () => {}
+        });
         this.success.set(true);
         this.loading.set(false);
 

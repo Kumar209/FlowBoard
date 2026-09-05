@@ -1,0 +1,72 @@
+<div class="bg-base-200 min-h-full">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+    <!-- Breadcrumb + actions -->
+    <div class="flex flex-col sm:flex-row justify-between gap-3 mb-6">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Workspace</h1>
+        <p class="text-xs sm:text-sm opacity-60 font-mono mt-1">{{ workspaceId() }} • <span class="badge badge-ghost badge-xs">{{ roleLabel() }}</span></p>
+        <p class="text-xs opacity-40 mt-1">
+          @if (canCreateProject()) { <span class="badge badge-success badge-xs">Can create projects</span> }
+          @else { <span class="badge badge-ghost badge-xs">View only — PM/OrgAdmin can create</span> }
+        </p>
+      </div>
+      @if (canCreateProject()) {
+        <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md self-start sm:self-auto" (click)="showCreate.set(!showCreate())">
+          + New Project
+        </button>
+      } @else {
+        <span class="badge badge-ghost badge-sm self-start sm:self-auto">View only</span>
+      }
+    </div>
+
+    @if (showCreate()) {
+      <div class="card bg-base-100 shadow border border-base-200 rounded-2xl p-4 mb-6 max-w-md">
+        <div class="flex gap-2">
+          <input type="text" placeholder="Project name (e.g., FlowBoard Demo)" [value]="newName()" (input)="newName.set($any($event.target).value)" class="input input-bordered flex-1 rounded-xl" />
+          <button class="btn btn-primary rounded-xl" (click)="create()" [class.loading]="createMutation.isPending()">Create</button>
+        </div>
+        @if (createError()) { <div class="text-error text-xs mt-2">● {{ createError() }}</div> }
+        <p class="text-xs opacity-40 mt-2">Key auto-generated like FB-3 • workspaceId from route :wid</p>
+      </div>
+    }
+
+    <!-- Loading / Error -->
+    @if (projectsQuery.isPending()) {
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        @for (i of [1,2,3,4,5,6]; track i) { <div class="card bg-base-100 shadow border p-6 animate-pulse"><div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div><div class="h-3 bg-base-200 rounded w-1/2"></div></div> }
+      </div>
+    } @else if (projectsQuery.isError()) {
+      <div class="alert alert-error rounded-xl">Failed to load projects - check Gateway :5000 + Project :5002 + JWT</div>
+    } @else {
+      <!-- Projects grid: 1 col mobile, 2 tablet, 3 desktop -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        @for (project of projectsQuery.data()?.items || []; track project.id) {
+          <div class="card bg-base-100 rounded-2xl shadow border border-base-200 hover:shadow-xl hover:-translate-y-1 transition-all group">
+            <div class="card-body p-5 sm:p-6">
+              <div class="flex justify-between items-start gap-2">
+                <span class="badge badge-primary badge-sm rounded-full">{{ project.key }}</span>
+                <span class="badge badge-ghost badge-xs">{{ project.createdAt | date:'shortDate' }}</span>
+              </div>
+              <h2 class="card-title text-lg mt-2 line-clamp-1">{{ project.name }}</h2>
+              <p class="text-sm opacity-60 line-clamp-2">{{ project.description || 'No description' }}</p>
+              <div class="card-actions justify-between items-center mt-4">
+                <span class="text-xs opacity-40 font-mono">{{ project.id.slice(0,8) }}</span>
+                <a [routerLink]="['/w', workspaceId(), 'p', project.id, 'board']" class="btn btn-primary btn-sm rounded-full px-4 group-hover:shadow-md">Open Board →</a>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
+      @if ((projectsQuery.data()?.items?.length || 0) === 0) {
+        <div class="text-center py-16 bg-base-100 rounded-2xl border border-dashed mt-6">
+          <div class="text-4xl mb-2">▦</div>
+          <p class="font-semibold">No projects yet</p>
+          <p class="text-sm opacity-60">Seeded FlowBoard Demo should appear here (Task 2.1) or create one above (PM/OrgAdmin only)</p>
+          <div class="mt-2 text-xs opacity-40">Total: {{ projectsQuery.data()?.total }} • page {{ projectsQuery.data()?.page }}</div>
+        </div>
+      }
+      <div class="mt-4 text-xs opacity-40 text-center sm:text-left">Total {{ projectsQuery.data()?.total }} • TanStack staleTime 2m (Upstash 5m) • Responsive grid</div>
+    }
+  </div>
+</div>

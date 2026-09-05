@@ -1,0 +1,48 @@
+<div class="bg-base-200 min-h-full">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+    <div class="flex flex-col sm:flex-row justify-between gap-3 mb-6">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Workspaces</h1>
+        <p class="text-sm opacity-60 mt-1">All teams you belong to — filtered to your assigned workspaces (Manager sees allotted only).</p>
+        @if (!canCreateWorkspace()) { <span class="badge badge-ghost badge-xs mt-1">View only — OrgAdmin can create workspaces</span> }
+      </div>
+      <span class="badge badge-ghost badge-sm self-start sm:self-auto">Total {{ workspacesQuery.data()?.length || 0 }}</span>
+    </div>
+
+    @if (workspacesQuery.isPending()) {
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        @for (i of [1,2,3,4,5,6]; track i) { <div class="card bg-base-100 border p-6 animate-pulse"><div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div><div class="h-3 bg-base-200 rounded w-1/2"></div></div> }
+      </div>
+    } @else if (workspacesQuery.isError()) {
+      <div class="alert alert-error rounded-xl">Failed to load workspaces - check Identity :5001 + JWT</div>
+    } @else {
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        @for (ws of workspacesQuery.data() || []; track ws.id) {
+          <div class="card bg-base-100 rounded-2xl shadow border border-base-200 hover:shadow-xl hover:-translate-y-1 transition-all group">
+            <div class="card-body p-5 sm:p-6">
+              <div class="flex justify-between items-start gap-2">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-primary flex items-center justify-center text-white font-bold text-sm">{{ ws.name.charAt(0) }}</div>
+                <span class="badge badge-ghost badge-xs font-mono">{{ ws.id.slice(0,8) }}</span>
+              </div>
+              <h2 class="card-title text-lg mt-3 line-clamp-1">{{ ws.name }}</h2>
+              <p class="text-sm opacity-60 font-mono text-xs">{{ ws.slug }}</p>
+              <div class="flex gap-2 mt-2">
+                <span class="badge badge-primary badge-sm rounded-full">Role {{ ws.role }}</span>
+                <span class="badge badge-ghost badge-sm">Org {{ ws.organizationId.slice(0,4) }}</span>
+              </div>
+              <div class="card-actions justify-end mt-4">
+                <a [routerLink]="['/w', ws.id]" class="btn btn-primary btn-sm rounded-full px-4 group-hover:shadow-md">Open →</a>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+      @if ((workspacesQuery.data()?.length || 0) === 0) {
+        <div class="text-center py-16 bg-base-100 rounded-2xl border border-dashed mt-6">
+          <p class="font-semibold">No workspaces yet</p>
+          <p class="text-sm opacity-60">Your personal workspace will appear here after register (OrgAdmin). Create more via Organization.</p>
+        </div>
+      }
+    }
+  </div>
+</div>

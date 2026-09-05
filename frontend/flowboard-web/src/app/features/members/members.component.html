@@ -1,0 +1,21 @@
+<div class="bg-base-200 min-h-full">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Members</h1>
+    <p class="text-sm opacity-60 mt-1">Directory — filtered to your assigned workspaces. Invite only for OrgAdmin.</p>
+    @if (!auth.canCreateWorkspace()) { <span class="badge badge-ghost badge-xs mt-2">View only — OrgAdmin can invite</span> }
+    <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      @for (ws of workspacesQuery.data() || []; track ws.id) {
+        <div class="card bg-base-100 rounded-2xl shadow border border-base-200 p-5">
+          <h3 class="font-semibold">{{ ws.name }}</h3>
+          <p class="text-xs opacity-60 font-mono">{{ ws.slug }}</p>
+          <span class="badge badge-primary badge-xs mt-2">Role {{ ws.role }}</span>
+          <p class="text-xs opacity-40 mt-2">Members via GET /api/workspaces/{{ ws.id.slice(0,4) }}/members (Task 1.5 invite flow, Brevo)</p>
+        </div>
+      }
+    </div>
+    @if ((workspacesQuery.data()?.length || 0)===0 && !workspacesQuery.isPending()) {
+      <div class="text-center py-12 opacity-40 text-sm">No workspaces — assign via OrgAdmin invite</div>
+    }
+    <p class="text-xs opacity-40 mt-4">{{ hint() }}</p>
+  </div>
+</div>

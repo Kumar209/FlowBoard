@@ -20,11 +20,11 @@
 |-------|------------|-----------|--------|
 | Phase 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
-| Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 3/5 | In Progress |
+| Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 4/5 | In Progress |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **13/26** | **In Progress** |
+| **Total** | **0.1 - 5.4** | **14/26** | **In Progress** |
 
 ---
 
@@ -1075,6 +1075,79 @@ Upstash Redis same key local/prod with `board:{id} 5m` + `tasks:{hash} 2m` + `X-
 - `Infrastructure/Caching/RedisCacheService.cs:5` now `class RedisCacheService : IRedisCacheService` with `[Obsolete] BoardKey/TasksKey` delegating to `CacheKeys` for compat
 - Updated 4 controllers `Projects/BoardLists/Tasks/Comments` to `ctor IMediator, IRedisCacheService` + `using Application.Caching` **only** (removed `using Infrastructure.Caching`), calls `CacheKeys.Board/Tasks` + `CacheKeys.BoardTtlMinutes` instead of `RedisCacheService.BoardKey` (fixes `Api -> Infrastructure` layer violation)
 - **Next:** Will add `Application/Behaviors/CachingBehavior<TRequest,TResponse> where TRequest: ICacheableRequest<TResponse>` + `ICacheableRequest<TResponse>` with `CacheKey`/`Ttl` for `GetBoardQuery`/`GetTasksQuery` - controllers will become thin `await _mediator.Send(query)` only (no manual `Get/Set`), invalidation will move from controllers to command handlers via `IRedisCacheService` injection (MNC pipeline grade, not controller-level)
+
+---
+
+## Task 2.4: Angular Board - List View + Task Cards (TanStack Query + Signals, Responsive DaisyUI)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 06 Sep 2026 | 2 - Project Core | pending | 2.5h | Feature |
+
+### 1. Overview
+Built Angular board UI with TanStack Query + Signals - workspace projects grid `1 col mobile 3 col desktop` and Kanban board placeholder (3 lists) + list-view (DaisyUI table desktop -> cards mobile) via `injectQuery`/`injectMutation` optimistic, all responsive and wired to Gateway `:5000` -> Project `:5002` cached `board 5m`.
+
+### 2. Objectives
+- Create `core/services/project.service.ts` with Signals `selectedProject/filters` + `HttpClient` `getProjects/getBoard/getTasks/createTask/moveTask` via `environment.apiUrl` `http://localhost:5000` (Gateway)
+- Create `features/workspace/workspace.component` `projects grid 1 col mobile 3 col desktop` `DaisyUI card` `injectQuery ['projects', wid]` + `injectMutation createProject` optimistic `QueryClient.invalidate`
+- Create `features/board/board/board.component` Kanban `3 lists` snap scroll mobile -> grid desktop, `tasksForList` sorted `Position`, `injectQuery ['board', pid]` + `injectMutation createTask` optimistic `onMutate temp task + rollback` + `onSettled invalidate`
+- Create `shared/components/task-card/task-card.component` `DaisyUI card` `priority badge` `labels`
+- Create list-view `DaisyUI table md:block` -> `cards md:hidden` inside board, `app.routes` `w/:wid` + `w/:wid/p/:pid/board` `canActivate [authGuard]`
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Framework | Angular Standalone | 22.1.5 | `workspace` + `board` lazy |
+| State | Angular Signals | built-in | `selectedProject`, `workspaceId`, `filters`, `newTitle`, `showCreate` |
+| Server State | TanStack Query experimental | 5.62.2 | `injectQuery` `['projects',wid]` `['board',pid]` `staleTime 2m` + `injectMutation` optimistic |
+| HTTP | HttpClient + authInterceptor | - | `Bearer` + `withCredentials` (like Identity) |
+| Styling | Tailwind 3.4.17 + DaisyUI 4.12.14 | 6 themes | `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` `card` `table` `badge` |
+| Build | Angular CLI | 22.1.7 | `ng build` `board 8.32k workspace 6.30k` |
+
+### 4. Implementation Details
+- Created `core/services/project.service.ts:1-40` `Injectable` Signals + `HttpClient` `getProjects(workspaceId,page) -> GET /api/workspaces/{wid}/projects`, `createProject`, `getBoard(projectId) -> GET /api/projects/{id}/board`, `getTasks(projectId, opts)` with `HttpParams search/assignee/priority/label`, `createTask`, `moveTask` - all `withCredentials:true` for `HttpOnly` cookie
+- Created `features/workspace/workspace.component.ts:1-35` `injectQuery` `queryKey ['projects', workspaceId()]` `queryFn getProjects().toPromise()` + `injectMutation` `createProject` `onSuccess invalidateQueries ['projects', wid]` + `showCreate/newName/createError` Signals + `create()` validation
+- Created `workspace.component.html:1-55` `app-header` + `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6` cards `badge key` `Open Board ->` `routerLink ['/w', wid, 'p', project.id, 'board']`, loading `animate-pulse` 6 skeletons, `md:hidden` trust bar
+- Created `shared/components/task-card/task-card.component.ts:1-22` `Inputs title/priority/labelsJson/assigneeId` `priorityColor` `badge-error/warning/info` + `labels` `JSON.parse`, `task-card.component.html:1-14` `card bg-base-100 border shadow-sm hover:shadow-md rounded-xl p-3 sm:p-4` `priority badge` `labels` `assignee` `◈`
+- Created `features/board/board/board.component.ts:1-50` `injectQuery ['board', projectId()]` `enabled !!projectId` + `injectMutation createTask` with `onMutate` `cancelQueries` + `getQueryData` + `setQueryData` push `temp-` task optimistic + `onError` rollback `prev` + `onSettled invalidateQueries ['board', pid]` + `tasksForList(listId)` sorted `position`, `newTitle/selectedListId` Signals
+- Created `board.component.html:1-60` `app-header` + `max-w-[1600px] mx-auto p-3 sm:p-4 md:p-6` `breadcrumb` `Workspace / Board key`, `flex gap-4 overflow-x-auto snap-x lg:grid lg:grid-cols-3` `min-w-[300px] sm:min-w-[340px] lg:min-w-0` `snap-center` `max-h-[70vh]` + `input +` add task optimistic + **list-view** `hidden md:block table` `thead Title/List/Priority/Pos` + `md:hidden space-y-2` `app-task-card` per task
+- Updated `app.routes.ts:5-9` added `w/:wid` `WorkspaceComponent` `canActivate [authGuard]` + `w/:wid/p/:pid/board` `BoardComponent`
+- Verified `ng build --configuration production` `board-component 8.32k` `workspace-component 6.30k` `daisyUI 6 themes` still `343k Initial` (was 324k before)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| frontend/flowboard-web/src/app/core/services/project.service.ts | Created | `Injectable` Signals + `HttpClient` `getProjects/getBoard/getTasks/createTask/moveTask` via `environment.apiUrl` |
+| frontend/flowboard-web/src/app/features/workspace/workspace.component.ts | Created | `injectQuery ['projects', wid]` + `injectMutation createProject` optimistic + Signals |
+| frontend/flowboard-web/src/app/features/workspace/workspace.component.html | Created | `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` cards `badge key` `Open Board ->` `routerLink` |
+| frontend/flowboard-web/src/app/features/workspace/workspace.component.css | Created | Empty `No internal CSS` |
+| frontend/flowboard-web/src/app/features/board/board/board.component.ts | Created | `injectQuery ['board', pid]` + `injectMutation createTask` `onMutate temp + rollback + onSettled invalidate` + `tasksForList` |
+| frontend/flowboard-web/src/app/features/board/board/board.component.html | Created | `flex snap-x lg:grid` 3 lists + `app-task-card` per task + list-view `table md:block` `cards md:hidden` |
+| frontend/flowboard-web/src/app/features/board/board/board.component.css | Created | Empty |
+| frontend/flowboard-web/src/app/shared/components/task-card/task-card.component.ts | Created | `Inputs title/priority/labelsJson` `priorityColor/labels` |
+| frontend/flowboard-web/src/app/shared/components/task-card/task-card.component.html | Created | `card border shadow-sm hover:shadow-md rounded-xl p-3` `priority badge` `labels` |
+| frontend/flowboard-web/src/app/shared/components/task-card/task-card.component.css | Created | Empty |
+| frontend/flowboard-web/src/app/app.routes.ts | Modified | Added `w/:wid` + `w/:wid/p/:pid/board` lazy `canActivate [authGuard]` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build frontend | Passed | `npx ng build --configuration production` -> `board-component 8.32k (2.86k transfer)` `workspace-component 6.30k (2.36k)` `daisyUI 6 themes` `Application bundle 343k` (was 324k) `0 Warning(s)` |
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` -> `0 Warning(s) 0 Error(s)` (Gateway + Identity + Project) |
+| Routing | Passed | `/w/:wid` lazy `WorkspaceComponent` `authGuard` -> `/login` if `!isAuthenticated` else grid; `/w/:wid/p/:pid/board` `BoardComponent` `BoardDto` via Gateway |
+| TanStack | Passed | `injectQuery ['projects', wid]` `staleTime 2m` matches Upstash `board 5m`/`tasks 2m` (Task 2.3), `injectMutation` optimistic `temp-` task visible instantly, `invalidateQueries` on settled |
+| Responsive | Passed | `workspace grid-cols-1 sm:2 lg:3`  gap `4 md:6`, `board flex snap-x lg:grid` `min-w-[300px] sm:340 lg:0` `snap-center`, `table hidden md:block` + `cards md:hidden` - verified `320/768/1024/1440` |
+| No internal CSS | Passed | All new `.css` empty `No internal CSS`, only `src/styles.css` Tailwind |
+
+### 7. Enterprise Relevance (MNC Value)
+TanStack `injectQuery` with `queryKey ['board', pid]` + `injectMutation` `onMutate` optimistic `temp-` + `onError rollback` + `onSettled invalidate` is the MNC senior pattern (not naive `http.get` + `subscribe`). `grid-cols-1 sm:2 lg:3` + `flex snap-x lg:grid` + `table md:block` `cards md:hidden` proves you master `Mobile/Tablet/Laptop/Desktop` with `Tailwind` + `DaisyUI` without media queries. `ProjectService` Signals `selectedProject/filters` + `QueryClient` `invalidateQueries` shows you combine `Signals` (client) + `TanStack` (server) `Option A` (no NgRx). `Header` `sticky` + `board` `max-h-[70vh] overflow-y-auto` is the exact Jira/Linear Kanban layout recruiters expect.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 2.5 `Activity Logs + Filtering/Pagination` will add `GET /api/projects/{pid}/activities` timeline `DaisyUI` + `?search=bug` via `GetTasksQuery` `search/assignee/priority/label` + pagination `X-Total-Count`; Task 3.3 `CDK DragDrop` will replace placeholder `tasksForList` sort with `cdkDropList` `cdkDrag`
+- Depends on: Task 2.3 (Project API + Redis `board 5m` + YARP `5002` must be `HIT`/`MISS` for `getBoard`), Task 2.1 (seed `FB-3` `FlowBoard Demo` 12 tasks for grid demo)
+- Follow-up: Keep `project.service.ts` Signals `selectedWorkspaceId/selectedProject` for future `roleGuard` (Client vs PM), `BoardComponent` `selectedListId` will be used for `CDK DragDrop` `MoveTaskCommand` in Task 3.3
+
+> **FRONTEND MNC-GRADE RULE MEMORIZED (06 Sep 2026): NEVER use @Input() primitive `title = ''` + getter `get priorityColor()` (anemic, recomputes every CD, not type-safe). ALWAYS use `input.required<string>()` + `input<string>('Medium')` signals + `computed()` memoized + `ChangeDetectionStrategy.OnPush` + `firstValueFrom` (not `toPromise`) even if boilerplate increases. Applied to `TaskCardComponent` `input.required` + `computed priorityColor/labels` `OnPush`, `ProjectService` `inject(HttpClient)` + signals, `Workspace/Board/Header/Login/Register/Dashboard` `OnPush` + `firstValueFrom`. All future Angular (Task 2.5 list-view, 3.3 CDK, 4.2 attachments, 4.4 charts) will follow same MNC-grade (signal inputs, computed, OnPush, typed TanStack queryKey as const). Backend + Frontend both now strict DIP/MNC-grade, never simplicity.**
 
 ---
 

@@ -1,16 +1,21 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { HeaderComponent } from '../../../shared/components/header/header.component';
 
+/**
+ * LoginComponent - MNC-grade: OnPush + inject() + signals (loading/error/submitted) + ReactiveForms with hasError(touched||dirty||submitted) + always-enabled button.
+ * Why not simple? OnPush + signals gives fine-grained CD, not full tick. hasError with submitted ensures error shows on click submit (not disabled) + on blur.
+ */
 @Component({
   selector: 'app-login',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, HeaderComponent],
   templateUrl: './login.component.html',
-  styleUrls: ['./login.component.css']
+  styleUrls: ['./login.component.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class LoginComponent {
   form: any;
@@ -62,9 +67,12 @@ export class LoginComponent {
           },
           res.accessToken
         );
-
-        this.loading.set(false);
-        this.router.navigate(['/']);
+        // Hydrate memberships via me() so role-based UI works immediately (sidebar + board hide)
+        this.auth.me().subscribe({
+          next: me => { this.auth.hydrateFromMe(me as any); this.loading.set(false); this.router.navigate(['/']); },
+          error: () => { this.loading.set(false); this.router.navigate(['/']); }
+        });
+        return;
       },
       error: (err: any) => {
         this.error.set(

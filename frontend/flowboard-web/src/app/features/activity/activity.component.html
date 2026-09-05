@@ -1,0 +1,19 @@
+<div class="bg-base-200 min-h-full">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Activity</h1>
+    <p class="text-sm opacity-60 mt-1">Audit trail — filtered by your role (Manager: workspace, Client: own project).</p>
+    <div class="mt-6 card bg-base-100 rounded-2xl shadow border border-base-200 p-6 sm:p-8">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="badge badge-primary badge-sm">Timeline</span>
+        @if (auth.isViewer()) { <span class="badge badge-ghost badge-xs">View only</span> }
+        @if (auth.isClient()) { <span class="badge badge-ghost badge-xs">Client — own project</span> }
+      </div>
+      <ul class="timeline timeline-vertical">
+        <li><div class="timeline-start">Task Created</div><div class="timeline-middle">◎</div><div class="timeline-end timeline-box text-sm opacity-60">FB-3 — Setup CI/CD — by you (placeholder, Task 2.5 will populate)</div></li>
+        <li><div class="timeline-start">Task Moved</div><div class="timeline-middle">◎</div><div class="timeline-end timeline-box text-sm opacity-60">To Do → In Progress</div></li>
+        <li><div class="timeline-start">Comment</div><div class="timeline-middle">◎</div><div class="timeline-end timeline-box text-sm opacity-60">Client can comment — Viewer cannot</div></li>
+      </ul>
+      <p class="text-xs opacity-40 mt-4">{{ hint() }}</p>
+    </div>
+  </div>
+</div>
