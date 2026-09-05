@@ -3,11 +3,15 @@
     <!-- Breadcrumb + actions -->
     <div class="flex flex-col sm:flex-row justify-between gap-3 mb-6">
       <div>
-        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Workspace</h1>
-        <p class="text-xs sm:text-sm opacity-60 font-mono mt-1">{{ workspaceId() }} • <span class="badge badge-ghost badge-xs">{{ roleLabel() }}</span></p>
-        <p class="text-xs opacity-40 mt-1">
-          @if (canCreateProject()) { <span class="badge badge-success badge-xs">Can create projects</span> }
-          @else { <span class="badge badge-ghost badge-xs">View only — PM/OrgAdmin can create</span> }
+        <div class="flex items-center gap-2 text-xs opacity-60 mb-1">
+          <a routerLink="/w" class="link link-hover">Workspaces</a>
+          <span>›</span>
+          <span class="font-semibold text-base-content">{{ workspaceName() }}</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">{{ workspaceName() }} <span class="text-base font-normal opacity-60">Projects</span></h1>
+        <p class="text-xs sm:text-sm opacity-60 mt-1"><span class="badge badge-ghost badge-xs">{{ roleLabel() }}</span>
+          @if (canCreateProject()) { <span class="badge badge-success badge-xs ml-1">Can create projects</span> }
+          @else { <span class="badge badge-ghost badge-xs ml-1">View only — PM/OrgAdmin can create</span> }
         </p>
       </div>
       @if (canCreateProject()) {

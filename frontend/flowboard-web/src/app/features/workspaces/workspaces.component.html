@@ -46,7 +46,7 @@
               <h2 class="card-title text-lg mt-3 line-clamp-1">{{ ws.name }}</h2>
               <p class="text-sm opacity-60 font-mono text-xs">{{ ws.slug }}</p>
               <div class="flex gap-2 mt-2">
-                <span class="badge badge-primary badge-sm rounded-full">Role {{ ws.role }}</span>
+                <span class="badge badge-primary badge-sm rounded-full">{{ ws.role === 0 ? 'Member' : ws.role === 1 ? 'ProjectManager' : ws.role === 2 ? 'OrgAdmin' : ws.role === 3 ? 'Client' : ws.role === 4 ? 'Viewer' : ws.role === 5 ? 'SuperAdmin' : ws.role }}</span>
                 <span class="badge badge-ghost badge-sm">Org {{ ws.organizationId.slice(0,4) }}</span>
               </div>
               <div class="card-actions justify-end mt-4">

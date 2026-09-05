@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../core/services/project.service';
 import { AuthService } from '../../core/services/auth.service';
+import { WorkspaceService } from '../../core/services/workspace.service';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**
@@ -22,12 +23,23 @@ export class WorkspaceComponent {
   private route = inject(ActivatedRoute);
   projectService = inject(ProjectService);
   auth = inject(AuthService);
+  private workspaceService = inject(WorkspaceService);
   private queryClient = inject(QueryClient);
 
   workspaceId = signal<string>(this.route.snapshot.paramMap.get('wid') || '11111111-1111-1111-1111-111111111111');
   showCreate = signal(false);
   newName = signal('');
   createError = signal<string | null>(null);
+
+  // Fetch workspace name for title (Image 3 fix: show Marketing not generic Workspace)
+  workspacesQuery = injectQuery(() => ({
+    queryKey: ['workspaces'] as const,
+    queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspaces()),
+  }));
+  workspaceName = computed(() => {
+    const ws = this.workspacesQuery.data()?.find(w => w.id === this.workspaceId());
+    return ws?.name || 'Workspace';
+  });
 
   canCreateProject = computed(() => {
     const wid = this.workspaceId();
@@ -36,7 +48,13 @@ export class WorkspaceComponent {
   roleLabel = computed(() => {
     const wid = this.workspaceId();
     const m = this.auth.memberships().find(x => x.workspaceId === wid);
-    return m?.roleName ?? (m ? String(m.role) : 'Member');
+    const raw = m?.roleName ?? m?.role;
+    const map: Record<string,string> = { '0':'Member','1':'ProjectManager','2':'OrgAdmin','3':'Client','4':'Viewer','5':'SuperAdmin' };
+    if (raw !== undefined) return map[String(raw)] ?? String(raw);
+    // fallback to workspace role from workspacesQuery (covers direct ws.role number)
+    const ws = this.workspacesQuery.data()?.find(w => w.id === wid);
+    if (ws?.role !== undefined) return map[String(ws.role)] ?? String(ws.role);
+    return 'Member';
   });
 
   projectsQuery = injectQuery(() => ({
