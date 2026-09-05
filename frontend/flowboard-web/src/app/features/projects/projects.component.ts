@@ -29,6 +29,7 @@ export class ProjectsComponent {
   private queryClient = inject(QueryClient);
 
   selectedWorkspaceId = signal<string>('all');
+  wsSearch = signal<string>('');
   canCreateProject = computed(() => this.auth.canCreateProject());
 
   createOpen = signal(false);
@@ -41,6 +42,11 @@ export class ProjectsComponent {
     queryKey: ['workspaces'] as const,
     queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspaces()),
   }));
+  filteredWorkspaces = computed(() => {
+    const s = this.wsSearch().toLowerCase().trim();
+    const ws = this.workspacesQuery.data() || [];
+    return s ? ws.filter(w => w.name.toLowerCase().includes(s)) : ws;
+  });
 
   projectsQuery = injectQuery(() => ({
     queryKey: ['projects-global', this.selectedWorkspaceId()] as const,

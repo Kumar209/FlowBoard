@@ -2,7 +2,9 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Project.Service.Application.Commands;
+using Project.Service.Application.Interfaces;
 using Project.Service.Application.Queries;
 
 namespace Project.Service.Api.Controllers;
@@ -15,13 +17,14 @@ namespace Project.Service.Api.Controllers;
 public class ProjectsController : ControllerBase
 {
     private readonly IMediator _mediator;
-    public ProjectsController(IMediator mediator) => _mediator = mediator;
+    private readonly IApplicationDbContext _db;
+    public ProjectsController(IMediator mediator, IApplicationDbContext db) { _mediator = mediator; _db = db; }
 
     [HttpPost("api/workspaces/{workspaceId}/projects")]
     public async Task<IActionResult> Create(Guid workspaceId, [FromBody] CreateProjectBody body)
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
-        var role = GetRoleForWorkspace(workspaceId);
+        var role = GetRoleForWorkspace(workspaceId) ?? await GetRoleForWorkspaceDbAsync(workspaceId, userId.Value);
         if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
         var allowed = new[] { "OrgAdmin", "ProjectManager", "SuperAdmin" };
         if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/ProjectManager. Your role in this workspace: {role}" });
@@ -61,7 +64,7 @@ public class ProjectsController : ControllerBase
         // Need workspaceId for role check - fetch project first
         var board = await _mediator.Send(new GetBoardQuery(projectId));
         if (board?.Project == null) return NotFound(new { error = "Project not found" });
-        var role = GetRoleForWorkspace(board.Project.WorkspaceId);
+        var role = GetRoleForWorkspace(board.Project.WorkspaceId) ?? await GetRoleForWorkspaceDbAsync(board.Project.WorkspaceId, userId.Value);
         if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
         var allowed = new[] { "OrgAdmin", "ProjectManager", "SuperAdmin" };
         if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/ProjectManager. Your role in this workspace: {role}" });
@@ -77,7 +80,7 @@ public class ProjectsController : ControllerBase
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var board = await _mediator.Send(new GetBoardQuery(projectId));
         if (board?.Project == null) return NotFound(new { error = "Project not found" });
-        var role = GetRoleForWorkspace(board.Project.WorkspaceId);
+        var role = GetRoleForWorkspace(board.Project.WorkspaceId) ?? await GetRoleForWorkspaceDbAsync(board.Project.WorkspaceId, userId.Value);
         if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
         var allowed = new[] { "OrgAdmin", "SuperAdmin" };
         if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/SuperAdmin to delete. Your role: {role}" });
@@ -100,6 +103,18 @@ public class ProjectsController : ControllerBase
         for (int i = 0; i < wids.Count && i < roles.Count; i++)
             if (Guid.TryParse(wids[i], out var g) && g == workspaceId) return roles[i];
         return null;
+    }
+    private async Task<string?> GetRoleForWorkspaceDbAsync(Guid workspaceId, Guid userId)
+    {
+        try
+        {
+            // Fallback to DB when JWT is stale (e.g., just created workspace, token not refreshed yet)
+            // Project and Identity share same physical DB flowboard, different schemas. Query [identity].WorkspaceMembers directly.
+            var roleInt = await _db.Database.SqlQueryRaw<int?>("SELECT Role FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = @p0 AND UserId = @p1", workspaceId, userId).FirstOrDefaultAsync();
+            if (roleInt == null) return null;
+            return roleInt.Value switch { 0 => "Member", 1 => "ProjectManager", 2 => "OrgAdmin", 3 => "Client", 4 => "Viewer", 5 => "SuperAdmin", _ => null };
+        }
+        catch { return null; }
     }
 }
 

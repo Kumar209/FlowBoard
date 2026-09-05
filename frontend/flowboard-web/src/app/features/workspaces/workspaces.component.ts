@@ -57,9 +57,20 @@ export class WorkspacesComponent {
       firstValueFrom(this.workspaceService.createWorkspace(vars.organizationId, vars.name)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      this.queryClient.invalidateQueries({ queryKey: ['organizations'] });
       this.createOpen.set(false);
       this.createError.set(null);
       this.toast.success('Workspace created');
+      // Refresh token + memberships so new workspace_id appears in JWT (Image 2 fix: avoid Forbidden on next project create)
+      this.auth.refresh().subscribe({
+        next: res => {
+          this.auth.accessToken.set(res.accessToken);
+          this.auth.me().subscribe({ next: m => this.auth.hydrateFromMe(m as any), error: () => {} });
+        },
+        error: () => {
+          this.auth.me().subscribe({ next: m => this.auth.hydrateFromMe(m as any), error: () => {} });
+        }
+      });
     },
     onError: (err: any) => { const m = err.error?.error || 'Create failed'; this.createError.set(m); this.toast.error(m); },
   }));

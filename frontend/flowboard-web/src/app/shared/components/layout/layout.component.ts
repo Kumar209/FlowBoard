@@ -23,8 +23,16 @@ export class LayoutComponent implements OnInit {
   sidebarOpen = signal(false);
 
   ngOnInit() {
-    // Hydrate memberships for role checks if authenticated but no memberships yet (e.g., after refresh)
-    if (this.auth.isAuthenticated() && this.auth.memberships().length === 0) {
+    // In-memory fix: no sessionStorage, so after F5 token is null. Try silent refresh via HttpOnly cookie, then me.
+    if (!this.auth.isAuthenticated()) {
+      this.auth.refresh().subscribe({
+        next: res => {
+          this.auth.accessToken.set(res.accessToken);
+          this.auth.me().subscribe({ next: m => this.auth.hydrateFromMe(m as any), error: () => {} });
+        },
+        error: () => {}
+      });
+    } else if (this.auth.memberships().length === 0) {
       this.auth.me().subscribe({
         next: res => this.auth.hydrateFromMe(res as any),
         error: () => {}

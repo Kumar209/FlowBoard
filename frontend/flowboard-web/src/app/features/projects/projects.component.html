@@ -12,16 +12,18 @@
       </div>
     </div>
 
-    <app-project-modal [open]="createOpen()" mode="create" [workspaces]="workspacesQuery.data() || []" [initialWorkspaceId]="selectedWorkspaceId()!=='all'? selectedWorkspaceId() : ''" [error]="createError()" [loading]="createMutation.isPending()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
+    <app-project-modal [open]="createOpen()" mode="create" [workspaces]="filteredWorkspaces().length? filteredWorkspaces() : workspacesQuery.data() || []" [initialWorkspaceId]="selectedWorkspaceId()!=='all'? selectedWorkspaceId() : ''" [error]="createError()" [loading]="createMutation.isPending()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
     <app-project-modal [open]="editOpen()" mode="update" [initialName]="editing()?.name || ''" [initialDescription]="editing()?.description || ''" [loading]="updateMutation.isPending()" (closed)="editOpen.set(false)" (submitted)="onEditSubmit($event)" />
     <app-confirm-delete [open]="deleteOpen()" [title]="'Delete project &quot;'+(editing()?.name||'')+'&quot;?'" message="This will delete the project and its board. Cannot be undone." [loading]="deleteMutation.isPending()" (cancelled)="deleteOpen.set(false)" (confirmed)="onDeleteConfirm()" />
 
     <div class="flex flex-wrap gap-2 mb-6 items-center">
-      <span class="text-xs opacity-40 mr-1">Filter projects by workspace:</span>
-      <button (click)="selectedWorkspaceId.set('all')" [class.btn-primary]="selectedWorkspaceId()==='all'" [class.btn-ghost]="selectedWorkspaceId()!=='all'" class="btn btn-sm rounded-full">All workspaces</button>
-      @for (ws of workspacesQuery.data() || []; track ws.id) {
-        <button (click)="selectedWorkspaceId.set(ws.id)" [class.btn-primary]="selectedWorkspaceId()===ws.id" [class.btn-ghost]="selectedWorkspaceId()!==ws.id" class="btn btn-sm rounded-full">{{ ws.name }}</button>
-      }
+      <span class="text-xs opacity-40 mr-1">Filter by workspace:</span>
+      <select class="select select-bordered select-sm rounded-full max-w-xs" [value]="selectedWorkspaceId()" (change)="selectedWorkspaceId.set($any($event.target).value)">
+        <option value="all">All workspaces ({{ workspacesQuery.data()?.length || 0 }})</option>
+        @for (ws of filteredWorkspaces(); track ws.id) { <option [value]="ws.id">{{ ws.name }}</option> }
+      </select>
+      <input type="text" placeholder="Search workspace..." class="input input-bordered input-sm rounded-full max-w-[180px] hidden sm:block" [value]="wsSearch()" (input)="wsSearch.set($any($event.target).value)" />
+      @if (wsSearch()) { <button class="btn btn-ghost btn-xs rounded-full" (click)="wsSearch.set('')">✕</button> }
     </div>
 
     @if (projectsQuery.isPending()) {

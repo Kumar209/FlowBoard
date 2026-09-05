@@ -62,17 +62,8 @@ export class AuthService {
   canComment = computed(() => !this.isViewer()); // Viewer no comment, Client can comment
 
   constructor(private http: HttpClient) {
-    // Try restore from sessionStorage (optional, refresh via cookie will re-auth)
-    const saved = sessionStorage.getItem('accessToken');
-    if (saved) this.accessToken.set(saved);
-    const savedUser = sessionStorage.getItem('currentUser');
-    if (savedUser) {
-      try { this.currentUser.set(JSON.parse(savedUser)); } catch {}
-    }
-    const savedMemb = sessionStorage.getItem('memberships');
-    if (savedMemb) {
-      try { this.memberships.set(JSON.parse(savedMemb)); } catch {}
-    }
+    // In-memory only — no sessionStorage (Image 1 fix: nothing visible in Application > Session Storage)
+    // Rehydrate via HttpOnly refresh cookie on app init (Layout ngOnInit -> me()/refresh)
   }
 
   register(email: string, password: string, fullName: string) {
@@ -92,10 +83,7 @@ export class AuthService {
   }
 
   hydrateFromMe(res: MeResponse) {
-    if (res.user) {
-      this.currentUser.set(res.user);
-      sessionStorage.setItem('currentUser', JSON.stringify(res.user));
-    }
+    if (res.user) this.currentUser.set(res.user);
     if (res.workspaces) {
       const mapped: Membership[] = res.workspaces.map(w => {
         const raw = (w as any).role;
@@ -108,7 +96,6 @@ export class AuthService {
         return { workspaceId: (w as any).workspaceId ?? (w as any).workspaceID ?? (w as any).id, role: isNaN(roleNum) ? raw : roleNum, roleName };
       });
       this.memberships.set(mapped);
-      sessionStorage.setItem('memberships', JSON.stringify(mapped));
     }
   }
 
@@ -119,20 +106,17 @@ export class AuthService {
   setSession(user: User, token: string, memberships?: Membership[]) {
     this.currentUser.set(user);
     this.accessToken.set(token);
-    sessionStorage.setItem('accessToken', token);
-    sessionStorage.setItem('currentUser', JSON.stringify(user));
-    if (memberships) {
-      this.memberships.set(memberships);
-      sessionStorage.setItem('memberships', JSON.stringify(memberships));
-    }
+    if (memberships) this.memberships.set(memberships);
   }
 
   clearSession() {
     this.currentUser.set(null);
     this.accessToken.set(null);
     this.memberships.set([]);
-    sessionStorage.removeItem('accessToken');
-    sessionStorage.removeItem('currentUser');
-    sessionStorage.removeItem('memberships');
+  }
+
+  // In-memory restore: try HttpOnly refresh -> me
+  restoreFromRefresh() {
+    return this.refresh();
   }
 }

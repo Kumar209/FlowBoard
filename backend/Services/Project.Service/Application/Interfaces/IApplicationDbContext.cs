@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Project.Service.Domain.Entities;
 using ProjectEntity = Project.Service.Domain.Entities.Project;
 
@@ -14,6 +15,8 @@ public interface IApplicationDbContext
     DbSet<Comment> Comments { get; }
     DbSet<ActivityLog> ActivityLogs { get; }
     DbSet<OutboxMessage> OutboxMessages { get; }
+
+    DatabaseFacade Database { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

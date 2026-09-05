@@ -22,7 +22,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         return auth.refresh().pipe(
           switchMap(res => {
             auth.accessToken.set(res.accessToken);
-            sessionStorage.setItem('accessToken', res.accessToken);
             const retry = req.clone({ setHeaders: { Authorization: `Bearer ${res.accessToken}` }, withCredentials: true });
             return next(retry);
           }),

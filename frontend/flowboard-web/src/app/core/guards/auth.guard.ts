@@ -2,11 +2,22 @@ import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
 import { AuthService, WorkspaceRole } from '../services/auth.service';
 
-// Protects routes - requires isAuthenticated (Signals)
-export const authGuard: CanActivateFn = () => {
+// Protects routes - requires isAuthenticated (Signals) with in-memory restore via HttpOnly refresh
+export const authGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
   if (auth.isAuthenticated()) return true;
+  // Try silent refresh via HttpOnly cookie (in-memory fix: no sessionStorage)
+  try {
+    const { firstValueFrom } = await import('rxjs');
+    const res: any = await firstValueFrom(auth.refresh());
+    if (res?.accessToken) {
+      auth.accessToken.set(res.accessToken);
+      const me: any = await firstValueFrom(auth.me());
+      auth.hydrateFromMe(me);
+      return auth.isAuthenticated();
+    }
+  } catch {}
   router.navigate(['/login']);
   return false;
 };
