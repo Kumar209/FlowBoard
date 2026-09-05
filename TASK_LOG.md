@@ -20,11 +20,11 @@
 |-------|------------|-----------|--------|
 | Phase 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
-| Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 1/5 | In Progress |
+| Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 2/5 | In Progress |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **11/26** | **In Progress** |
+| **Total** | **0.1 - 5.4** | **12/26** | **In Progress** |
 
 ---
 
@@ -922,6 +922,83 @@ Same single DB `flowboard` with `[identity]` + `[project]` schemas proves you ma
 - Unlocks: Task 2.2 CQRS MediatR 12.4 handlers `CreateProjectCommand` (PM check `WorkspaceMembers.Role` OrgAdmin/PM), `CreateTaskCommand`, `MoveTaskCommand`, `AddCommentCommand` will use this `ProjectDbContext` + `TaskItem`/`BoardList` domain; Task 2.3 will add Redis cache `board:{projectId}` + pagination
 - Depends on: Task 1.5 (JWT role `ProjectManager` must exist to test PM create), Task 0.4 env `flowboard` DB, Task 1.1 `HasDefaultSchema` pattern reused
 - Follow-up: Keep `ProjectEntity` alias for `Project` type in new files (`ProjectDbContext`, `Seeder`, future handlers) to avoid namespace clash; `Tasks` table `LabelsJson` will store `["bug","frontend"]` for filtering (Task 2.5)
+
+---
+
+## Task 2.2: Project Application - CQRS MediatR 12.4 (PM Can Create Project)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 06 Sep 2026 | 2 - Project Core | pending | 3h | Feature |
+
+### 1. Overview
+Implemented Project CQRS Application layer with 6 Commands + 4 Queries via MediatR 12.4, FluentValidation, and role policy where `ProjectManager` can create projects (not just OrgAdmin) - 10+ handlers, domain events via Outbox, pagination/filtering ready for API.
+
+### 2. Objectives
+- Commands: `CreateProjectCommand` (OrgAdmin/PM), `CreateBoardListCommand`, `CreateTaskCommand`, `MoveTaskCommand`, `AddCommentCommand`, `UpdateTaskCommand`
+- Queries: `GetProjectsQuery`, `GetTasksQuery` (search/assignee/priority/label/dueDate + sort/paginate), `GetBoardQuery` (Lists+Tasks), `GetActivitiesQuery`
+- Validators: FluentValidation for CreateProject (Name 200), CreateTask (Title 300, Priority), MoveTask, etc.
+- Domain events: TaskCreated/TaskMoved/TaskCommented -> OutboxMessages (Task 3.1 MassTransit) + ActivityLogs
+- Policy: CreateProject handler checks `CallerRoles` in [PM, OrgAdmin, SuperAdmin] - Member/Client/Viewer 403 (Task 1.5 verified via stub, now DB-backed)
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| App | MediatR | 12.4.0 | CQRS Commands/Queries/Handlers |
+| Validation | FluentValidation | 11.10.0 | Name/Title/Priority rules |
+| DB | IApplicationDbContext (ProjectDbContext) | - | DIP - handlers mockable `DbSet` |
+| Domain | SharedKernel Result | - | `Result<T>` Success/Failure without exceptions |
+| Event | OutboxMessage + ActivityLog | - | TaskCreated/Moved/Commented transactional |
+| Auth | JWT CallerRoles | - | PM check via `ClaimTypes.Role` from token (like Identity) |
+
+### 4. Implementation Details
+- Added NuGet `MediatR 12.4` + `FluentValidation 11.10` to `Project.Service.csproj` via `dotnet add`
+- Created `Application/DTOs/ProjectDtos.cs:1-11` - `ProjectDto`, `BoardListDto`, `TaskDto`, `CommentDto`, `ActivityDto` (avoid EF serialization)
+- Created `Application/Commands/CreateProjectCommand.cs:1-45` - record `WorkspaceId,Name,Description,CallerId,CallerRoles` + validator `WorkspaceId not empty, Name 200` + handler checks `allowed OrgAdmin/ProjectManager/SuperAdmin` else `403`, generates `Key` prefix `2-3 letters` + `count+1` unique, creates `ProjectEntity`, `SaveChanges`, adds `ActivityLog ProjectCreated`, returns `Result<ProjectDto>`
+- Created `CreateBoardListCommand.cs:1-33` - validates `ProjectId+Name`, handler checks `Project` exists, `maxPos+1`, creates `BoardList`, `ActivityLog ListCreated`
+- Created `CreateTaskCommand.cs:1-50` - validates `Title 300, Priority Low/Medium/High/Urgent`, handler `Client/Viewer 403` else checks `List` in `Project`, parses `Priority`, `maxPos+1`, creates `TaskItem`, adds `OutboxMessage TaskCreated` JSON + `ActivityLog TaskCreated` same txn
+- Created `MoveTaskCommand.cs:1-55` - `TaskId, ToListId, NewPosition`, `Client/Viewer 403`, loads `task`+`targetList`, `MoveToList()`, adds `Outbox TaskMoved` + `ActivityLog TaskMoved`
+- Created `AddCommentCommand.cs:1-40` - `TaskId, Content 5000`, any authenticated including Client, creates `Comment`, `Outbox TaskCommented`, `ActivityLog`
+- Created `UpdateTaskCommand.cs:1-48` - `Title/Priority/Labels/Assignee/Due`, `Client/Viewer 403`, loads `task`, parses `Priority`, `task.Update()`, `ActivityLog TaskUpdated`
+- Created `Application/Queries/GetProjectsQuery.cs:1-25` - `WorkspaceId, Page/PageSize` returns `(Items, Total)` `OrderBy CreatedAt desc` paginated
+- Created `GetTasksQuery.cs:1-45` - `ProjectId, Search (Title/Description contains lower), AssigneeId, Priority, Label (LabelsJson contains), DueFrom/DueTo, SortBy priority/createdAt/position, SortDesc, Page/PageSize` returns paginated `TaskDto`
+- Created `GetBoardQuery.cs:1-30` - `ProjectId` returns `BoardDto(Project, Lists ordered Position, Tasks ordered Position)` cached as `board:{projectId} TTL 5m` in Task 2.3
+- Created `GetActivitiesQuery.cs:1-25` - `ProjectId, Page` returns `ActivityDto` `OrderBy OccurredAt desc` for burndown `Task 4.4`
+- All handlers depend on `IApplicationDbContext` (DIP) + `SharedKernel Result` - mockable with `Mock<IApplicationDbContext>` without SQL Server (like Identity Task 1.2.1)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Project.Service/Project.Service.csproj | Modified | Added `MediatR 12.4.0` + `FluentValidation 11.10.0` |
+| backend/Services/Project.Service/Application/DTOs/ProjectDtos.cs | Created | 5 records `ProjectDto/BoardListDto/TaskDto/CommentDto/ActivityDto` |
+| backend/Services/Project.Service/Application/Commands/CreateProjectCommand.cs | Created | `CreateProjectCommand` + validator + handler PM/OrgAdmin policy + Key generation + Activity |
+| backend/Services/Project.Service/Application/Commands/CreateBoardListCommand.cs | Created | `CreateBoardListCommand` + validator + handler maxPos+1 |
+| backend/Services/Project.Service/Application/Commands/CreateTaskCommand.cs | Created | `CreateTaskCommand` + validator + handler Client/Viewer 403 + Outbox TaskCreated |
+| backend/Services/Project.Service/Application/Commands/MoveTaskCommand.cs | Created | `MoveTaskCommand` + validator + handler Client 403 + Outbox TaskMoved |
+| backend/Services/Project.Service/Application/Commands/AddCommentCommand.cs | Created | `AddCommentCommand` + validator + handler any role + Outbox TaskCommented |
+| backend/Services/Project.Service/Application/Commands/UpdateTaskCommand.cs | Created | `UpdateTaskCommand` + validator + handler Client 403 + Activity |
+| backend/Services/Project.Service/Application/Queries/GetProjectsQuery.cs | Created | `GetProjectsQuery` paginated `OrderBy CreatedAt` |
+| backend/Services/Project.Service/Application/Queries/GetTasksQuery.cs | Created | `GetTasksQuery` filter search/assignee/priority/label/dueDate + sort/paginate |
+| backend/Services/Project.Service/Application/Queries/GetBoardQuery.cs | Created | `GetBoardQuery` -> `BoardDto(Project, Lists, Tasks)` |
+| backend/Services/Project.Service/Application/Queries/GetActivitiesQuery.cs | Created | `GetActivitiesQuery` paginated `OrderBy OccurredAt` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Package restore | Passed | `dotnet add MediatR/FluentValidation` -> `Restored Project.Service.csproj` |
+| Build | Passed | `dotnet build Services/Project.Service.csproj -c Release` -> `0 Warning(s) 0 Error(s)` |
+| Build sln | Passed | `dotnet build FlowBoard.slnx -c Release` -> `0 W` (Gateway + Identity + Project) |
+| Policy | Passed | `CreateProjectHandler: allowed OrgAdmin/ProjectManager/SuperAdmin` else `403` - same as Task 1.5 stub but now DB-backed with `WorkspaceId+Key` unique |
+| Outbox | Passed | `CreateTask/MoveTask/AddComment` add `OutboxMessage` same txn as `SaveChanges` for Task 3.1 poll |
+| Validators | Passed | `CreateProjectValidator` checks `Name 200`, `CreateTaskValidator` `Title 300 + Priority Must` etc. |
+
+### 7. Enterprise Relevance (MNC Value)
+CQRS with `10+` MediatR handlers separates `Commands` (write + policy 403 + Outbox) from `Queries` (read + filter/sort/paginate) - MNC .NET interviewers test this vs fat `IProjectService` anti-pattern. `FluentValidation` `AbstractValidator` proves you validate at application layer before DB (not just controller `ModelState`). `ProjectManager can create` (not only OrgAdmin) shows you understand enterprise multi-manager RBAC - many workspaces have 2-3 PMs. `OutboxMessage` same txn as domain change is the exact resilient microservice pattern MNCs use to prevent lost RabbitMQ events. `GetTasksQuery` with `search/assignee/priority/label/dueDate` + `sortBy` + `Page/PageSize` proves you can build Linear/Jira-grade filtering.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 2.3 Project API + YARP + Upstash Redis `board:{projectId} TTL 5m, tasks:{hash} TTL 2m` will expose these handlers via `ProjectsController` `BoardListsController` `TasksController` `CommentsController` `ActivitiesController` with `AddMediatR` + `AddAuthentication` + pagination + `ProblemDetails`; Task 2.4 Angular Board will call `injectQuery ['board', projectId]` + `injectMutation` optimistic
+- Depends on: Task 2.1 (ProjectDbContext 7 tables + seeder must exist) + Task 1.5 (PM role in JWT)
+- Follow-up: Keep `CallerId/CallerRoles` from `Controller GetUserId()/GetRoles()` passed into commands - do not use `IHttpContextAccessor` in handlers (keeps handlers pure + testable); `GetBoardQuery` will be cached in Task 2.3 and invalidated on `MoveTask`
 
 ---
 
