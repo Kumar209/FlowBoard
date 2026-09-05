@@ -8,9 +8,21 @@
         @if (!isUpdate()) {
           <label class="form-control">
             <span class="label-text text-xs">Workspace</span>
-            <select class="select select-bordered rounded-xl" [value]="workspaceId()" (change)="workspaceId.set($any($event.target).value)">
-              @for (ws of workspaces(); track ws.id) { <option [value]="ws.id">{{ ws.name }}</option> }
-            </select>
+            <div class="dropdown w-full" [class.dropdown-open]="dropdownOpen()">
+              <div tabindex="0" role="button" class="input input-bordered rounded-xl flex items-center justify-between cursor-pointer" (click)="dropdownOpen.set(!dropdownOpen())">
+                <span>{{ selectedWorkspaceName() }}</span>
+                <span>▼</span>
+              </div>
+              @if (dropdownOpen()) {
+                <div class="dropdown-content menu bg-base-100 rounded-xl z-20 w-full p-2 shadow border mt-1">
+                  <input type="text" placeholder="Search workspace..." class="input input-bordered input-sm rounded-xl mb-2" [value]="wsSearch()" (input)="wsSearch.set($any($event.target).value)" />
+                  @for (ws of filteredWorkspaces(); track ws.id) {
+                    <li><a (click)="workspaceId.set(ws.id); dropdownOpen.set(false); wsSearch.set('')" [class.active]="workspaceId()===ws.id">{{ ws.name }}</a></li>
+                  }
+                  @if (filteredWorkspaces().length===0) { <li class="text-xs opacity-40 p-2">No match</li> }
+                </div>
+              }
+            </div>
           </label>
         }
         <label class="form-control">

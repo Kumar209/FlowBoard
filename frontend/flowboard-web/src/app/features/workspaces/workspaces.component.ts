@@ -27,8 +27,18 @@ export class WorkspacesComponent {
   private toast = inject(ToastService);
   private queryClient = inject(QueryClient);
 
+  page = signal(1);
+  pageSize = 12;
+  search = signal('');
+
   workspacesQuery = injectQuery(() => ({
-    queryKey: ['workspaces'] as const,
+    queryKey: ['workspaces', this.page(), this.search()] as const,
+    queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspacesPaginated(this.page(), this.pageSize, this.search() || undefined)),
+  }));
+
+  // For dropdown modals (create workspace needs orgs, not paginated workspaces)
+  allWorkspacesQuery = injectQuery(() => ({
+    queryKey: ['workspaces-all'] as const,
     queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspaces()),
   }));
 
@@ -38,6 +48,8 @@ export class WorkspacesComponent {
   }));
 
   canCreateWorkspace = computed(() => this.auth.canCreateWorkspace());
+  total = computed(() => this.workspacesQuery.data()?.total || 0);
+  totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
 
   // Modals signals
   createOpen = signal(false);
@@ -57,6 +69,7 @@ export class WorkspacesComponent {
       firstValueFrom(this.workspaceService.createWorkspace(vars.organizationId, vars.name)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      this.queryClient.invalidateQueries({ queryKey: ['workspaces-all'] });
       this.queryClient.invalidateQueries({ queryKey: ['organizations'] });
       this.createOpen.set(false);
       this.createError.set(null);
@@ -80,6 +93,7 @@ export class WorkspacesComponent {
       firstValueFrom(this.workspaceService.updateWorkspace(vars.id, vars.name, vars.slug)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      this.queryClient.invalidateQueries({ queryKey: ['workspaces-all'] });
       this.editOpen.set(false);
       this.toast.success('Workspace updated');
     },
@@ -90,6 +104,7 @@ export class WorkspacesComponent {
     mutationFn: (id:string) => firstValueFrom(this.workspaceService.deleteWorkspace(id)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      this.queryClient.invalidateQueries({ queryKey: ['workspaces-all'] });
       this.deleteOpen.set(false);
       this.toast.success('Workspace deleted');
     },

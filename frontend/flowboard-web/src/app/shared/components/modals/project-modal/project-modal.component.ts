@@ -28,8 +28,16 @@ export class ProjectModalComponent {
   name = signal('');
   description = signal('');
   workspaceId = signal('');
+  wsSearch = signal('');
+  dropdownOpen = signal(false);
 
   isUpdate = computed(() => this.mode()==='update');
+  filteredWorkspaces = computed(() => {
+    const s = this.wsSearch().toLowerCase();
+    const ws = this.workspaces();
+    return s ? ws.filter(w => w.name.toLowerCase().includes(s)) : ws;
+  });
+  selectedWorkspaceName = computed(() => this.workspaces().find(w => w.id === this.workspaceId())?.name || 'Select workspace');
 
   constructor() {
     effect(() => {

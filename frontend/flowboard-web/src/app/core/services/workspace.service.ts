@@ -20,6 +20,11 @@ export class WorkspaceService {
   getMyWorkspaces() {
     return this.http.get<WorkspaceDto[]>(`${environment.apiUrl}/api/workspaces`, { withCredentials: true });
   }
+  getMyWorkspacesPaginated(page=1, pageSize=12, search?: string) {
+    let params: any = { page, pageSize };
+    if (search) params.search = search;
+    return this.http.get<{items: WorkspaceDto[]; total:number; page:number; pageSize:number}>(`${environment.apiUrl}/api/workspaces`, { params, withCredentials: true });
+  }
 
   getMyOrganizations() {
     return this.http.get<OrganizationDto[]>(`${environment.apiUrl}/api/organizations`, { withCredentials: true });

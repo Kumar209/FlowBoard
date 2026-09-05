@@ -22,19 +22,37 @@ public class WorkspacesController : ControllerBase
         _brevo = brevo;
     }
 
-    // GET /api/workspaces - list workspaces where user is member
+    // GET /api/workspaces - list workspaces where user is member (paginated, searchable)
     [HttpGet]
-    public async Task<IActionResult> GetMyWorkspaces()
+    public async Task<IActionResult> GetMyWorkspaces([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
     {
         var userId = GetUserId();
         if (userId == null) return Unauthorized();
+        page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var workspaces = await _db.WorkspaceMembers
+        var query = _db.WorkspaceMembers
             .Where(m => m.UserId == userId.Value)
             .Include(m => m.Workspace)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.ToLowerInvariant();
+            query = query.Where(m => m.Workspace!.Name.ToLower().Contains(s) || m.Workspace!.Slug.ToLower().Contains(s));
+        }
+
+        var total = await query.CountAsync();
+        var workspaces = await query
+            .OrderBy(m => m.Workspace!.Name)
+            .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(m => new { m.Workspace!.Id, m.Workspace.Name, m.Workspace.Slug, m.Workspace.OrganizationId, m.Role })
             .ToListAsync();
 
+        Response.Headers.Append("X-Total-Count", total.ToString());
+        // Keep backward compat: if client doesn't use pagination (page=1 pageSize=20 default) they still get {items, total}? But we return array for simple dropdowns.
+        // Detect if caller wants paginated wrapper via header or query: if pageSize !=20 or search provided, return wrapper; else keep array for dropdowns (but still send total header)
+        if (Request.Query.ContainsKey("page") || Request.Query.ContainsKey("pageSize") || !string.IsNullOrWhiteSpace(search))
+            return Ok(new { items = workspaces, total, page, pageSize });
         return Ok(workspaces);
     }
 

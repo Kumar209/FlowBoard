@@ -30,7 +30,15 @@ export class ProjectsComponent {
 
   selectedWorkspaceId = signal<string>('all');
   wsSearch = signal<string>('');
+  wsDropdownOpen = signal<boolean>(false);
+  projectSearch = signal<string>('');
+  page = signal(1);
+  pageSize = 12;
   canCreateProject = computed(() => this.auth.canCreateProject());
+  selectedWorkspaceName = computed(() => {
+    if (this.selectedWorkspaceId()==='all') return `All workspaces (${this.workspacesQuery.data()?.length||0})`;
+    return this.workspacesQuery.data()?.find(w=>w.id===this.selectedWorkspaceId())?.name || 'Select workspace';
+  });
 
   createOpen = signal(false);
   editOpen = signal(false);
@@ -59,7 +67,17 @@ export class ProjectsComponent {
     },
   }));
 
-  filtered = computed(() => this.projectsQuery.data()?.items || []);
+  filtered = computed(() => {
+    const s = this.projectSearch().toLowerCase().trim();
+    const items = this.projectsQuery.data()?.items || [];
+    return s ? items.filter((p:any)=> p.name.toLowerCase().includes(s) || p.key.toLowerCase().includes(s)) : items;
+  });
+  total = computed(() => this.filtered().length);
+  totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
+  paginated = computed(() => {
+    const start = (this.page()-1)*this.pageSize;
+    return this.filtered().slice(start, start+this.pageSize);
+  });
 
   createMutation = injectMutation(() => ({
     mutationFn: (vars: { workspaceId: string; name: string }) =>

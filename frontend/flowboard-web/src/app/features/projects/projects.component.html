@@ -8,7 +8,7 @@
       </div>
       <div class="flex gap-2 self-start sm:self-auto items-center">
         @if (canCreateProject()) { <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md" (click)="openCreate()">+ New Project</button> }
-        <span class="badge badge-ghost badge-sm">Total {{ filtered().length }}</span>
+        <span class="badge badge-ghost badge-sm">Total {{ total() }}</span>
       </div>
     </div>
 
@@ -16,14 +16,25 @@
     <app-project-modal [open]="editOpen()" mode="update" [initialName]="editing()?.name || ''" [initialDescription]="editing()?.description || ''" [loading]="updateMutation.isPending()" (closed)="editOpen.set(false)" (submitted)="onEditSubmit($event)" />
     <app-confirm-delete [open]="deleteOpen()" [title]="'Delete project &quot;'+(editing()?.name||'')+'&quot;?'" message="This will delete the project and its board. Cannot be undone." [loading]="deleteMutation.isPending()" (cancelled)="deleteOpen.set(false)" (confirmed)="onDeleteConfirm()" />
 
-    <div class="flex flex-wrap gap-2 mb-6 items-center">
-      <span class="text-xs opacity-40 mr-1">Filter by workspace:</span>
-      <select class="select select-bordered select-sm rounded-full max-w-xs" [value]="selectedWorkspaceId()" (change)="selectedWorkspaceId.set($any($event.target).value)">
-        <option value="all">All workspaces ({{ workspacesQuery.data()?.length || 0 }})</option>
-        @for (ws of filteredWorkspaces(); track ws.id) { <option [value]="ws.id">{{ ws.name }}</option> }
-      </select>
-      <input type="text" placeholder="Search workspace..." class="input input-bordered input-sm rounded-full max-w-[180px] hidden sm:block" [value]="wsSearch()" (input)="wsSearch.set($any($event.target).value)" />
-      @if (wsSearch()) { <button class="btn btn-ghost btn-xs rounded-full" (click)="wsSearch.set('')">✕</button> }
+    <div class="flex flex-col sm:flex-row gap-2 mb-6">
+      <div class="flex flex-wrap gap-2 items-center">
+        <span class="text-xs opacity-40">Workspace:</span>
+        <div class="dropdown">
+          <div tabindex="0" role="button" class="input input-bordered input-sm rounded-full min-w-[180px] flex items-center justify-between cursor-pointer" (click)="wsDropdownOpen.set(!wsDropdownOpen())">
+            <span>{{ selectedWorkspaceName() }}</span>
+            <span>▼</span>
+          </div>
+          @if (wsDropdownOpen()) {
+            <div class="dropdown-content menu bg-base-100 rounded-xl z-20 w-64 p-2 shadow border mt-1">
+              <input type="text" placeholder="Search workspace..." class="input input-bordered input-sm rounded-xl mb-2" [value]="wsSearch()" (input)="wsSearch.set($any($event.target).value)" />
+              <li><a (click)="selectedWorkspaceId.set('all'); wsDropdownOpen.set(false); page.set(1)" [class.active]="selectedWorkspaceId()==='all'">All workspaces ({{ workspacesQuery.data()?.length||0 }})</a></li>
+              @for (ws of filteredWorkspaces(); track ws.id) { <li><a (click)="selectedWorkspaceId.set(ws.id); wsDropdownOpen.set(false); page.set(1)" [class.active]="selectedWorkspaceId()===ws.id">{{ ws.name }}</a></li> }
+              @if (filteredWorkspaces().length===0) { <li class="text-xs opacity-40 p-2">No match</li> }
+            </div>
+          }
+        </div>
+      </div>
+      <input type="text" placeholder="Search projects by name/key..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="projectSearch()" (input)="projectSearch.set($any($event.target).value); page.set(1)" />
     </div>
 
     @if (projectsQuery.isPending()) {
@@ -34,7 +45,7 @@
       <div class="alert alert-error rounded-xl">Failed to load projects</div>
     } @else {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        @for (project of filtered(); track project.id) {
+        @for (project of paginated(); track project.id) {
           <div class="card bg-base-100 rounded-2xl shadow border border-base-200 hover:shadow-xl hover:-translate-y-1 transition-all group">
             <div class="card-body p-5 sm:p-6">
               <div class="flex justify-between items-start gap-2">
@@ -67,6 +78,12 @@
           <p class="text-sm opacity-60">Select a workspace and create a project (PM/OrgAdmin only)</p>
         </div>
       }
+      <div class="flex justify-center gap-2 mt-6">
+        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+        @for (p of [].constructor(totalPages()); track $index) { @if ($index < 7) { <button class="btn btn-sm rounded-full" [class.btn-primary]="page()===$index+1" [class.btn-ghost]="page()!==$index+1" (click)="page.set($index+1)">{{ $index+1 }}</button> } }
+        @if (totalPages()>7) { <span class="self-center opacity-40">...</span> <button class="btn btn-sm rounded-full" [class.btn-primary]="page()===totalPages()" [class.btn-ghost]="page()!==totalPages()" (click)="page.set(totalPages())">{{ totalPages() }}</button> }
+        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+      </div>
     }
   </div>
 </div>

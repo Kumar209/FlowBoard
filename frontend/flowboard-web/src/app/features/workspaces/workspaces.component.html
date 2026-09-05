@@ -10,8 +10,13 @@
         @if (canCreateWorkspace()) {
           <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md" (click)="openCreate()">+ New Workspace</button>
         }
-        <span class="badge badge-ghost badge-sm">Total {{ workspacesQuery.data()?.length || 0 }}</span>
+        <span class="badge badge-ghost badge-sm">Total {{ total() }}</span>
       </div>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-2 mb-4">
+      <input type="text" placeholder="Search workspaces..." class="input input-bordered input-sm rounded-full max-w-xs" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
+      <div class="text-xs opacity-40 self-center">Page {{ page() }} / {{ totalPages() }}</div>
     </div>
 
     <app-workspace-modal [open]="createOpen()" mode="create" [organizations]="orgsQuery.data() || []" [loading]="createMutation.isPending()" [error]="createError()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
@@ -26,7 +31,7 @@
       <div class="alert alert-error rounded-xl">Failed to load workspaces - check Identity :5001 + JWT</div>
     } @else {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        @for (ws of workspacesQuery.data() || []; track ws.id) {
+        @for (ws of workspacesQuery.data()?.items || []; track ws.id) {
           <div class="card bg-base-100 rounded-2xl shadow border border-base-200 hover:shadow-xl hover:-translate-y-1 transition-all group">
             <div class="card-body p-5 sm:p-6">
               <div class="flex justify-between items-start gap-2">
@@ -57,12 +62,17 @@
           </div>
         }
       </div>
-      @if ((workspacesQuery.data()?.length || 0) === 0) {
+      @if ((workspacesQuery.data()?.items?.length || 0) === 0) {
         <div class="text-center py-16 bg-base-100 rounded-2xl border border-dashed mt-6">
           <p class="font-semibold">No workspaces yet</p>
           <p class="text-sm opacity-60">Your personal workspace will appear here after register (OrgAdmin). Create more via Organization.</p>
         </div>
       }
+      <div class="flex justify-center gap-2 mt-6">
+        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+        @for (p of [].constructor(totalPages()); track $index) { <button class="btn btn-sm rounded-full" [class.btn-primary]="page()===$index+1" [class.btn-ghost]="page()!==$index+1" (click)="page.set($index+1)">{{ $index+1 }}</button> }
+        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+      </div>
     }
   </div>
 </div>
