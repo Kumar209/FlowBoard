@@ -15,7 +15,7 @@
         </p>
       </div>
       @if (canCreateProject()) {
-        <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md self-start sm:self-auto" (click)="showCreate.set(!showCreate())">
+        <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md self-start sm:self-auto" (click)="openCreate()">
           + New Project
         </button>
       } @else {
@@ -23,16 +23,9 @@
       }
     </div>
 
-    @if (showCreate()) {
-      <div class="card bg-base-100 shadow border border-base-200 rounded-2xl p-4 mb-6 max-w-md">
-        <div class="flex gap-2">
-          <input type="text" placeholder="Project name (e.g., FlowBoard Demo)" [value]="newName()" (input)="newName.set($any($event.target).value)" class="input input-bordered flex-1 rounded-xl" />
-          <button class="btn btn-primary rounded-xl" (click)="create()" [class.loading]="createMutation.isPending()">Create</button>
-        </div>
-        @if (createError()) { <div class="text-error text-xs mt-2">● {{ createError() }}</div> }
-        <p class="text-xs opacity-40 mt-2">Key auto-generated like FB-3 • workspaceId from route :wid</p>
-      </div>
-    }
+    <app-project-modal [open]="createOpen()" mode="create" [workspaces]="workspacesQuery.data() || []" [initialWorkspaceId]="workspaceId()" [error]="createError()" [loading]="createMutation.isPending()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
+    <app-project-modal [open]="editOpen()" mode="update" [initialName]="editing()?.name || ''" [initialDescription]="editing()?.description || ''" [loading]="updateMutation.isPending()" (closed)="editOpen.set(false)" (submitted)="onEditSubmit($event)" />
+    <app-confirm-delete [open]="deleteOpen()" [title]="'Delete project &quot;'+(editing()?.name||'')+'&quot;?'" message="This will delete the project and its board. Cannot be undone." [loading]="deleteMutation.isPending()" (cancelled)="deleteOpen.set(false)" (confirmed)="onDeleteConfirm()" />
 
     <!-- Loading / Error -->
     @if (projectsQuery.isPending()) {
@@ -49,7 +42,18 @@
             <div class="card-body p-5 sm:p-6">
               <div class="flex justify-between items-start gap-2">
                 <span class="badge badge-primary badge-sm rounded-full">{{ project.key }}</span>
-                <span class="badge badge-ghost badge-xs">{{ project.createdAt | date:'shortDate' }}</span>
+                <div class="flex gap-1 items-center">
+                  @if (canCreateProject()) {
+                    <div class="dropdown dropdown-end">
+                      <div tabindex="0" role="button" class="btn btn-ghost btn-xs rounded-full">⋮</div>
+                      <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-xl z-10 w-36 p-2 shadow border">
+                        <li><a (click)="openEdit(project)">Edit</a></li>
+                        <li><a class="text-error" (click)="openDelete(project)">Delete</a></li>
+                      </ul>
+                    </div>
+                  }
+                  <span class="badge badge-ghost badge-xs">{{ project.createdAt | date:'shortDate' }}</span>
+                </div>
               </div>
               <h2 class="card-title text-lg mt-2 line-clamp-1">{{ project.name }}</h2>
               <p class="text-sm opacity-60 line-clamp-2">{{ project.description || 'No description' }}</p>

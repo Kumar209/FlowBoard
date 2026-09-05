@@ -32,6 +32,12 @@ export class ProjectService {
   createProject(workspaceId: string, name: string, description?: string) {
     return this.http.post<Project>(`${environment.apiUrl}/api/workspaces/${workspaceId}/projects`, { name, description }, { withCredentials: true });
   }
+  updateProject(projectId: string, name: string, description?: string, slug?: string) {
+    return this.http.put<Project>(`${environment.apiUrl}/api/projects/${projectId}`, { name, description, slug }, { withCredentials: true });
+  }
+  deleteProject(projectId: string) {
+    return this.http.delete(`${environment.apiUrl}/api/projects/${projectId}`, { withCredentials: true });
+  }
 
   // Board
   getBoard(projectId: string) {

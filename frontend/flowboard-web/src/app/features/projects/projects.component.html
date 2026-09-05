@@ -7,23 +7,14 @@
         @if (!canCreateProject()) { <span class="badge badge-ghost badge-xs mt-1">View only — PM/OrgAdmin can create</span> }
       </div>
       <div class="flex gap-2 self-start sm:self-auto items-center">
-        @if (canCreateProject()) { <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md" (click)="toggleCreate()">+ New Project</button> }
+        @if (canCreateProject()) { <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md" (click)="openCreate()">+ New Project</button> }
         <span class="badge badge-ghost badge-sm">Total {{ filtered().length }}</span>
       </div>
     </div>
 
-    @if (canCreateProject() && showCreate()) {
-      <div class="card bg-base-100 shadow border border-base-200 rounded-2xl p-4 mb-6 max-w-2xl">
-        <div class="flex flex-col sm:flex-row gap-3">
-          <select class="select select-bordered rounded-xl max-w-xs" [value]="createWsId()" (change)="createWsId.set($any($event.target).value)">
-            @for (ws of workspacesQuery.data() || []; track ws.id) { <option [value]="ws.id">{{ ws.name }}</option> }
-          </select>
-          <input type="text" placeholder="Project name" [value]="newName()" (input)="newName.set($any($event.target).value)" class="input input-bordered flex-1 rounded-xl" />
-          <button class="btn btn-primary rounded-xl" (click)="createProject()" [class.loading]="createMutation.isPending()">Create</button>
-        </div>
-        @if (createError()) { <div class="text-error text-xs mt-2">● {{ createError() }}</div> }
-      </div>
-    }
+    <app-project-modal [open]="createOpen()" mode="create" [workspaces]="workspacesQuery.data() || []" [initialWorkspaceId]="selectedWorkspaceId()!=='all'? selectedWorkspaceId() : ''" [error]="createError()" [loading]="createMutation.isPending()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
+    <app-project-modal [open]="editOpen()" mode="update" [initialName]="editing()?.name || ''" [initialDescription]="editing()?.description || ''" [loading]="updateMutation.isPending()" (closed)="editOpen.set(false)" (submitted)="onEditSubmit($event)" />
+    <app-confirm-delete [open]="deleteOpen()" [title]="'Delete project &quot;'+(editing()?.name||'')+'&quot;?'" message="This will delete the project and its board. Cannot be undone." [loading]="deleteMutation.isPending()" (cancelled)="deleteOpen.set(false)" (confirmed)="onDeleteConfirm()" />
 
     <div class="flex flex-wrap gap-2 mb-6 items-center">
       <span class="text-xs opacity-40 mr-1">Filter projects by workspace:</span>
@@ -46,7 +37,18 @@
             <div class="card-body p-5 sm:p-6">
               <div class="flex justify-between items-start gap-2">
                 <span class="badge badge-primary badge-sm rounded-full">{{ project.key }}</span>
-                <span class="badge badge-ghost badge-xs">{{ project.workspaceId.slice(0,4) }}</span>
+                <div class="flex gap-1 items-center">
+                  @if (canCreateProject()) {
+                    <div class="dropdown dropdown-end">
+                      <div tabindex="0" role="button" class="btn btn-ghost btn-xs rounded-full">⋮</div>
+                      <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-xl z-10 w-36 p-2 shadow border">
+                        <li><a (click)="openEdit(project)">Edit</a></li>
+                        <li><a class="text-error" (click)="openDelete(project)">Delete</a></li>
+                      </ul>
+                    </div>
+                  }
+                  <span class="badge badge-ghost badge-xs">{{ project.workspaceId.slice(0,4) }}</span>
+                </div>
               </div>
               <h2 class="card-title text-lg mt-2 line-clamp-1">{{ project.name }}</h2>
               <p class="text-sm opacity-60 line-clamp-2">{{ project.description || 'No description' }}</p>

@@ -1,0 +1,34 @@
+@if (open()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="closed.emit()"></div>
+    <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-lg w-full p-6 relative z-10 border">
+      <h3 class="font-bold text-lg">{{ isUpdate() ? 'Update Workspace' : 'Create Workspace' }}</h3>
+      <p class="text-xs opacity-40 mt-1">{{ isUpdate() ? 'Rename or change slug (slug must be unique per org)' : 'Teams like Marketing, Design — slug auto -eaec' }}</p>
+      <div class="mt-4 space-y-3">
+        @if (!isUpdate()) {
+          <label class="form-control">
+            <span class="label-text text-xs">Organization</span>
+            <select class="select select-bordered rounded-xl" [value]="orgId()" (change)="orgId.set($any($event.target).value)">
+              @for (org of organizations(); track org.id) { <option [value]="org.id">{{ org.name }} ({{org.slug}})</option> }
+              @if (organizations().length===0) { <option value="">No organization</option> }
+            </select>
+          </label>
+        }
+        <label class="form-control">
+          <span class="label-text text-xs">Name *</span>
+          <input type="text" class="input input-bordered rounded-xl" placeholder="e.g., Marketing" [value]="name()" (input)="name.set($any($event.target).value)" />
+        </label>
+        <label class="form-control">
+          <span class="label-text text-xs">Slug {{ isUpdate() ? '(editable)' : '(optional, auto)' }}</span>
+          <input type="text" class="input input-bordered rounded-xl font-mono text-sm" placeholder="marketing-eaec" [value]="slug()" (input)="slug.set($any($event.target).value)" />
+          @if (slug() && !slug().match('^[a-z0-9-]+$')) { <span class="text-error text-xs mt-1">● only a-z 0-9 -</span> }
+        </label>
+        @if (error()) { <div class="text-error text-xs">● {{ error() }}</div> }
+      </div>
+      <div class="flex justify-end gap-2 mt-6">
+        <button class="btn btn-ghost rounded-xl" (click)="closed.emit()">Cancel</button>
+        <button class="btn btn-primary rounded-xl" (click)="submit()" [class.loading]="loading()">{{ isUpdate() ? 'Update' : 'Create' }}</button>
+      </div>
+    </div>
+  </div>
+}

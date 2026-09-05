@@ -7,7 +7,7 @@ import { environment } from '../../../environments/environment';
  * Wraps Identity Service workspaces via Gateway :5000 -> :5001.
  * Used by Workspaces list w (all) and Workspace detail w/:wid.
  */
-export interface WorkspaceDto { id: string; name: string; slug: string; organizationId: string; role: number; }
+export interface WorkspaceDto { id: string; name: string; slug: string; organizationId: string; role: number; roleName?: string; }
 export interface OrganizationDto { id: string; name: string; slug: string; ownerId: string; }
 
 @Injectable({ providedIn: 'root' })
@@ -27,5 +27,11 @@ export class WorkspaceService {
 
   createWorkspace(organizationId: string, name: string) {
     return this.http.post<WorkspaceDto>(`${environment.apiUrl}/api/workspaces`, { organizationId, name }, { withCredentials: true });
+  }
+  updateWorkspace(id: string, name: string, slug?: string) {
+    return this.http.put(`${environment.apiUrl}/api/workspaces/${id}`, { name, slug }, { withCredentials: true });
+  }
+  deleteWorkspace(id: string) {
+    return this.http.delete(`${environment.apiUrl}/api/workspaces/${id}`, { withCredentials: true });
   }
 }

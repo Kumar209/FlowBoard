@@ -5,17 +5,18 @@ import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../core/services/project.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ProjectModalComponent } from '../../shared/components/modals/project-modal/project-modal.component';
+import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**
- * ProjectsComponent - MNC-grade: global projects directory across all workspaces (Option B).
- * Fetches all workspaces, then all projects per workspace (combine). Filter by workspace via Signal.
- * OnPush + firstValueFrom + queryKey as const + computed filtered.
+ * ProjectsComponent - MNC-grade: modals for Create/Update/Delete + toast + dropdown.
  */
 @Component({
   selector: 'app-projects',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, ProjectModalComponent, ConfirmDeleteComponent],
   templateUrl: './projects.component.html',
   styleUrls: ['./projects.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -24,14 +25,16 @@ export class ProjectsComponent {
   private projectService = inject(ProjectService);
   private workspaceService = inject(WorkspaceService);
   private auth = inject(AuthService);
+  private toast = inject(ToastService);
   private queryClient = inject(QueryClient);
 
   selectedWorkspaceId = signal<string>('all');
   canCreateProject = computed(() => this.auth.canCreateProject());
 
-  showCreate = signal(false);
-  newName = signal('');
-  createWsId = signal<string>('');
+  createOpen = signal(false);
+  editOpen = signal(false);
+  deleteOpen = signal(false);
+  editing = signal<any>(null);
   createError = signal<string | null>(null);
 
   workspacesQuery = injectQuery(() => ({
@@ -58,25 +61,27 @@ export class ProjectsComponent {
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['projects-global'] });
       this.queryClient.invalidateQueries({ queryKey: ['projects'] });
-      this.showCreate.set(false);
-      this.newName.set('');
+      this.createOpen.set(false);
       this.createError.set(null);
+      this.toast.success('Project created');
     },
-    onError: (err: any) => this.createError.set(err.error?.error || err.error?.message || 'Create failed - need ProjectManager/OrgAdmin'),
+    onError: (err: any) => { const m= err.error?.error || 'Create failed'; this.createError.set(m); this.toast.error(m); },
+  }));
+  updateMutation = injectMutation(() => ({
+    mutationFn: (vars:{id:string; name:string}) => firstValueFrom(this.projectService.updateProject(vars.id, vars.name)),
+    onSuccess: () => { this.queryClient.invalidateQueries({ queryKey: ['projects-global'] }); this.queryClient.invalidateQueries({ queryKey: ['projects'] }); this.editOpen.set(false); this.toast.success('Project updated'); },
+    onError: (err:any)=> this.toast.error(err.error?.error||'Update failed'),
+  }));
+  deleteMutation = injectMutation(() => ({
+    mutationFn: (id:string)=> firstValueFrom(this.projectService.deleteProject(id)),
+    onSuccess: () => { this.queryClient.invalidateQueries({ queryKey: ['projects-global'] }); this.queryClient.invalidateQueries({ queryKey: ['projects'] }); this.deleteOpen.set(false); this.toast.success('Project deleted'); },
+    onError: (err:any)=> this.toast.error(err.error?.error||'Delete failed'),
   }));
 
-  toggleCreate() {
-    this.showCreate.update(v => !v);
-    if (this.showCreate() && !this.createWsId() && this.workspacesQuery.data()?.length) {
-      this.createWsId.set(this.workspacesQuery.data()![0].id);
-    }
-  }
-
-  createProject() {
-    const name = this.newName().trim();
-    if (!name) { this.createError.set('Name required'); return; }
-    const wid = this.createWsId() || this.selectedWorkspaceId() !== 'all' ? this.createWsId() || this.selectedWorkspaceId() : this.workspacesQuery.data()?.[0]?.id;
-    if (!wid || wid === 'all') { this.createError.set('Select workspace'); return; }
-    this.createMutation.mutate({ workspaceId: wid, name });
-  }
+  openCreate(){ this.createError.set(null); this.createOpen.set(true); }
+  openEdit(p:any){ this.editing.set(p); this.editOpen.set(true); }
+  openDelete(p:any){ this.editing.set(p); this.deleteOpen.set(true); }
+  onCreateSubmit(e:{name:string; workspaceId:string}){ this.createMutation.mutate({workspaceId:e.workspaceId, name:e.name}); }
+  onEditSubmit(e:{name:string}){ this.updateMutation.mutate({id:this.editing().id, name:e.name}); }
+  onDeleteConfirm(){ this.deleteMutation.mutate(this.editing().id); }
 }

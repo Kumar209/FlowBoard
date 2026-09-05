@@ -4,17 +4,19 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../core/services/project.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
+import { ProjectModalComponent } from '../../shared/components/modals/project-modal/project-modal.component';
+import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**
- * WorkspaceComponent - MNC-grade: OnPush + firstValueFrom + computed canCreateProject per workspace role.
- * Manager sees + New Project, Members/Client/Viewer see view-only banner. Member+Client+Viewer 403 on create is now hidden.
+ * WorkspaceComponent - MNC-grade: modals for Create/Update/Delete project + toast + dropdown.
  */
 @Component({
   selector: 'app-workspace',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, ProjectModalComponent, ConfirmDeleteComponent],
   templateUrl: './workspace.component.html',
   styleUrls: ['./workspace.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -23,12 +25,15 @@ export class WorkspaceComponent {
   private route = inject(ActivatedRoute);
   projectService = inject(ProjectService);
   auth = inject(AuthService);
+  private toast = inject(ToastService);
   private workspaceService = inject(WorkspaceService);
   private queryClient = inject(QueryClient);
 
   workspaceId = signal<string>(this.route.snapshot.paramMap.get('wid') || '11111111-1111-1111-1111-111111111111');
-  showCreate = signal(false);
-  newName = signal('');
+  createOpen = signal(false);
+  editOpen = signal(false);
+  deleteOpen = signal(false);
+  editing = signal<any>(null);
   createError = signal<string | null>(null);
 
   // Fetch workspace name for title (Image 3 fix: show Marketing not generic Workspace)
@@ -66,16 +71,36 @@ export class WorkspaceComponent {
     mutationFn: (vars: { name: string }) => firstValueFrom(this.projectService.createProject(this.workspaceId(), vars.name)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['projects', this.workspaceId()] });
-      this.showCreate.set(false);
-      this.newName.set('');
+      this.queryClient.invalidateQueries({ queryKey: ['projects-global'] });
+      this.createOpen.set(false);
       this.createError.set(null);
+      this.toast.success('Project created');
     },
-    onError: (err: any) => this.createError.set(err.error?.error || 'Create failed - need ProjectManager/OrgAdmin'),
+    onError: (err: any) => { const m = err.error?.error || 'Create failed'; this.createError.set(m); this.toast.error(m); },
+  }));
+  updateMutation = injectMutation(() => ({
+    mutationFn: (vars:{id:string; name:string}) => firstValueFrom(this.projectService.updateProject(vars.id, vars.name)),
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['projects', this.workspaceId()] });
+      this.queryClient.invalidateQueries({ queryKey: ['projects-global'] });
+      this.editOpen.set(false); this.toast.success('Project updated');
+    },
+    onError: (err:any)=> this.toast.error(err.error?.error||'Update failed'),
+  }));
+  deleteMutation = injectMutation(() => ({
+    mutationFn: (id:string)=> firstValueFrom(this.projectService.deleteProject(id)),
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['projects', this.workspaceId()] });
+      this.queryClient.invalidateQueries({ queryKey: ['projects-global'] });
+      this.deleteOpen.set(false); this.toast.success('Project deleted');
+    },
+    onError: (err:any)=> this.toast.error(err.error?.error||'Delete failed'),
   }));
 
-  create() {
-    const name = this.newName().trim();
-    if (!name) { this.createError.set('Name required'); return; }
-    this.createMutation.mutate({ name });
-  }
+  openCreate() { this.createError.set(null); this.createOpen.set(true); }
+  openEdit(p:any){ this.editing.set(p); this.editOpen.set(true); }
+  openDelete(p:any){ this.editing.set(p); this.deleteOpen.set(true); }
+  onCreateSubmit(e:{name:string}){ this.createMutation.mutate({name:e.name}); }
+  onEditSubmit(e:{name:string}){ this.updateMutation.mutate({id:this.editing().id, name:e.name}); }
+  onDeleteConfirm(){ this.deleteMutation.mutate(this.editing().id); }
 }

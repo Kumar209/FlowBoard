@@ -50,6 +50,26 @@ public class ProjectsController : ControllerBase
         return Ok(board);
     }
 
+    [HttpPut("api/projects/{projectId}")]
+    public async Task<IActionResult> Update(Guid projectId, [FromBody] UpdateProjectBody body)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var roles = GetRoles();
+        var result = await _mediator.Send(new UpdateProjectCommand(projectId, body.Name, body.Description, body.Slug, userId.Value, roles));
+        if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpDelete("api/projects/{projectId}")]
+    public async Task<IActionResult> Delete(Guid projectId)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var roles = GetRoles();
+        var result = await _mediator.Send(new DeleteProjectCommand(projectId, userId.Value, roles));
+        if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(new { message = "Deleted", projectId });
+    }
+
     private Guid? GetUserId()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
@@ -59,3 +79,4 @@ public class ProjectsController : ControllerBase
 }
 
 public record CreateProjectBody(string Name, string? Description);
+public record UpdateProjectBody(string Name, string? Description, string? Slug);

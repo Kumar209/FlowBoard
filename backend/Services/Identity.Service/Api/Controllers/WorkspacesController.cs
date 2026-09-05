@@ -108,6 +108,43 @@ public class WorkspacesController : ControllerBase
         return Ok(new { message = "Invited", workspaceId = id, userId = targetUser.Id, role = role.ToString() });
     }
 
+    // PUT /api/workspaces/{id} - update workspace name/slug (OrgAdmin only)
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWorkspaceRequest request)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest(new { error = "Name required" });
+        if (!string.IsNullOrWhiteSpace(request.Slug) && !System.Text.RegularExpressions.Regex.IsMatch(request.Slug, @"^[a-z0-9-]+$"))
+            return BadRequest(new { error = "Slug must be lowercase a-z 0-9 -" });
+        var ws = await _db.Workspaces.FirstOrDefaultAsync(w => w.Id == id);
+        if (ws == null) return NotFound(new { error = "Workspace not found" });
+        var membership = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == id && m.UserId == userId.Value);
+        if (membership == null || (membership.Role != WorkspaceRole.OrgAdmin && membership.Role != WorkspaceRole.SuperAdmin)) return Forbid();
+        // Slug uniqueness per organization
+        var newSlug = string.IsNullOrWhiteSpace(request.Slug) ? ws.Slug : request.Slug!.ToLowerInvariant();
+        if (newSlug != ws.Slug && await _db.Workspaces.AnyAsync(w => w.OrganizationId == ws.OrganizationId && w.Slug == newSlug && w.Id != id))
+            return Conflict(new { error = "Slug already taken in this organization" });
+        ws.Update(request.Name, newSlug);
+        await _db.SaveChangesAsync();
+        return Ok(new { ws.Id, ws.Name, ws.Slug, ws.OrganizationId });
+    }
+
+    // DELETE /api/workspaces/{id} - delete workspace (OrgAdmin only, block if projects exist unless ?force=true in later Phase 4)
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var ws = await _db.Workspaces.FirstOrDefaultAsync(w => w.Id == id);
+        if (ws == null) return NotFound(new { error = "Workspace not found" });
+        var membership = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == id && m.UserId == userId.Value);
+        if (membership == null || (membership.Role != WorkspaceRole.OrgAdmin && membership.Role != WorkspaceRole.SuperAdmin)) return Forbid();
+        // Prevent deleting last workspace? allow but warn
+        _db.WorkspaceMembers.RemoveRange(_db.WorkspaceMembers.Where(m => m.WorkspaceId == id));
+        _db.Workspaces.Remove(ws);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Workspace deleted", id });
+    }
+
     // PUT /api/workspaces/{id}/members/{userId}/role - change role (OrgAdmin only)
     [HttpPut("{id}/members/{userId}/role")]
     public async Task<IActionResult> ChangeRole(Guid id, Guid userId, [FromBody] ChangeRoleRequest request)
@@ -137,5 +174,6 @@ public class WorkspacesController : ControllerBase
 }
 
 public record CreateWorkspaceRequest(Guid OrganizationId, string Name);
+public record UpdateWorkspaceRequest(string Name, string? Slug);
 public record InviteRequest(string Email, string Role);
 public record ChangeRoleRequest(string Role);

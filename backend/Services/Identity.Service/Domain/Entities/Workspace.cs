@@ -20,5 +20,5 @@ public class Workspace : BaseEntity, IAggregateRoot
         Slug = slug.ToLowerInvariant();
     }
 
-    public void Update(string name) { Name = name; Touch(); }
+    public void Update(string name, string slug) { Name = name; if (!string.IsNullOrWhiteSpace(slug)) Slug = slug.ToLowerInvariant(); Touch(); }
 }
