@@ -9,7 +9,23 @@ public static class ProjectSeeder
     // Seed 1 Project 'FlowBoard Demo' with 3 Lists (ToDo, InProgress, Done) + 12 Tasks (4 per list)
     public static async Task SeedAsync(ProjectDbContext db)
     {
-        if (await db.Projects.AnyAsync()) return;
+        if (await db.Projects.AnyAsync())
+        {
+            // Ensure existing demo project has 4 lists (add In Review if missing)
+            var existing = await db.Projects.FirstOrDefaultAsync();
+            if (existing != null)
+            {
+                var hasInReview = await db.BoardLists.AnyAsync(l => l.ProjectId == existing.Id && l.Name == "In Review");
+                if (!hasInReview)
+                {
+                    var existingDone = await db.BoardLists.FirstOrDefaultAsync(l => l.ProjectId == existing.Id && l.Name == "Done");
+                    if (existingDone != null) existingDone.Move(3);
+                    db.BoardLists.Add(new BoardList(existing.Id, "In Review", 2));
+                    await db.SaveChangesAsync();
+                }
+            }
+            return;
+        }
 
         var workspaceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var ownerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -21,27 +37,29 @@ public static class ProjectSeeder
 
         var todo = new BoardList(project.Id, "To Do", 0);
         var inProgress = new BoardList(project.Id, "In Progress", 1);
-        var done = new BoardList(project.Id, "Done", 2);
-        db.BoardLists.AddRange(todo, inProgress, done);
+        var inReview = new BoardList(project.Id, "In Review", 2);
+        var done = new BoardList(project.Id, "Done", 3);
+        db.BoardLists.AddRange(todo, inProgress, inReview, done);
         await db.SaveChangesAsync();
 
         var tasks = new[]
         {
-            // To Do (4)
+            // To Do (3)
             new TaskItem(project.Id, todo.Id, "Setup CI/CD pipeline", ownerId, 0, Domain.Enums.TaskPriority.High),
             new TaskItem(project.Id, todo.Id, "Design database schema", ownerId, 1, Domain.Enums.TaskPriority.Urgent),
             new TaskItem(project.Id, todo.Id, "Create wireframes", ownerId, 2, Domain.Enums.TaskPriority.Medium),
-            new TaskItem(project.Id, todo.Id, "Write API docs", ownerId, 3, Domain.Enums.TaskPriority.Low),
-            // In Progress (4)
+            // In Progress (3)
             new TaskItem(project.Id, inProgress.Id, "Implement auth flow", ownerId, 0, Domain.Enums.TaskPriority.High, assigneeId: ownerId),
             new TaskItem(project.Id, inProgress.Id, "Build kanban board", ownerId, 1, Domain.Enums.TaskPriority.High),
             new TaskItem(project.Id, inProgress.Id, "Add drag-drop", ownerId, 2, Domain.Enums.TaskPriority.Medium),
-            new TaskItem(project.Id, inProgress.Id, "Integrate Redis cache", ownerId, 3, Domain.Enums.TaskPriority.Medium),
-            // Done (4)
+            // In Review (3) - new default status before Done
+            new TaskItem(project.Id, inReview.Id, "Code review - auth", ownerId, 0, Domain.Enums.TaskPriority.High),
+            new TaskItem(project.Id, inReview.Id, "QA review - board", ownerId, 1, Domain.Enums.TaskPriority.Medium),
+            new TaskItem(project.Id, inReview.Id, "Review docs", ownerId, 2, Domain.Enums.TaskPriority.Low),
+            // Done (3)
             new TaskItem(project.Id, done.Id, "Init Git repo", ownerId, 0, Domain.Enums.TaskPriority.Low),
             new TaskItem(project.Id, done.Id, "Scaffold backend", ownerId, 1, Domain.Enums.TaskPriority.Medium),
             new TaskItem(project.Id, done.Id, "Scaffold frontend", ownerId, 2, Domain.Enums.TaskPriority.Medium),
-            new TaskItem(project.Id, done.Id, "Configure environments", ownerId, 3, Domain.Enums.TaskPriority.Low),
         };
         db.Tasks.AddRange(tasks);
         await db.SaveChangesAsync();

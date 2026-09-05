@@ -1,0 +1,67 @@
+@if (open() && task()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="closed.emit()"></div>
+    <div class="card bg-base-100 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden relative z-10 border flex flex-col">
+      <!-- Header -->
+      <div class="flex justify-between items-center p-4 border-b border-base-200">
+        <div class="flex items-center gap-2 text-xs opacity-60">
+          <span>{{ task().key || task().id.slice(0,6) }}</span>
+          @if (task().priority) { <span class="badge badge-sm" [ngClass]="task().priority==='High'?'badge-warning': task().priority==='Urgent'?'badge-error':'badge-info'">{{ task().priority }}</span> }
+        </div>
+        <button class="btn btn-ghost btn-sm rounded-full" (click)="closed.emit()">✕</button>
+      </div>
+      <div class="flex flex-col lg:flex-row flex-1 overflow-hidden">
+        <!-- Left: Subtasks + Activity -->
+        <div class="flex-1 p-4 overflow-y-auto space-y-6">
+          <div>
+            <input type="text" class="input input-ghost text-xl font-bold w-full" [value]="title()" (input)="title.set($any($event.target).value)" />
+            <textarea class="textarea textarea-ghost w-full text-sm mt-2" placeholder="Add description..." [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
+          </div>
+          <div>
+            <h4 class="font-semibold text-sm mb-2">Subtasks</h4>
+            <div class="text-xs opacity-40">Add subtask — checklist (future: POST /subtasks)</div>
+            <div class="flex gap-2 mt-2">
+              <input type="text" placeholder="Add subtask" class="input input-bordered input-sm flex-1 rounded-xl" [value]="newSubtask()" (input)="newSubtask.set($any($event.target).value)" />
+              <button class="btn btn-ghost btn-sm rounded-xl" (click)="newSubtask.set('')">Add</button>
+            </div>
+          </div>
+          <div>
+            <h4 class="font-semibold text-sm mb-2">Activity</h4>
+            <div class="tabs tabs-boxed tabs-sm mb-2">
+              <a class="tab tab-active">Comments</a><a class="tab">History</a>
+            </div>
+            <div class="flex gap-2">
+              <input type="text" placeholder="Add a comment..." class="input input-bordered flex-1 rounded-xl text-sm" [value]="newComment()" (input)="newComment.set($any($event.target).value)" />
+              <button class="btn btn-primary btn-sm rounded-xl" (click)="commentAdded.emit(newComment()); newComment.set('')" [disabled]="!newComment().trim()">Comment</button>
+            </div>
+            <p class="text-xs opacity-40 mt-2">Pro tip: press M to comment — Client can comment, Viewer cannot.</p>
+          </div>
+        </div>
+        <!-- Right: Details -->
+        <div class="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-base-200 p-4 space-y-4 overflow-y-auto bg-base-200/30">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold">Status</span>
+            <select class="select select-bordered select-sm rounded-full flex-1" [value]="listId()" (change)="listId.set($any($event.target).value)">
+              @for (l of lists(); track l.id) { <option [value]="l.id">{{ l.name }}</option> }
+            </select>
+          </div>
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between"><span class="opacity-60">Assignee</span><span class="font-medium">{{ task().assigneeId || 'Unassigned' }}</span></div>
+            <div class="flex justify-between"><span class="opacity-60">Priority</span>
+              <select class="select select-bordered select-xs rounded-full" [value]="priority()" (change)="priority.set($any($event.target).value)">
+                <option>Low</option><option>Medium</option><option>High</option><option>Urgent</option>
+              </select>
+            </div>
+            <div class="flex justify-between"><span class="opacity-60">Labels</span><span>{{ task().labelsJson || 'Add labels' }}</span></div>
+            <div class="flex justify-between"><span class="opacity-60">Due date</span><span>Sep 15, 2026</span></div>
+            <div class="flex justify-between"><span class="opacity-60">Reporter</span><span>{{ task().createdAt | date:'short' }}</span></div>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost btn-sm rounded-xl flex-1" (click)="closed.emit()">Cancel</button>
+            <button class="btn btn-primary btn-sm rounded-xl flex-1" (click)="saved.emit({title: title(), description: description(), priority: priority(), listId: listId()})" [class.loading]="loading()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}

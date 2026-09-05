@@ -63,6 +63,10 @@ export class ProjectService {
     return this.http.post<TaskItem>(`${environment.apiUrl}/api/tasks`, { projectId, listId, title, description, priority }, { withCredentials: true });
   }
 
+  updateTask(taskId: string, title: string, description?: string, priority = 'Medium', listId?: string) {
+    return this.http.put(`${environment.apiUrl}/api/tasks/${taskId}`, { title, description, priority, listId }, { withCredentials: true });
+  }
+
   moveTask(taskId: string, toListId: string, newPosition: number) {
     return this.http.put(`${environment.apiUrl}/api/tasks/${taskId}/move`, { toListId, newPosition }, { withCredentials: true });
   }

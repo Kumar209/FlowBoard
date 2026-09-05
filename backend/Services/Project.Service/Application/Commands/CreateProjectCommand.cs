@@ -51,6 +51,17 @@ public class CreateProjectHandler : IRequestHandler<CreateProjectCommand, Result
         _db.Projects.Add(project);
         await _db.SaveChangesAsync(ct);
 
+        // Create 4 default lists: To Do, In Progress, In Review, Done (Position 0-3) - Jira pattern
+        var lists = new[]
+        {
+            new Domain.Entities.BoardList(project.Id, "To Do", 0),
+            new Domain.Entities.BoardList(project.Id, "In Progress", 1),
+            new Domain.Entities.BoardList(project.Id, "In Review", 2),
+            new Domain.Entities.BoardList(project.Id, "Done", 3)
+        };
+        _db.BoardLists.AddRange(lists);
+        await _db.SaveChangesAsync(ct);
+
         // Activity log
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(project.Id, null, req.CallerId, "ProjectCreated", $"{{\"name\":\"{req.Name}\",\"key\":\"{key}\"}}"));
         await _db.SaveChangesAsync(ct);

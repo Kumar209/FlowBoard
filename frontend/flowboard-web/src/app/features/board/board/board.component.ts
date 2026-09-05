@@ -2,19 +2,21 @@ import { Component, inject, signal, ChangeDetectionStrategy, computed } from '@a
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { DragDropModule, CdkDragDrop, transferArrayItem, moveItemInArray } from '@angular/cdk/drag-drop';
 import { TaskCardComponent } from '../../../shared/components/task-card/task-card.component';
+import { TaskCreateModalComponent } from '../../../shared/components/modals/task-create-modal/task-create-modal.component';
+import { TaskDetailModalComponent } from '../../../shared/components/modals/task-detail-modal/task-detail-modal.component';
 import { ProjectService } from '../../../core/services/project.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**
- * BoardComponent - MNC-grade: OnPush + computed canCreateTask (Client/Viewer hide) + optimistic TanStack.
- * Client 403 / Viewer 403 for create/move is now hidden in UI, not just API.
+ * BoardComponent - MNC-grade: 4-column (To Do, In Progress, In Review, Done) + DragDrop + Task modals + OnPush.
  */
 @Component({
   selector: 'app-board',
   standalone: true,
-  imports: [CommonModule, TaskCardComponent, RouterLink],
+  imports: [CommonModule, DragDropModule, TaskCardComponent, TaskCreateModalComponent, TaskDetailModalComponent, RouterLink],
   templateUrl: './board.component.html',
   styleUrls: ['./board.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -47,20 +49,27 @@ export class BoardComponent {
   selectedListId = signal<string>('');
   showCreateList = signal(false);
 
+  // Modals
+  createTaskOpen = signal(false);
+  createTaskListId = signal<string>('');
+  createTaskListName = signal<string>('');
+  detailOpen = signal(false);
+  selectedTask = signal<any>(null);
+
   createListMutation = injectMutation(() => ({
     mutationFn: (name: string) => firstValueFrom(this.projectService.createList(this.projectId(), name)),
     onSuccess: () => { this.queryClient.invalidateQueries({ queryKey: ['board', this.projectId()] }); this.showCreateList.set(false); this.newListName.set(''); },
   }));
 
   createMutation = injectMutation(() => ({
-    mutationFn: (vars: { listId: string; title: string }) =>
-      firstValueFrom(this.projectService.createTask(this.projectId(), vars.listId, vars.title)),
+    mutationFn: (vars: { listId: string; title: string; description?: string; priority?: string }) =>
+      firstValueFrom(this.projectService.createTask(this.projectId(), vars.listId, vars.title, vars.description, vars.priority)),
     onMutate: async (vars) => {
       await this.queryClient.cancelQueries({ queryKey: ['board', this.projectId()] });
       const prev = this.queryClient.getQueryData(['board', this.projectId()]) as any;
       this.queryClient.setQueryData(['board', this.projectId()], (old: any) => {
         if (!old) return old;
-        const temp = { id: 'temp-' + Date.now(), projectId: this.projectId(), listId: vars.listId, title: vars.title, priority: 'Medium', position: old.tasks.length, createdAt: new Date().toISOString() };
+        const temp = { id: 'temp-' + Date.now(), projectId: this.projectId(), listId: vars.listId, title: vars.title, priority: vars.priority || 'Medium', position: old.tasks.length, createdAt: new Date().toISOString() };
         return { ...old, tasks: [...old.tasks, temp] };
       });
       return { prev };
@@ -71,12 +80,45 @@ export class BoardComponent {
     onSettled: () => this.queryClient.invalidateQueries({ queryKey: ['board', this.projectId()] }),
   }));
 
-  createTask(listId: string) {
-    const title = this.newTitle().trim();
-    if (!title) return;
-    this.selectedListId.set(listId);
-    this.createMutation.mutate({ listId, title });
-    this.newTitle.set('');
+  updateMutation = injectMutation(() => ({
+    mutationFn: (vars: { id:string; title:string; description:string; priority:string; listId:string }) =>
+      firstValueFrom(this.projectService.updateTask(vars.id, vars.title, vars.description, vars.priority, vars.listId)),
+    onSuccess: () => { this.queryClient.invalidateQueries({ queryKey: ['board', this.projectId()] }); this.detailOpen.set(false); },
+  }));
+
+  moveMutation = injectMutation(() => ({
+    mutationFn: (vars: { taskId:string; toListId:string; newPosition:number }) =>
+      firstValueFrom(this.projectService.moveTask(vars.taskId, vars.toListId, vars.newPosition)),
+    onSuccess: () => this.queryClient.invalidateQueries({ queryKey: ['board', this.projectId()] }),
+  }));
+
+  openCreateTask(listId:string, listName:string) { this.createTaskListId.set(listId); this.createTaskListName.set(listName); this.createTaskOpen.set(true); }
+  onCreateTaskSubmit(e:{title:string; description:string; priority:string}) {
+    this.createMutation.mutate({ listId: this.createTaskListId(), title: e.title, description: e.description, priority: e.priority });
+    this.createTaskOpen.set(false);
+  }
+
+  openDetail(task:any) { this.selectedTask.set(task); this.detailOpen.set(true); }
+  onDetailSave(e:{title:string; description:string; priority:string; listId:string}) {
+    const t = this.selectedTask();
+    if(!t) return;
+    // If list changed, move first
+    if(e.listId !== t.listId){
+      this.moveMutation.mutate({ taskId: t.id, toListId: e.listId, newPosition: 0 });
+    }
+    this.updateMutation.mutate({ id: t.id, title: e.title, description: e.description, priority: e.priority, listId: e.listId });
+  }
+
+  // Drag-drop handler
+  drop(event: CdkDragDrop<any[]>, listId: string) {
+    const prevListId = event.previousContainer.id.replace('list-','');
+    const task = event.item.data;
+    if(event.previousContainer === event.container){
+      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+    } else {
+      transferArrayItem(event.previousContainer.data, event.container.data, event.previousIndex, event.currentIndex);
+      this.moveMutation.mutate({ taskId: task.id, toListId: listId, newPosition: event.currentIndex });
+    }
   }
 
   tasksForList(listId: string) {

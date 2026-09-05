@@ -26,39 +26,50 @@
       @if ((boardQuery.data()!.lists || []).length === 0) {
         <div class="text-center py-12 bg-base-100 rounded-2xl border border-dashed">
           <p class="font-semibold">No lists yet</p>
-          <p class="text-sm opacity-60">Create your first list (To Do, In Progress, Done) — then add tasks.</p>
+          <p class="text-sm opacity-60">Create your first list (To Do, In Progress, In Review, Done) — then add tasks.</p>
           @if (canCreateTask()) { <button class="btn btn-primary btn-sm rounded-full mt-3" (click)="showCreateList.set(true)">+ New List</button> }
           @else { <span class="badge badge-ghost badge-xs mt-2">View only — PM/OrgAdmin can create lists</span> }
         </div>
       } @else {
-      <!-- Kanban: horizontal scroll on mobile, grid on desktop -->
-      <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory lg:grid lg:grid-cols-3 lg:overflow-visible">
+      <!-- Kanban: 4 columns (To Do, In Progress, In Review, Done) + Add List button, drag-drop -->
+      <div cdkDropListGroup class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory lg:grid lg:grid-cols-4 lg:overflow-visible">
         @for (list of boardQuery.data()!.lists; track list.id) {
-          <div class="min-w-[300px] sm:min-w-[340px] lg:min-w-0 snap-center bg-base-100 rounded-2xl shadow border border-base-200 flex flex-col max-h-[70vh] lg:max-h-none">
-            <div class="p-4 border-b border-base-200 flex justify-between items-center sticky top-0 bg-base-100 rounded-t-2xl">
-              <h2 class="font-bold">{{ list.name }}</h2>
+          <div class="min-w-[280px] sm:min-w-[320px] lg:min-w-0 snap-center bg-base-100 rounded-2xl shadow border border-base-200 flex flex-col max-h-[70vh] lg:max-h-none">
+            <div class="p-3 border-b border-base-200 flex justify-between items-center sticky top-0 bg-base-100 rounded-t-2xl">
+              <h2 class="font-bold text-sm">{{ list.name }}</h2>
               <span class="badge badge-ghost badge-sm rounded-full">{{ tasksForList(list.id).length }}</span>
             </div>
 
-            <div class="p-3 space-y-3 overflow-y-auto flex-1">
+            <div cdkDropList [id]="'list-'+list.id" [cdkDropListData]="tasksForList(list.id)" [cdkDropListConnectedTo]="boardQuery.data()!.lists.map(l=> 'list-'+l.id)" (cdkDropListDropped)="drop($event, list.id)" class="p-3 space-y-3 overflow-y-auto flex-1 min-h-[120px]">
               @for (task of tasksForList(list.id); track task.id) {
-                <app-task-card [title]="task.title" [priority]="task.priority" [labelsJson]="task.labelsJson" [assigneeId]="task.assigneeId ?? ''" />
+                <div cdkDrag [cdkDragData]="task" (click)="openDetail(task)" class="cursor-pointer">
+                  <app-task-card [title]="task.title" [priority]="task.priority" [labelsJson]="task.labelsJson" [assigneeId]="task.assigneeId ?? ''" />
+                </div>
               }
               @if (tasksForList(list.id).length === 0) {
-                <div class="text-center py-8 opacity-30 text-sm">No tasks</div>
+                <div class="text-center py-8 opacity-30 text-sm">No tasks — drag here or create</div>
               }
             </div>
 
-            <!-- Add task (optimistic) - hidden for Client/Viewer -->
             @if (canCreateTask()) {
               <div class="p-3 border-t border-base-200">
-                <div class="flex gap-2">
-                  <input type="text" placeholder="Add task..." [value]="newTitle()" (input)="newTitle.set($any($event.target).value)" (keydown.enter)="createTask(list.id)" class="input input-bordered input-sm flex-1 rounded-xl" />
-                  <button class="btn btn-primary btn-sm rounded-xl" (click)="createTask(list.id)" [class.loading]="createMutation.isPending() && selectedListId()===list.id">+</button>
-                </div>
+                <button class="btn btn-ghost btn-sm w-full rounded-xl border border-dashed" (click)="openCreateTask(list.id, list.name)">+ Create task</button>
               </div>
             } @else {
-              <div class="p-3 border-t border-base-200 text-xs opacity-40 text-center">View only — Client/Viewer cannot create tasks</div>
+              <div class="p-3 border-t border-base-200 text-xs opacity-40 text-center">View only — Client/Viewer cannot create</div>
+            }
+          </div>
+        }
+        <!-- Add new status card -->
+        @if (canCreateTask()) {
+          <div class="min-w-[280px] lg:min-w-0 snap-center flex items-start">
+            @if (!showCreateList()) { <button class="btn btn-ghost rounded-2xl border border-dashed w-full py-8" (click)="showCreateList.set(true)">+ Add new status</button> }
+            @else {
+              <div class="card bg-base-100 rounded-2xl shadow border p-3 w-full flex gap-2">
+                <input type="text" placeholder="Status name" [value]="newListName()" (input)="newListName.set($any($event.target).value)" class="input input-bordered input-sm flex-1 rounded-xl" />
+                <button class="btn btn-primary btn-sm rounded-xl" (click)="createListMutation.mutate(newListName())">Add</button>
+                <button class="btn btn-ghost btn-sm rounded-xl" (click)="showCreateList.set(false)">✕</button>
+              </div>
             }
           </div>
         }
@@ -74,7 +85,7 @@
             <thead><tr><th>Title</th><th>List</th><th>Priority</th><th>Pos</th></tr></thead>
             <tbody>
               @for (task of boardQuery.data()!.tasks; track task.id) {
-                <tr><td class="font-medium">{{ task.title }}</td><td><span class="badge badge-ghost badge-xs">{{ task.listId.slice(0,4) }}</span></td><td><span class="badge badge-xs" [ngClass]="task.priority==='High'?'badge-warning': task.priority==='Urgent'?'badge-error':'badge-info'">{{ task.priority }}</span></td><td>{{ task.position }}</td></tr>
+                <tr (click)="openDetail(task)" class="cursor-pointer hover:bg-base-200"><td class="font-medium">{{ task.title }}</td><td><span class="badge badge-ghost badge-xs">{{ task.listId.slice(0,4) }}</span></td><td><span class="badge badge-xs" [ngClass]="task.priority==='High'?'badge-warning': task.priority==='Urgent'?'badge-error':'badge-info'">{{ task.priority }}</span></td><td>{{ task.position }}</td></tr>
               }
             </tbody>
           </table>
@@ -82,11 +93,14 @@
         <!-- Mobile cards -->
         <div class="md:hidden space-y-2">
           @for (task of boardQuery.data()!.tasks; track task.id) {
-            <app-task-card [title]="task.title" [priority]="task.priority" [labelsJson]="task.labelsJson" />
+            <div (click)="openDetail(task)"><app-task-card [title]="task.title" [priority]="task.priority" [labelsJson]="task.labelsJson" /></div>
           }
         </div>
       </div>
     }
+
+    <app-task-create-modal [open]="createTaskOpen()" [listName]="createTaskListName()" [loading]="createMutation.isPending()" (closed)="createTaskOpen.set(false)" (submitted)="onCreateTaskSubmit($event)" />
+    <app-task-detail-modal [open]="detailOpen()" [task]="selectedTask()" [lists]="boardQuery.data()?.lists || []" [loading]="updateMutation.isPending()" (closed)="detailOpen.set(false)" (saved)="onDetailSave($event)" />
 
     <div class="mt-4 text-xs opacity-40 text-center">TanStack board 2m (Upstash 5m) • Signals selectedProject • Responsive: snap scroll mobile → grid desktop</div>
   </div>
