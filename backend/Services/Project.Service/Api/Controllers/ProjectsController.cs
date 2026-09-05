@@ -21,6 +21,10 @@ public class ProjectsController : ControllerBase
     public async Task<IActionResult> Create(Guid workspaceId, [FromBody] CreateProjectBody body)
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var role = GetRoleForWorkspace(workspaceId);
+        if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
+        var allowed = new[] { "OrgAdmin", "ProjectManager", "SuperAdmin" };
+        if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/ProjectManager. Your role in this workspace: {role}" });
         var roles = GetRoles();
         var result = await _mediator.Send(new CreateProjectCommand(workspaceId, body.Name, body.Description, userId.Value, roles));
         if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
@@ -54,6 +58,13 @@ public class ProjectsController : ControllerBase
     public async Task<IActionResult> Update(Guid projectId, [FromBody] UpdateProjectBody body)
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
+        // Need workspaceId for role check - fetch project first
+        var board = await _mediator.Send(new GetBoardQuery(projectId));
+        if (board?.Project == null) return NotFound(new { error = "Project not found" });
+        var role = GetRoleForWorkspace(board.Project.WorkspaceId);
+        if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
+        var allowed = new[] { "OrgAdmin", "ProjectManager", "SuperAdmin" };
+        if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/ProjectManager. Your role in this workspace: {role}" });
         var roles = GetRoles();
         var result = await _mediator.Send(new UpdateProjectCommand(projectId, body.Name, body.Description, body.Slug, userId.Value, roles));
         if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
@@ -64,6 +75,12 @@ public class ProjectsController : ControllerBase
     public async Task<IActionResult> Delete(Guid projectId)
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var board = await _mediator.Send(new GetBoardQuery(projectId));
+        if (board?.Project == null) return NotFound(new { error = "Project not found" });
+        var role = GetRoleForWorkspace(board.Project.WorkspaceId);
+        if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
+        var allowed = new[] { "OrgAdmin", "SuperAdmin" };
+        if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/SuperAdmin to delete. Your role: {role}" });
         var roles = GetRoles();
         var result = await _mediator.Send(new DeleteProjectCommand(projectId, userId.Value, roles));
         if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
@@ -76,6 +93,14 @@ public class ProjectsController : ControllerBase
         return Guid.TryParse(sub, out var g) ? g : null;
     }
     private List<string> GetRoles() => User.FindAll(ClaimTypes.Role).Select(c => c.Value).Concat(User.FindAll("role").Select(c => c.Value)).Distinct().ToList();
+    private string? GetRoleForWorkspace(Guid workspaceId)
+    {
+        var wids = User.FindAll("workspace_id").Select(c => c.Value).ToList();
+        var roles = User.FindAll(ClaimTypes.Role).Concat(User.FindAll("role")).Select(c => c.Value).ToList();
+        for (int i = 0; i < wids.Count && i < roles.Count; i++)
+            if (Guid.TryParse(wids[i], out var g) && g == workspaceId) return roles[i];
+        return null;
+    }
 }
 
 public record CreateProjectBody(string Name, string? Description);
