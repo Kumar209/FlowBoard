@@ -6,8 +6,24 @@
         <p class="text-sm opacity-60 mt-1">All projects across your assigned workspaces — Manager sees allotted workspaces only, filtered by role.</p>
         @if (!canCreateProject()) { <span class="badge badge-ghost badge-xs mt-1">View only — PM/OrgAdmin can create</span> }
       </div>
-      <span class="badge badge-ghost badge-sm self-start sm:self-auto">Total {{ filtered().length }}</span>
+      <div class="flex gap-2 self-start sm:self-auto items-center">
+        @if (canCreateProject()) { <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md" (click)="toggleCreate()">+ New Project</button> }
+        <span class="badge badge-ghost badge-sm">Total {{ filtered().length }}</span>
+      </div>
     </div>
+
+    @if (canCreateProject() && showCreate()) {
+      <div class="card bg-base-100 shadow border border-base-200 rounded-2xl p-4 mb-6 max-w-2xl">
+        <div class="flex flex-col sm:flex-row gap-3">
+          <select class="select select-bordered rounded-xl max-w-xs" [value]="createWsId()" (change)="createWsId.set($any($event.target).value)">
+            @for (ws of workspacesQuery.data() || []; track ws.id) { <option [value]="ws.id">{{ ws.name }}</option> }
+          </select>
+          <input type="text" placeholder="Project name" [value]="newName()" (input)="newName.set($any($event.target).value)" class="input input-bordered flex-1 rounded-xl" />
+          <button class="btn btn-primary rounded-xl" (click)="createProject()" [class.loading]="createMutation.isPending()">Create</button>
+        </div>
+        @if (createError()) { <div class="text-error text-xs mt-2">● {{ createError() }}</div> }
+      </div>
+    }
 
     <div class="flex flex-wrap gap-2 mb-6">
       <button (click)="selectedWorkspaceId.set('all')" [class.btn-primary]="selectedWorkspaceId()==='all'" [class.btn-ghost]="selectedWorkspaceId()!=='all'" class="btn btn-sm rounded-full">All workspaces</button>
