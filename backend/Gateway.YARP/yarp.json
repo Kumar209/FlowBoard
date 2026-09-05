@@ -8,7 +8,8 @@
       },
       "workspace-route": {
         "ClusterId": "identity-cluster",
-        "Match": { "Path": "/api/workspaces/{**catch-all}" }
+        "Match": { "Path": "/api/workspaces/{**catch-all}" },
+        "Order": 1
       },
       "org-route": {
         "ClusterId": "identity-cluster",
@@ -16,8 +17,13 @@
       },
       "project-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/workspaces/{**catch-all}" },
-        "Order": 1
+        "Match": { "Path": "/api/workspaces/{workspaceId}/projects/{**catch-all}" },
+        "Order": 0
+      },
+      "project-workspace-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/workspaces/{workspaceId}/projects" },
+        "Order": 0
       },
       "project-api-route": {
         "ClusterId": "project-cluster",
@@ -25,7 +31,8 @@
       },
       "task-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/tasks/{**catch-all}" }
+        "Match": { "Path": "/api/tasks/{**catch-all}" },
+        "Order": 1
       },
       "file-route": {
         "ClusterId": "file-cluster",
@@ -33,7 +40,7 @@
       },
       "file-attachments-route": {
         "ClusterId": "file-cluster",
-        "Match": { "Path": "/api/tasks/{**catch-all}/attachments" }
+        "Match": { "Path": "/api/tasks/{taskId}/attachments" }
       },
       "notification-route": {
         "ClusterId": "notification-cluster",

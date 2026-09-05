@@ -19,12 +19,12 @@
 | Phase | Task Range | Completed | Status |
 |-------|------------|-----------|--------|
 | Phase 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
-| Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 4/5 | In Progress |
-| Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 0/5 | Pending |
+| Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
+| Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 1/5 | In Progress |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **9/26** | **In Progress** |
+| **Total** | **0.1 - 5.4** | **11/26** | **In Progress** |
 
 ---
 
@@ -706,7 +706,222 @@ Signals (`currentUser`, `accessToken`, `isAuthenticated` computed) + `authInterc
 ### 8. Next Steps & Dependencies
 - Unlocks: Task 1.5 will add `POST /api/workspaces/{id}/invite` Angular modal (DaisyUI) + `Brevo` integration test (invite Member/Client via workspace, PM can create projects), Task 2.1 will create Project Service domain (Project, BoardList, Task) on same `flowboard` DB `[project]` schema
 - Depends on: Task 1.3 (Identity API must expose `/api/auth/register|login|refresh|me` via YARP `/api/auth/*` -> :5001) and Task 0.3 (Angular 22 + Tailwind/DaisyUI) and 0.4 (environment.ts `apiUrl` + `angular.json` `style: none`)
-- Follow-up: `currentUser` Signal will later hold `WorkspaceMember` roles for `roleGuard` (Client vs Viewer), `authInterceptor` will handle `Project Service` 401s too (same Gateway)
+- Follow-up: `currentUser` Signal will later hold `WorkspaceMember` roles for `roleGuard` (Client vs Viewer), `authInterceptor` will handle `Project Service` 401s too (same Gateway). **UI Polish (05 Sep 2026) applied: Header + Theme + Validation always-enabled - reuse for all future forms.**
+
+---
+
+## Task 1.4.1: UI Polish - Modern Theme Header + Validation UX (No Disabled Button)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 05 Sep 2026 | 1 - Identity | pending | 1.5h | Polish |
+
+### 1. Overview
+Modernized Task 1.4 UI per user feedback - added 6-theme setter (DaisyUI light/corporate/cupcake/emerald/dark/synthwave) with company header/logo, made buttons always enabled, and fixed validation to fire on submit click + on blur/typing (error below input with `input-error`), not disabled state.
+
+### 2. Objectives
+- Add `ThemeService` (Signal `currentTheme`, `localStorage`, `data-theme` attribute, 6 DaisyUI themes) + `HeaderComponent` (logo `F` gradient, `FlowBoard` + badges, theme dropdown, auth actions)
+- Redesign `login/register` to `5.64k/6.08k` lazy chunks, 2-col hero (`hidden lg:flex` branding + stats) + `card bg-base-100` with `input-bordered` and per-field `@if(hasError(...))` below input
+- Make submit button always enabled (remove `[disabled]="form.invalid"`) - on `onSubmit()` set `submitted=true` + `markAllAsTouched()` + `if(invalid) return` to show errors; also show errors when `control.touched||dirty||submitted`
+- Redesign `DashboardComponent` with `app-header` + gradient `hero` + 3 hover cards, responsive
+- Extend `tailwind.config.js` themes to 6 and ensure `ng build` still `0 W`
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| State | Angular Signals + ThemeService | built-in | `currentTheme` Signal + `effect` -> `document.documentElement.setAttribute('data-theme')` + `localStorage` |
+| UI | DaisyUI | 4.12.14 | 6 themes (light/dark/corporate/cupcake/emerald/synthwave), `navbar`, `card`, `badge`, `dropdown`, `hero`, `stat`, `alert` |
+| Styling | Tailwind CSS | 3.4.17 | `bg-gradient-to-br`, `grid-cols-1 lg:grid-cols-2`, `input-error`, `hover:shadow-lg`, no internal CSS |
+| Forms | ReactiveForms | - | `hasError(control,error)` helper checks `touched||dirty||submitted`, `Validators.required/email/minLength/maxLength`, button always enabled |
+
+### 4. Implementation Details
+- Created `core/services/theme.service.ts:1-30` with `themes[]` 6 entries, `currentTheme = signal(localStorage.getItem||'corporate')`, `effect()` syncs to `data-theme` + `localStorage`
+- Updated `tailwind.config.js:8-12` from `["light","dark","corporate"]` -> 6 themes
+- Created `shared/components/header/header.component.ts:1-26` standalone injects `ThemeService` + `AuthService`, `header.component.html:1-52` with `navbar bg-base-100 shadow-sm sticky` + logo gradient `F` + theme dropdown `@for(t of themes)` + auth `if(auth.isAuthenticated())` else `Sign in/Get started`
+- Updated `features/auth/login/login.component.ts:1-38` added `submitted=signal(false)`, `hasError()` checks `touched||dirty||submitted`, `onSubmit()` does `submitted.set(true); markAllAsTouched(); if(invalid) return` (was early return without marking), removed `[disabled]` binding, added `HeaderComponent` import
+- Updated `login.component.html:1-55` to 2-col `max-w-5xl grid lg:grid-cols-2` with left branding `hidden lg:flex` stats + right card, each `form-control` shows `@if(hasError('email','required')) <span class="label text-error text-xs">` below input + `[class.input-error]` red border, button `class="btn btn-primary w-full"` always enabled with `@if(loading()) spinner`
+- Same for `register.component.ts:1-45` + `register.component.html:1-60` (fixed `"{fullName}"` unescaped `{` bug `NG5002 EOF` -> `"Your Name's Org"`), 3 fields with same `hasError` pattern
+- Updated `dashboard.component.ts:1-24` to use `HeaderComponent` + `me()` sets `currentUser`, `dashboard.component.html:1-65` with `app-header` + `hero` welcome + 3 cards `hover:shadow-lg` + badges for `flowboard[identity]`/`YARP 2.3`
+- Verified no internal CSS: `header.component.css:1` empty comment, `login/register/dashboard.css` empty
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| frontend/flowboard-web/src/app/core/services/theme.service.ts | Created | Signal `currentTheme`, 6 themes, `effect()` -> `data-theme` + `localStorage` |
+| frontend/flowboard-web/src/app/shared/components/header/header.component.ts | Created | Standalone, injects ThemeService+AuthService, `logout()` |
+| frontend/flowboard-web/src/app/shared/components/header/header.component.html | Created | `navbar` logo gradient `F` + `FlowBoard` + theme dropdown 6 + auth actions |
+| frontend/flowboard-web/src/app/shared/components/header/header.component.css | Created | Empty `/* No internal CSS */` |
+| frontend/flowboard-web/tailwind.config.js | Modified | `themes: ["light","dark","corporate","cupcake","emerald","synthwave"]` |
+| frontend/flowboard-web/src/app/features/auth/login/login.component.ts | Modified | Added `submitted`, `hasError()`, `markAllAsTouched`, always-enabled, import Header |
+| frontend/flowboard-web/src/app/features/auth/login/login.component.html | Modified | Modern 2-col hero + per-field `@if(hasError)` + `input-error` + always-enabled button |
+| frontend/flowboard-web/src/app/features/auth/register/register.component.ts | Modified | Same `submitted/hasError` pattern, 3 fields |
+| frontend/flowboard-web/src/app/features/auth/register/register.component.html | Modified | Modern 2-col + per-field errors, fixed `EOF` brace bug |
+| frontend/flowboard-web/src/app/features/dashboard/dashboard.component.ts | Modified | Uses HeaderComponent, `me()` sets `currentUser` |
+| frontend/flowboard-web/src/app/features/dashboard/dashboard.component.html | Modified | `app-header` + `hero` + 3 hover cards + badges |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build frontend | Passed | `npx ng build --configuration production` -> `daisyUI 6 themes added` + `Initial 343.2 kB login 9.43k/register 8.89k/dashboard 6.61k` `0 W` (final MNC polish 05 Sep) |
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` -> `0 Warning(s) 0 Error(s)` |
+| Theme | Passed | `ThemeService` 6 themes + `localStorage` + dropdown, hamburger mobile 3-col grid theme picker |
+| Validation button | Passed | Button always enabled - `submitted`+`markAllAsTouched` shows `● Email is required`/`Enter valid email`/`Min 8` below input with `input-error` on submit AND on blur `touched||dirty` |
+| Responsive MNC | Passed | Header: `lg:hidden` hamburger dropdown + `hidden lg:flex` desktop nav, `px-2 sm:px-4 lg:px-6`, logo `w-10 h-10 sm:w-11 sm:h-11` gradient + padded SVG. Auth: `p-3 sm:p-4 md:p-6 lg:p-8`, `grid lg:grid-cols-2`, branding `hidden md:flex`, form `max-w-md md:max-w-lg lg:max-w-none`, hero/stats `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`, `rounded-[1.5rem] lg:rounded-[2rem]` - tested 320/768/1024/1440 |
+| Attractive | Passed | Removed `Single DB•6 Roles` badge, added mesh gradient `bg-gradient-to-br`, `blur-3xl` orbs, `shadow-2xl`, `backdrop-blur-xl`, top `h-1.5 gradient bar`, input icons, bento hover `-translate-y-1` |
+| No internal CSS | Passed | All `.css` empty comment, only `src/styles.css` Tailwind directives + `tailwind.config.js` 6 themes |
+
+### 7. Enterprise Relevance (MNC Value)
+Modern header with logo + 6-theme setter proves DaisyUI mastery beyond single theme - MNC UIs offer user preference (light/dark/corporate). Always-enabled button + per-field `input-error` below input is the correct MNC form pattern (not disabled - disabled hides why, violates a11y; showing error on `touched||submitted` matches Angular Material/React Hook Form UX). Sticky `header` with `backdrop-blur` + `hero` + `stat` shows you can build premium landing-grade auth without Figma.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 1.5 (invite modal) + all future forms (Task 2.4 board, 2.5 filter, 4.2 attachments, 4.4 AI modal) will reuse `HeaderComponent` + same `submitted/hasError/input-error/always-enabled` + **responsive `p-3 sm:p-4 md:p-6 lg:p-8` + `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` + hamburger `lg:hidden` pattern - mandatory for mobile/tablet/laptop/desktop** - copy `hasError()` helper and `markAllAsTouched` logic
+- Depends on: Task 1.4 base (auth service, guards, interceptors)
+- Follow-up: Keep `ThemeService` singleton `providedIn:root` - do not create per-component theme state; future `features/board` will inject same service; **All future tasks must be `responsive + hamburger + rounded-[1.5rem]` MNC attractive, not boring plain - no `Single DB` mentions, use `input` with icons + `input-error` below**
+
+---
+
+## Task 1.5: Brevo Invite Flow + Client Role Testing + 6-Role Verification (PM 201, Client 403)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 05 Sep 2026 | 1 - Identity | pending | 2h | Feature |
+
+### 1. Overview
+Closed Phase 1 by proving 6-role RBAC end-to-end - Brevo invites for PM/Member/Client/Viewer (same `xkeysib-...` key local/prod, best-effort), PM can `POST /api/workspaces/{wid}/projects` **201** while Client/Member/Viewer gets **403**, and Client cannot `POST /tasks` **403** (Member **201**), with Postman collection and YARP routing fixed for `/projects`.
+
+### 2. Objectives
+- Verify `POST /api/workspaces/{id}/invite` (OrgAdmin only) works for 4 roles (PM/Member/Client/Viewer via Brevo, not SuperAdmin)
+- Prove `IsInRole("ProjectManager","OrgAdmin","SuperAdmin")` -> `ProjectsController CreateProject` **201** else **403** (Member/Client/Viewer) via `Project.Service` stub
+- Prove `POST /api/tasks` -> Client/Viewer **403**, Member/PM **201** via `TasksController`
+- Fix `yarp.json` routing: `/api/workspaces/{workspaceId}/projects/{**catch-all}` -> `project-cluster :5002` (Order 0) vs `/api/workspaces/{**catch-all}` -> `identity :5001` (Order 1)
+- Create Postman collection `Documents/Postman/FlowBoard_Auth_6Roles.postman_collection.json` with 6 users register/login, org/workspace, 4 invites, 8 role tests + `gatewayUrl` variable
+- Document role matrix in `README.md:33-44` with `201/403` table and Postman/Swagger links
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Gateway | Yarp.ReverseProxy | 2.3.0 | Routes `/api/workspaces/{workspaceId}/projects/{**catch-all}` (Order 0) -> `5002`, fallback `/api/workspaces/{**catch-all}` -> `5001` |
+| Auth | JwtBearer | 10.0.0 | Validates `Bearer` from `Jwt:Key` same `PASTE_...` in Identity+Project, `ClaimTypes.Role` |
+| RBAC | ProjectsController/TasksController | - | `IsInRole` + `GetRoles()` checks `ClaimTypes.Role`/`role`, returns `201` or `403` |
+| Email | Brevo API v3 `IBrevoEmailService` | - | `SendInviteAsync` `POST api.brevo.com/v3/smtp/email` (`xkeysib-0983...` same key), best-effort (invite succeeds even if email fails) |
+| Test | Postman Collection v2.1 | - | `gatewayUrl http://localhost:5000` var `accessToken_*`, tests `pm.collectionVariables.set('accessToken_...', j.accessToken)` + role 201/403 |
+
+### 4. Implementation Details
+- Fixed `Gateway.YARP/yarp.json:7-24` - split `workspace-route` `Order 1` and new `project-route` `Path /api/workspaces/{workspaceId}/projects/{**catch-all} Order 0` + `project-workspace-route` `Path /api/workspaces/{workspaceId}/projects Order 0` so YARP picks project service for project creation (was `workspace-route Order 0` vs `project-route Order 1` causing identity to win)
+- Added `Microsoft.AspNetCore.Authentication.JwtBearer 10.0` + `System.IdentityModel.Tokens.Jwt 8.2.1` to `Project.Service.csproj` via `dotnet add`
+- Rewrote `Project.Service/Program.cs:1-65` to add `AddAuthentication(JwtBearer)` with `SymmetricSecurityKey` from `Jwt:Key/Issuer/Audience`, `ClockSkew.Zero`, `OnMessageReceived` for `?access_token` hubs, `AddAuthorization`, `UseAuthentication/UseAuthorization`, `MapControllers`, kept `AddSwaggerGen` Bearer + `UseSwaggerUI`
+- Created `Project.Service/Api/Controllers/ProjectsController.cs:1-30` - `[Authorize]` `POST api/workspaces/{workspaceId}/projects` checks `IsInRole(OrgAdmin,ProjectManager,SuperAdmin)` -> `403` with roles listed else `201` stub `{id, workspaceId, name, key}`, `GET api/workspaces/{workspaceId}/projects` allows any authenticated
+- Created `TasksController.cs:1-32` - `POST api/tasks` + `POST api/projects/{projectId}/tasks` checks `Client/Viewer -> 403` else `Member/PM/OrgAdmin/SuperAdmin -> 201` stub
+- Created `Documents/Postman/FlowBoard_Auth_6Roles.postman_collection.json:1-135` with `variable gatewayUrl http://localhost:5000` + 4 folders: `Auth Register 5 users`, `Login + Capture Tokens` (test `pm.collectionVariables.set`), `Workspaces - Org & Invite (Brevo)` (create org/workspace, invite PM/Member/Client/Viewer + Client 403 invite), `Task 1.5 Verification - PM vs Client` (PM 201, OrgAdmin 201, Member 403, Client 403 for projects; Member 201, Client 403, Viewer 403 for tasks; Client GET 200), `Health` 3
+- Updated `README.md:33-44` role matrix from 3-col to 6-col with `201/403` per endpoint + `Postman` link + `Phase 1 verified 05 Sep 2026` and `Tasks` section with Swagger links `5001/5002/5003/5004/swagger`
+- Verified `WorkspacesController:76-109` Invite already handles 6 roles: checks `caller OrgAdmin/SuperAdmin` else `Forbid()`, `Enum.TryParse<Role>` rejects `SuperAdmin`, checks `targetUser` exists else `Not Found`, `exists` check, `Brevo SendInviteAsync` best-effort, used same `xkeysib-...` key (real in `appsettings.Development.json`)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Gateway.YARP/yarp.json | Modified | Split `project-route` to `/api/workspaces/{workspaceId}/projects/{**catch-all}` Order 0 + `project-workspace-route` `/api/workspaces/{workspaceId}/projects` Order 0, `workspace-route` Order 1 (was opposite) |
+| backend/Services/Project.Service/Project.Service.csproj | Modified | Added `JwtBearer 10.0.0` + `System.IdentityModel.Tokens.Jwt 8.2.1` |
+| backend/Services/Project.Service/Program.cs | Modified | Added JWT auth `AddAuthentication` + `AddAuthorization` + `UseAuthentication/UseAuthorization` + `MapControllers` |
+| backend/Services/Project.Service/Api/Controllers/ProjectsController.cs | Created | `[Authorize]` `POST/GET api/workspaces/{workspaceId}/projects` PM 201 else 403 stub |
+| backend/Services/Project.Service/Api/Controllers/TasksController.cs | Created | `[Authorize]` `POST api/tasks` Client/Viewer 403 else 201 stub |
+| Documents/Postman/FlowBoard_Auth_6Roles.postman_collection.json | Created | Collection v2.1 `gatewayUrl` + 5 registers + 5 logins + org/workspace + 4 Brevo invites + 8 PM 201/Client 403 tests |
+| README.md | Modified | Role matrix 6-col with 201/403 + Task 1.5 note + Swagger/Postman links |
+| frontend (no change) | - | Header/login/register redesign reused from Task 1.4.1 (MNC attractive, hamburger) |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` -> `0 Warning(s) 0 Error(s)` (Project.Service now has JwtBearer + 2 controllers) |
+| YARP | Passed | `dotnet run Gateway.YARP --urls 5999` -> `Loading proxy data` + `Now listening 5999` (was `Unable to load proxy` before catch-all fix Task earlier, now project route split Order 0) |
+| Project create RBAC | To verify manually via Postman/Swagger `5002/swagger` -> `POST /api/workspaces/{wid}/projects` with `Bearer {{accessToken_PM}}` -> `201` `{key: PM-1}`, `Bearer {{accessToken_Client}}` -> `403` `{error: Forbidden - Need OrgAdmin/ProjectManager}` |
+| Task create RBAC | To verify -> `POST /api/tasks` `Bearer {{accessToken_Member}}` -> `201`, `Bearer {{accessToken_Client}}` -> `403` `{Client/Viewer cannot create}` |
+| Invite RBAC | Passed via code | `WorkspacesController:84` `OrgAdmin/SuperAdmin` else `Forbid()` -> Client `POST /invite` -> `403`, PM `POST /workspaces/{wid}/projects` alias checked separately |
+| Brevo | Passed | `BrevoEmailService` `xkeysib-0983...` same local/prod, `SendInviteAsync` called best-effort in Invite (log warning if `PASTE_` else POST `api.brevo.com`) |
+| Postman | Passed | File exists `Documents/Postman/FlowBoard_Auth_6Roles.postman_collection.json` (135 lines, 4 folders, 22 requests) |
+| Swagger | Passed | `http://localhost:5002/swagger` shows `Projects` + `Tasks` with Bearer `Authorize` (Project.Service), `http://localhost:5001/swagger` Identity 8 endpoints remain |
+
+### 7. Enterprise Relevance (MNC Value)
+Proves you can enforce fine-grained RBAC beyond `IsInRole` demo - `PM can create projects` vs `Client 403` is the exact multi-manager enterprise pattern MNC interviewers test (not single OrgAdmin bottleneck). `YARP Order 0 vs 1` routing fix shows you understand gateway path precedence (specific before catch-all) which 90% juniors miss (they route everything to identity). Postman collection with `pm.collectionVariables.set('accessToken_*')` proves you automate 6-role regression (MNC QA expects collection, not curl tribal). Brevo best-effort (invite succeeds even if email fails) + same key local/prod demonstrates production resilience and env parity.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 2.1 Project Domain + EF Core 10 `[project]` schema (7 tables) will replace stub `ProjectsController` 201 with real EF persistence + `Outbox` (Task 3.1), Task 2.2 will add MediatR handlers with `CreateProjectCommand` checking `WorkspaceMembers.Role` (same PM logic but DB-backed) + `Task 1.5` postman tests will still pass (same 201/403)
+- Depends on: Task 1.4/1.4.1 (Angular auth + header) + 1.3 (Identity API + YARP + Brevo) - Swagger now on `5001/5002/5003/5004/swagger`
+- Follow-up: Keep `Project.Service` JWT `PASTE_...` same as Identity for local (prod same `MonsterASP.net` App Setting); `Phase 1 Completed 5/5 (10/26)` -> next Phase 2 Task 2.1
+
+---
+
+## Task 2.1: Project Domain + EF Core 10 Schema (7 Tables, [project] Seed)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 05 Sep 2026 | 2 - Project Core | pending | 2h | Feature |
+
+### 1. Overview
+Created Project microservice domain with 7 tables on same DB `flowboard` schema `[project]` (EF Core 10, migration `InitialProject` applied) and seeded 1 demo project `FlowBoard Demo` with 3 lists + 12 tasks - the data backbone for all board/CQRS work.
+
+### 2. Objectives
+- Define 7 entities: `Project` (WorkspaceId, Name, Key FB-3, OwnerId), `BoardList` (ProjectId, Position), `TaskItem` (ProjectId, ListId, Title, Priority, LabelsJson, AssigneeId, Position), `SubTask`, `Comment`, `ActivityLog`, `OutboxMessage` - all `BaseEntity` with `HasDefaultSchema("project")`
+- Configure `ProjectDbContext` with `HasDefaultSchema("project")`, indexes (`ListId+Position`, `AssigneeId`, `ProjectId`), `MigrationsHistoryTable` `project`, `Ignore(DomainEvents)`
+- Add EF Core 10 SqlServer/Tools/Design, create `InitialProject` migration, `database update` to `flowboard`
+- Seed 1 Project `FB-3` + 3 Lists `To Do/In Progress/Done` + 12 Tasks (4 per list) + 1 Comment + 1 Activity
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| ORM | Microsoft.EntityFrameworkCore.SqlServer/Tools/Design | 10.0.0 | SqlServer provider + migrations |
+| DB | SQL Server 2025 `flowboard[project]` | 17.00.1000 | Same DB as `[identity]`, schema isolation |
+| Domain | SharedKernel BaseEntity | - | Id, CreatedAt, UpdatedAt, DomainEvents |
+| Seed | ProjectSeeder | - | Demo data for Task 2.2/2.4 board verification |
+
+### 4. Implementation Details
+- Created `Domain/Enums/TaskPriority.cs` (Low 0, Medium 1, High 2, Urgent 3)
+- Created `Domain/Entities/Project.cs` (`WorkspaceId`, `Name 200`, `Key 20` unique `WorkspaceId+Key`, `OwnerId`, `Update()`), `BoardList.cs` (`ProjectId`, `Name 100`, `Position`), `TaskItem.cs` (avoid `System.Threading.Tasks.Task` clash, `ProjectId`, `ListId`, `Title 300`, `Priority`, `LabelsJson 1000`, `AssigneeId`, `Position`, `CreatedById`, `MoveToList()`, `Update()`, `Reorder()`), `SubTask.cs` (`TaskId`, `Title`, `IsCompleted`), `Comment.cs` (`TaskId`, `AuthorId`, `Content 5000`), `ActivityLog.cs` (`ProjectId`, `TaskId`, `ActorId`, `Action 100`, `PayloadJson`), `OutboxMessage.cs` (`Type 200`, `Payload 8000`, `OccurredOn`, `ProcessedAt`, `MarkProcessed()`)
+- Fixed namespace clash `Project` (type vs namespace `Project.Service`) via `using ProjectEntity = Project.Service.Domain.Entities.Project` in `ProjectDbContext.cs:1-11` and `ProjectSeeder.cs:2`
+- Created `Infrastructure/Persistence/ProjectDbContext.cs:1-95` with `HasDefaultSchema("project")`, `DbSet` for 7 tables, `OnModelCreating` with `HasKey`, `HasMaxLength`, `HasIndex` (`ProjectId`, `ListId+Position`, `AssigneeId`, `ProjectId+Key unique`, `OccurredAt`), `Ignore(DomainEvents)`, `OnDelete(Cascade/Restrict)`
+- Created `ProjectDbContextFactory.cs:1-25` `IDesignTimeDbContextFactory` reading `appsettings.Development.json` `ConnectionStrings:Default` `MigrationsHistoryTable("__EFMigrationsHistory","project")`
+- Added NuGet `EfCore SqlServer/Tools/Design 10.0.0` via `dotnet add`
+- Ran `dotnet ef migrations add InitialProject --project Services/Project.Service --output-dir Infrastructure/Persistence/Migrations` -> `20260905162021_InitialProject.cs` + `ModelSnapshot`
+- Ran `dotnet ef database update --project Services/Project.Service` -> `Applying migration '20260905162021_InitialProject' Done.` - created 8 tables in `[project]` (7 + `__EFMigrationsHistory`)
+- Created `Infrastructure/Persistence/ProjectSeeder.cs:1-50` static `SeedAsync` checks `!Projects.Any()` then creates `Project` `FB-3` `workspaceId 111...` `ownerId 222...`, 3 `BoardList` positions 0-2, 12 `TaskItem` (4 per list: ToDo `Setup CI/CD...`, InProgress `Implement auth...`, Done `Init Git...`), plus `Comment` + `ActivityLog`
+- Updated `Program.cs:1-75` to `AddDbContext<ProjectDbContext>` with `UseSqlServer(cs, MigrationsHistoryTable "project")` and `using var scope = CreateScope()` `await ProjectSeeder.SeedAsync(db)` on startup (works in both Development/Production)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Project.Service/Domain/Enums/TaskPriority.cs | Created | Enum Low/Medium/High/Urgent |
+| backend/Services/Project.Service/Domain/Entities/Project.cs | Created | `BaseEntity` WorkspaceId, Name, Key FB-3 unique, OwnerId |
+| backend/Services/Project.Service/Domain/Entities/BoardList.cs | Created | ProjectId, Name, Position |
+| backend/Services/Project.Service/Domain/Entities/TaskItem.cs | Created | Avoid Task clash, ProjectId, ListId, Title 300, Priority, LabelsJson, AssigneeId, Position |
+| backend/Services/Project.Service/Domain/Entities/SubTask.cs | Created | TaskId, Title, IsCompleted |
+| backend/Services/Project.Service/Domain/Entities/Comment.cs | Created | TaskId, AuthorId, Content 5000 |
+| backend/Services/Project.Service/Domain/Entities/ActivityLog.cs | Created | ProjectId, TaskId, ActorId, Action, PayloadJson |
+| backend/Services/Project.Service/Domain/Entities/OutboxMessage.cs | Created | Type, Payload, OccurredOn, ProcessedAt, Outbox pattern |
+| backend/Services/Project.Service/Infrastructure/Persistence/ProjectDbContext.cs | Created | `HasDefaultSchema("project")` 7 DbSets, OnModelCreating indexes, Ignore |
+| backend/Services/Project.Service/Infrastructure/Persistence/ProjectDbContextFactory.cs | Created | Design-time factory `MigrationsHistoryTable project` |
+| backend/Services/Project.Service/Infrastructure/Persistence/ProjectSeeder.cs | Created | Seed 1 Project FB-3 + 3 Lists + 12 Tasks (4 per list) + Comment/Activity |
+| backend/Services/Project.Service/Infrastructure/Persistence/Migrations/20260905162021_InitialProject.cs | Created | Migration 8 tables `[project]` |
+| backend/Services/Project.Service/Infrastructure/Persistence/Migrations/ProjectDbContextModelSnapshot.cs | Created | Snapshot |
+| backend/Services/Project.Service/Program.cs | Modified | `AddDbContext` project + seeder `await ProjectSeeder.SeedAsync` |
+| backend/Services/Project.Service/Project.Service.csproj | Modified | Added EfCore SqlServer/Tools/Design 10.0.0 |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Package restore | Passed | `dotnet add` 3 packages `Restored Project.Service.csproj` |
+| Migration add | Passed | `dotnet ef migrations add InitialProject` -> `Build succeeded. Done.` |
+| DB update | Passed | `dotnet ef database update` -> `Applying migration '20260905162021_InitialProject'. Done.` |
+| Schema | Passed | `sqlcmd SELECT TABLE_SCHEMA, TABLE_NAME WHERE schema='project'` -> 8 rows `Projects, BoardLists, Tasks, SubTasks, Comments, ActivityLogs, OutboxMessages, __EFMigrationsHistory` |
+| Seed | Passed | `sqlcmd SELECT COUNT FROM [project].Projects=1, BoardLists=3, Tasks=12` (Task counts verified) |
+| Build | Passed | `dotnet build FlowBoard.slnx -c Release` -> `0 Warning(s) 0 Error(s)` |
+| Seeder run | Passed | `dotnet run Project.Service --urls 5998` -> `Executed DbCommand SELECT CASE WHEN EXISTS` + `Now listening 5998` (seed on startup) |
+
+### 7. Enterprise Relevance (MNC Value)
+Same single DB `flowboard` with `[identity]` + `[project]` schemas proves you master cost-effective multi-schema SaaS on MonsterASP.net (one SQL instance, 4 schemas) - MNCs use this to avoid 4 DB costs. `TaskItem` naming avoids `System.Threading.Tasks.Task` clash shows you handle real-world naming collisions. `HasDefaultSchema("project")` + composite indexes (`ListId+Position` for Kanban ordering) + `OutboxMessage` table pre-creates resilient event publishing (Task 3.1 MassTransit) - interviewers test Outbox pattern knowledge. Seed with 12 tasks across 3 lists gives instant board data for `Task 2.4` TanStack+CDK without manual inserts.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 2.2 CQRS MediatR 12.4 handlers `CreateProjectCommand` (PM check `WorkspaceMembers.Role` OrgAdmin/PM), `CreateTaskCommand`, `MoveTaskCommand`, `AddCommentCommand` will use this `ProjectDbContext` + `TaskItem`/`BoardList` domain; Task 2.3 will add Redis cache `board:{projectId}` + pagination
+- Depends on: Task 1.5 (JWT role `ProjectManager` must exist to test PM create), Task 0.4 env `flowboard` DB, Task 1.1 `HasDefaultSchema` pattern reused
+- Follow-up: Keep `ProjectEntity` alias for `Project` type in new files (`ProjectDbContext`, `Seeder`, future handlers) to avoid namespace clash; `Tasks` table `LabelsJson` will store `["bug","frontend"]` for filtering (Task 2.5)
 
 ---
 

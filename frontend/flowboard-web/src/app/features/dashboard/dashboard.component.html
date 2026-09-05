@@ -1,39 +1,214 @@
-<div class="min-h-screen bg-base-100">
-  <div class="navbar bg-base-100 shadow">
-    <div class="flex-1">
-      <a class="btn btn-ghost text-xl">FlowBoard</a>
-      <span class="badge badge-primary ml-2">Enterprise • Single DB flowboard</span>
-    </div>
-    <div class="flex-none gap-2">
-      <span class="text-sm hidden md:inline">Hi, {{ auth.currentUser()?.fullName }}</span>
-      <div class="badge badge-outline">{{ auth.currentUser()?.email }}</div>
-      <button class="btn btn-sm btn-ghost" (click)="logout()">Logout</button>
+<app-header />
+
+<main class="min-h-[calc(100vh-3.5rem)] bg-base-200">
+  <div class="mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-5 sm:py-5 lg:px-7 lg:py-6">
+
+    <section class="rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+      <div class="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+        <div class="min-w-0">
+          <div class="mb-2 flex flex-wrap items-center gap-2">
+            <span class="badge badge-primary badge-sm rounded-full font-semibold">Dashboard</span>
+            <span class="badge badge-success badge-outline badge-sm rounded-full gap-1.5">
+              <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+              Workspace ready
+            </span>
+          </div>
+
+          <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">
+            Welcome back, {{ auth.currentUser()?.fullName?.split(' ')?.[0] || 'there' }}
+          </h1>
+
+          <p class="mt-1.5 max-w-2xl text-sm leading-5 opacity-60">
+            Your FlowBoard workspace is ready. Manage your teams, projects and collaboration from one place.
+          </p>
+
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <span class="badge badge-ghost badge-sm rounded-lg">OrgAdmin</span>
+            <span class="badge badge-ghost badge-sm rounded-lg">Realtime</span>
+            <span class="badge badge-ghost badge-sm rounded-lg">JWT secured</span>
+          </div>
+        </div>
+
+        <div class="flex shrink-0 items-center gap-3 rounded-xl border border-base-300 bg-base-200/60 p-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-content">
+            {{ (auth.currentUser()?.fullName || 'U').charAt(0).toUpperCase() }}
+          </div>
+
+          <div class="min-w-0">
+            <div class="max-w-44 truncate text-sm font-semibold">{{ auth.currentUser()?.fullName }}</div>
+            <div class="max-w-44 truncate text-[10px] opacity-50">{{ auth.currentUser()?.email }}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+        <div class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Role</div>
+        <div class="mt-1 text-sm font-bold">OrgAdmin</div>
+        <div class="mt-0.5 text-[10px] opacity-50">Workspace access</div>
+      </div>
+
+      <div class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+        <div class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Realtime</div>
+        <div class="mt-1 flex items-center gap-1.5 text-sm font-bold">
+          <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+          Connected
+        </div>
+        <div class="mt-0.5 text-[10px] opacity-50">SignalR workspace</div>
+      </div>
+
+      <div class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+        <div class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Security</div>
+        <div class="mt-1 text-sm font-bold">JWT + Cookie</div>
+        <div class="mt-0.5 text-[10px] opacity-50">Protected session</div>
+      </div>
+
+      <div class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+        <div class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Platform</div>
+        <div class="mt-1 text-sm font-bold">FlowBoard</div>
+        <div class="mt-0.5 text-[10px] opacity-50">Enterprise SaaS</div>
+      </div>
+    </section>
+
+    <section class="mt-5">
+      <div class="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <h2 class="text-base font-bold tracking-tight sm:text-lg">Workspace</h2>
+          <p class="text-xs opacity-50">Manage the core areas of your organization.</p>
+        </div>
+      </div>
+
+      <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+
+        <article class="group rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+          <div class="flex items-start justify-between">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <rect x="3" y="4" width="18" height="16" rx="3" />
+                <path d="M8 8h8M8 12h5M8 16h8" />
+              </svg>
+            </div>
+
+            <span class="badge badge-primary badge-outline badge-sm">Workspace</span>
+          </div>
+
+          <h3 class="mt-4 text-base font-bold">Organizations & teams</h3>
+          <p class="mt-1 text-xs leading-5 opacity-55">
+            Create workspaces and invite ProjectManagers, Members, Clients and Viewers.
+          </p>
+
+          <div class="mt-4 flex gap-2">
+            <button type="button" class="btn btn-primary btn-sm rounded-lg px-4">Create workspace</button>
+            <button type="button" class="btn btn-ghost btn-sm rounded-lg">Invite</button>
+          </div>
+        </article>
+
+        <article class="group rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+          <div class="flex items-start justify-between">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <rect x="3" y="4" width="7" height="7" rx="1.5" />
+                <rect x="14" y="4" width="7" height="7" rx="1.5" />
+                <rect x="3" y="13" width="7" height="7" rx="1.5" />
+                <rect x="14" y="13" width="7" height="7" rx="1.5" />
+              </svg>
+            </div>
+
+            <span class="badge badge-secondary badge-outline badge-sm">Projects</span>
+          </div>
+
+          <h3 class="mt-4 text-base font-bold">Projects</h3>
+          <p class="mt-1 text-xs leading-5 opacity-55">
+            Organize work into projects, lists and tasks with role-based access.
+          </p>
+
+          <div class="mt-4">
+            <button type="button" class="btn btn-secondary btn-sm rounded-lg px-4">View projects</button>
+          </div>
+        </article>
+
+        <article class="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
+          <div class="flex items-start justify-between">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10 text-success">
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="9" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12l2.5 2.5L16 9" />
+              </svg>
+            </div>
+
+            <span class="badge badge-success badge-outline badge-sm">Healthy</span>
+          </div>
+
+          <h3 class="mt-4 text-base font-bold">System status</h3>
+
+          <div class="mt-4 space-y-2">
+            <div class="flex items-center justify-between rounded-lg bg-base-200/70 px-3 py-2">
+              <span class="text-xs opacity-60">Authentication</span>
+              <span class="badge badge-success badge-xs">JWT</span>
+            </div>
+
+            <div class="flex items-center justify-between rounded-lg bg-base-200/70 px-3 py-2">
+              <span class="text-xs opacity-60">Gateway</span>
+              <span class="badge badge-ghost badge-xs">YARP</span>
+            </div>
+
+            <div class="flex items-center justify-between rounded-lg bg-base-200/70 px-3 py-2">
+              <span class="text-xs opacity-60">Realtime</span>
+              <span class="badge badge-success badge-xs">SignalR</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="mt-5 grid gap-3 lg:grid-cols-[1.5fr_1fr]">
+      <div class="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
+        <div class="flex items-start gap-3">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-info/10 text-info">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 11v5M12 8h.01" />
+            </svg>
+          </div>
+
+          <div>
+            <h3 class="text-sm font-bold">Project Core is next</h3>
+            <p class="mt-1 text-xs leading-5 opacity-55">
+              Identity is complete. The next phase introduces projects, lists, tasks, responsive board/list views and CQRS workflows.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
+        <div class="mb-3 flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-bold">Architecture</h3>
+            <p class="text-[10px] opacity-50">Current frontend stack</p>
+          </div>
+
+          <span class="badge badge-primary badge-sm">Angular</span>
+        </div>
+
+        <div class="flex flex-wrap gap-1.5">
+          <span class="badge badge-ghost badge-sm">Angular 22</span>
+          <span class="badge badge-ghost badge-sm">Signals</span>
+          <span class="badge badge-ghost badge-sm">TanStack Query</span>
+          <span class="badge badge-ghost badge-sm">DaisyUI</span>
+          <span class="badge badge-ghost badge-sm">Tailwind</span>
+          <span class="badge badge-ghost badge-sm">CDK</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="mt-5 flex flex-wrap gap-1.5">
+      <span class="badge badge-ghost badge-sm">Multi-tenant</span>
+      <span class="badge badge-ghost badge-sm">RBAC</span>
+      <span class="badge badge-ghost badge-sm">Realtime</span>
+      <span class="badge badge-ghost badge-sm">CQRS</span>
+      <span class="badge badge-ghost badge-sm">Clean Architecture</span>
+      <span class="badge badge-ghost badge-sm">Cloud Native</span>
     </div>
   </div>
-  <div class="p-4 md:p-8">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="card bg-base-100 shadow border">
-        <div class="card-body">
-          <h2 class="card-title">Workspaces</h2>
-          <p class="text-sm opacity-70">Your personal workspace is ready (OrgAdmin). Create more in next tasks.</p>
-          <div class="card-actions justify-end"><button class="btn btn-sm btn-primary" disabled>Create Workspace</button></div>
-        </div>
-      </div>
-      <div class="card bg-base-100 shadow border">
-        <div class="card-body">
-          <h2 class="card-title">Projects</h2>
-          <p class="text-sm opacity-70">Projects live inside workspaces. PM can create projects (Phase 2).</p>
-          <div class="card-actions justify-end"><button class="btn btn-sm" disabled>View Projects</button></div>
-        </div>
-      </div>
-      <div class="card bg-base-100 shadow border">
-        <div class="card-body">
-          <h2 class="card-title">Auth Status</h2>
-          <p class="text-sm">JWT 15m + Refresh 7d via HttpOnly cookie</p>
-          <p class="text-xs opacity-50">Role: OrgAdmin (can invite to workspace)</p>
-        </div>
-      </div>
-    </div>
-    <div class="alert alert-info mt-6"><span>Phase 1 Identity complete (6 roles, single DB [identity]). Next: Project Core (Task 2.1)</span></div>
-  </div>
-</div>
+</main>

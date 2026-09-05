@@ -1,5 +1,8 @@
 namespace SharedKernel;
 
+/// <summary>
+/// BaseEntity - DDD base for all aggregates/entities. Provides Id (Guid New), CreatedAt/UpdatedAt (UTC), DomainEvents collection for transactional outbox, Touch() to bump UpdatedAt, Add/ClearDomainEvents for publishing. Every Project file inherits this to get consistent auditing + event sourcing.
+/// </summary>
 public abstract class BaseEntity
 {
     public Guid Id { get; protected set; } = Guid.NewGuid();

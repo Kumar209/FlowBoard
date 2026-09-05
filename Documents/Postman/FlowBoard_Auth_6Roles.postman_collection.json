@@ -1,0 +1,73 @@
+{
+  "info": {
+    "name": "FlowBoard - Task 1.5 Auth 6 Roles + Brevo Invite",
+    "description": "Phase 1 verification: 6 roles (SuperAdmin, OrgAdmin, ProjectManager, Member, Client, Viewer). PM can create projects 201, Client cannot POST tasks 403. Brevo invite same key local/prod 300/day. BaseUrl http://localhost:5000 via YARP Gateway (prod https://gateway-xxxxx.monsterasp.net). For manual test: register 6 users, login each, capture accessToken, set Bearer, test role checks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "gatewayUrl", "value": "http://localhost:5000", "type": "string" },
+    { "key": "accessToken_OrgAdmin", "value": "", "type": "string" },
+    { "key": "accessToken_PM", "value": "", "type": "string" },
+    { "key": "accessToken_Member", "value": "", "type": "string" },
+    { "key": "accessToken_Client", "value": "", "type": "string" },
+    { "key": "accessToken_Viewer", "value": "", "type": "string" },
+    { "key": "workspaceId", "value": "", "type": "string" },
+    { "key": "orgId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth - Register 6 users",
+      "item": [
+        { "name": "Register OrgAdmin", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/auth/register", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"orgadmin@flowboard.local\",\"password\":\"Test1234!\",\"fullName\":\"Org Admin\"}" } } },
+        { "name": "Register PM", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/auth/register", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"pm@flowboard.local\",\"password\":\"Test1234!\",\"fullName\":\"Project Manager\"}" } } },
+        { "name": "Register Member", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/auth/register", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"member@flowboard.local\",\"password\":\"Test1234!\",\"fullName\":\"Team Member\"}" } } },
+        { "name": "Register Client", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/auth/register", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"client@flowboard.local\",\"password\":\"Test1234!\",\"fullName\":\"External Client\"}" } } },
+        { "name": "Register Viewer", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/auth/register", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"viewer@flowboard.local\",\"password\":\"Test1234!\",\"fullName\":\"Readonly Viewer\"}" } } }
+      ]
+    },
+    {
+      "name": "Auth - Login + Capture Tokens",
+      "item": [
+        { "name": "Login OrgAdmin (save accessToken_OrgAdmin)", "event": [{ "listen": "test", "script": { "exec": ["var j = pm.response.json(); pm.collectionVariables.set('accessToken_OrgAdmin', j.accessToken);"] } }], "request": { "method": "POST", "url": "{{gatewayUrl}}/api/auth/login", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"orgadmin@flowboard.local\",\"password\":\"Test1234!\"}" } } },
+        { "name": "Login PM", "event": [{ "listen": "test", "script": { "exec": ["var j = pm.response.json(); pm.collectionVariables.set('accessToken_PM', j.accessToken);"] } }], "request": { "method": "POST", "url": "{{gatewayUrl}}/api/auth/login", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"pm@flowboard.local\",\"password\":\"Test1234!\"}" } } },
+        { "name": "Login Member", "event": [{ "listen": "test", "script": { "exec": ["var j = pm.response.json(); pm.collectionVariables.set('accessToken_Member', j.accessToken);"] } }], "request": { "method": "POST", "url": "{{gatewayUrl}}/api/auth/login", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"member@flowboard.local\",\"password\":\"Test1234!\"}" } } },
+        { "name": "Login Client", "event": [{ "listen": "test", "script": { "exec": ["var j = pm.response.json(); pm.collectionVariables.set('accessToken_Client', j.accessToken);"] } }], "request": { "method": "POST", "url": "{{gatewayUrl}}/api/auth/login", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"client@flowboard.local\",\"password\":\"Test1234!\"}" } } },
+        { "name": "Login Viewer", "event": [{ "listen": "test", "script": { "exec": ["var j = pm.response.json(); pm.collectionVariables.set('accessToken_Viewer', j.accessToken);"] } }], "request": { "method": "POST", "url": "{{gatewayUrl}}/api/auth/login", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"viewer@flowboard.local\",\"password\":\"Test1234!\"}" } } }
+      ]
+    },
+    {
+      "name": "Workspaces - Org & Invite (Brevo)",
+      "item": [
+        { "name": "OrgAdmin Create Organization", "event": [{ "listen": "test", "script": { "exec": ["var j = pm.response.json(); if(j.id) pm.collectionVariables.set('orgId', j.id); else if(j.org && j.org.id) pm.collectionVariables.set('orgId', j.org.id);"] } }], "request": { "method": "POST", "url": "{{gatewayUrl}}/api/organizations", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_OrgAdmin}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"Acme Corp\"}" } } },
+        { "name": "OrgAdmin Create Workspace", "event": [{ "listen": "test", "script": { "exec": ["var j = pm.response.json(); if(j.id) pm.collectionVariables.set('workspaceId', j.id); else if(j.workspace && j.workspace.id) pm.collectionVariables.set('workspaceId', j.workspace.id);"] } }], "request": { "method": "POST", "url": "{{gatewayUrl}}/api/workspaces", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_OrgAdmin}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"organizationId\":\"{{orgId}}\",\"name\":\"Acme Workspace\"}" } } },
+        { "name": "Get My Workspaces (OrgAdmin)", "request": { "method": "GET", "url": "{{gatewayUrl}}/api/workspaces", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_OrgAdmin}}" }] } },
+        { "name": "Invite PM (OrgAdmin -> PM) - Brevo", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/invite", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_OrgAdmin}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"pm@flowboard.local\",\"role\":\"ProjectManager\"}" } } },
+        { "name": "Invite Member", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/invite", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_OrgAdmin}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"member@flowboard.local\",\"role\":\"Member\"}" } } },
+        { "name": "Invite Client", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/invite", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_OrgAdmin}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"client@flowboard.local\",\"role\":\"Client\"}" } } },
+        { "name": "Invite Viewer", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/invite", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_OrgAdmin}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"viewer@flowboard.local\",\"role\":\"Viewer\"}" } } },
+        { "name": "Client tries to Invite Member (should 403)", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/invite", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_Client}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"viewer@flowboard.local\",\"role\":\"Member\"}" } } }
+      ]
+    },
+    {
+      "name": "Task 1.5 Verification - PM vs Client",
+      "item": [
+        { "name": "PM Create Project - should 201", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/projects", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"FlowBoard Demo\",\"description\":\"Task 1.5 verify PM can create\"}" } } },
+        { "name": "OrgAdmin Create Project - should 201", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/projects", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_OrgAdmin}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"OrgAdmin Project\"}" } } },
+        { "name": "Member Create Project - should 403", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/projects", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_Member}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"Should Fail\"}" } } },
+        { "name": "Client Create Project - should 403", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/projects", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_Client}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"Should Fail Client\"}" } } },
+        { "name": "Member Create Task - should 201", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/tasks", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_Member}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"title\":\"Bug login mobile\",\"description\":\"Test\"}" } } },
+        { "name": "Client Create Task - should 403", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/tasks", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_Client}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"title\":\"Client tries create\"}" } } },
+        { "name": "Viewer Create Task - should 403", "request": { "method": "POST", "url": "{{gatewayUrl}}/api/tasks", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_Viewer}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"title\":\"Viewer tries\"}" } } },
+        { "name": "Client GET Projects - should 200 (view only)", "request": { "method": "GET", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/projects", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_Client}}" }] } }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        { "name": "Gateway Health", "request": { "method": "GET", "url": "{{gatewayUrl}}/health" } },
+        { "name": "Identity health", "request": { "method": "GET", "url": "http://localhost:5001/health" } },
+        { "name": "Project health", "request": { "method": "GET", "url": "http://localhost:5002/health" } }
+      ]
+    }
+  ]
+}

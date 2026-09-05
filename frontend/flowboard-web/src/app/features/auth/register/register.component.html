@@ -1,31 +1,228 @@
-<div class="min-h-screen flex items-center justify-center bg-base-200 p-4">
-  <div class="card w-full max-w-md bg-base-100 shadow-xl">
-    <div class="card-body">
-      <h2 class="card-title text-2xl justify-center">Create your FlowBoard account</h2>
-      <p class="text-center text-sm opacity-70">Get a personal workspace instantly (OrgAdmin)</p>
-      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4 mt-4">
-        <div class="form-control w-full">
-          <label class="label"><span class="label-text">Full Name</span></label>
-          <input type="text" formControlName="fullName" placeholder="Prashant Kumar Verma" class="input input-bordered w-full" />
+<app-header />
+
+<main class="min-h-[calc(100vh-3.5rem)] bg-base-200">
+  <div class="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full items-center justify-center px-3 py-4 sm:px-5 sm:py-6 md:px-6 md:py-8 lg:px-8">
+    <div class="w-full max-w-xl overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-lg lg:grid lg:max-w-6xl lg:grid-cols-[0.85fr_1.15fr]">
+
+      <section class="hidden bg-base-200/70 p-7 lg:flex lg:flex-col lg:justify-between xl:p-9">
+        <div>
+          <div class="badge badge-primary badge-outline mb-4">Create workspace</div>
+          <h1 class="max-w-sm text-2xl font-extrabold leading-tight tracking-tight xl:text-3xl">
+            Everything your team needs
+            <span class="text-primary">in one flow.</span>
+          </h1>
+          <p class="mt-3 max-w-sm text-sm leading-6 opacity-60">
+            Manage projects, tasks and collaboration from one focused workspace built for modern teams.
+          </p>
         </div>
-        <div class="form-control w-full">
-          <label class="label"><span class="label-text">Email</span></label>
-          <input type="email" formControlName="email" placeholder="you@company.com" class="input input-bordered w-full" />
+
+        <div class="mt-7 rounded-2xl border border-base-300 bg-base-100 p-3.5 shadow-sm">
+          <div class="mb-3 flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold">Product workspace</div>
+              <div class="text-[10px] opacity-50">Project overview</div>
+            </div>
+            <span class="badge badge-success badge-xs">Live</span>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex items-center gap-2.5 rounded-lg bg-base-200 p-2.5">
+              <span class="h-2 w-2 shrink-0 rounded-full bg-warning"></span>
+              <div class="h-1.5 w-24 rounded-full bg-base-300"></div>
+              <span class="ml-auto text-[9px] opacity-50">To do</span>
+            </div>
+
+            <div class="flex items-center gap-2.5 rounded-lg bg-base-200 p-2.5 ring-1 ring-primary/20">
+              <span class="h-2 w-2 shrink-0 rounded-full bg-primary"></span>
+              <div class="h-1.5 w-32 rounded-full bg-base-300"></div>
+              <span class="ml-auto text-[9px] text-primary">Active</span>
+            </div>
+
+            <div class="flex items-center gap-2.5 rounded-lg bg-base-200 p-2.5">
+              <span class="h-2 w-2 shrink-0 rounded-full bg-success"></span>
+              <div class="h-1.5 w-20 rounded-full bg-base-300"></div>
+              <span class="ml-auto text-[9px] opacity-50">Done</span>
+            </div>
+          </div>
         </div>
-        <div class="form-control w-full">
-          <label class="label"><span class="label-text">Password (min 8)</span></label>
-          <input type="password" formControlName="password" placeholder="••••••••" class="input input-bordered w-full" />
+
+        <div class="mt-5 grid grid-cols-3 gap-2">
+          <div class="rounded-xl border border-base-300 bg-base-100 p-2.5 text-center">
+            <div class="text-base font-bold">6</div>
+            <div class="text-[9px] opacity-50">Roles</div>
+          </div>
+          <div class="rounded-xl border border-base-300 bg-base-100 p-2.5 text-center">
+            <div class="text-base font-bold">Live</div>
+            <div class="text-[9px] opacity-50">Realtime</div>
+          </div>
+          <div class="rounded-xl border border-base-300 bg-base-100 p-2.5 text-center">
+            <div class="text-base font-bold">JWT</div>
+            <div class="text-[9px] opacity-50">Secure</div>
+          </div>
         </div>
-        <div *ngIf="error()" class="alert alert-error py-2"><span class="text-sm">{{ error() }}</span></div>
-        <div *ngIf="success()" class="alert alert-success py-2"><span class="text-sm">Account created - redirecting to dashboard...</span></div>
-        <button type="submit" class="btn btn-primary w-full" [disabled]="form.invalid || loading()">
-          <span *ngIf="loading()" class="loading loading-spinner loading-sm"></span>
-          {{ loading() ? 'Creating...' : 'Create Account' }}
-        </button>
-      </form>
-      <div class="text-center text-sm mt-4">
-        Already have account? <a routerLink="/login" class="link link-primary">Sign in</a>
-      </div>
+      </section>
+
+      <section class="flex items-center p-5 sm:p-6 md:p-7 lg:p-8 xl:p-9">
+        <div class="mx-auto w-full max-w-lg">
+
+          <div class="mb-5 flex items-center gap-2 lg:hidden">
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-content">
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="4" width="16" height="16" rx="3" />
+                <path d="M8 9h8M8 12h5M8 15h8" />
+              </svg>
+            </div>
+            <span class="text-base font-black tracking-tight">FlowBoard</span>
+          </div>
+
+          <div class="mb-5">
+            <div class="badge badge-primary badge-outline mb-2">New workspace</div>
+            <h1 class="text-2xl font-extrabold tracking-tight md:text-[1.7rem]">Create your account</h1>
+            <p class="mt-1 text-xs leading-5 opacity-60">Set up your workspace in less than a minute.</p>
+          </div>
+
+          <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-3.5" novalidate>
+
+            <div class="form-control">
+              <label class="label px-0 py-1">
+                <span class="label-text text-xs font-semibold">Full name</span>
+              </label>
+
+              <label class="input input-bordered flex h-11 items-center gap-2.5 rounded-xl" [class.input-error]="hasError('fullName', 'required') || hasError('fullName', 'maxlength')">
+                <svg class="h-4 w-4 shrink-0 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+
+                <input type="text" formControlName="fullName" placeholder="Your full name" autocomplete="name" class="min-w-0 grow bg-transparent text-sm outline-none" />
+              </label>
+
+              @if (hasError('fullName', 'required')) {
+                <span class="mt-1 text-[10px] text-error">Full name is required.</span>
+              }
+
+              @if (hasError('fullName', 'maxlength')) {
+                <span class="mt-1 text-[10px] text-error">Maximum 200 characters.</span>
+              }
+            </div>
+
+            <div class="form-control">
+              <label class="label px-0 py-1">
+                <span class="label-text text-xs font-semibold">Work email</span>
+              </label>
+
+              <label class="input input-bordered flex h-11 items-center gap-2.5 rounded-xl" [class.input-error]="hasError('email', 'required') || hasError('email', 'email')">
+                <svg class="h-4 w-4 shrink-0 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <rect x="3" y="5" width="18" height="14" rx="2" />
+                  <path d="M3 7l9 6 9-6" />
+                </svg>
+
+                <input type="email" formControlName="email" placeholder="you@company.com" autocomplete="email" class="min-w-0 grow bg-transparent text-sm outline-none" />
+              </label>
+
+              @if (hasError('email', 'required')) {
+                <span class="mt-1 text-[10px] text-error">Email is required.</span>
+              }
+
+              @if (hasError('email', 'email')) {
+                <span class="mt-1 text-[10px] text-error">Enter a valid email address.</span>
+              }
+            </div>
+
+            <div class="form-control">
+              <div class="flex items-center justify-between">
+                <label class="label px-0 py-1">
+                  <span class="label-text text-xs font-semibold">Password</span>
+                </label>
+                <span class="text-[9px] opacity-40">Minimum 8 characters</span>
+              </div>
+
+              <label class="input input-bordered flex h-11 items-center gap-2.5 rounded-xl" [class.input-error]="hasError('password', 'required') || hasError('password', 'minlength') || hasError('password', 'maxlength')">
+                <svg class="h-4 w-4 shrink-0 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <rect x="3" y="11" width="18" height="10" rx="2" />
+                  <path stroke-linecap="round" d="M7 11V7a5 5 0 0110 0v4" />
+                </svg>
+
+                <input [type]="showPassword() ? 'text' : 'password'" formControlName="password" placeholder="Create a password" autocomplete="new-password" class="min-w-0 grow bg-transparent text-sm outline-none" />
+
+                <button type="button" class="btn btn-ghost btn-xs btn-square rounded-lg" (click)="togglePassword()" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
+                  @if (showPassword()) {
+                    <svg class="h-4 w-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M10.6 10.6a2 2 0 002.8 2.8" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 4.2A9.7 9.7 0 0112 4c5.5 0 9.2 4.6 10 8-.3 1.3-1.1 2.7-2.2 3.8" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6.2 6.2C4.3 7.5 2.9 9.6 2 12c1 3.4 4.7 8 10 8 1.1 0 2.1-.2 3-.5" />
+                    </svg>
+                  } @else {
+                    <svg class="h-4 w-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" />
+                      <circle cx="12" cy="12" r="2.5" />
+                    </svg>
+                  }
+                </button>
+              </label>
+
+              @if (hasError('password', 'required')) {
+                <span class="mt-1 text-[10px] text-error">Password is required.</span>
+              }
+
+              @if (hasError('password', 'minlength')) {
+                <span class="mt-1 text-[10px] text-error">Minimum 8 characters.</span>
+              }
+
+              @if (hasError('password', 'maxlength')) {
+                <span class="mt-1 text-[10px] text-error">Maximum 100 characters.</span>
+              }
+            </div>
+
+            @if (error()) {
+              <div class="alert alert-error rounded-xl px-3 py-2.5 text-xs">
+                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v4M12 16h.01" />
+                </svg>
+                <span>{{ error() }}</span>
+              </div>
+            }
+
+            @if (success()) {
+              <div class="alert alert-success rounded-xl px-3 py-2.5 text-xs">
+                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 12l2.5 2.5L16 9" />
+                </svg>
+                <span>Account created — redirecting...</span>
+              </div>
+            }
+
+            <button type="submit" class="btn btn-primary h-11 min-h-11 w-full rounded-xl text-sm font-bold" [disabled]="loading()">
+              @if (loading()) {
+                <span class="loading loading-spinner loading-xs"></span>
+              }
+              <span>{{ loading() ? 'Creating...' : 'Create account' }}</span>
+              @if (!loading()) {
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h13m-5-5l5 5-5 5" />
+                </svg>
+              }
+            </button>
+          </form>
+
+          <div class="my-4 flex items-center gap-3">
+            <div class="h-px flex-1 bg-base-300"></div>
+            <span class="text-[9px] font-medium uppercase tracking-wide opacity-40">Already have an account?</span>
+            <div class="h-px flex-1 bg-base-300"></div>
+          </div>
+
+          <a routerLink="/login" class="btn btn-outline h-10 min-h-10 w-full rounded-xl text-xs font-semibold">
+            Sign in to FlowBoard
+          </a>
+
+          <p class="mt-3 text-center text-[9px] leading-4 opacity-40">
+            By creating an account, you agree to our Terms and Privacy Policy.
+          </p>
+        </div>
+      </section>
     </div>
   </div>
-</div>
+</main>

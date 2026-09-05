@@ -30,16 +30,18 @@ FlowBoard/
 └── .github/workflows/ci.yml (ubuntu-latest)
 ```
 
-## Roles (6)
+## Roles (6) - Verified Task 1.5
 
-| Role | Can Create Project? | Permissions |
-|------|---------------------|-------------|
-| SuperAdmin | All | All Orgs/Billing |
-| OrgAdmin | Yes (any in workspace) | Workspace, Members, Any Project |
-| ProjectManager | **Yes** (multiple PMs per workspace) | Create Projects/Lists/Tasks, Assign, AI Generate |
-| Member | No | View/Comment/Move own Tasks, Upload |
-| Client (External) | No | View assigned Projects/Tasks + Comment/Attach only |
-| Viewer | No | View + Export |
+| Role | Can Create Project? | POST /api/workspaces/{wid}/projects | POST /tasks | Invite? | Permissions |
+|------|---------------------|--------------------------------------|-------------|---------|-------------|
+| SuperAdmin | All | **201** | **201** | Yes | All Orgs/Billing |
+| OrgAdmin | Yes (any in workspace) | **201** | **201** | Yes (via Brevo) | Workspace, Members, Any Project |
+| ProjectManager | **Yes** (multiple PMs) | **201** (Task 1.5 verified) | **201** | No | Create Projects/Lists/Tasks, Assign, AI Generate |
+| Member | No | **403** | **201** | No | View/Comment/Move own Tasks, Upload |
+| Client (External) | No | **403** (verified) | **403** (verified) | No | View assigned Projects/Tasks + Comment/Attach only |
+| Viewer | No | **403** | **403** | No | View + Export (read-only) |
+
+> **Task 1.5:** `Documents/Postman/FlowBoard_Auth_6Roles.postman_collection.json` (8 invites <300/day Brevo, same key `xkeysib-...` local/prod). PM token -> `POST /api/workspaces/{wid}/projects` **201**, Client token -> `403` Forbidden, Client `POST /tasks` **403** (Member **201**).
 
 ## Setup (Local - Same Keys as Prod, Only URLs Differ)
 
@@ -49,9 +51,9 @@ FlowBoard/
 4. Frontend: `cd frontend/flowboard-web && npm ci && npm run start` (ng serve :4200)
 5. Env: `frontend/src/environments/environment.ts` -> `apiUrl http://localhost:5000`, `environment.prod.ts` -> `https://gateway-xxxxx.monsterasp.net` (Vercel var `NG_APP_API_URL`)
 
-## Tasks
+## Tasks (Task 1.5 verified 05 Sep 2026)
 
-26 tasks across 6 phases - see `Documents/FlowBoard_Tasks_Plan.docx` and `TASK_LOG.md` (one task at a time, updated per completion).
+26 tasks across 6 phases - see `Documents/FlowBoard_Tasks_Plan.docx` and `TASK_LOG.md`. **Postman:** `Documents/Postman/FlowBoard_Auth_6Roles.postman_collection.json` covers 6 roles + Brevo invites + PM 201 vs Client 403. **Swagger:** `http://localhost:5001/swagger` (Identity), `5002/swagger` (Project), `5003/swagger` (File), `5004/swagger` (Notification), `http://localhost:5000/health` (Gateway YARP).
 
 ## Docs
 

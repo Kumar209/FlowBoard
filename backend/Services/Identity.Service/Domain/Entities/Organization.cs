@@ -2,6 +2,9 @@ using SharedKernel;
 
 namespace Identity.Service.Domain.Entities;
 
+/// <summary>
+/// Organization - top-level tenant (e.g., "Acme Corp" Slug acme-corp-xxxx). Owned by a User (OwnerId, e.g., OrgAdmin who created via Register). Contains Workspaces. Created via POST /api/organizations (any authenticated). IsActive flag for soft delete. Used for multi-tenant isolation: Workspace -> Organization.
+/// </summary>
 public class Organization : BaseEntity, IAggregateRoot
 {
     public string Name { get; private set; } = string.Empty;

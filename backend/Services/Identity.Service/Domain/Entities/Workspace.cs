@@ -2,6 +2,9 @@ using SharedKernel;
 
 namespace Identity.Service.Domain.Entities;
 
+/// <summary>
+/// Workspace - team space inside Organization (e.g., "Personal Workspace" Slug personal-xxxx). Created via POST /api/workspaces (OrgAdmin/SuperAdmin, first workspace auto-OrgAdmin). Members linked via WorkspaceMember 6 roles. Used for RBAC tenant isolation + JWT workspace_id claims.
+/// </summary>
 public class Workspace : BaseEntity, IAggregateRoot
 {
     public Guid OrganizationId { get; private set; }

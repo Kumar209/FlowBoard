@@ -2,6 +2,9 @@ using SharedKernel;
 
 namespace Identity.Service.Domain.Entities;
 
+/// <summary>
+/// RefreshToken - HttpOnly cookie rotation store. UserId FK, TokenHash (SHA256 of 64-byte random), ExpiresAt 7d, RevokedAt, ReplacedByTokenHash. Methods IsExpired/IsRevoked/IsActive + Revoke(). Handled by RefreshTokenService RotateAsync (revoke old + new) + IsReuseDetectedAsync (revoke family on theft). Supports sliding 15m JWT + 7d refresh.
+/// </summary>
 public class RefreshToken : BaseEntity
 {
     public Guid UserId { get; private set; }

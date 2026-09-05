@@ -1,6 +1,8 @@
 namespace Identity.Service.Domain.Enums;
 
-// 6 roles for FlowBoard - PM can create projects (multiple managers), Client is external view+comment
+/// <summary>
+/// WorkspaceRole - 6 RBAC roles for FlowBoard. Member 0 (view/comment/move own), ProjectManager 1 (create projects/lists/tasks - multiple per workspace), OrgAdmin 2 (manage workspace/members), Client 3 (external view assigned + comment/attach no create), Viewer 4 (read-only export), SuperAdmin 5 (all orgs billing). PM can create projects is the core enterprise multi-manager pattern.
+/// </summary>
 public enum WorkspaceRole
 {
     Member = 0,          // View, Comment, Move own Tasks, Upload
