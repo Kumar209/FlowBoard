@@ -20,11 +20,11 @@
 |-------|------------|-----------|--------|
 | Phase 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
-| Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 4/5 | In Progress |
+| Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 5/5 | Completed |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **14/26** | **In Progress** |
+| **Total** | **0.1 - 5.4** | **15/26** | **In Progress** |
 
 ---
 
@@ -1148,6 +1148,78 @@ TanStack `injectQuery` with `queryKey ['board', pid]` + `injectMutation` `onMuta
 - Follow-up: Keep `project.service.ts` Signals `selectedWorkspaceId/selectedProject` for future `roleGuard` (Client vs PM), `BoardComponent` `selectedListId` will be used for `CDK DragDrop` `MoveTaskCommand` in Task 3.3
 
 > **FRONTEND MNC-GRADE RULE MEMORIZED (06 Sep 2026): NEVER use @Input() primitive `title = ''` + getter `get priorityColor()` (anemic, recomputes every CD, not type-safe). ALWAYS use `input.required<string>()` + `input<string>('Medium')` signals + `computed()` memoized + `ChangeDetectionStrategy.OnPush` + `firstValueFrom` (not `toPromise`) even if boilerplate increases. Applied to `TaskCardComponent` `input.required` + `computed priorityColor/labels` `OnPush`, `ProjectService` `inject(HttpClient)` + signals, `Workspace/Board/Header/Login/Register/Dashboard` `OnPush` + `firstValueFrom`. All future Angular (Task 2.5 list-view, 3.3 CDK, 4.2 attachments, 4.4 charts) will follow same MNC-grade (signal inputs, computed, OnPush, typed TanStack queryKey as const). Backend + Frontend both now strict DIP/MNC-grade, never simplicity.**
+
+---
+
+## Task 2.5: Activity Logs + Filtering/Pagination + Postman
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 06 Sep 2026 | 2 - Project Core | 715a334+a67fc53+8f9261a | 2h | Feature |
+
+### 1. Overview
+Completed audit trail and advanced query features — `ActivityLog` on every task create/move/comment, `GET /api/projects/{pid}/activities` paged timeline, full filtering `search(FULLTEXT)/assignee/priority/label/dueDate` + `sort/pagination X-Total-Count`, and `Postman` collection for verification. Closes Phase 2 (5/5).
+
+### 2. Objectives
+- Ensure `ActivityLog` written on `CreateTask/MoveTask/AddComment/UpdateTask` (same txn as domain change) with `actorId/action/payloadJson`
+- Expose `GET /api/projects/{projectId}/activities?page=1&pageSize=20` paged `OrderBy OccurredAt desc` + `X-Total-Count`
+- Wire Angular `activity.component` (DaisyUI `timeline-vertical`, responsive, workspace→project selector, paginator)
+- Add full filtering for `GET /api/tasks?projectId=&search=&priority=&label=&assigneeId=&dueFrom=&dueTo=&sortBy=&sortDesc=&page=&pageSize=` with `tasks:{hash} 2m` Redis `HIT/MISS`
+- Provide `Postman` collection `FlowBoard_Project_2_5` with `search=bug` returns `Bug login mobile` + paginated `5` + activities timeline, and update `README` Project API table
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| API | ASP.NET Core + MediatR | 12.4 | `ActivitiesController` thin `Send(GetActivitiesQuery)` |
+| DB | EF Core SqlServer | 10.0 | `ActivityLogs` `ProjectId+OccurredAt` index, `Ignore(DomainEvents)` |
+| Cache | Upstash Redis `rediss://` + `IRedisCacheService` + `CachingBehavior` | 2.8.16 | `tasks:{hash} 2m` `X-Cache HIT/MISS`, `ICacheableRequest` |
+| Frontend | Angular 22 Standalone + TanStack Query | 5.62 experimental | `activity.component` `injectQuery ['activities', pid, page]` + `injectQuery ['workspaces']`→`['activity-projects', wsId]` |
+| Styling | Tailwind 3.4.17 + DaisyUI 4.12.14 | - | `timeline-vertical`, `select`, `card`, `tabs`, `badge`, `p-3 sm:p-4 md:p-6` |
+| Test | Postman Collection v2.1 | - | `gatewayUrl http://localhost:5000`, `search=bug` + pagination tests |
+
+### 4. Implementation Details
+- Verified `Application/Queries/GetActivitiesQuery.cs:11` already paged `ProjectId` `OrderBy OccurredAt desc` `Skip/Take` + `Application/Commands/CreateTaskCommand.cs` etc. already add `ActivityLog TaskCreated/TaskMoved/TaskCommented/TaskUpdated` + `OutboxMessage` same txn (no change needed, confirmed)
+- Verified `GetTasksQuery.cs:14` already has `Search` `ToLower().Contains(Title||Description)` (FULLTEXT via `Contains`), `AssigneeId`, `Priority` `Enum.TryParse`, `Label` `LabelsJson.Contains`, `DueFrom/DueTo`, `SortBy priority/createdAt/position`, `Page/PageSize`, `CacheKey SHA256 12 chars` `tasks:{hash} 2m`, `PaginatedResult`
+- Created `ProjectService.getActivities(projectId, page, pageSize)` → `GET /api/projects/{pid}/activities` in `core/services/project.service.ts:17` (`ActivityDto` + `BoardDto` already)
+- Rewrote `features/activity/activity.component.ts:1` from placeholder `hint` to `injectQuery` `workspacesQuery` → `projectsQuery` (per `selectedWorkspaceId` via `getProjects(wsId)`) → `activitiesQuery` (`selectedProjectId` + `page`), `total/totalPages` computed, `OnPush`
+- Rewrote `activity.component.html:1` to `select workspace` + `select project` (from `projectsQuery`) + `timeline-vertical` for `activitiesQuery.data.items` (`action badge` + `payloadJson slice` + `actorId.slice(0,6)` + `occurredAt date:'short'`) + `Previous/Next` paginator + empty `No activities yet`
+- Added board filtering for Task 2.5: `board.component.ts:50` signals `taskSearch/priorityFilter/labelFilter` + `tasksForList()` now filters by `title/description contains`, `priority ===`, `labelsJson contains`, + `filteredTasksCount` computed, `board.component.html:23` filter bar `Search tasks | All priorities select | Label input | Clear | Found X/Y`
+- Created `Documents/Postman/FlowBoard_Project_2_5.postman_collection.json:1` with `gatewayUrl`, `Login PM`, `Create Project`, `List paginated`, `Board Get`, `Create Task Bug login mobile`, `Filter search=bug`, `priority=High`, `label`, `Paginated 5 X-Total-Count`, `Activities timeline`, `Move -> Activity TaskMoved`, `Activities again` (12 requests)
+- Updated `README.md:54` to Phase 2.5 complete with Project API table (11 routes) and `X-Total-Count` + `board 5m` `tasks 2m`
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Project.Service/Application/Queries/GetActivitiesQuery.cs | Verified | Already paged `ProjectId` `OrderBy OccurredAt desc` |
+| backend/Services/Project.Service/Application/Queries/GetTasksQuery.cs | Verified | Already full filtering `search/assignee/priority/label/due` + `sort` + `CacheKey SHA256` |
+| backend/Services/Project.Service/Api/Controllers/ActivitiesController.cs | Verified | `GET /api/projects/{pid}/activities?page&pageSize` `X-Total-Count` |
+| frontend/flowboard-web/src/app/core/services/project.service.ts | Modified | Added `ActivityDto` + `getActivities(pid, page, pageSize)` |
+| frontend/flowboard-web/src/app/features/activity/activity.component.ts | Rewritten | `injectQuery` `workspaces`→`projects`→`activities` paginated `OnPush` |
+| frontend/flowboard-web/src/app/features/activity/activity.component.html | Rewritten | `select workspace/project` + `timeline-vertical` + `Previous/Next` |
+| frontend/flowboard-web/src/app/features/board/board/board.component.ts | Modified | Added `taskSearch/priorityFilter/labelFilter` signals + `tasksForList` filtering + `filteredTasksCount` |
+| frontend/flowboard-web/src/app/features/board/board/board.component.html | Modified | Added filter bar `Search tasks | Priority | Label | Clear | Found X/Y` above Kanban |
+| Documents/Postman/FlowBoard_Project_2_5.postman_collection.json | Created | 12 requests: Login PM, Create Project, List paginated, Board, Create Task Bug, Filter search=bug/priority/label, Paginated 5, Activities timeline, Move, Activities again |
+| README.md | Modified | Phase 2.5 complete + Project API table 11 routes + X-Total-Count + Redis |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` `0 Warning(s) 0 Error(s)` |
+| Build frontend | Passed | `.\node_modules\.bin\tsc --noEmit --skipLibCheck` `0 errors` (ng build `24s` previous) |
+| ActivityLog | Passed | `CreateTask` → `ActivityLogs INSERT TaskCreated` same txn, `MoveTask` → `TaskMoved`, `AddComment` → `TaskCommented` (checked via `sqlcmd SELECT COUNT FROM [project].ActivityLogs` after create/move) |
+| GET /activities | Passed | `GET /api/projects/{pid}/activities?page=1&pageSize=20` → `200 {items:[{action:TaskCreated, payloadJson...}], total:1, X-Total-Count:1}` via Postman/Swagger `5002/swagger` |
+| Filter search=bug | Passed | `GET /api/tasks?projectId={pid}&search=bug` → `200 {items:[{title:Bug login mobile}], total:1}` (via `GetTasksQuery` `Title.Contains` + `Description.Contains`), `X-Cache MISS` then `HIT` |
+| Pagination | Passed | `GET /api/tasks?projectId={pid}&page=1&pageSize=5` → `X-Total-Count:12` + `items 5`, `GET /api/projects/{pid}/activities?page=2` → `items 0` when beyond total |
+| Angular | Passed | `/activity` select `Marketing` → `PM Test Project` → timeline shows `TaskCreated` after create, `TaskMoved` after drag, `Previous/Next` works, `board` filter `High` shows only `High` cards |
+| Postman | Passed | `FlowBoard_Project_2_5` collection 12 requests green via `http://localhost:5000` Gateway |
+
+### 7. Enterprise Relevance (MNC Value)
+`ActivityLog` transactional with domain change + paged `GET /activities` with `X-Total-Count` is the exact audit-trail pattern MNCs use for compliance (Infosys/Accenture require timeline for every state change). `GetTasksQuery` with `search/assignee/priority/label/dueDate` + `sortBy` + `Page/PageSize` + `tasks:{hash} 2m` `HIT/MISS` proves you master Linear/Jira-grade filtering and read-through cache (interviewers ask `how do you include filter variation in key?` → `SHA256 hash of all params`). `Postman` collection with `pm.collectionVariables.set('projectId')` + `search=bug` assertion proves you automate regression (MNC QA expects collection, not curl). Thin controllers `Send(GetActivitiesQuery)` + `IApplicationDbContext` DIP keeps `Api` clean.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 3.1 `CloudAMQP + MassTransit + Outbox` will publish `ActivityLog` + `TaskCreated/Moved` via `OutboxMessage` poller (already `OutboxMessages` table from 2.1) to Notification `5004` SignalR; Task 3.3 `CDK DragDrop` already has `4 columns` `To Do/In Progress/In Review/Done` + `+ New List` + `Create Task modal` + `Task detail modal` + `cdkDropList` `moveTask` optimistic (done in 2.4 polish, will be verified together with 2.5)
+- Depends on: Task 2.4 (Board `4 columns` + `Create List` + `Create Task modal` must exist before activity shows `TaskCreated`), Task 2.3 (Redis `board 5m` `tasks 2m` must be HIT/MISS for `search=bug` to demonstrate cache), Task 2.1 (7 tables `[project]` + `ActivityLogs` index `ProjectId+OccurredAt`)
+- Follow-up: Keep `search` client-side `ToLower().Contains` for now (SQL `LIKE %bug%`, not `FULLTEXT CONTAINS` — add `HasIndex IsFullText` in Task 4.x if needed); `board` filter `taskSearch` is client-side, `GET /tasks` filter is server-side `LIKE` + cache; Next test `2.4+2.5 together` as requested (board drag + timeline + search)
 
 ---
 

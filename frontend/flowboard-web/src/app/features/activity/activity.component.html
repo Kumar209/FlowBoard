@@ -2,18 +2,55 @@
   <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
     <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Activity</h1>
     <p class="text-sm opacity-60 mt-1">Audit trail — filtered by your role (Manager: workspace, Client: own project).</p>
-    <div class="mt-6 card bg-base-100 rounded-2xl shadow border border-base-200 p-6 sm:p-8">
-      <div class="flex items-center gap-3 mb-4">
-        <span class="badge badge-primary badge-sm">Timeline</span>
-        @if (auth.isViewer()) { <span class="badge badge-ghost badge-xs">View only</span> }
-        @if (auth.isClient()) { <span class="badge badge-ghost badge-xs">Client — own project</span> }
-      </div>
-      <ul class="timeline timeline-vertical">
-        <li><div class="timeline-start">Task Created</div><div class="timeline-middle">◎</div><div class="timeline-end timeline-box text-sm opacity-60">FB-3 — Setup CI/CD — by you (placeholder, Task 2.5 will populate)</div></li>
-        <li><div class="timeline-start">Task Moved</div><div class="timeline-middle">◎</div><div class="timeline-end timeline-box text-sm opacity-60">To Do → In Progress</div></li>
-        <li><div class="timeline-start">Comment</div><div class="timeline-middle">◎</div><div class="timeline-end timeline-box text-sm opacity-60">Client can comment — Viewer cannot</div></li>
-      </ul>
-      <p class="text-xs opacity-40 mt-4">{{ hint() }}</p>
+
+    <div class="flex flex-col sm:flex-row gap-2 mt-4">
+      <select class="select select-bordered rounded-xl max-w-xs" [value]="selectedWorkspaceId()" (change)="selectedWorkspaceId.set($any($event.target).value); selectedProjectId.set(''); page.set(1)">
+        @for (ws of workspacesQuery.data() || []; track ws.id) { <option [value]="ws.id">{{ ws.name }}</option> }
+      </select>
+      <select class="select select-bordered rounded-xl max-w-xs" [value]="selectedProjectId()" (change)="selectedProjectId.set($any($event.target).value); page.set(1)">
+        <option value="">Select project</option>
+        @for (p of projectsQuery.data()?.items || []; track p.id) { <option [value]="p.id">{{ p.key }} — {{ p.name }}</option> }
+      </select>
     </div>
+
+    @if (!selectedProjectId()) {
+      <div class="mt-6 card bg-base-100 rounded-2xl shadow border border-dashed p-8 text-center opacity-60 text-sm">Select a project to view timeline</div>
+    } @else if (activitiesQuery.isPending()) {
+      <div class="mt-6 space-y-2">
+        @for (i of [1,2,3]; track i) { <div class="card bg-base-100 border p-4 animate-pulse"><div class="h-3 bg-base-300 rounded w-1/4 mb-2"></div><div class="h-4 bg-base-200 rounded w-3/4"></div></div> }
+      </div>
+    } @else if (activitiesQuery.isError()) {
+      <div class="alert alert-error mt-6 rounded-xl">Failed to load activities</div>
+    } @else {
+      <div class="mt-6 card bg-base-100 rounded-2xl shadow border border-base-200 p-6 sm:p-8">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="badge badge-primary badge-sm">Timeline</span>
+          <span class="badge badge-ghost badge-xs">Total {{ total() }}</span>
+          @if (auth.isViewer()) { <span class="badge badge-ghost badge-xs">View only</span> }
+        </div>
+        @if ((activitiesQuery.data()?.items?.length||0)===0) {
+          <p class="text-sm opacity-40">No activities yet — create/move/comment a task to see timeline.</p>
+        } @else {
+          <ul class="timeline timeline-vertical">
+            @for (a of activitiesQuery.data()?.items || []; track a.id) {
+              <li>
+                <div class="timeline-start text-xs opacity-60">{{ a.occurredAt | date:'short' }}</div>
+                <div class="timeline-middle">◎</div>
+                <div class="timeline-end timeline-box text-sm">
+                  <span class="badge badge-ghost badge-xs mr-1">{{ a.action }}</span>
+                  <span class="opacity-60">{{ a.payloadJson | slice:0:80 }}</span>
+                  <span class="text-xs opacity-40 ml-2">by {{ a.actorId.slice(0,6) }}</span>
+                </div>
+              </li>
+            }
+          </ul>
+          <div class="flex justify-center gap-2 mt-6">
+            <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+            <span class="self-center text-xs opacity-40">Page {{ page() }} / {{ totalPages() }}</span>
+            <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+          </div>
+        }
+      </div>
+    }
   </div>
 </div>

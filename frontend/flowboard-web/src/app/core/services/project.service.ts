@@ -12,6 +12,7 @@ export interface Project { id: string; workspaceId: string; name: string; key: s
 export interface BoardList { id: string; projectId: string; name: string; position: number; }
 export interface TaskItem { id: string; projectId: string; listId: string; title: string; description?: string; priority: string; labelsJson?: string; assigneeId?: string; position: number; createdAt: string; }
 export interface BoardDto { project: Project; lists: BoardList[]; tasks: TaskItem[]; }
+export interface ActivityDto { id: string; projectId: string; taskId?: string; actorId: string; action: string; payloadJson?: string; occurredAt: string; }
 
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
@@ -69,5 +70,9 @@ export class ProjectService {
 
   moveTask(taskId: string, toListId: string, newPosition: number) {
     return this.http.put(`${environment.apiUrl}/api/tasks/${taskId}/move`, { toListId, newPosition }, { withCredentials: true });
+  }
+
+  getActivities(projectId: string, page=1, pageSize=20) {
+    return this.http.get<{items: ActivityDto[]; total:number; page:number; pageSize:number}>(`${environment.apiUrl}/api/projects/${projectId}/activities`, { params: { page, pageSize } as any, withCredentials: true });
   }
 }

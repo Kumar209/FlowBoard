@@ -1,0 +1,69 @@
+{
+  "info": {
+    "name": "FlowBoard - Task 2.5 Project + Activities + Filtering",
+    "description": "Phase 2.5 verification: ActivityLogs on create/move/comment, GET /activities paged timeline, full filtering search/assignee/priority/label/dueDate, pagination X-Total-Count. Use gatewayUrl http://localhost:5000 via YARP. Requires OrgAdmin/PM token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "gatewayUrl", "value": "http://localhost:5000", "type": "string" },
+    { "key": "workspaceId", "value": "94192290-2f0c-4245-9660-985df5d6a9ae", "type": "string" },
+    { "key": "projectId", "value": "", "type": "string" },
+    { "key": "listId", "value": "", "type": "string" },
+    { "key": "taskId", "value": "", "type": "string" },
+    { "key": "accessToken_PM", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth - Login PM",
+      "event": [{ "listen": "test", "script": { "exec": ["var j = pm.response.json(); if(j.accessToken) pm.collectionVariables.set('accessToken_PM', j.accessToken);"] } }],
+      "request": { "method": "POST", "url": "{{gatewayUrl}}/api/auth/login", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"manager@flowboard.local\",\"password\":\"Manager666@lmp\"}" } }
+    },
+    {
+      "name": "Projects - Create (PM 201)",
+      "event": [{ "listen": "test", "script": { "exec": ["var j = pm.response.json(); if(j.id) pm.collectionVariables.set('projectId', j.id);"] } }],
+      "request": { "method": "POST", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/projects", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"Demo Project 2.5\",\"description\":\"Task 2.5 verify\"}" } }
+    },
+    {
+      "name": "Projects - List paginated (page=1&pageSize=12)",
+      "request": { "method": "GET", "url": "{{gatewayUrl}}/api/workspaces/{{workspaceId}}/projects?page=1&pageSize=12", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }] }
+    },
+    {
+      "name": "Board - Get (lists + tasks)",
+      "event": [{ "listen": "test", "script": { "exec": ["var j = pm.response.json(); if(j.lists && j.lists[0]) pm.collectionVariables.set('listId', j.lists[0].id); if(j.tasks && j.tasks[0]) pm.collectionVariables.set('taskId', j.tasks[0].id);"] } }],
+      "request": { "method": "GET", "url": "{{gatewayUrl}}/api/projects/{{projectId}}/board", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }] }
+    },
+    {
+      "name": "Tasks - Create in To Do",
+      "event": [{ "listen": "test", "script": { "exec": ["var j = pm.response.json(); if(j.id) pm.collectionVariables.set('taskId', j.id);"] } }],
+      "request": { "method": "POST", "url": "{{gatewayUrl}}/api/tasks", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"projectId\":\"{{projectId}}\",\"listId\":\"{{listId}}\",\"title\":\"Bug login mobile\",\"description\":\"Fix bug\",\"priority\":\"High\"}" } }
+    },
+    {
+      "name": "Tasks - Filter search=bug (should return Bug login mobile)",
+      "request": { "method": "GET", "url": "{{gatewayUrl}}/api/tasks?projectId={{projectId}}&search=bug", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }] }
+    },
+    {
+      "name": "Tasks - Filter priority=High",
+      "request": { "method": "GET", "url": "{{gatewayUrl}}/api/tasks?projectId={{projectId}}&priority=High", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }] }
+    },
+    {
+      "name": "Tasks - Filter label (if any)",
+      "request": { "method": "GET", "url": "{{gatewayUrl}}/api/tasks?projectId={{projectId}}&label=frontend", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }] }
+    },
+    {
+      "name": "Tasks - Paginated page=1&pageSize=5 (X-Total-Count)",
+      "request": { "method": "GET", "url": "{{gatewayUrl}}/api/tasks?projectId={{projectId}}&page=1&pageSize=5", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }] }
+    },
+    {
+      "name": "Activities - Timeline paged (page=1&pageSize=20) after create/move",
+      "request": { "method": "GET", "url": "{{gatewayUrl}}/api/projects/{{projectId}}/activities?page=1&pageSize=20", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }] }
+    },
+    {
+      "name": "Tasks - Move (To In Progress) -> Activity TaskMoved",
+      "request": { "method": "PUT", "url": "{{gatewayUrl}}/api/tasks/{{taskId}}/move", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"toListId\":\"{{listId}}\",\"newPosition\":0}" } }
+    },
+    {
+      "name": "Activities - Timeline again (should show TaskMoved)",
+      "request": { "method": "GET", "url": "{{gatewayUrl}}/api/projects/{{projectId}}/activities?page=1&pageSize=20", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken_PM}}" }] }
+    }
+  ]
+}

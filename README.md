@@ -51,9 +51,28 @@ FlowBoard/
 4. Frontend: `cd frontend/flowboard-web && npm ci && npm run start` (ng serve :4200)
 5. Env: `frontend/src/environments/environment.ts` -> `apiUrl http://localhost:5000`, `environment.prod.ts` -> `https://gateway-xxxxx.monsterasp.net` (Vercel var `NG_APP_API_URL`)
 
-## Tasks (Task 1.5 verified 05 Sep 2026)
+## Tasks (Phase 2.5 Activity Logs + Filtering complete)
 
-26 tasks across 6 phases - see `Documents/FlowBoard_Tasks_Plan.docx` and `TASK_LOG.md`. **Postman:** `Documents/Postman/FlowBoard_Auth_6Roles.postman_collection.json` covers 6 roles + Brevo invites + PM 201 vs Client 403. **Swagger:** `http://localhost:5001/swagger` (Identity), `5002/swagger` (Project), `5003/swagger` (File), `5004/swagger` (Notification), `http://localhost:5000/health` (Gateway YARP).
+26 tasks across 6 phases - see `Documents/FlowBoard_Tasks_Plan.docx` and `TASK_LOG.md`.
+- **Phase 2.5 (Activity + Filtering):** `GET /api/projects/{pid}/activities?page=1&pageSize=20` paged timeline (DaisyUI) after task create/move/comment, `GET /api/tasks?projectId=&search=bug&priority=High&label=&assigneeId=&dueFrom=&dueTo=&page=&pageSize=&sortBy=&sortDesc` + `X-Total-Count` + `board:{pid} 5m` `tasks:{hash} 2m` Redis `HIT/MISS`. **Postman:** `FlowBoard_Project_2_5.postman_collection.json` (filter `search=bug` returns `Bug login mobile`, paginated `5`, activities timeline).
+- **Phase 1.5:** `FlowBoard_Auth_6Roles.postman_collection.json` (PM 201 vs Client 403).
+**Swagger:** `http://localhost:5001/swagger` (Identity), `5002/swagger` (Project), `5003/swagger` (File), `5004/swagger` (Notification), `http://localhost:5000/health` (Gateway YARP).
+
+## Project API (Task 2.5)
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| `POST` | `/api/workspaces/{wid}/projects` | PM/OrgAdmin 201 else 403 | Create project (Key auto `FB-3`, 4 lists) |
+| `GET` | `/api/workspaces/{wid}/projects?page=1&pageSize=12` | Any member | List paginated `X-Total-Count` |
+| `GET` | `/api/projects/{id}` | Any member | Get one |
+| `GET` | `/api/projects/{id}/board` | Any member | Board `lists+tasks` cached `board:{id} 5m` |
+| `POST` | `/api/projects/{pid}/lists` | PM/OrgAdmin | Create list |
+| `POST` | `/api/tasks` | Member/PM/OrgAdmin 201, Client/Viewer 403 | Create task |
+| `GET` | `/api/tasks?projectId=&search=&priority=&label=&assigneeId=&dueFrom=&dueTo=&page=&pageSize=` | Any member | Filtered paginated `tasks:{hash} 2m` |
+| `PUT` | `/api/tasks/{id}/move` | Member/PM/OrgAdmin | Move between lists |
+| `PUT` | `/api/tasks/{id}` | Member/PM/OrgAdmin | Update |
+| `POST` | `/api/tasks/{taskId}/comments` | Any (Viewer 403 for create) | Add comment |
+| `GET` | `/api/projects/{pid}/activities?page=1&pageSize=20` | Any member | Activity timeline `X-Total-Count` |
 
 ## Docs
 

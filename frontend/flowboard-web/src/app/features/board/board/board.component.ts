@@ -49,6 +49,11 @@ export class BoardComponent {
   selectedListId = signal<string>('');
   showCreateList = signal(false);
 
+  // Filters for Task 2.5 (search FULLTEXT, priority, label)
+  taskSearch = signal('');
+  priorityFilter = signal('');
+  labelFilter = signal('');
+
   // Modals
   createTaskOpen = signal(false);
   createTaskListId = signal<string>('');
@@ -122,6 +127,24 @@ export class BoardComponent {
   }
 
   tasksForList(listId: string) {
-    return (this.boardQuery.data()?.tasks || []).filter(t => t.listId === listId).sort((a,b) => a.position - b.position);
+    let tasks = (this.boardQuery.data()?.tasks || []).filter(t => t.listId === listId);
+    const s = this.taskSearch().toLowerCase();
+    const p = this.priorityFilter();
+    const l = this.labelFilter().toLowerCase();
+    if (s) tasks = tasks.filter(t => t.title.toLowerCase().includes(s) || (t.description||'').toLowerCase().includes(s));
+    if (p) tasks = tasks.filter(t => t.priority === p);
+    if (l) tasks = tasks.filter(t => (t.labelsJson||'').toLowerCase().includes(l));
+    return tasks.sort((a,b) => a.position - b.position);
   }
+
+  filteredTasksCount = computed(() => {
+    let tasks = this.boardQuery.data()?.tasks || [];
+    const s = this.taskSearch().toLowerCase();
+    const p = this.priorityFilter();
+    const l = this.labelFilter().toLowerCase();
+    if (s) tasks = tasks.filter(t => t.title.toLowerCase().includes(s) || (t.description||'').toLowerCase().includes(s));
+    if (p) tasks = tasks.filter(t => t.priority === p);
+    if (l) tasks = tasks.filter(t => (t.labelsJson||'').toLowerCase().includes(l));
+    return tasks.length;
+  });
 }

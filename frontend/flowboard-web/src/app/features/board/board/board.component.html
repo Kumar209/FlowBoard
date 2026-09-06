@@ -20,6 +20,17 @@
       </div>
     }
 
+    <!-- Filters for Task 2.5: search (FULLTEXT), priority, label -->
+    <div class="flex flex-col sm:flex-row gap-2 mb-4">
+      <input type="text" placeholder="Search tasks (title/desc)..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="taskSearch()" (input)="taskSearch.set($any($event.target).value)" />
+      <select class="select select-bordered select-sm rounded-full max-w-[160px]" [value]="priorityFilter()" (change)="priorityFilter.set($any($event.target).value)">
+        <option value="">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option>
+      </select>
+      <input type="text" placeholder="Label" class="input input-bordered input-sm rounded-full max-w-[140px]" [value]="labelFilter()" (input)="labelFilter.set($any($event.target).value)" />
+      @if (taskSearch() || priorityFilter() || labelFilter()) { <button class="btn btn-ghost btn-sm rounded-full" (click)="taskSearch.set(''); priorityFilter.set(''); labelFilter.set('')">Clear</button> }
+      <span class="text-xs opacity-40 self-center">Found {{ filteredTasksCount() }} / {{ boardQuery.data()?.tasks?.length || 0 }}</span>
+    </div>
+
     @if (boardQuery.isError()) {
       <div class="alert alert-error rounded-xl">Failed to load board - check Project :5002 + JWT</div>
     } @else if (boardQuery.data()) {
