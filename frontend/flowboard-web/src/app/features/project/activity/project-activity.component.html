@@ -1,0 +1,40 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
+  <div class="flex flex-wrap justify-between gap-2 items-center">
+    <div>
+      <h1 class="text-xl font-bold">Project Activity</h1>
+      <p class="text-xs opacity-60">Project-specific audit trail — all actions in this project. Table view</p>
+    </div>
+    <span class="badge badge-ghost badge-sm rounded-full">Total {{ total() }}</span>
+  </div>
+
+  @if (activitiesQuery.isPending()) { <div class="flex justify-center py-8"><span class="loading loading-spinner loading-sm"></span></div> }
+  @else if (activitiesQuery.data(); as data) {
+    @if (data.items.length===0) { <p class="text-center py-12 opacity-40">No activity yet — create a task to see timeline</p> }
+    @else {
+      <div class="card bg-base-100 rounded-2xl shadow border overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead><tr><th>Time</th><th>Action</th><th>Payload</th><th>Actor</th></tr></thead>
+            <tbody>
+              @for (a of data.items; track a.id) {
+                <tr class="hover:bg-base-200">
+                  <td class="text-xs opacity-60 whitespace-nowrap">{{ a.occurredAt | date:'short' }}</td>
+                  <td><span class="badge badge-sm rounded-full" [ngClass]="a.action==='TaskCreated'?'badge-success': a.action==='TaskMoved'?'badge-warning': a.action==='TaskUpdated'?'badge-info': a.action==='BoardCreated'?'badge-secondary':'badge-ghost'">{{ a.action }}</span></td>
+                  <td class="text-xs max-w-[360px] truncate">{{ a.payloadJson | slice:0:100 }}</td>
+                  <td class="text-xs font-mono opacity-60">{{ a.actorId.slice(0,6) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="flex justify-between items-center p-3 border-t border-base-200">
+          <span class="text-xs opacity-40">Page {{ page() }} / {{ totalPages() }} • Total {{ total() }}</span>
+          <div class="flex gap-1">
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+          </div>
+        </div>
+      </div>
+    }
+  }
+</div>

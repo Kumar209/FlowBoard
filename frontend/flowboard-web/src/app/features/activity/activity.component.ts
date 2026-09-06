@@ -24,7 +24,6 @@ export class ActivityComponent {
   private workspaceService = inject(WorkspaceService);
 
   selectedWorkspaceId = signal<string>('');
-  selectedProjectId = signal<string>('');
   page = signal(1);
   pageSize = 20;
 
@@ -33,23 +32,43 @@ export class ActivityComponent {
     queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspaces()),
   }));
 
-  projectsQuery = injectQuery(() => ({
-    queryKey: ['activity-projects', this.selectedWorkspaceId()] as const,
+  // Org-wide: fetch all projects across all workspaces, then all activities
+  allProjectsQuery = injectQuery(() => ({
+    queryKey: ['org-projects'] as const,
     queryFn: async () => {
-      const wsId = this.selectedWorkspaceId() || this.workspacesQuery.data()?.[0]?.id;
-      if (!wsId) return { items: [], total: 0 };
-      const res = await firstValueFrom(this.projectService.getProjects(wsId));
-      return res;
+      const workspaces = await firstValueFrom(this.workspaceService.getMyWorkspaces());
+      const all: any[] = [];
+      for (const ws of workspaces) {
+        try {
+          const res = await firstValueFrom(this.projectService.getProjects(ws.id));
+          all.push(...(res.items || []));
+        } catch {}
+      }
+      return all;
     },
     enabled: () => !!this.workspacesQuery.data()?.length,
   }));
 
-  activitiesQuery = injectQuery(() => ({
-    queryKey: ['activities', this.selectedProjectId(), this.page()] as const,
-    queryFn: () => firstValueFrom(this.projectService.getActivities(this.selectedProjectId(), this.page(), this.pageSize)),
-    enabled: () => !!this.selectedProjectId(),
+  orgActivitiesQuery = injectQuery(() => ({
+    queryKey: ['org-activities', this.page()] as const,
+    queryFn: async () => {
+      const projects = this.allProjectsQuery.data() || [];
+      if (!projects.length) return { items: [], total: 0 };
+      const allActivities: any[] = [];
+      for (const p of projects.slice(0,10)) {
+        try {
+          const res = await firstValueFrom(this.projectService.getActivities(p.id, 1, 20));
+          allActivities.push(...(res.items || []).map((a:any) => ({...a, projectName: p.name, projectKey: p.key})));
+        } catch {}
+      }
+      // Sort by occurredAt desc and paginate
+      allActivities.sort((a,b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+      const start = (this.page()-1)*this.pageSize;
+      return { items: allActivities.slice(start, start+this.pageSize), total: allActivities.length };
+    },
+    enabled: () => !!this.allProjectsQuery.data()?.length,
   }));
 
-  total = computed(() => this.activitiesQuery.data()?.total || 0);
+  total = computed(() => this.orgActivitiesQuery.data()?.total || 0);
   totalPages = computed(() => Math.max(1, Math.ceil(this.total()/this.pageSize)));
 }

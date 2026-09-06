@@ -1,0 +1,71 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
+  <div class="flex justify-between items-center">
+    <h1 class="text-xl font-bold">Boards</h1>
+    <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ New Board</button>
+  </div>
+  <p class="text-xs opacity-60">Boards are views/configurations of the same Project issues — not copies. Each board stores filter (sprint/label/assignee) and column config. Project → Board → Sprint → Column → Task → Subtasks</p>
+
+  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    @for (b of displayBoards(); track b.id) {
+      <div class="card bg-base-100 rounded-2xl shadow border p-4 hover:shadow-lg transition-shadow">
+        <div class="flex justify-between items-center">
+          <span class="text-lg">{{ b.color }}</span>
+          <span class="badge badge-ghost badge-xs rounded-full">{{ b.type }}</span>
+          <span class="badge badge-primary badge-xs rounded-full">{{ b.tasks }} tasks</span>
+        </div>
+        <p class="font-bold mt-2">{{ b.name }}</p>
+        <p class="text-xs opacity-60">{{ b.desc }}</p>
+        <div class="flex gap-1 mt-3">
+          <a [routerLink]="['../board']" [queryParams]="{view: b.id}" class="btn btn-primary btn-xs rounded-full flex-1">Open →</a>
+          <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(b)">Edit</button>
+          <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(b)">Delete</button>
+        </div>
+      </div>
+    }
+  </div>
+  @if (boardsQuery.isPending()) { <div class="flex justify-center py-4"><span class="loading loading-spinner loading-sm"></span></div> }
+  @if (!boardsQuery.isPending() && displayBoards().length===0) { <p class="text-center py-8 opacity-40">No boards yet — create your first board view (fully empty project)</p> }
+  @if (deleteTarget()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="deleteTarget.set(null)"></div>
+      <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+        <h3 class="font-bold">Delete board "{{ deleteTarget().name }}"?</h3>
+        <p class="text-sm opacity-60 mt-2">Board view will be removed. Tasks remain in project (no copy). Sprints stay.</p>
+        <div class="flex justify-end gap-2 mt-6">
+          <button class="btn btn-ghost rounded-xl" (click)="deleteTarget.set(null)">Cancel</button>
+          <button class="btn btn-error rounded-xl text-white" (click)="deleteMutation.mutate(deleteTarget().id)" [class.loading]="deleteMutation.isPending()">Delete</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (showCreate()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="showCreate.set(false); editingBoard.set(null)"></div>
+      <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+        <h3 class="font-bold text-lg">{{ editingBoard() ? 'Update Board' : 'Create Board View' }}</h3>
+        <p class="text-xs opacity-60 mt-1">{{ editingBoard() ? 'Rename board view' : 'Same issues, different config — e.g., “Release Board” filtered by label release' }}</p>
+        <div class="mt-4 space-y-3">
+          <label class="form-control"><span class="label-text text-xs font-semibold">Board name *</span><input type="text" placeholder="e.g., Engineering Board" class="input input-bordered rounded-xl" [value]="newName()" (input)="newName.set($any($event.target).value)" /></label>
+          <label class="form-control"><span class="label-text text-xs">Type</span><select class="select select-bordered rounded-xl" [value]="newType()" (change)="newType.set($any($event.target).value)"><option>Scrum</option><option>Kanban</option></select></label>
+          <label class="form-control"><span class="label-text text-xs">Team filter (optional)</span>
+            <select class="select select-bordered rounded-xl" [value]="selectedTeam()" (change)="selectedTeam.set($any($event.target).value)">
+              <option value="">No filter — shows all teams</option>
+              @for (t of teamsQuery.data() || []; track t.id) { <option [value]="t.id">{{ t.name }}</option> }
+            </select>
+            <span class="label-text-alt text-xs opacity-40">Scrum: Engineering → Development team, QA → QA team. Same Sprint, different boards show different Teams.</span>
+          </label>
+        </div>
+        <div class="flex justify-end gap-2 mt-6">
+          <button class="btn btn-ghost rounded-xl" (click)="showCreate.set(false); editingBoard.set(null)">Cancel</button>
+          <button class="btn btn-primary rounded-xl" (click)="create()" [disabled]="!newName().trim()" [class.loading]="createMutation.isPending() || updateMutation.isPending()">{{ editingBoard() ? 'Update' : 'Create' }}</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="card bg-base-100 rounded-2xl border p-4">
+    <p class="text-xs font-semibold">Enterprise model (future)</p>
+    <p class="text-xs opacity-60 mt-1">DB: <code class="bg-base-200 px-1 rounded">BoardViews</code> (id, projectId, name, filterJson, columnsJson) — tasks remain in <code class="bg-base-200 px-1 rounded">Tasks</code>. Frontend `boardView` param filters `tasksForList` without new tables now; later add API <code class="bg-base-200 px-1 rounded">POST /api/projects/:pid/boards</code>.</p>
+  </div>
+</div>

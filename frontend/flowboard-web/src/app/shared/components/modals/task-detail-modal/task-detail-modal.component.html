@@ -1,65 +1,309 @@
 @if (open() && task()) {
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
     <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="closed.emit()"></div>
-    <div class="card bg-base-100 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden relative z-10 border flex flex-col">
+    <div class="card bg-base-100 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden relative z-10 border flex flex-col">
       <!-- Header -->
-      <div class="flex justify-between items-center p-4 border-b border-base-200">
-        <div class="flex items-center gap-2 text-xs opacity-60">
-          <span>{{ task().key || task().id.slice(0,6) }}</span>
-          @if (task().priority) { <span class="badge badge-sm" [ngClass]="task().priority==='High'?'badge-warning': task().priority==='Urgent'?'badge-error':'badge-info'">{{ task().priority }}</span> }
+      <div class="flex justify-between items-center p-3 sm:p-4 border-b border-base-200 shrink-0">
+        <div class="flex items-center gap-2 text-xs">
+          <span class="opacity-60">{{ task().key || task().id.slice(0,6) }}</span>
+          <span class="badge badge-sm" [ngClass]="task().priority==='High'?'badge-warning': task().priority==='Urgent'?'badge-error': task().priority==='Low'?'badge-ghost':'badge-info'">{{ priority() || task().priority }}</span>
+          @if (subtasksQuery.data(); as subs) { <span class="badge badge-ghost badge-xs">{{ subs.filter(s=>s.isCompleted).length }}/{{ subs.length }} subtasks</span> }
         </div>
-        <button class="btn btn-ghost btn-sm rounded-full" (click)="closed.emit()">✕</button>
+        <button class="btn btn-ghost btn-sm btn-circle" (click)="closed.emit()">✕</button>
       </div>
+
       <div class="flex flex-col lg:flex-row flex-1 overflow-hidden">
-        <!-- Left: Subtasks + Activity -->
-        <div class="flex-1 p-4 overflow-y-auto space-y-6">
+        <!-- Left: Title + Description + Subtasks + Activity -->
+        <div class="flex-1 p-3 sm:p-4 overflow-y-auto space-y-5 min-h-[300px]">
+          <!-- Title -->
           <div>
-            <input type="text" class="input input-ghost text-xl font-bold w-full" [value]="title()" (input)="title.set($any($event.target).value)" />
-            <textarea class="textarea textarea-ghost w-full text-sm mt-2" placeholder="Add description..." [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
+            <input type="text" class="input input-ghost text-lg sm:text-xl font-bold w-full p-2 rounded-xl border border-transparent focus:border-base-300 focus:bg-base-100" [value]="title()" (input)="title.set($any($event.target).value)" placeholder="Task title" />
+            <textarea class="textarea textarea-bordered w-full text-sm mt-2 rounded-xl min-h-[70px]" placeholder="Add description..." [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
           </div>
-          <div>
-            <h4 class="font-semibold text-sm mb-2">Subtasks</h4>
-            <div class="text-xs opacity-40">Add subtask — checklist (future: POST /subtasks)</div>
-            <div class="flex gap-2 mt-2">
-              <input type="text" placeholder="Add subtask" class="input input-bordered input-sm flex-1 rounded-xl" [value]="newSubtask()" (input)="newSubtask.set($any($event.target).value)" />
-              <button class="btn btn-ghost btn-sm rounded-xl" (click)="newSubtask.set('')">Add</button>
+
+          <!-- Subtasks -->
+          <div class="border border-base-200 rounded-2xl p-3 bg-base-100">
+            <div class="flex justify-between items-center mb-2">
+              <h4 class="font-semibold text-sm">Subtasks</h4>
+              @if (subtasksQuery.data(); as subs) {
+                <span class="text-xs opacity-60">{{ subs.filter(s=>s.isCompleted).length }} / {{ subs.length }}</span>
+              }
             </div>
+            @if (subtasksQuery.isPending()) { <span class="loading loading-spinner loading-xs"></span> }
+            @if (subtasksQuery.data(); as subs) {
+              <div class="space-y-2 max-h-[180px] overflow-y-auto">
+                @for (s of subs; track s.id) {
+                  <div class="flex items-center gap-2 p-2 rounded-xl border border-base-200 bg-base-200/30">
+                    <input type="checkbox" class="checkbox checkbox-xs checkbox-primary" [checked]="s.isCompleted" (change)="toggleSubtaskMut.mutate(s.id)" />
+                    @if (editingSubtaskId() === s.id) {
+                      <input type="text" class="input input-bordered input-xs flex-1 rounded-full" [value]="editSubtaskTitle()" (input)="editSubtaskTitle.set($any($event.target).value)" (keydown.enter)="saveEditSubtask()" />
+                      <button class="btn btn-primary btn-xs rounded-full" (click)="saveEditSubtask()" [class.loading]="updateSubtaskMut.isPending()">Save</button>
+                      <button class="btn btn-ghost btn-xs rounded-full" (click)="editingSubtaskId.set(null)">Cancel</button>
+                    } @else {
+                      <span class="flex-1 text-sm" [class.line-through]="s.isCompleted" [class.opacity-60]="s.isCompleted">{{ s.title }}</span>
+                      <button class="btn btn-ghost btn-xs rounded-full" (click)="startEditSubtask(s)">✎</button>
+                      <button class="btn btn-ghost btn-xs text-error rounded-full" (click)="confirmDeleteSubtask(s.id)">🗑</button>
+                    }
+                  </div>
+                }
+                @if (subs.length===0) { <p class="text-xs opacity-40 text-center py-2">No subtasks — add a checklist</p> }
+              </div>
+            }
+            <div class="flex gap-2 mt-3">
+              <input type="text" placeholder="Add subtask + Enter" class="input input-bordered input-sm flex-1 rounded-xl" [value]="newSubtask()" (input)="newSubtask.set($any($event.target).value)" (keydown.enter)="addSubtask()" />
+              <button class="btn btn-primary btn-sm rounded-xl" (click)="addSubtask()" [disabled]="!newSubtask().trim()" [class.loading]="createSubtaskMut.isPending()">Add</button>
+            </div>
+            <app-confirm-delete [open]="!!deleteSubtaskConfirmId()" title="Delete subtask?" message="This will permanently delete the subtask." [loading]="deleteSubtaskMut.isPending()" (cancelled)="deleteSubtaskConfirmId.set(null)" (confirmed)="doDeleteSubtask()" />
           </div>
-          <div>
-            <h4 class="font-semibold text-sm mb-2">Activity</h4>
-            <div class="tabs tabs-boxed tabs-sm mb-2">
-              <a class="tab tab-active">Comments</a><a class="tab">History</a>
+
+          <!-- Activity Tabs -->
+          <div class="border border-base-200 rounded-2xl p-3 bg-base-100">
+            <div class="flex justify-between items-center mb-2">
+              <h4 class="font-semibold text-sm">Activity</h4>
+              <div class="tabs tabs-boxed tabs-xs">
+                <a class="tab" [class.tab-active]="activeTab()==='comments'" (click)="activeTab.set('comments')">Comments</a>
+                <a class="tab" [class.tab-active]="activeTab()==='history'" (click)="activeTab.set('history')">History</a>
+              </div>
             </div>
-            <div class="flex gap-2">
-              <input type="text" placeholder="Add a comment..." class="input input-bordered flex-1 rounded-xl text-sm" [value]="newComment()" (input)="newComment.set($any($event.target).value)" />
-              <button class="btn btn-primary btn-sm rounded-xl" (click)="commentAdded.emit(newComment()); newComment.set('')" [disabled]="!newComment().trim()">Comment</button>
-            </div>
-            <p class="text-xs opacity-40 mt-2">Pro tip: press M to comment — Client can comment, Viewer cannot.</p>
+
+            @if (activeTab()==='comments') {
+              <!-- Comments list -->
+              @if (commentsQuery.data(); as comments) {
+                <div class="space-y-2 max-h-[200px] overflow-y-auto mb-3">
+                  @for (c of comments; track c.id) {
+                    <div class="p-2 rounded-xl bg-base-200/40 border border-base-200">
+                      <div class="flex justify-between items-center mb-1">
+                        <div class="flex items-center gap-2">
+                          @if (getAuthorDisplay(c.authorId).avatar) {
+                            <img [src]="getAuthorDisplay(c.authorId).avatar" class="w-6 h-6 rounded-full" alt="avatar" />
+                          } @else {
+                            <div class="w-6 h-6 rounded-full bg-primary text-primary-content flex items-center justify-center text-[10px] font-bold">{{ getAuthorDisplay(c.authorId).name.charAt(0) }}</div>
+                          }
+                          <div>
+                            <p class="text-xs font-semibold">{{ getAuthorDisplay(c.authorId).name }}</p>
+                            <p class="text-[10px] opacity-40">{{ getAuthorDisplay(c.authorId).email }}</p>
+                          </div>
+                        </div>
+                        <span class="text-[10px] opacity-40">{{ c.createdAt | date:'MMM d, y, h:mm a' }}</span>
+                      </div>
+                      @if (editingCommentId() === c.id) {
+                        <div class="flex gap-2">
+                          <input type="text" class="input input-bordered input-xs flex-1 rounded-full" [value]="editCommentContent()" (input)="editCommentContent.set($any($event.target).value)" (keydown.enter)="saveEditComment()" />
+                          <button class="btn btn-primary btn-xs rounded-full" (click)="saveEditComment()" [class.loading]="updateCommentMut.isPending()">Save</button>
+                          <button class="btn btn-ghost btn-xs rounded-full" (click)="editingCommentId.set(null)">Cancel</button>
+                        </div>
+                      } @else {
+                        <p class="text-sm mt-1">{{ c.content }}</p>
+                        @if (c.authorId === currentUserId() || auth.isOrgAdmin()) {
+                          <div class="flex gap-1 mt-1">
+                            <button class="btn btn-ghost btn-xs rounded-full" (click)="startEditComment(c)">Edit</button>
+                            <button class="btn btn-ghost btn-xs text-error rounded-full" (click)="confirmDeleteComment(c.id)">Delete</button>
+                          </div>
+                        }
+                      }
+                    </div>
+                  }
+                  @if (comments.length===0) { <p class="text-xs opacity-40 text-center py-2">No comments yet — start a discussion</p> }
+                </div>
+              }
+              <app-confirm-delete [open]="!!deleteCommentConfirmId()" title="Delete comment?" message="This will permanently delete the comment." [loading]="deleteCommentMut.isPending()" (cancelled)="deleteCommentConfirmId.set(null)" (confirmed)="doDeleteComment()" />
+              <div class="flex gap-2">
+                <input type="text" placeholder="Add a comment... (Client can comment, Viewer cannot)" class="input input-bordered flex-1 rounded-xl text-sm input-sm" [value]="newComment()" (input)="newComment.set($any($event.target).value)" (keydown.enter)="addComment()" />
+                <button class="btn btn-primary btn-sm rounded-xl" (click)="addComment()" [disabled]="!newComment().trim() || !auth.canComment()" [class.loading]="createCommentMut.isPending()">Comment</button>
+              </div>
+              @if (!auth.canComment()) { <p class="text-xs text-error mt-1">Viewer cannot comment</p> }
+            } @else {
+              <!-- History -->
+              @if (historyQuery.data(); as h) {
+                <div class="space-y-2 max-h-[220px] overflow-y-auto">
+                  @for (a of h.items; track a.id) {
+                    <div class="flex gap-2 text-xs p-2 rounded-xl bg-base-200/30 border border-base-200">
+                      <span class="badge badge-ghost badge-xs shrink-0 mt-0.5">{{ a.action }}</span>
+                      <span class="opacity-70 flex-1 break-all">{{ a.payloadJson | slice:0:120 }}</span>
+                      <span class="opacity-40 shrink-0">{{ a.occurredAt | date:'short' }}</span>
+                    </div>
+                  }
+                  @if (h.items.length===0) { <p class="text-xs opacity-40 text-center py-2">No history yet</p> }
+                  @if (h.total > h.items.length) { <p class="text-xs opacity-40 text-center">{{ h.total }} events total</p> }
+                </div>
+              } @else if (historyQuery.isPending()) { <span class="loading loading-spinner loading-xs"></span> }
+            }
           </div>
         </div>
-        <!-- Right: Details -->
-        <div class="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-base-200 p-4 space-y-4 overflow-y-auto bg-base-200/30">
+
+        <!-- Right: Details panel -->
+        <div class="w-full lg:w-[340px] border-t lg:border-t-0 lg:border-l border-base-200 p-3 sm:p-4 space-y-4 overflow-y-auto bg-base-200/30 shrink-0">
           <div class="flex items-center gap-2">
-            <span class="text-sm font-semibold">Status</span>
+            <span class="text-sm font-semibold shrink-0">Status</span>
             <select class="select select-bordered select-sm rounded-full flex-1" [value]="listId()" (change)="listId.set($any($event.target).value)">
               @for (l of lists(); track l.id) { <option [value]="l.id">{{ l.name }}</option> }
             </select>
           </div>
-          <div class="space-y-3 text-sm">
-            <div class="flex justify-between"><span class="opacity-60">Assignee</span><span class="font-medium">{{ task().assigneeId || 'Unassigned' }}</span></div>
-            <div class="flex justify-between"><span class="opacity-60">Priority</span>
-              <select class="select select-bordered select-xs rounded-full" [value]="priority()" (change)="priority.set($any($event.target).value)">
-                <option>Low</option><option>Medium</option><option>High</option><option>Urgent</option>
-              </select>
+
+          <div class="space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-1">
+            <!-- Assignee picker -->
+            <div class="flex flex-col gap-1">
+              <span class="opacity-60 text-xs font-semibold">Assignee</span>
+              @if (membersQuery.data(); as members) {
+                <select class="select select-bordered select-sm rounded-xl w-full" [value]="assigneeId()" (change)="assigneeId.set($any($event.target).value)">
+                  <option value="">Unassigned</option>
+                  @for (m of members; track m.userId) { <option [value]="m.userId">{{ m.fullName }} ({{ m.role }}) — {{ m.email }}</option> }
+                </select>
+              } @else {
+                <select class="select select-bordered select-sm rounded-xl w-full" disabled><option>Loading members...</option></select>
+              }
             </div>
-            <div class="flex justify-between"><span class="opacity-60">Labels</span><span>{{ task().labelsJson || 'Add labels' }}</span></div>
-            <div class="flex justify-between"><span class="opacity-60">Due date</span><span>Sep 15, 2026</span></div>
-            <div class="flex justify-between"><span class="opacity-60">Reporter</span><span>{{ task().createdAt | date:'short' }}</span></div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div class="flex flex-col gap-1">
+                <span class="opacity-60 text-xs font-semibold">Issue Type</span>
+                <select class="select select-bordered select-sm rounded-xl" [value]="issueType()" (change)="issueType.set($any($event.target).value)">
+                  <option>Task</option><option>Bug</option><option>Story</option><option>Feature</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="opacity-60 text-xs font-semibold">Priority</span>
+                <select class="select select-bordered select-sm rounded-xl" [value]="priority()" (change)="priority.set($any($event.target).value)">
+                  <option>Low</option><option>Medium</option><option>High</option><option>Urgent</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div class="flex flex-col gap-1">
+                <span class="opacity-60 text-xs font-semibold">Team</span>
+                @if (teamsQuery.data(); as teams) {
+                  <select class="select select-bordered select-sm rounded-xl" [value]="teamId()" (change)="teamId.set($any($event.target).value)">
+                    <option value="">No Team</option>
+                    @for (t of teams; track t.id) { <option [value]="t.id">{{ t.name }}</option> }
+                  </select>
+                  @if (teams.length===0) { <span class="text-[10px] opacity-40">No teams — create in Teams</span> }
+                } @else { <select class="select select-bordered select-sm rounded-xl" disabled><option>Loading teams...</option></select> }
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="opacity-60 text-xs font-semibold">Sprint</span>
+                @if (sprintsForTaskQuery.data(); as sprints) {
+                  <select class="select select-bordered select-sm rounded-xl" [value]="sprintId()" (change)="sprintId.set($any($event.target).value)">
+                    <option value="">No Sprint (Backlog)</option>
+                    @for (s of sprints; track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+                  </select>
+                } @else {
+                  <input type="text" placeholder="Sprint 24" class="input input-bordered input-sm rounded-xl" [value]="sprintId()" (input)="sprintId.set($any($event.target).value)" />
+                }
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="flex flex-col gap-1">
+                <span class="opacity-60 text-xs font-semibold">Story Points</span>
+                <input type="number" min="0" max="100" placeholder="5" class="input input-bordered input-sm rounded-xl" [value]="storyPoints() ?? ''" (input)="storyPoints.set($any($event.target).value ? +$any($event.target).value : null)" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="opacity-60 text-xs font-semibold">Epic</span>
+                <input type="text" placeholder="e.g., Authentication" class="input input-bordered input-sm rounded-xl" [value]="epic()" (input)="epic.set($any($event.target).value)" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div class="flex flex-col gap-1">
+                <span class="opacity-60 text-xs font-semibold">Start Date</span>
+                <input type="date" class="input input-bordered input-sm rounded-xl" [value]="startDate()" (input)="startDate.set($any($event.target).value)" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="opacity-60 text-xs font-semibold">Due date</span>
+                <input type="date" class="input input-bordered input-sm rounded-xl" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <span class="opacity-60 text-xs font-semibold">Environment</span>
+              @if (environmentsQuery.data(); as envs) {
+                <select class="select select-bordered select-sm rounded-xl" [value]="environmentSel()" (change)="environmentSel.set($any($event.target).value)">
+                  <option value="">None</option>
+                  @for (e of envs; track e.id) { <option [value]="e.name">{{ e.name }}{{ e.url ? ' — ' + e.url : '' }}</option> }
+                </select>
+                @if (envs.length===0) { <span class="text-[10px] opacity-40">No environments created — create one in Environments</span> }
+              } @else {
+                <div class="flex gap-2">
+                  <select class="select select-bordered select-sm rounded-xl flex-1" disabled><option>Loading...</option></select>
+                </div>
+              }
+            </div>
+
+            <div class="flex flex-col gap-1 relative">
+              <span class="opacity-60 text-xs font-semibold">Parent Issue @if(parentIssueId()){<span class="opacity-40">• {{ parentDisplayName() }}</span> <button class="badge badge-ghost badge-xs ml-1" (click)="parentIssueId.set(''); parentSearch.set('')">Clear</button>}</span>
+              <input type="text" placeholder="Search parent by title/ID..." class="input input-bordered input-sm rounded-xl" [value]="parentSearch()" (input)="parentSearch.set($any($event.target).value)" />
+              @if (parentSearch() && filteredParents().length>0) {
+                <div class="absolute top-full left-0 right-0 mt-1 bg-base-100 border rounded-xl shadow-xl z-20 max-h-32 overflow-y-auto">
+                  @for (t of filteredParents(); track t.id) {
+                    <button class="w-full text-left px-3 py-2 hover:bg-base-200 text-xs" (click)="parentIssueId.set(t.id); parentSearch.set('')">{{ t.title }} — {{ t.id.slice(0,6) }}</button>
+                  }
+                </div>
+              }
+              @if (!parentSearch() && parentIssueId()) {
+                <p class="text-xs opacity-60">Selected: {{ parentDisplayName() }}</p>
+              }
+              @if (childIssues().length>0) {
+                <div class="mt-1 p-2 rounded-xl bg-base-200/30 border text-xs">
+                  <span class="font-semibold">Child issues ({{ childIssues().length }}):</span>
+                  @for (c of childIssues(); track c.id) { <span class="badge badge-ghost badge-xs ml-1">{{ c.title | slice:0:12 }} {{ c.id.slice(0,4) }}</span> }
+                  <p class="opacity-40 mt-1">When this issue is parent, its children appear here (not as subtasks). Subtasks are checklist inside issue; Parent/Child is hierarchy (Epic→Story), Linked is relates-to.</p>
+                </div>
+              }
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <span class="opacity-60 text-xs font-semibold">Labels (comma separated)</span>
+              <input type="text" placeholder="e.g., bug, frontend" class="input input-bordered input-sm rounded-xl" [value]="labels()" (input)="labels.set($any($event.target).value)" />
+              @if (labelsJson()) { <span class="text-xs opacity-40 break-all">{{ labelsJson() }}</span> }
+            </div>
+
+            <div class="flex flex-col gap-1 relative">
+              <span class="opacity-60 text-xs font-semibold">Watchers (comma emails)</span>
+              <input type="text" placeholder="prash..." class="input input-bordered input-sm rounded-xl" [value]="watchers()" (input)="watchers.set($any($event.target).value); watcherSearch.set($any($event.target).value.split(',').pop()?.trim() || '')" />
+              @if (watcherSearch() && filteredWatchers().length>0) {
+                <div class="absolute top-full left-0 right-0 mt-1 bg-base-100 border rounded-xl shadow-xl z-20 max-h-32 overflow-y-auto">
+                  @for (m of filteredWatchers(); track m.userId) {
+                    <button class="w-full text-left px-3 py-2 hover:bg-base-200 text-xs" (click)="watchers.set((watchers() ? watchers().split(',').slice(0,-1).join(',') + ', ' + m.email : m.email)); watcherSearch.set('')">{{ m.fullName }} — {{ m.email }}</button>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="flex flex-col gap-1 relative">
+              <span class="opacity-60 text-xs font-semibold">Linked Issues</span>
+              <input type="text" placeholder="Search to add — e.g., blocks FB-102" class="input input-bordered input-sm rounded-xl" [value]="linkedSearch()" (input)="linkedSearch.set($any($event.target).value)" />
+              @if (linkedSearch() && filteredLinked().length>0) {
+                <div class="absolute top-full left-0 right-0 mt-1 bg-base-100 border rounded-xl shadow-xl z-20 max-h-32 overflow-y-auto">
+                  @for (t of filteredLinked(); track t.id) {
+                    <button class="w-full text-left px-3 py-2 hover:bg-base-200 text-xs" (click)="linkedIssues.set(linkedIssues() ? linkedIssues()+', '+t.id : t.id); linkedSearch.set('')">{{ t.title }} — {{ t.id.slice(0,6) }}</button>
+                  }
+                </div>
+              }
+              <input type="text" placeholder="Current: blocks FB-102, relates to FB-103 (comma ids)" class="input input-bordered input-sm rounded-xl mt-1" [value]="linkedIssues()" (input)="linkedIssues.set($any($event.target).value)" />
+              <span class="text-[10px] opacity-40">Search above to add, or type ids directly (like parent search).</span>
+            </div>
+
+            <div class="border-t border-base-200 pt-2">
+              <span class="opacity-60 text-xs font-semibold">Time Tracking (hours)</span>
+              <div class="grid grid-cols-3 gap-1 mt-1">
+                <input type="number" placeholder="Est" class="input input-bordered input-xs rounded-xl" [value]="timeEstimated() ?? ''" (input)="timeEstimated.set($any($event.target).value ? +$any($event.target).value : null)" />
+                <input type="number" placeholder="Spent" class="input input-bordered input-xs rounded-xl" [value]="timeSpent() ?? ''" (input)="timeSpent.set($any($event.target).value ? +$any($event.target).value : null)" />
+                <input type="number" placeholder="Rem" class="input input-bordered input-xs rounded-xl" [value]="timeRemaining() ?? ''" (input)="timeRemaining.set($any($event.target).value ? +$any($event.target).value : null)" />
+              </div>
+            </div>
+
+            <div class="flex justify-between text-xs"><span class="opacity-60">Reporter</span><span class="font-medium">{{ task().createdAt | date:'short' }}</span></div>
+            <div class="flex justify-between text-xs"><span class="opacity-60">Created</span><span>{{ task().createdAt | date:'mediumDate' }}</span></div>
           </div>
-          <div class="flex gap-2">
+
+          <div class="flex gap-2 pt-2">
             <button class="btn btn-ghost btn-sm rounded-xl flex-1" (click)="closed.emit()">Cancel</button>
-            <button class="btn btn-primary btn-sm rounded-xl flex-1" (click)="saved.emit({title: title(), description: description(), priority: priority(), listId: listId()})" [class.loading]="loading()">Save</button>
+            <button class="btn btn-primary btn-sm rounded-xl flex-1" (click)="save()" [disabled]="!title().trim() || !isDirty()" [class.loading]="loading()">
+              Save
+            </button>
           </div>
+          @if (!isDirty()) { <p class="text-[10px] opacity-40 text-center">No changes • Save disabled until you edit</p> }
+          <p class="text-[10px] opacity-40 text-center">Changes save priority/labels/due/assignee/status via PUT /tasks • lists via PUT/DELETE /lists</p>
         </div>
       </div>
     </div>

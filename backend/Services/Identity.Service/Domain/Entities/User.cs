@@ -29,6 +29,8 @@ public class User : BaseEntity, IAggregateRoot
         AvatarUrl = avatarUrl;
         Touch();
     }
+    public void UpdateFullName(string fullName) { FullName = fullName; Touch(); }
+    public void UpdateEmail(string email) { Email = email.ToLowerInvariant(); Touch(); }
 
     public void Deactivate() => IsActive = false;
 }

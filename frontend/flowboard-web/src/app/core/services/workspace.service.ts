@@ -8,7 +8,7 @@ import { environment } from '../../../environments/environment';
  * Used by Workspaces list w (all) and Workspace detail w/:wid.
  */
 export interface WorkspaceDto { id: string; name: string; slug: string; organizationId: string; role: number; roleName?: string; }
-export interface OrganizationDto { id: string; name: string; slug: string; ownerId: string; }
+export interface OrganizationDto { id: string; name: string; slug: string; ownerId: string; description?: string; createdAt?: string; }
 
 @Injectable({ providedIn: 'root' })
 export class WorkspaceService {
@@ -28,6 +28,25 @@ export class WorkspaceService {
 
   getMyOrganizations() {
     return this.http.get<OrganizationDto[]>(`${environment.apiUrl}/api/organizations`, { withCredentials: true });
+  }
+  updateOrganization(id: string, name: string, description?: string) {
+    return this.http.put<OrganizationDto>(`${environment.apiUrl}/api/organizations/${id}`, { Name: name, Description: description }, { withCredentials: true });
+  }
+  getOrganizationMembers(organizationId: string) {
+    return this.http.get<any[]>(`${environment.apiUrl}/api/organizations/${organizationId}/members`, { withCredentials: true });
+  }
+  createOrganizationMember(organizationId: string, fullName: string, email: string, password: string, role: string, workspaceId?: string) {
+    return this.http.post(`${environment.apiUrl}/api/organizations/${organizationId}/employees`, { FullName: fullName, Email: email, Password: password, Role: role, WorkspaceId: workspaceId }, { withCredentials: true });
+  }
+  updateOrganizationMember(organizationId: string, userId: string, fullName?: string, email?: string, role?: string, workspaceId?: string) {
+    return this.http.put(`${environment.apiUrl}/api/organizations/${organizationId}/employees/${userId}`, { FullName: fullName, Email: email, Role: role, WorkspaceId: workspaceId }, { withCredentials: true });
+  }
+  deleteOrganizationMember(organizationId: string, userId: string) {
+    return this.http.delete(`${environment.apiUrl}/api/organizations/${organizationId}/employees/${userId}`, { withCredentials: true });
+  }
+  getWorkspaceMembers(workspaceId: string) {
+    // alias for consistency
+    return this.http.get<any[]>(`${environment.apiUrl}/api/workspaces/${workspaceId}/members`, { withCredentials: true });
   }
 
   createWorkspace(organizationId: string, name: string) {

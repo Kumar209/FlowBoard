@@ -56,7 +56,7 @@ public class GetTasksHandler : IRequestHandler<GetTasksQuery, PaginatedResult<Ta
 
         var total = await q.CountAsync(ct);
         var items = await q.Skip((req.Page - 1) * req.PageSize).Take(req.PageSize)
-            .Select(t => new TaskDto(t.Id, t.ProjectId, t.ListId, t.Title, t.Description, t.Priority.ToString(), t.LabelsJson, t.AssigneeId, t.Position, t.CreatedAt))
+            .Select(t => new TaskDto(t.Id, t.ProjectId, t.ListId, t.Title, t.Description, t.Priority.ToString(), t.LabelsJson, t.AssigneeId, t.Position, t.CreatedAt, t.DueDate, t.IssueType, t.Epic, t.StoryPoints, t.StartDate, t.Environment, t.ParentIssueId, t.SprintId, t.WatchersJson, t.LinkedIssuesJson, t.TimeEstimated, t.TimeSpent, t.TimeRemaining, t.TeamId, t.Status))
             .ToListAsync(ct);
         return new PaginatedResult<TaskDto>(items, total, req.Page, req.PageSize);
     }

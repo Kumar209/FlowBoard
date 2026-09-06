@@ -9,12 +9,17 @@ namespace Project.Service.Application.Interfaces;
 public interface IApplicationDbContext
 {
     DbSet<ProjectEntity> Projects { get; }
-    DbSet<BoardList> BoardLists { get; }
-    DbSet<TaskItem> Tasks { get; }
+    DbSet<Board> Boards { get; }
+    DbSet<BoardList> BoardLists { get; } // Column
+    DbSet<Sprint> Sprints { get; }
+    DbSet<Team> Teams { get; }
+    DbSet<TeamMember> TeamMembers { get; }
+    DbSet<TaskItem> Tasks { get; } // Issue
     DbSet<SubTask> SubTasks { get; }
     DbSet<Comment> Comments { get; }
     DbSet<ActivityLog> ActivityLogs { get; }
     DbSet<OutboxMessage> OutboxMessages { get; }
+    DbSet<ProjectEnvironment> Environments { get; }
 
     DatabaseFacade Database { get; }
 

@@ -1,55 +1,45 @@
 <div class="bg-base-200 min-h-full">
   <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
-    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Activity</h1>
-    <p class="text-sm opacity-60 mt-1">Audit trail — filtered by your role (Manager: workspace, Client: own project).</p>
-
-    <div class="flex flex-col sm:flex-row gap-2 mt-4">
-      <select class="select select-bordered rounded-xl max-w-xs" [value]="selectedWorkspaceId()" (change)="selectedWorkspaceId.set($any($event.target).value); selectedProjectId.set(''); page.set(1)">
-        @for (ws of workspacesQuery.data() || []; track ws.id) { <option [value]="ws.id">{{ ws.name }}</option> }
-      </select>
-      <select class="select select-bordered rounded-xl max-w-xs" [value]="selectedProjectId()" (change)="selectedProjectId.set($any($event.target).value); page.set(1)">
-        <option value="">Select project</option>
-        @for (p of projectsQuery.data()?.items || []; track p.id) { <option [value]="p.id">{{ p.key }} — {{ p.name }}</option> }
-      </select>
+    <div class="flex flex-wrap justify-between gap-3 items-center">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Activity — Organization</h1>
+        <p class="text-sm opacity-60 mt-1">Org-wide audit trail — all projects across your workspaces. Table view</p>
+      </div>
+      <span class="badge badge-ghost badge-sm rounded-full">{{ total() }} events • {{ allProjectsQuery.data()?.length || 0 }} projects</span>
     </div>
 
-    @if (!selectedProjectId()) {
-      <div class="mt-6 card bg-base-100 rounded-2xl shadow border border-dashed p-8 text-center opacity-60 text-sm">Select a project to view timeline</div>
-    } @else if (activitiesQuery.isPending()) {
+    @if (orgActivitiesQuery.isPending() || allProjectsQuery.isPending()) {
       <div class="mt-6 space-y-2">
         @for (i of [1,2,3]; track i) { <div class="card bg-base-100 border p-4 animate-pulse"><div class="h-3 bg-base-300 rounded w-1/4 mb-2"></div><div class="h-4 bg-base-200 rounded w-3/4"></div></div> }
       </div>
-    } @else if (activitiesQuery.isError()) {
-      <div class="alert alert-error mt-6 rounded-xl">Failed to load activities</div>
+    } @else if (orgActivitiesQuery.isError()) {
+      <div class="alert alert-error mt-6 rounded-xl">Failed to load org activities</div>
     } @else {
-      <div class="mt-6 card bg-base-100 rounded-2xl shadow border border-base-200 p-6 sm:p-8">
-        <div class="flex items-center gap-3 mb-4">
-          <span class="badge badge-primary badge-sm">Timeline</span>
-          <span class="badge badge-ghost badge-xs">Total {{ total() }}</span>
-          @if (auth.isViewer()) { <span class="badge badge-ghost badge-xs">View only</span> }
+      <div class="mt-6 card bg-base-100 rounded-2xl shadow border border-base-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead><tr><th>Time</th><th>Project</th><th>Action</th><th>Payload</th><th>Actor</th></tr></thead>
+            <tbody>
+              @for (a of orgActivitiesQuery.data()?.items || []; track a.id) {
+                <tr class="hover:bg-base-200">
+                  <td class="text-xs opacity-60 whitespace-nowrap">{{ a.occurredAt | date:'short' }}</td>
+                  <td><span class="badge badge-ghost badge-xs rounded-full">{{ a.projectKey }} {{ a.projectName | slice:0:12 }}</span></td>
+                  <td><span class="badge badge-sm rounded-full" [ngClass]="a.action==='TaskCreated'?'badge-success': a.action==='TaskMoved'?'badge-warning':'badge-ghost'">{{ a.action }}</span></td>
+                  <td class="text-xs max-w-[320px] truncate">{{ a.payloadJson | slice:0:80 }}</td>
+                  <td class="text-xs font-mono opacity-60">{{ a.actorId.slice(0,6) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
-        @if ((activitiesQuery.data()?.items?.length||0)===0) {
-          <p class="text-sm opacity-40">No activities yet — create/move/comment a task to see timeline.</p>
-        } @else {
-          <ul class="timeline timeline-vertical">
-            @for (a of activitiesQuery.data()?.items || []; track a.id) {
-              <li>
-                <div class="timeline-start text-xs opacity-60">{{ a.occurredAt | date:'short' }}</div>
-                <div class="timeline-middle">◎</div>
-                <div class="timeline-end timeline-box text-sm">
-                  <span class="badge badge-ghost badge-xs mr-1">{{ a.action }}</span>
-                  <span class="opacity-60">{{ a.payloadJson | slice:0:80 }}</span>
-                  <span class="text-xs opacity-40 ml-2">by {{ a.actorId.slice(0,6) }}</span>
-                </div>
-              </li>
-            }
-          </ul>
-          <div class="flex justify-center gap-2 mt-6">
-            <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
-            <span class="self-center text-xs opacity-40">Page {{ page() }} / {{ totalPages() }}</span>
-            <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
-          </div>
+        @if ((orgActivitiesQuery.data()?.items?.length||0)===0) {
+          <p class="text-sm opacity-40 text-center py-8">No org activities yet — create/move/comment a task in any project.</p>
         }
+        <div class="flex justify-center gap-2 p-3 border-t border-base-200">
+          <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+          <span class="self-center text-xs opacity-40">Page {{ page() }} / {{ totalPages() }}</span>
+          <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+        </div>
       </div>
     }
   </div>

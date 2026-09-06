@@ -80,8 +80,8 @@ export class ProjectsComponent {
   });
 
   createMutation = injectMutation(() => ({
-    mutationFn: (vars: { workspaceId: string; name: string }) =>
-      firstValueFrom(this.projectService.createProject(vars.workspaceId, vars.name)),
+    mutationFn: (vars: { workspaceId: string; name: string; description?: string }) =>
+      firstValueFrom(this.projectService.createProject(vars.workspaceId, vars.name, vars.description)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['projects-global'] });
       this.queryClient.invalidateQueries({ queryKey: ['projects'] });
@@ -92,7 +92,7 @@ export class ProjectsComponent {
     onError: (err: any) => { const m= err.error?.error || 'Create failed'; this.createError.set(m); this.toast.error(m); },
   }));
   updateMutation = injectMutation(() => ({
-    mutationFn: (vars:{id:string; name:string}) => firstValueFrom(this.projectService.updateProject(vars.id, vars.name)),
+    mutationFn: (vars:{id:string; name:string; description?:string}) => firstValueFrom(this.projectService.updateProject(vars.id, vars.name, vars.description)),
     onSuccess: () => { this.queryClient.invalidateQueries({ queryKey: ['projects-global'] }); this.queryClient.invalidateQueries({ queryKey: ['projects'] }); this.editOpen.set(false); this.toast.success('Project updated'); },
     onError: (err:any)=> this.toast.error(err.error?.error||'Update failed'),
   }));
@@ -105,7 +105,7 @@ export class ProjectsComponent {
   openCreate(){ this.createError.set(null); this.createOpen.set(true); }
   openEdit(p:any){ this.editing.set(p); this.editOpen.set(true); }
   openDelete(p:any){ this.editing.set(p); this.deleteOpen.set(true); }
-  onCreateSubmit(e:{name:string; workspaceId:string}){ this.createMutation.mutate({workspaceId:e.workspaceId, name:e.name}); }
-  onEditSubmit(e:{name:string}){ this.updateMutation.mutate({id:this.editing().id, name:e.name}); }
+  onCreateSubmit(e:{name:string; description:string; workspaceId:string}){ this.createMutation.mutate({workspaceId:e.workspaceId, name:e.name, description: e.description}); }
+  onEditSubmit(e:{name:string; description:string}){ this.updateMutation.mutate({id:this.editing().id, name:e.name, description: e.description}); }
   onDeleteConfirm(){ this.deleteMutation.mutate(this.editing().id); }
 }

@@ -1,0 +1,21 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
+  <h1 class="text-xl font-bold">Documents</h1>
+  <p class="text-xs opacity-60">Project docs — future Cloudinary + File.Service integration. Store specs, designs, meeting notes linked to tasks.</p>
+
+  <div class="grid md:grid-cols-2 gap-3">
+    <div class="card bg-base-100 rounded-2xl p-4 border">
+      <p class="font-semibold text-sm">📄 PRD — FlowBoard System Design</p>
+      <p class="text-xs opacity-60">Documents/FlowBoard_System_Design.docx v1.3</p>
+      <div class="mt-3 flex gap-2"><button class="btn btn-primary btn-xs rounded-full">Open</button><button class="btn btn-ghost btn-xs rounded-full">Link to task</button></div>
+    </div>
+    <div class="card bg-base-100 rounded-2xl p-4 border border-dashed">
+      <p class="font-semibold text-sm">+ New Document</p>
+      <p class="text-xs opacity-60">Upload via Cloudinary (future). Will appear in Task Detail attachments.</p>
+      <button class="btn btn-ghost btn-xs rounded-full mt-3 border">Upload</button>
+    </div>
+  </div>
+
+  <div class="card bg-warning/10 rounded-2xl border border-warning/20 p-4">
+    <p class="text-xs">Planned: <code class="bg-base-100 px-1 rounded">ProjectDocuments</code> table (projectId, title, url, authorId) + <code class="bg-base-100 px-1 rounded">TaskAttachments</code> via Cloudinary.</p>
+  </div>
+</div>

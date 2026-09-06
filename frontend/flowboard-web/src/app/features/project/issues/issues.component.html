@@ -1,0 +1,105 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
+  <div class="flex flex-wrap justify-between gap-2 items-center">
+    <div>
+      <h1 class="text-xl font-bold">Issues</h1>
+      <p class="text-xs opacity-60">Project issues = all TaskItems. Boards group same issues. New issues go to Backlog (Sprint None) until assigned to Sprint.</p>
+    </div>
+    <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ Create Issue</button>
+  </div>
+
+  <div class="flex flex-col sm:flex-row gap-2">
+    <input type="text" placeholder="Search by title/description/key..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
+    <select class="select select-bordered select-sm rounded-full max-w-[160px]" [value]="typeFilter()" (change)="typeFilter.set($any($event.target).value); page.set(1)">
+      <option value="">All types</option><option value="bug">Bug</option><option value="feature">Feature</option><option value="story">Story</option><option value="task">Task</option><option value="urgent">Urgent</option><option value="high">High priority</option>
+    </select>
+    <span class="text-xs opacity-40 self-center">Found {{ filtered().length }} / {{ boardQuery.data()?.tasks?.length || 0 }}</span>
+  </div>
+
+  @if (boardQuery.data(); as b) {
+    @if (filtered().length===0) {
+      <div class="text-center py-12 bg-base-100 rounded-2xl border border-dashed">
+        <p class="font-semibold">No issues match filter</p>
+        <p class="text-sm opacity-60">Try “All types” or clear search</p>
+      </div>
+    } @else {
+      <!-- Desktop table -->
+      <div class="hidden md:block card bg-base-100 rounded-2xl shadow border overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead><tr><th>Key</th><th>Title</th><th>Status</th><th>Priority</th><th>Team</th><th>Sprint</th><th>Assignee</th><th>Due Date</th><th>Actions</th></tr></thead>
+            <tbody>
+              @for (t of paginated(); track t.id) {
+                <tr class="hover:bg-base-200">
+                  <td class="font-mono text-xs">{{ t.id.slice(0,4) }}</td>
+                  <td class="font-medium max-w-[200px] truncate">{{ t.title }}</td>
+                  <td><span class="badge badge-ghost badge-xs rounded-full">{{ b.lists.find(l=>l.id===t.listId)?.name || t.status || t.listId.slice(0,4) }}</span></td>
+                  <td><span class="badge badge-xs rounded-full" [ngClass]="t.priority==='High'?'badge-warning': t.priority==='Urgent'?'badge-error': t.priority==='Low'?'badge-ghost':'badge-info'">{{ t.priority }}</span></td>
+                  <td class="text-xs">{{ getTeamName(t.teamId) }}</td>
+                  <td class="text-xs">{{ getSprintName(t.sprintId) }}</td>
+                  <td class="text-xs">{{ getAssigneeName(t.assigneeId) }}</td>
+                  <td class="text-xs">{{ t.dueDate ? (t.dueDate | date:'shortDate') : '—' }}</td>
+                  <td>
+                    <div class="flex gap-1">
+                      <button class="btn btn-ghost btn-xs rounded-full" (click)="openDetail(t)">View</button>
+                      <button class="btn btn-ghost btn-xs rounded-full" (click)="openDetail(t)">Edit</button>
+                      <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(t)">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="flex justify-between items-center p-3 border-t border-base-200">
+          <span class="text-xs opacity-40">Page {{ page() }} / {{ totalPages() }} • Total {{ filtered().length }}</span>
+          <div class="flex gap-1">
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+          </div>
+        </div>
+      </div>
+      <!-- Mobile cards -->
+      <div class="md:hidden space-y-2">
+        @for (t of paginated(); track t.id) {
+          <div class="card bg-base-100 rounded-2xl p-3 border shadow-sm">
+            <div class="flex justify-between items-start">
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-sm truncate">{{ t.title }}</p>
+                <p class="text-xs opacity-60">{{ b.lists.find(l=>l.id===t.listId)?.name }} • {{ t.priority }} • {{ getTeamName(t.teamId) }} • {{ getSprintName(t.sprintId) }}</p>
+                <p class="text-xs opacity-40">{{ getAssigneeName(t.assigneeId) }} • {{ t.dueDate ? (t.dueDate | date:'shortDate') : 'No due' }}</p>
+              </div>
+              <span class="badge badge-ghost badge-xs">{{ t.id.slice(0,4) }}</span>
+            </div>
+            <div class="flex gap-1 mt-2">
+              <button class="btn btn-ghost btn-xs rounded-full flex-1" (click)="openDetail(t)">View</button>
+              <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(t)">Delete</button>
+            </div>
+          </div>
+        }
+        <div class="flex justify-between items-center mt-3 px-1">
+          <span class="text-xs opacity-40">Page {{ page() }} / {{ totalPages() }}</span>
+          <div class="flex gap-1">
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Prev</button>
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+          </div>
+        </div>
+      </div>
+    }
+    <app-task-detail-modal [open]="detailOpen()" [task]="selectedTask()" [lists]="b.lists" [projectId]="projectId()" [workspaceId]="workspaceId()" [loading]="updateMutation.isPending()" (closed)="detailOpen.set(false)" (saved)="onSave($event)" />
+    <app-task-create-modal [open]="createOpen()" [listName]="boardQuery.data()?.lists?.[0]?.name || 'To Do'" [projectId]="projectId()" [loading]="createMutation.isPending()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
+
+    @if (deleteTarget()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="deleteTarget.set(null)"></div>
+        <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+          <h3 class="font-bold">Delete issue "{{ deleteTarget().title }}"?</h3>
+          <p class="text-sm opacity-60 mt-2">This will permanently delete the issue and its subtasks/comments. Cannot be undone.</p>
+          <div class="flex justify-end gap-2 mt-6">
+            <button class="btn btn-ghost rounded-xl" (click)="deleteTarget.set(null)">Cancel</button>
+            <button class="btn btn-error rounded-xl text-white" (click)="deleteMutation.mutate(deleteTarget().id)" [class.loading]="deleteMutation.isPending()">Delete</button>
+          </div>
+        </div>
+      </div>
+    }
+  } @else if (boardQuery.isPending()) { <span class="loading loading-spinner loading-sm"></span> }
+</div>

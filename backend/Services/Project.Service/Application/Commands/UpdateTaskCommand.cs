@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using SharedKernel;
 using Project.Service.Application.Caching;
 using Project.Service.Application.DTOs;
@@ -8,9 +9,9 @@ using Project.Service.Application.Interfaces;
 namespace Project.Service.Application.Commands;
 
 /// <summary>
-/// UpdateTask - edit title/description/priority/labels/assignee/dueDate. Allowed Member+ (Client 403 for title change but can comment via AddComment). Validates Title required.
+/// UpdateTask - edit title/description/priority/labels/assignee/dueDate + IssueType/Epic/StoryPoints/StartDate/Environment/Sprint/Parent/Time/Watches. Allowed Member+ (Client 403 for title change but can comment via AddComment). Validates Title required.
 /// </summary>
-public record UpdateTaskCommand(Guid TaskId, string Title, string? Description, string Priority, string? LabelsJson, Guid? AssigneeId, DateTime? DueDate, Guid CallerId, List<string> CallerRoles) : IRequest<Result<TaskDto>>;
+public record UpdateTaskCommand(Guid TaskId, string Title, string? Description, string Priority, string? LabelsJson, Guid? AssigneeId, DateTime? DueDate, Guid CallerId, List<string> CallerRoles, string? IssueType = null, string? Epic = null, int? StoryPoints = null, DateTime? StartDate = null, string? Environment = null, Guid? ParentIssueId = null, Guid? SprintId = null, string? WatchersJson = null, string? LinkedIssuesJson = null, int? TimeEstimated = null, int? TimeSpent = null, int? TimeRemaining = null, Guid? TeamId = null, Guid? ListId = null, string? Status = null) : IRequest<Result<TaskDto>>;
 
 public class UpdateTaskValidator : AbstractValidator<UpdateTaskCommand>
 {
@@ -37,12 +38,22 @@ public class UpdateTaskHandler : IRequestHandler<UpdateTaskCommand, Result<TaskD
         if (task == null) return Result<TaskDto>.Failure("Task not found");
 
         var priority = Enum.TryParse<Domain.Enums.TaskPriority>(req.Priority, true, out var p) ? p : Domain.Enums.TaskPriority.Medium;
-        task.Update(req.Title, req.Description, priority, req.LabelsJson, req.AssigneeId, req.DueDate);
+        // If ListId changed, sync Status to target column name
+        string? status = req.Status;
+        Guid? targetListId = req.ListId;
+        if (targetListId.HasValue && targetListId.Value != Guid.Empty && targetListId.Value != task.ListId)
+        {
+            var targetList = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == targetListId.Value, ct);
+            if (targetList != null) status = targetList.Name;
+            task.MoveToList(targetListId.Value, task.Position, status);
+        }
+        task.Update(req.Title, req.Description, priority, req.LabelsJson, req.AssigneeId, req.DueDate, req.IssueType, req.Epic, req.StoryPoints, req.StartDate, req.Environment, req.ParentIssueId, req.SprintId, req.WatchersJson, req.LinkedIssuesJson, req.TimeEstimated, req.TimeSpent, req.TimeRemaining, req.TeamId, status);
 
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, req.CallerId, "TaskUpdated", $"{{\"title\":\"{req.Title}\"}}"));
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveAsync(CacheKeys.Board(task.ProjectId));
+        await _cache.RemoveByPrefixAsync(CacheKeys.Board(task.ProjectId) + ":");
         await _cache.RemoveByPrefixAsync($"tasks:{task.ProjectId}:");
-        return Result<TaskDto>.Success(new TaskDto(task.Id, task.ProjectId, task.ListId, task.Title, task.Description, task.Priority.ToString(), task.LabelsJson, task.AssigneeId, task.Position, task.CreatedAt));
+        return Result<TaskDto>.Success(new TaskDto(task.Id, task.ProjectId, task.ListId, task.Title, task.Description, task.Priority.ToString(), task.LabelsJson, task.AssigneeId, task.Position, task.CreatedAt, task.DueDate, task.IssueType, task.Epic, task.StoryPoints, task.StartDate, task.Environment, task.ParentIssueId, task.SprintId, task.WatchersJson, task.LinkedIssuesJson, task.TimeEstimated, task.TimeSpent, task.TimeRemaining, task.TeamId, task.Status));
     }
 }

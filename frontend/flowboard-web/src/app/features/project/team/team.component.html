@@ -1,0 +1,104 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
+  <div class="flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-bold">Teams</h1>
+      <p class="text-xs opacity-60">Create teams (Development, QA, Support, DevOps) and manage members per team. Issues can be assigned to a team.</p>
+    </div>
+    <div class="flex gap-2">
+      <span class="badge badge-ghost badge-sm rounded-full">{{ filteredTeams().length }} teams</span>
+      <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ New Team</button>
+    </div>
+  </div>
+
+  <div class="flex gap-2">
+    <input type="text" placeholder="Search teams..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="search()" (input)="search.set($any($event.target).value)" />
+  </div>
+
+  @if (teamsQuery.isPending()) { <div class="flex justify-center py-8"><span class="loading loading-spinner loading-sm"></span></div> }
+  @else if (filteredTeams().length===0) {
+    <div class="text-center py-12 bg-base-100 rounded-2xl border border-dashed">
+      <p class="font-semibold">No teams yet</p>
+      <p class="text-sm opacity-60">Create your first team to organize work (e.g., Development)</p>
+      <button class="btn btn-primary btn-sm rounded-full mt-3" (click)="openCreate()">+ New Team</button>
+    </div>
+  } @else {
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      @for (team of filteredTeams(); track team.id) {
+        <div class="card bg-base-100 rounded-2xl shadow border p-4 " [class.ring-2]="selectedTeamId()===team.id" [class.ring-primary]="selectedTeamId()===team.id">
+          <div class="flex justify-between items-start">
+            <div class="cursor-pointer flex-1" (click)="selectTeam(team)">
+              <h3 class="font-bold">{{ team.name }}</h3>
+              <p class="text-xs opacity-60">{{ team.description || 'No description' }}</p>
+              <p class="text-xs mt-1"><span class="badge badge-ghost badge-xs">Tasks: {{ 0 }} — members: {{ team.membersCount }}</span> • Click to view members</p>
+            </div>
+            <div class="dropdown dropdown-end">
+              <div tabindex="0" role="button" class="btn btn-ghost btn-xs rounded-full">⋮</div>
+              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-xl z-10 w-36 p-2 shadow border">
+                <li><a (click)="openEdit(team)">Edit</a></li>
+                <li><a class="text-error" (click)="confirmDelete(team)">Delete</a></li>
+              </ul>
+            </div>
+          </div>
+          @if (selectedTeamId()===team.id) {
+            <div class="mt-4 pt-4 border-t border-base-200">
+              <h4 class="text-sm font-semibold mb-2">Members — {{ membersQuery.data()?.length || 0 }}</h4>
+              @if (membersQuery.isPending()) { <span class="loading loading-spinner loading-xs"></span> }
+              @else {
+                <div class="space-y-1 mb-3 max-h-[180px] overflow-y-auto">
+                  @for (m of membersQuery.data() || []; track m.userId) {
+                    <div class="flex justify-between items-center p-2 rounded-xl bg-base-200/40 border">
+                      <span class="text-sm">{{ m.userId.slice(0,6) }}</span>
+                      <button class="btn btn-ghost btn-xs text-error rounded-full" (click)="removeMemberMutation.mutate(m.userId)" [class.loading]="removeMemberMutation.isPending()">Remove</button>
+                    </div>
+                  }
+                  @if ((membersQuery.data()||[]).length===0) { <p class="text-xs opacity-40 text-center py-2">No members — add from workspace</p> }
+                </div>
+                <div class="flex gap-2">
+                  <input type="text" placeholder="Search workspace members..." class="input input-bordered input-sm flex-1 rounded-full" [value]="addMemberSearch()" (input)="addMemberSearch.set($any($event.target).value)" />
+                </div>
+                <div class="space-y-1 mt-2 max-h-[160px] overflow-y-auto">
+                  @for (wm of filteredWorkspaceMembers(); track wm.userId) {
+                    <div class="flex justify-between items-center p-2 rounded-xl hover:bg-base-200 cursor-pointer border" (click)="selectedUserId.set(wm.userId); addMemberMutation.mutate()">
+                      <div><p class="text-sm font-medium">{{ wm.fullName }}</p><p class="text-xs opacity-60">{{ wm.email }} • {{ wm.role }}</p></div>
+                      <span class="btn btn-primary btn-xs rounded-full">Add</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (showCreate()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="showCreate.set(false)"></div>
+      <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+        <h3 class="font-bold">{{ editingTeam() ? 'Edit Team' : 'New Team' }}</h3>
+        <div class="mt-4 space-y-3">
+          <label class="form-control"><span class="label-text text-xs">Name *</span><input type="text" class="input input-bordered rounded-xl" placeholder="Development" [value]="newTeamName()" (input)="newTeamName.set($any($event.target).value)" /></label>
+          <label class="form-control"><span class="label-text text-xs">Description</span><textarea class="textarea textarea-bordered rounded-xl" placeholder="Optional" [value]="newTeamDesc()" (input)="newTeamDesc.set($any($event.target).value)"></textarea></label>
+        </div>
+        <div class="flex justify-end gap-2 mt-6">
+          <button class="btn btn-ghost rounded-xl" (click)="showCreate.set(false)">Cancel</button>
+          <button class="btn btn-primary rounded-xl" (click)="submit()" [disabled]="!newTeamName().trim()" [class.loading]="createMutation.isPending() || updateMutation.isPending()">{{ editingTeam() ? 'Save' : 'Create' }}</button>
+        </div>
+      </div>
+    </div>
+  }
+  @if (deleteTarget()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="deleteTarget.set(null)"></div>
+      <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+        <h3 class="font-bold">Delete {{ deleteTarget().name }}?</h3>
+        <p class="text-sm opacity-60 mt-2">Team will be removed. Issues assigned to this team will keep TeamId but team will be gone.</p>
+        <div class="flex justify-end gap-2 mt-6">
+          <button class="btn btn-ghost rounded-xl" (click)="deleteTarget.set(null)">Cancel</button>
+          <button class="btn btn-error rounded-xl text-white" (click)="deleteMutation.mutate(deleteTarget().id)" [class.loading]="deleteMutation.isPending()">Delete</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

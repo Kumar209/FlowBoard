@@ -1,0 +1,42 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
+  <div class="flex flex-wrap justify-between gap-2 items-center">
+    <h1 class="text-xl font-bold">Backlog</h1>
+    <div class="flex gap-2">
+      <input type="text" placeholder="Search backlog..." class="input input-bordered input-sm rounded-full max-w-xs" [value]="search()" (input)="search.set($any($event.target).value)" />
+      <span class="badge badge-ghost badge-sm rounded-full self-center hidden sm:inline">{{ filtered().length }} issues</span>
+    </div>
+  </div>
+  <p class="text-xs opacity-60">Backlog = VIEW WHERE sprintId IS NULL — plan by assigning to Sprint via TaskDetail. No duplicate table.</p>
+
+  @if (boardQuery.data(); as b) {
+    <div class="hidden md:block card bg-base-100 rounded-2xl shadow border overflow-hidden">
+      <table class="table table-sm">
+        <thead><tr><th>Title</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Pos</th><th></th></tr></thead>
+        <tbody>
+          @for (t of filtered(); track t.id) {
+            <tr class="hover:bg-base-200 cursor-pointer" (click)="openDetail(t)">
+              <td class="font-medium">{{ t.title }}</td>
+              <td><span class="badge badge-ghost badge-xs">{{ b.lists.find(l=>l.id===t.listId)?.name || t.listId.slice(0,4) }}</span></td>
+              <td><span class="badge badge-xs" [ngClass]="t.priority==='High'?'badge-warning': t.priority==='Urgent'?'badge-error':'badge-info'">{{ t.priority }}</span></td>
+              <td class="text-xs opacity-60">{{ t.assigneeId?.slice(0,6) || 'Unassigned' }}</td>
+              <td>{{ t.position }}</td>
+              <td><button class="btn btn-ghost btn-xs rounded-full">Edit</button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (filtered().length===0) { <p class="text-center py-8 opacity-40 text-sm">No backlog — all issues assigned to sprints or no tasks. Create task without Sprint appears here.</p> }
+    </div>
+    <div class="md:hidden space-y-2">
+      @for (t of filtered(); track t.id) {
+        <div class="card bg-base-100 rounded-2xl p-3 border shadow-sm" (click)="openDetail(t)">
+          <p class="font-medium text-sm">{{ t.title }}</p>
+          <p class="text-xs opacity-60">{{ b.lists.find(l=>l.id===t.listId)?.name }} • {{ t.priority }}</p>
+        </div>
+      }
+    </div>
+    <p class="text-xs opacity-40">Backlog {{ filtered().length }} / Total {{ allCount() }} • Click to set Sprint in TaskDetail → moves to Board when that Sprint selected</p>
+    <app-task-detail-modal [open]="detailOpen()" [task]="selectedTask()" [lists]="b.lists" [projectId]="projectId()" [workspaceId]="workspaceId()" [loading]="updateMutation.isPending()" (closed)="detailOpen.set(false)" (saved)="onDetailSave($event)" />
+  } @else if (boardQuery.isPending()) { <div class="grid gap-2"><div class="h-10 bg-base-200 rounded animate-pulse"></div><div class="h-10 bg-base-200 rounded animate-pulse"></div></div> }
+  @else { <div class="alert alert-error rounded-xl">Failed to load backlog</div> }
+</div>

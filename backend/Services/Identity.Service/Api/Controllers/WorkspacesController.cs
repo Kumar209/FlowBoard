@@ -163,6 +163,20 @@ public class WorkspacesController : ControllerBase
         return Ok(new { message = "Workspace deleted", id });
     }
 
+    // GET /api/workspaces/{id}/members - list members for assignee picker (any authenticated member of workspace)
+    [HttpGet("{id}/members")]
+    public async Task<IActionResult> GetMembers(Guid id)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        // Must be member of workspace
+        var isMember = await _db.WorkspaceMembers.AnyAsync(m => m.WorkspaceId == id && m.UserId == userId.Value);
+        if (!isMember) return Forbid();
+        var members = await _db.WorkspaceMembers.Where(m => m.WorkspaceId == id).Include(m => m.User)
+            .Select(m => new { userId = m.UserId, email = m.User!.Email, fullName = m.User.FullName, avatarUrl = m.User.AvatarUrl, role = m.Role.ToString(), roleInt = (int)m.Role, joinedAt = m.JoinedAt })
+            .ToListAsync();
+        return Ok(members);
+    }
+
     // PUT /api/workspaces/{id}/members/{userId}/role - change role (OrgAdmin only)
     [HttpPut("{id}/members/{userId}/role")]
     public async Task<IActionResult> ChangeRole(Guid id, Guid userId, [FromBody] ChangeRoleRequest request)

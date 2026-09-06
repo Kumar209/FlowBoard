@@ -1,0 +1,27 @@
+@if (open()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="closed.emit()"></div>
+    <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+      <h3 class="font-bold text-lg">{{ isUpdate() ? 'Edit Column' : 'Create Column' }}</h3>
+      <p class="text-xs opacity-40 mt-1">{{ isUpdate() ? 'Edit name and position (order)' : 'New workflow column — position determines order' }}</p>
+      <div class="mt-4 space-y-3">
+        <label class="form-control">
+          <span class="label-text text-xs font-semibold">Column name *</span>
+          <input type="text" class="input input-bordered rounded-xl" placeholder="e.g., To Do" [value]="name()" (input)="name.set($any($event.target).value)" (keydown.enter)="submit()" />
+          <span class="label-text-alt text-xs opacity-40">{{ name().length }}/100</span>
+        </label>
+        <label class="form-control">
+          <span class="label-text text-xs font-semibold">Position *</span>
+          <input type="number" min="0" class="input input-bordered rounded-xl" [value]="position()" (input)="position.set(+$any($event.target).value)" />
+          <span class="label-text-alt text-xs opacity-40">0 = first column, columns are arranged in position sequence</span>
+          @if (positionError()) { <span class="text-error text-xs">● {{ positionError() }}</span> }
+        </label>
+        @if (error()) { <div class="text-error text-xs">● {{ error() }}</div> }
+      </div>
+      <div class="flex justify-end gap-2 mt-6">
+        <button class="btn btn-ghost rounded-xl" (click)="closed.emit()">Cancel</button>
+        <button class="btn btn-primary rounded-xl" (click)="submit()" [disabled]="!isValid()" [class.loading]="loading()">{{ isUpdate() ? 'Save' : 'Create' }}</button>
+      </div>
+    </div>
+  </div>
+}

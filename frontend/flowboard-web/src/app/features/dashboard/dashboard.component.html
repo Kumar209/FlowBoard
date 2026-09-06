@@ -40,6 +40,38 @@
       </div>
     </section>
 
+    @if (org(); as o) {
+      <section class="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
+        <div class="flex flex-wrap justify-between gap-3 items-center">
+          <div>
+            <h3 class="text-sm font-bold">Organization — {{ o.name }}</h3>
+            <p class="text-xs opacity-60 font-mono">{{ o.slug }} • {{ o.id.slice(0,8) }}</p>
+            <p class="text-xs mt-1 opacity-70">{{ o.description || 'No description — OrgAdmin can add one.' }}</p>
+          </div>
+          @if (isOrgAdmin()) { <button class="btn btn-primary btn-sm rounded-lg" (click)="openEditOrg()">Edit Organization</button> }
+          @else { <span class="badge badge-ghost badge-sm">View only — OrgAdmin can edit</span> }
+        </div>
+      </section>
+    }
+
+    @if (editOrgOpen()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="editOrgOpen.set(false)"></div>
+        <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+          <h3 class="font-bold">Edit Organization</h3>
+          <p class="text-xs opacity-60 mt-1">Each tenant has organization name — OrgAdmin can update (persisted to [identity].Organizations).</p>
+          <div class="mt-4 space-y-3">
+            <label class="form-control"><span class="label-text text-xs font-semibold">Name *</span><input type="text" class="input input-bordered rounded-xl" [value]="orgName()" (input)="orgName.set($any($event.target).value)" /></label>
+            <label class="form-control"><span class="label-text text-xs">Description</span><textarea class="textarea textarea-bordered rounded-xl" placeholder="Tenant description" [value]="orgDesc()" (input)="orgDesc.set($any($event.target).value)"></textarea></label>
+          </div>
+          <div class="flex justify-end gap-2 mt-6">
+            <button class="btn btn-ghost rounded-xl" (click)="editOrgOpen.set(false)">Cancel</button>
+            <button class="btn btn-primary rounded-xl" (click)="updateOrgMutation.mutate()" [disabled]="!orgName().trim()" [class.loading]="updateOrgMutation.isPending()">Save</button>
+          </div>
+        </div>
+      </div>
+    }
+
     <section class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
         <div class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Role</div>

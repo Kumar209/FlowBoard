@@ -1,0 +1,62 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
+  <div class="flex justify-between items-center">
+    <h1 class="text-xl font-bold">Environments</h1>
+    <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ New Environment</button>
+  </div>
+  <p class="text-xs opacity-60">Deployment targets — Development, QA, Staging, Production. Linked to tasks via Environment field.</p>
+
+  @if (envsQuery.data(); as envs) {
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      @for (env of envs; track env.id) {
+        <div class="card bg-base-100 rounded-2xl shadow border p-4">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="font-bold">{{ env.name }}</p>
+              <a [href]="env.url" target="_blank" class="text-xs link link-primary truncate block max-w-[200px]">{{ env.url }}</a>
+              <p class="text-xs opacity-60 mt-1">{{ env.description || 'No description' }}</p>
+            </div>
+            <span class="badge badge-sm rounded-full" [ngClass]="env.status==='Active'?'badge-success':env.status==='Maintenance'?'badge-warning':'badge-ghost'">{{ env.status }}</span>
+          </div>
+          <div class="flex gap-1 mt-3">
+            <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(env)">Edit</button>
+            <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(env)">Delete</button>
+          </div>
+        </div>
+      }
+      @if (envs.length===0) { <div class="col-span-full text-center py-8 opacity-40">No environments — create Development, QA, Staging, Production</div> }
+    </div>
+  } @else if (envsQuery.isPending()) { <div class="flex justify-center py-8"><span class="loading loading-spinner loading-sm"></span></div> }
+
+  @if (showCreate()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="reset()"></div>
+      <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+        <h3 class="font-bold text-lg">{{ editing() ? 'Update Environment' : 'Create Environment' }}</h3>
+        <div class="mt-4 space-y-3">
+          <label class="form-control"><span class="label-text text-xs font-semibold">Name *</span><input type="text" placeholder="e.g., Production" class="input input-bordered rounded-xl" [value]="name()" (input)="name.set($any($event.target).value)" /></label>
+          <label class="form-control"><span class="label-text text-xs">URL (optional)</span><input type="text" placeholder="https://prod.example.com" class="input input-bordered rounded-xl" [value]="url()" (input)="url.set($any($event.target).value)" /></label>
+          <label class="form-control"><span class="label-text text-xs">Description</span><textarea class="textarea textarea-bordered rounded-xl" placeholder="Optional" [value]="description()" (input)="description.set($any($event.target).value)"></textarea></label>
+          <label class="form-control"><span class="label-text text-xs">Status</span><select class="select select-bordered rounded-xl" [value]="status()" (change)="status.set($any($event.target).value)"><option>Active</option><option>Inactive</option><option>Maintenance</option></select></label>
+        </div>
+        <div class="flex justify-end gap-2 mt-6">
+          <button class="btn btn-ghost rounded-xl" (click)="reset()">Cancel</button>
+          <button class="btn btn-primary rounded-xl" (click)="submit()" [disabled]="!name().trim()" [class.loading]="createMutation.isPending() || updateMutation.isPending()">{{ editing() ? 'Update' : 'Create' }}</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (deleteTarget()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="deleteTarget.set(null)"></div>
+      <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+        <h3 class="font-bold">Delete environment "{{ deleteTarget().name }}"?</h3>
+        <p class="text-sm opacity-60 mt-2">This will permanently delete the environment. Cannot be undone.</p>
+        <div class="flex justify-end gap-2 mt-6">
+          <button class="btn btn-ghost rounded-xl" (click)="deleteTarget.set(null)">Cancel</button>
+          <button class="btn btn-error rounded-xl text-white" (click)="doDelete()" [class.loading]="deleteMutation.isPending()">Delete</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

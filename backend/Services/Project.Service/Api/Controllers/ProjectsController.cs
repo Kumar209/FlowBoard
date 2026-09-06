@@ -50,10 +50,10 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpGet("api/projects/{projectId}/board")]
-    public async Task<IActionResult> GetBoard(Guid projectId)
+    public async Task<IActionResult> GetBoard(Guid projectId, [FromQuery] Guid? boardId)
     {
-        // MNC-grade: caching handled by CachingBehavior pipeline (ICacheableRequest) - controller is thin, no manual Get/Set
-        var board = await _mediator.Send(new GetBoardQuery(projectId));
+        // Board filtering: ?boardId= isolates Kanban (new board empty until columns added)
+        var board = await _mediator.Send(new GetBoardQuery(projectId, boardId));
         return Ok(board);
     }
 

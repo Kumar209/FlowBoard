@@ -1,0 +1,99 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
+  <div class="flex flex-wrap items-center gap-2">
+    <h1 class="text-xl font-bold">Overview</h1>
+    <span class="badge badge-primary badge-sm rounded-full">{{ boardQuery.data()?.project?.key }}</span>
+    <span class="text-xs opacity-60">{{ boardQuery.data()?.project?.name }}</span>
+  </div>
+  @if (boardQuery.data()?.project?.description) {
+    <div class="card bg-base-100 rounded-2xl border p-4">
+      <p class="text-xs opacity-60 font-semibold uppercase">Description</p>
+      <p class="text-sm mt-1">{{ boardQuery.data()?.project?.description }}</p>
+    </div>
+  }
+
+  @if (boardQuery.data(); as b) {
+    <!-- Live counts: 4 tasks / 4 boards / 2 sprints / 5 members -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card bg-base-100 rounded-2xl shadow border p-4">
+        <p class="text-xs opacity-60 font-semibold uppercase">Tasks</p>
+        <p class="text-2xl font-bold mt-1">{{ b.tasks.length }}</p>
+        <p class="text-xs opacity-40">{{ b.lists.length }} columns • {{ boardsQuery.data()?.length || 0 }} boards</p>
+      </div>
+      <div class="card bg-base-100 rounded-2xl shadow border p-4">
+        <p class="text-xs opacity-60 font-semibold uppercase">Boards</p>
+        <p class="text-2xl font-bold mt-1">{{ boardsQuery.data()?.length || 0 }}</p>
+        <p class="text-xs opacity-40">Scrum/Kanban views</p>
+      </div>
+      <div class="card bg-base-100 rounded-2xl shadow border p-4">
+        <p class="text-xs opacity-60 font-semibold uppercase">Sprints</p>
+        <p class="text-2xl font-bold mt-1">{{ sprintsQuery.data()?.length || 0 }}</p>
+        <p class="text-xs opacity-40">Project-level time-boxes</p>
+      </div>
+      <div class="card bg-base-100 rounded-2xl shadow border p-4">
+        <p class="text-xs opacity-60 font-semibold uppercase">Members</p>
+        <p class="text-2xl font-bold mt-1">{{ membersQuery.data()?.length || 0 }}</p>
+        <p class="text-xs opacity-40">Team • live</p>
+      </div>
+    </div>
+    <!-- Task status breakdown -->
+    <div class="grid grid-cols-3 gap-3">
+      <div class="card bg-base-100 rounded-2xl border p-3 text-center">
+        <p class="text-xs opacity-60">To Do</p>
+        <p class="text-xl font-bold text-info">{{ todoCount(b) }}</p>
+      </div>
+      <div class="card bg-base-100 rounded-2xl border p-3 text-center">
+        <p class="text-xs opacity-60">In Review</p>
+        <p class="text-xl font-bold text-warning">{{ inReviewCount(b) }}</p>
+      </div>
+      <div class="card bg-base-100 rounded-2xl border p-3 text-center">
+        <p class="text-xs opacity-60">Done</p>
+        <p class="text-xl font-bold text-success">{{ doneCount(b) }}</p>
+      </div>
+    </div>
+
+    <!-- Lists + Activity -->
+    <div class="grid lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 card bg-base-100 rounded-2xl shadow border p-4">
+        <h3 class="font-bold text-sm mb-3">Statuses ({{ b.lists.length }} lists)</h3>
+        <div class="space-y-2">
+          @for (lst of b.lists.slice(0,6); track lst.id) {
+            <div class="flex justify-between items-center p-2 rounded-xl bg-base-200/40 border">
+              <span class="font-medium text-sm">{{ lst.name }}</span>
+              <span class="badge badge-ghost badge-sm rounded-full">Tasks: {{ b.tasks.filter(t=>t.listId===lst.id).length }}</span>
+            </div>
+          }
+          @if (b.lists.length>6) { <p class="text-xs opacity-40 text-center">+ {{ b.lists.length - 6 }} more statuses — view in Boards</p> }
+        </div>
+        <div class="mt-3 flex gap-2">
+          <a [routerLink]="['../boards']" class="btn btn-primary btn-sm rounded-full">Open Boards</a>
+          <a [routerLink]="['../backlog']" class="btn btn-ghost btn-sm rounded-full">View Backlog</a>
+        </div>
+      </div>
+
+      <div class="card bg-base-100 rounded-2xl shadow border p-4">
+        <h3 class="font-bold text-sm mb-3">Recent activity</h3>
+        @if (activitiesQuery.data(); as acts) {
+          <div class="space-y-2 max-h-[260px] overflow-y-auto">
+            @for (a of acts.items; track a.id) {
+              <div class="flex gap-2 text-xs p-2 rounded-xl bg-base-200/30">
+                <span class="badge badge-ghost badge-xs">{{ a.action }}</span>
+                <span class="flex-1 truncate opacity-70">{{ a.payloadJson | slice:0:60 }}</span>
+              </div>
+            }
+            @if (acts.items.length===0) { <p class="text-xs opacity-40 text-center py-4">No activity yet — create a task</p> }
+          </div>
+          <a [routerLink]="['../activity']" class="link link-primary text-xs mt-2 inline-block">View all →</a>
+        } @else { <span class="loading loading-spinner loading-xs"></span> }
+      </div>
+    </div>
+
+    <div class="card bg-gradient-to-br from-primary/10 to-secondary/10 rounded-2xl border p-4">
+      <p class="text-sm font-semibold">Multiple boards = views, not copies</p>
+      <p class="text-xs opacity-70 mt-1">Tasks live in one Project. Boards in <code class="bg-base-100 px-1 rounded">/boards</code> only change filter/grouping (sprint, assignee, priority). No duplicate issues.</p>
+    </div>
+  } @else if (boardQuery.isPending()) {
+    <div class="grid grid-cols-4 gap-3">
+      @for (i of [1,2,3,4]; track i) { <div class="card bg-base-100 rounded-2xl p-4 h-24 animate-pulse border"></div> }
+    </div>
+  }
+</div>

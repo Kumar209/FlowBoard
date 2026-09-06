@@ -41,7 +41,7 @@ public class MoveTaskHandler : IRequestHandler<MoveTaskCommand, Result>
         if (targetList == null) return Result.Failure("Target list not found");
 
         var fromListId = task.ListId;
-        task.MoveToList(req.ToListId, req.NewPosition);
+        task.MoveToList(req.ToListId, req.NewPosition, targetList.Name);
 
         // Outbox TaskMoved
         var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, FromListId = fromListId, ToListId = req.ToListId, Position = req.NewPosition, ActorId = req.CallerId, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };

@@ -70,10 +70,61 @@ namespace Project.Service.Infrastructure.Persistence.Migrations
                     b.ToTable("ActivityLogs", "project");
                 });
 
+            modelBuilder.Entity("Project.Service.Domain.Entities.Board", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("FilterJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("ProjectId", "Position");
+
+                    b.ToTable("Boards", "project");
+                });
+
             modelBuilder.Entity("Project.Service.Domain.Entities.BoardList", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BoardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BoardId1")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
@@ -94,6 +145,10 @@ namespace Project.Service.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.HasIndex("BoardId1");
 
                     b.HasIndex("ProjectId");
 
@@ -217,6 +272,95 @@ namespace Project.Service.Infrastructure.Persistence.Migrations
                     b.ToTable("Projects", "project");
                 });
 
+            modelBuilder.Entity("Project.Service.Domain.Entities.ProjectEnvironment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("ProjectId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Environments", "project");
+                });
+
+            modelBuilder.Entity("Project.Service.Domain.Entities.Sprint", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BoardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("BoardId", "StartDate");
+
+                    b.ToTable("Sprints", "project");
+                });
+
             modelBuilder.Entity("Project.Service.Domain.Entities.SubTask", b =>
                 {
                     b.Property<Guid>("Id")
@@ -269,11 +413,33 @@ namespace Project.Service.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Environment")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Epic")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("IssueType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Task");
+
                     b.Property<string>("LabelsJson")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("LinkedIssuesJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<Guid>("ListId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ParentIssueId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Position")
@@ -285,6 +451,34 @@ namespace Project.Service.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("SprintId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasDefaultValue("To Do");
+
+                    b.Property<int?>("StoryPoints")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("TeamId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("TimeEstimated")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TimeRemaining")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TimeSpent")
+                        .HasColumnType("int");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(300)
@@ -293,17 +487,88 @@ namespace Project.Service.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("WatchersJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssigneeId");
 
                     b.HasIndex("ListId");
 
+                    b.HasIndex("ParentIssueId");
+
                     b.HasIndex("ProjectId");
+
+                    b.HasIndex("SprintId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("TeamId");
 
                     b.HasIndex("ListId", "Position");
 
                     b.ToTable("Tasks", "project");
+                });
+
+            modelBuilder.Entity("Project.Service.Domain.Entities.Team", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("ProjectId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Teams", "project");
+                });
+
+            modelBuilder.Entity("Project.Service.Domain.Entities.TeamMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeamId");
+
+                    b.HasIndex("TeamId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("TeamMembers", "project");
                 });
 
             modelBuilder.Entity("Project.Service.Domain.Entities.ActivityLog", b =>
@@ -323,13 +588,35 @@ namespace Project.Service.Infrastructure.Persistence.Migrations
                     b.Navigation("Task");
                 });
 
+            modelBuilder.Entity("Project.Service.Domain.Entities.Board", b =>
+                {
+                    b.HasOne("Project.Service.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("Project.Service.Domain.Entities.BoardList", b =>
                 {
+                    b.HasOne("Project.Service.Domain.Entities.Board", "Board")
+                        .WithMany()
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Project.Service.Domain.Entities.Board", null)
+                        .WithMany("Columns")
+                        .HasForeignKey("BoardId1");
+
                     b.HasOne("Project.Service.Domain.Entities.Project", "Project")
                         .WithMany("Lists")
                         .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Board");
 
                     b.Navigation("Project");
                 });
@@ -343,6 +630,35 @@ namespace Project.Service.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("Project.Service.Domain.Entities.ProjectEnvironment", b =>
+                {
+                    b.HasOne("Project.Service.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("Project.Service.Domain.Entities.Sprint", b =>
+                {
+                    b.HasOne("Project.Service.Domain.Entities.Board", "Board")
+                        .WithMany()
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Project.Service.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("Project.Service.Domain.Entities.SubTask", b =>
@@ -375,6 +691,33 @@ namespace Project.Service.Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("Project.Service.Domain.Entities.Team", b =>
+                {
+                    b.HasOne("Project.Service.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("Project.Service.Domain.Entities.TeamMember", b =>
+                {
+                    b.HasOne("Project.Service.Domain.Entities.Team", "Team")
+                        .WithMany("Members")
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Team");
+                });
+
+            modelBuilder.Entity("Project.Service.Domain.Entities.Board", b =>
+                {
+                    b.Navigation("Columns");
+                });
+
             modelBuilder.Entity("Project.Service.Domain.Entities.BoardList", b =>
                 {
                     b.Navigation("Tasks");
@@ -392,6 +735,11 @@ namespace Project.Service.Infrastructure.Persistence.Migrations
                     b.Navigation("Comments");
 
                     b.Navigation("SubTasks");
+                });
+
+            modelBuilder.Entity("Project.Service.Domain.Entities.Team", b =>
+                {
+                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }

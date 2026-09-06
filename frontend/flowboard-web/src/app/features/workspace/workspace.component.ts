@@ -19,7 +19,7 @@ import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-quer
   imports: [CommonModule, RouterLink, ProjectModalComponent, ConfirmDeleteComponent],
   templateUrl: './workspace.component.html',
   styleUrls: ['./workspace.component.css'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkspaceComponent {
   private route = inject(ActivatedRoute);
@@ -29,7 +29,9 @@ export class WorkspaceComponent {
   private workspaceService = inject(WorkspaceService);
   private queryClient = inject(QueryClient);
 
-  workspaceId = signal<string>(this.route.snapshot.paramMap.get('wid') || '11111111-1111-1111-1111-111111111111');
+  workspaceId = signal<string>(
+    this.route.snapshot.paramMap.get('wid') || '11111111-1111-1111-1111-111111111111',
+  );
   createOpen = signal(false);
   editOpen = signal(false);
   deleteOpen = signal(false);
@@ -46,22 +48,35 @@ export class WorkspaceComponent {
     queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspaces()),
   }));
   workspaceName = computed(() => {
-    const ws = this.workspacesQuery.data()?.find(w => w.id === this.workspaceId());
+    const ws = this.workspacesQuery.data()?.find((w) => w.id === this.workspaceId());
     return ws?.name || 'Workspace';
   });
 
   canCreateProject = computed(() => {
     const wid = this.workspaceId();
-    return this.auth.isSuperAdmin() || this.auth.isOrgAdmin() || this.auth.isManagerFor(wid) || this.auth.isOrgAdminFor(wid) || this.auth.canCreateProject();
+    return (
+      this.auth.isSuperAdmin() ||
+      this.auth.isOrgAdmin() ||
+      this.auth.isManagerFor(wid) ||
+      this.auth.isOrgAdminFor(wid) ||
+      this.auth.canCreateProject()
+    );
   });
   roleLabel = computed(() => {
     const wid = this.workspaceId();
-    const m = this.auth.memberships().find(x => x.workspaceId === wid);
+    const m = this.auth.memberships().find((x) => x.workspaceId === wid);
     const raw = m?.roleName ?? m?.role;
-    const map: Record<string,string> = { '0':'Member','1':'ProjectManager','2':'OrgAdmin','3':'Client','4':'Viewer','5':'SuperAdmin' };
+    const map: Record<string, string> = {
+      '0': 'Member',
+      '1': 'ProjectManager',
+      '2': 'OrgAdmin',
+      '3': 'Client',
+      '4': 'Viewer',
+      '5': 'SuperAdmin',
+    };
     if (raw !== undefined) return map[String(raw)] ?? String(raw);
     // fallback to workspace role from workspacesQuery (covers direct ws.role number)
-    const ws = this.workspacesQuery.data()?.find(w => w.id === wid);
+    const ws = this.workspacesQuery.data()?.find((w) => w.id === wid);
     if (ws?.role !== undefined) return map[String(ws.role)] ?? String(ws.role);
     return 'Member';
   });
@@ -73,49 +88,78 @@ export class WorkspaceComponent {
   filteredProjects = computed(() => {
     const s = this.search().toLowerCase();
     const items = this.projectsQuery.data()?.items || [];
-    return s ? items.filter((p:any)=> p.name.toLowerCase().includes(s) || p.key.toLowerCase().includes(s)) : items;
+    return s
+      ? items.filter(
+          (p: any) => p.name.toLowerCase().includes(s) || p.key.toLowerCase().includes(s),
+        )
+      : items;
   });
   total = computed(() => this.filteredProjects().length);
-  totalPages = computed(() => Math.max(1, Math.ceil(this.total()/this.pageSize)));
+  totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
   paginatedProjects = computed(() => {
-    const start = (this.page()-1)*this.pageSize;
-    return this.filteredProjects().slice(start, start+this.pageSize);
+    const start = (this.page() - 1) * this.pageSize;
+    return this.filteredProjects().slice(start, start + this.pageSize);
   });
 
   createMutation = injectMutation(() => ({
-    mutationFn: (vars: { name: string }) => firstValueFrom(this.projectService.createProject(this.workspaceId(), vars.name)),
+    mutationFn: (vars: { name: string; description?: string }) =>
+      firstValueFrom(this.projectService.createProject(this.workspaceId(), vars.name, vars.description)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['projects', this.workspaceId()] });
       this.queryClient.invalidateQueries({ queryKey: ['projects-global'] });
+      this.queryClient.invalidateQueries({ queryKey: ['board'] });
       this.createOpen.set(false);
       this.createError.set(null);
       this.toast.success('Project created');
     },
-    onError: (err: any) => { const m = err.error?.error || 'Create failed'; this.createError.set(m); this.toast.error(m); },
+    onError: (err: any) => {
+      const m = err.error?.error || 'Create failed';
+      this.createError.set(m);
+      this.toast.error(m);
+    },
   }));
   updateMutation = injectMutation(() => ({
-    mutationFn: (vars:{id:string; name:string}) => firstValueFrom(this.projectService.updateProject(vars.id, vars.name)),
+    mutationFn: (vars: { id: string; name: string; description?: string }) =>
+      firstValueFrom(this.projectService.updateProject(vars.id, vars.name, vars.description)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['projects', this.workspaceId()] });
       this.queryClient.invalidateQueries({ queryKey: ['projects-global'] });
-      this.editOpen.set(false); this.toast.success('Project updated');
+      this.queryClient.invalidateQueries({ queryKey: ['board'] });
+      this.editOpen.set(false);
+      this.toast.success('Project updated');
     },
-    onError: (err:any)=> this.toast.error(err.error?.error||'Update failed'),
+    onError: (err: any) => this.toast.error(err.error?.error || 'Update failed'),
   }));
   deleteMutation = injectMutation(() => ({
-    mutationFn: (id:string)=> firstValueFrom(this.projectService.deleteProject(id)),
+    mutationFn: (id: string) => firstValueFrom(this.projectService.deleteProject(id)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['projects', this.workspaceId()] });
       this.queryClient.invalidateQueries({ queryKey: ['projects-global'] });
-      this.deleteOpen.set(false); this.toast.success('Project deleted');
+      this.deleteOpen.set(false);
+      this.toast.success('Project deleted');
     },
-    onError: (err:any)=> this.toast.error(err.error?.error||'Delete failed'),
+    onError: (err: any) => this.toast.error(err.error?.error || 'Delete failed'),
   }));
 
-  openCreate() { this.createError.set(null); this.createOpen.set(true); }
-  openEdit(p:any){ this.editing.set(p); this.editOpen.set(true); }
-  openDelete(p:any){ this.editing.set(p); this.deleteOpen.set(true); }
-  onCreateSubmit(e:{name:string}){ this.createMutation.mutate({name:e.name}); }
-  onEditSubmit(e:{name:string}){ this.updateMutation.mutate({id:this.editing().id, name:e.name}); }
-  onDeleteConfirm(){ this.deleteMutation.mutate(this.editing().id); }
+  openCreate() {
+    this.createError.set(null);
+    this.createOpen.set(true);
+  }
+  openEdit(p: any) {
+    this.editing.set(p);
+    this.editOpen.set(true);
+  }
+  openDelete(p: any) {
+    this.editing.set(p);
+    this.deleteOpen.set(true);
+  }
+  onCreateSubmit(e: { name: string; description: string }) {
+    this.createMutation.mutate({ name: e.name, description: e.description });
+  }
+  onEditSubmit(e: { name: string; description: string }) {
+    this.updateMutation.mutate({ id: this.editing().id, name: e.name, description: e.description });
+  }
+  onDeleteConfirm() {
+    this.deleteMutation.mutate(this.editing().id);
+  }
 }

@@ -11,7 +11,7 @@ namespace Project.Service.Application.Commands;
 /// <summary>
 /// CreateBoardList - column in Project board (To Do/In Progress/Done). Position = max+1. Allowed for Member+ (any workspace member) - Viewer read-only check at controller if needed.
 /// </summary>
-public record CreateBoardListCommand(Guid ProjectId, string Name, Guid CallerId, List<string> CallerRoles) : IRequest<Result<BoardListDto>>;
+public record CreateBoardListCommand(Guid ProjectId, string Name, Guid CallerId, List<string> CallerRoles, Guid? BoardId = null, int? Position = null) : IRequest<Result<BoardListDto>>;
 
 public class CreateBoardListValidator : AbstractValidator<CreateBoardListCommand>
 {
@@ -33,8 +33,26 @@ public class CreateBoardListHandler : IRequestHandler<CreateBoardListCommand, Re
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == req.ProjectId, ct);
         if (project == null) return Result<BoardListDto>.Failure("Project not found");
 
-        var maxPos = await _db.BoardLists.Where(b => b.ProjectId == req.ProjectId).MaxAsync(b => (int?)b.Position, ct) ?? -1;
-        var list = new Domain.Entities.BoardList(req.ProjectId, req.Name, maxPos + 1);
+        Guid? boardId = req.BoardId;
+        // If no boardId supplied but project has boards, use first board; else null (project-level column)
+        if (boardId == null)
+        {
+            var firstBoard = await _db.Boards.Where(b => b.ProjectId == req.ProjectId).OrderBy(b => b.Position).FirstOrDefaultAsync(ct);
+            boardId = firstBoard?.Id;
+        }
+        int position;
+        if (req.Position.HasValue)
+        {
+            var conflict = await _db.BoardLists.AnyAsync(b => b.ProjectId == req.ProjectId && b.BoardId == boardId && b.Position == req.Position.Value, ct);
+            if (conflict) return Result<BoardListDto>.Failure($"Position {req.Position.Value} already used — choose another");
+            position = req.Position.Value;
+        }
+        else
+        {
+            var maxPos = await _db.BoardLists.Where(b => b.ProjectId == req.ProjectId && b.BoardId == boardId).MaxAsync(b => (int?)b.Position, ct) ?? -1;
+            position = maxPos + 1;
+        }
+        var list = new Domain.Entities.BoardList(req.ProjectId, req.Name, position, boardId);
         _db.BoardLists.Add(list);
         await _db.SaveChangesAsync(ct);
 

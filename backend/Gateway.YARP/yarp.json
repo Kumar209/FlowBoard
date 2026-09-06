@@ -29,6 +29,30 @@
         "ClusterId": "project-cluster",
         "Match": { "Path": "/api/projects/{**catch-all}" }
       },
+      "board-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/boards/{**catch-all}" }
+      },
+      "team-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/teams/{**catch-all}" }
+      },
+      "sprint-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/sprints/{**catch-all}" }
+      },
+      "subtask-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/subtasks/{**catch-all}" }
+      },
+      "comment-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/comments/{**catch-all}" }
+      },
+      "environment-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/environments/{**catch-all}" }
+      },
       "task-route": {
         "ClusterId": "project-cluster",
         "Match": { "Path": "/api/tasks/{**catch-all}" },

@@ -1,0 +1,60 @@
+<div class="flex min-h-[calc(100vh-4rem)] bg-base-200">
+  <!-- Mobile overlay -->
+  @if (sidebarOpen()) {
+    <div class="fixed inset-0 bg-black/40 z-20 lg:hidden" (click)="sidebarOpen.set(false)"></div>
+  }
+  <!-- Secondary sidebar - Project nav -->
+  <aside class="fixed lg:sticky top-0 left-0 z-30 h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] w-[260px] bg-base-100 border-r border-base-200 flex flex-col transition-transform duration-200 overflow-hidden"
+    [class.-translate-x-full]="!sidebarOpen()" [class.translate-x-0]="sidebarOpen()" [class.lg:translate-x-0]="true">
+    <!-- Project header -->
+    <div class="p-4 border-b border-base-200 shrink-0">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-xs">
+          {{ projectQuery.data()?.project?.key?.slice(0,2) || 'FB' }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-sm truncate">{{ projectQuery.data()?.project?.name || 'Loading...' }}</p>
+          <p class="text-xs opacity-60 truncate">{{ projectQuery.data()?.project?.key || '' }} • {{ boardViews().length }} boards</p>
+        </div>
+        <button class="btn btn-ghost btn-xs lg:hidden" (click)="sidebarOpen.set(false)">✕</button>
+      </div>
+
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex-1 overflow-y-auto p-2 space-y-1">
+      @for (item of navItems(); track item.path) {
+        <a [routerLink]="item.path" routerLinkActive="bg-primary text-primary-content shadow" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm hover:bg-base-200 transition-colors"
+           [routerLinkActiveOptions]="{exact: item.label==='Overview' ? true : false}">
+          <span class="text-base w-5 text-center">{{ item.icon }}</span>
+          <span class="flex-1 font-medium">{{ item.label }}</span>
+          @if (item.badge) { <span class="badge badge-ghost badge-xs rounded-full">{{ item.badge }}</span> }
+        </a>
+      }
+      <div class="pt-3 mt-3 border-t border-base-200">
+        <p class="text-[10px] font-semibold opacity-40 uppercase tracking-wider px-3 mb-2">Enterprise</p>
+        <div class="card bg-base-200 rounded-xl p-3 mx-1">
+          <p class="text-xs font-semibold">Multiple boards per project</p>
+          <p class="text-[11px] opacity-60 mt-1">Create board views with filters (sprint, assignee, priority). Tasks stay in one Project, boards only change grouping.</p>
+        </div>
+      </div>
+    </nav>
+
+    <div class="p-3 border-t border-base-200 text-[10px] opacity-40 text-center">
+      Project module • Jira-grade • 8 sections
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="flex-1 min-w-0 flex flex-col">
+    <!-- Mobile top bar -->
+    <div class="lg:hidden flex items-center gap-2 p-3 bg-base-100 border-b border-base-200 sticky top-0 z-10">
+      <button class="btn btn-ghost btn-sm rounded-xl" (click)="sidebarOpen.set(true)">☰ Project</button>
+      <span class="font-semibold text-sm truncate">{{ projectQuery.data()?.project?.name || 'Project' }}</span>
+      @if (projectQuery.isPending()) { <span class="loading loading-spinner loading-xs"></span> }
+    </div>
+    <div class="flex-1 bg-base-200 min-h-0">
+      <router-outlet />
+    </div>
+  </div>
+</div>

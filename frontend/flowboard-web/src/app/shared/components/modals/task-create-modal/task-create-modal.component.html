@@ -3,12 +3,11 @@
     <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="closed.emit()"></div>
     <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-lg w-full p-6 relative z-10 border max-h-[90vh] overflow-y-auto">
       <h3 class="font-bold text-lg">Create Task in {{ listName() }}</h3>
-      <p class="text-xs opacity-40">Add enough details — task will appear in this column and is draggable to other statuses.</p>
+      <p class="text-xs opacity-40">Status = {{ listName() }} (Column). Assign Team/Sprint — Sprint None → Backlog.</p>
       <div class="mt-4 space-y-3">
         <label class="form-control">
           <span class="label-text text-xs">Title *</span>
           <input type="text" class="input input-bordered rounded-xl" placeholder="e.g., Implement login" [value]="title()" (input)="title.set($any($event.target).value)" />
-          @if (!isValid() && title().length===0) { <span class="text-error text-xs"></span> }
         </label>
         <label class="form-control">
           <span class="label-text text-xs">Description</span>
@@ -16,16 +15,48 @@
         </label>
         <div class="grid grid-cols-2 gap-3">
           <label class="form-control">
+            <span class="label-text text-xs">Issue Type</span>
+            <select class="select select-bordered rounded-xl" [value]="issueType()" (change)="issueType.set($any($event.target).value)">
+              <option>Task</option><option>Bug</option><option>Story</option><option>Feature</option>
+            </select>
+          </label>
+          <label class="form-control">
             <span class="label-text text-xs">Priority</span>
             <select class="select select-bordered rounded-xl" [value]="priority()" (change)="priority.set($any($event.target).value)">
               <option>Low</option><option>Medium</option><option>High</option><option>Urgent</option>
             </select>
           </label>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
           <label class="form-control">
-            <span class="label-text text-xs">Due date</span>
-            <input type="date" class="input input-bordered rounded-xl" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
+            <span class="label-text text-xs">Team @if(lockTeam()){<span class="opacity-40">• Board filter</span>}</span>
+            @if (projectId()) {
+              <select class="select select-bordered rounded-xl" [value]="teamId()" (change)="teamId.set($any($event.target).value)" [disabled]="lockTeam()">
+                <option value="">No Team</option>
+                @for (t of teamsQuery.data() || []; track t.id) { <option [value]="t.id">{{ t.name }}</option> }
+              </select>
+              @if(lockTeam()){<span class="label-text-alt text-[10px] opacity-40">Locked to board's team filter</span>}
+            } @else {
+              <input type="text" class="input input-bordered rounded-xl" placeholder="Team optional" disabled />
+            }
+          </label>
+          <label class="form-control">
+            <span class="label-text text-xs">Sprint @if(lockSprint()){<span class="opacity-40">• Board sprint</span>}</span>
+            @if (projectId()) {
+              <select class="select select-bordered rounded-xl" [value]="sprintId()" (change)="sprintId.set($any($event.target).value)" [disabled]="lockSprint()">
+                <option value="">No Sprint (Backlog)</option>
+                @for (s of sprintsQuery.data() || []; track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+              </select>
+              @if(lockSprint()){<span class="label-text-alt text-[10px] opacity-40">Locked to board's current sprint</span>}
+            } @else {
+              <select class="select select-bordered rounded-xl" disabled><option>Backlog</option></select>
+            }
           </label>
         </div>
+        <label class="form-control">
+          <span class="label-text text-xs">Due date</span>
+          <input type="date" class="input input-bordered rounded-xl" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
+        </label>
         <label class="form-control">
           <span class="label-text text-xs">Labels (comma separated)</span>
           <input type="text" class="input input-bordered rounded-xl" placeholder="e.g., bug, frontend" [value]="labels()" (input)="labels.set($any($event.target).value)" />

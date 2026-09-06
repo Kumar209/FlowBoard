@@ -1,26 +1,59 @@
 <div class="bg-base-200 min-h-full">
   <div class="max-w-[1600px] mx-auto p-3 sm:p-4 md:p-6">
-    <!-- Breadcrumb -->
-    <div class="flex flex-wrap items-center gap-2 text-sm mb-4">
+    <!-- Breadcrumb + Board header per spec: Project → Board → Sprint → Column -->
+    <div class="flex flex-wrap items-center gap-2 text-sm mb-3">
       <a [routerLink]="['/w', workspaceId()]" class="link link-hover opacity-60">← Workspace</a>
+      <span class="opacity-30">/</span>
+      <a [routerLink]="['/w', workspaceId(), 'p', projectId(), 'boards']" class="link link-hover opacity-60">Boards</a>
       <span class="opacity-30">/</span>
       <span class="font-semibold">{{ boardQuery.data()?.project?.name || 'Board' }}</span>
       <span class="badge badge-primary badge-sm rounded-full">{{ boardQuery.data()?.project?.key }}</span>
       @if (roleLabel()) { <span class="badge badge-ghost badge-xs">{{ roleLabel() }}</span> }
       @if (!canCreateTask()) { <span class="badge badge-ghost badge-xs">View only</span> }
-      @if (canCreateTask()) { <button class="btn btn-primary btn-xs rounded-full" (click)="showCreateList.set(!showCreateList())">+ New List</button> }
+      <span class="ml-auto hidden sm:flex items-center gap-1 text-xs opacity-60">FlowBoard / {{ boardQuery.data()?.project?.name }} / {{ boardView()=='engineering' ? 'Engineering Board' : boardView()=='qa' ? 'QA Board' : boardView()=='support' ? 'Support Board' : 'Board' }}</span>
       @if (boardQuery.isPending()) { <span class="loading loading-spinner loading-xs"></span> }
     </div>
-
-    @if (showCreateList()) {
-      <div class="card bg-base-100 rounded-2xl shadow border p-3 mb-4 max-w-sm flex gap-2">
-        <input type="text" placeholder="List name (e.g., To Do)" [value]="newListName()" (input)="newListName.set($any($event.target).value)" class="input input-bordered input-sm flex-1 rounded-xl" />
-        <button class="btn btn-primary btn-sm rounded-xl" (click)="createListMutation.mutate(newListName())" [class.loading]="createListMutation.isPending()">Create</button>
-        <button class="btn btn-ghost btn-sm rounded-xl" (click)="showCreateList.set(false)">Cancel</button>
+    <!-- Board tabs + Sprint selector per spec -->
+    <div class="card bg-base-100 rounded-2xl shadow border p-3 mb-4">
+      <div class="flex flex-wrap gap-2 items-center justify-between">
+        <div class="flex items-center gap-2">
+          <h2 class="font-bold text-sm">{{ boardView()=='engineering' ? 'Engineering Board' : boardView()=='qa' ? 'QA Board' : boardView()=='support' ? 'Support Board' : 'Board' }}</h2>
+          <span class="badge badge-ghost badge-xs hidden sm:inline">{{ boardView() }}</span>
+          <button class="btn btn-ghost btn-xs rounded-full hidden sm:inline" (click)="openBoardSettings()">⚙ Board Settings</button>
+        </div>
+        <div class="flex items-center gap-1 text-xs">
+          <a [routerLink]="['../backlog']" class="btn btn-ghost btn-xs rounded-full">Backlog</a>
+          <span class="btn btn-primary btn-xs rounded-full">Board</span>
+          <a class="btn btn-ghost btn-xs rounded-full opacity-40">Reports</a>
+          @if (canCreateTask()) { <button class="btn btn-primary btn-xs rounded-full" (click)="openCreateIssue()">+ Create Issue</button> }
+        </div>
       </div>
-    }
+      @if (isScrum()) {
+        <div class="flex flex-wrap gap-2 items-center mt-3 pt-3 border-t border-base-200">
+          <span class="text-xs font-semibold opacity-60">Sprint:</span>
+          <select class="select select-bordered select-xs rounded-full max-w-[160px]" [value]="selectedSprint()" (change)="selectedSprint.set($any($event.target).value)">
+            @for (s of sprints(); track s.id) { <option [value]="s.id">{{ s.name }} — {{ s.start }} → {{ s.end }}</option> }
+          </select>
+          <button class="btn btn-ghost btn-xs rounded-full hidden sm:inline" (click)="prevSprint()">← Previous</button>
+          <button class="btn btn-ghost btn-xs rounded-full hidden sm:inline" (click)="nextSprint()">Next →</button>
+          <a [routerLink]="['../sprints']" class="btn btn-primary btn-xs rounded-full">+ Create Sprint</a>
+          <span class="ml-auto hidden md:flex items-center gap-2 text-xs opacity-60">Scrum • Sprint goal & velocity</span>
+        </div>
+      } @else {
+        <div class="flex flex-wrap gap-2 items-center mt-3 pt-3 border-t border-base-200">
+          <span class="text-xs font-semibold opacity-60">Kanban — continuous flow</span>
+          <span class="text-xs opacity-40">No fixed sprint • WIP limits • Tasks flow To Do → Done at any time</span>
+          <span class="ml-auto hidden md:flex items-center gap-2 text-xs opacity-60">Kanban • Focus: what are we working on now?</span>
+        </div>
+      }
+    </div>
 
-    <!-- Filters for Task 2.5: search (FULLTEXT), priority, label -->
+     <!-- Board view indicator + Filters for Task 2.5: search (FULLTEXT), priority, label -->
+    <div class="flex flex-wrap items-center gap-2 mb-2 text-xs">
+      <span class="opacity-60">View:</span>
+      <span class="badge badge-primary badge-sm rounded-full">{{ boardView() }}</span>
+      <span class="opacity-40">• Boards are views of same Project tasks (multi-board per project) — filter below</span>
+    </div>
     <div class="flex flex-col sm:flex-row gap-2 mb-4">
       <input type="text" placeholder="Search tasks (title/desc)..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="taskSearch()" (input)="taskSearch.set($any($event.target).value)" />
       <select class="select select-bordered select-sm rounded-full max-w-[160px]" [value]="priorityFilter()" (change)="priorityFilter.set($any($event.target).value)">
@@ -36,19 +69,32 @@
     } @else if (boardQuery.data()) {
       @if ((boardQuery.data()!.lists || []).length === 0) {
         <div class="text-center py-12 bg-base-100 rounded-2xl border border-dashed">
-          <p class="font-semibold">No lists yet</p>
-          <p class="text-sm opacity-60">Create your first list (To Do, In Progress, In Review, Done) — then add tasks.</p>
-          @if (canCreateTask()) { <button class="btn btn-primary btn-sm rounded-full mt-3" (click)="showCreateList.set(true)">+ New List</button> }
-          @else { <span class="badge badge-ghost badge-xs mt-2">View only — PM/OrgAdmin can create lists</span> }
+          <p class="font-semibold">No columns yet</p>
+          <p class="text-sm opacity-60">Create your first column (To Do, In Progress, In Review, Done) — then add tasks.</p>
+          @if (canCreateTask()) { <button class="btn btn-primary btn-sm rounded-full mt-3" (click)="openCreateColumn()">+ New Column</button> }
+          @else { <span class="badge badge-ghost badge-xs mt-2">View only — PM/OrgAdmin can create columns</span> }
         </div>
       } @else {
-      <!-- Kanban: 4 columns (To Do, In Progress, In Review, Done) + Add List button, drag-drop -->
-      <div cdkDropListGroup class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory lg:grid lg:grid-cols-4 lg:overflow-visible">
+      <!-- Kanban: Columns as BoardColumns (To Do etc.) — draggable to reorder position -->
+      <div cdkDropListGroup class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory lg:grid lg:grid-cols-4 lg:overflow-visible" cdkDropList cdkDropListOrientation="horizontal" [cdkDropListData]="boardQuery.data()!.lists" (cdkDropListDropped)="dropColumn($event)">
         @for (list of boardQuery.data()!.lists; track list.id) {
-          <div class="min-w-[280px] sm:min-w-[320px] lg:min-w-0 snap-center bg-base-100 rounded-2xl shadow border border-base-200 flex flex-col max-h-[70vh] lg:max-h-none">
-            <div class="p-3 border-b border-base-200 flex justify-between items-center sticky top-0 bg-base-100 rounded-t-2xl">
-              <h2 class="font-bold text-sm">{{ list.name }}</h2>
-              <span class="badge badge-ghost badge-sm rounded-full">{{ tasksForList(list.id).length }}</span>
+          <div cdkDrag class="min-w-[280px] sm:min-w-[320px] lg:min-w-0 snap-center bg-base-100 rounded-2xl shadow border border-base-200 flex flex-col max-h-[70vh] lg:max-h-none overflow-visible">
+            <div class="p-3 border-b border-base-200 flex justify-between items-center sticky top-0 bg-base-100 rounded-t-2xl z-20 overflow-visible relative">
+                <h2 class="font-bold text-sm truncate">{{ list.name }}</h2>
+                <div class="flex items-center gap-1">
+                  <span class="badge badge-ghost badge-sm rounded-full">Tasks: {{ tasksForList(list.id).length }}</span>
+                  @if (canCreateTask()) {
+                    <div class="relative overflow-visible">
+                      <button class="btn btn-ghost btn-xs btn-circle" (click)="toggleListMenu(list.id, $event)">⋮</button>
+                      @if (openMenuListId() === list.id) {
+                        <div class="absolute right-0 top-8 bg-base-100 rounded-xl shadow-2xl border p-1 w-40 z-50 flex flex-col">
+                          <button class="btn btn-ghost btn-xs justify-start rounded-lg" (click)="openEditColumn(list)">✏️ Edit Column</button>
+                          <button class="btn btn-ghost btn-xs justify-start rounded-lg text-error" (click)="confirmDeleteColumn(list)">🗑 Delete Column</button>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
             </div>
 
             <div cdkDropList [id]="'list-'+list.id" [cdkDropListData]="tasksForList(list.id)" [cdkDropListConnectedTo]="boardQuery.data()!.lists.map(l=> 'list-'+l.id)" (cdkDropListDropped)="drop($event, list.id)" class="p-3 space-y-3 overflow-y-auto flex-1 min-h-[120px]">
@@ -62,26 +108,15 @@
               }
             </div>
 
-            @if (canCreateTask()) {
-              <div class="p-3 border-t border-base-200">
-                <button class="btn btn-ghost btn-sm w-full rounded-xl border border-dashed" (click)="openCreateTask(list.id, list.name)">+ Create task</button>
-              </div>
-            } @else {
+            @if (!canCreateTask()) {
               <div class="p-3 border-t border-base-200 text-xs opacity-40 text-center">View only — Client/Viewer cannot create</div>
             }
           </div>
         }
-        <!-- Add new status card -->
+        <!-- Add new Column card - single modal trigger -->
         @if (canCreateTask()) {
           <div class="min-w-[280px] lg:min-w-0 snap-center flex items-start">
-            @if (!showCreateList()) { <button class="btn btn-ghost rounded-2xl border border-dashed w-full py-8" (click)="showCreateList.set(true)">+ Add new status</button> }
-            @else {
-              <div class="card bg-base-100 rounded-2xl shadow border p-3 w-full flex gap-2">
-                <input type="text" placeholder="Status name" [value]="newListName()" (input)="newListName.set($any($event.target).value)" class="input input-bordered input-sm flex-1 rounded-xl" />
-                <button class="btn btn-primary btn-sm rounded-xl" (click)="createListMutation.mutate(newListName())">Add</button>
-                <button class="btn btn-ghost btn-sm rounded-xl" (click)="showCreateList.set(false)">✕</button>
-              </div>
-            }
+            <button class="btn btn-ghost rounded-2xl border border-dashed w-full py-8" (click)="openCreateColumn()">+ Add Column</button>
           </div>
         }
       </div>
@@ -110,8 +145,28 @@
       </div>
     }
 
-    <app-task-create-modal [open]="createTaskOpen()" [listName]="createTaskListName()" [loading]="createMutation.isPending()" (closed)="createTaskOpen.set(false)" (submitted)="onCreateTaskSubmit($event)" />
-    <app-task-detail-modal [open]="detailOpen()" [task]="selectedTask()" [lists]="boardQuery.data()?.lists || []" [loading]="updateMutation.isPending()" (closed)="detailOpen.set(false)" (saved)="onDetailSave($event)" />
+    <app-task-create-modal [open]="createTaskOpen()" [listName]="createTaskListName()" [projectId]="projectId()" [presetTeamId]="presetTeamId()" [presetSprintId]="presetSprintId()" [lockTeam]="true" [lockSprint]="true" [loading]="createMutation.isPending()" (closed)="createTaskOpen.set(false)" (submitted)="onCreateTaskSubmit($event)" />
+    <app-task-detail-modal [open]="detailOpen()" [task]="selectedTask()" [lists]="boardQuery.data()?.lists || []" [projectId]="projectId()" [workspaceId]="workspaceId()" [loading]="updateMutation.isPending()" (closed)="detailOpen.set(false)" (saved)="onDetailSave($event)" />
+    <app-column-modal [open]="columnModalOpen()" [mode]="columnModalMode()" [initialName]="editingColumn()?.name || ''" [initialPosition]="editingColumn()?.position ?? (boardQuery.data()?.lists?.length || 0)" [existingColumns]="boardQuery.data()?.lists || []" [currentColumnId]="editingColumn()?.id || null" [loading]="columnModalMode()==='create' ? createListMutation.isPending() : renameListMutation.isPending()" (closed)="columnModalOpen.set(false)" (submitted)="onColumnSubmit($event)" />
+    <app-confirm-delete [open]="!!deleteColumnTarget()" [title]="'Delete column &quot;'+(deleteColumnTarget()?.name||'')+'&quot;?'" message="This will delete the column if empty. Columns with tasks cannot be deleted — move tasks first." [loading]="deleteListMutation.isPending()" (cancelled)="deleteColumnTarget.set(null)" (confirmed)="onDeleteColumnConfirm()" />
+    @if (boardSettingsOpen()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="boardSettingsOpen.set(false)"></div>
+        <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+          <h3 class="font-bold text-lg">Board Settings</h3>
+          <p class="text-xs opacity-60 mt-1">Configure board view: {{ boardView()=='engineering' ? 'Engineering (Scrum)' : boardView()=='qa' ? 'QA (Kanban)' : 'Board' }} — Type: {{ isScrum() ? 'Scrum (sprints)' : 'Kanban (continuous)' }}</p>
+          <div class="mt-4 space-y-3 text-sm">
+            <div class="flex justify-between"><span class="opacity-60">Board type</span><span class="badge badge-sm" [ngClass]="isScrum()?'badge-secondary':'badge-ghost'">{{ isScrum() ? 'Scrum' : 'Kanban' }}</span></div>
+            <div class="flex justify-between"><span class="opacity-60">Columns</span><span>{{ boardQuery.data()?.lists?.length || 0 }} columns (To Do → Done)</span></div>
+            <div class="flex justify-between"><span class="opacity-60">Sprints</span><span>{{ sprints().length }} sprints</span></div>
+            <p class="text-xs opacity-40">Scrum boards show Sprint selector and velocity; Kanban boards hide sprints and focus on WIP.</p>
+          </div>
+          <div class="flex justify-end gap-2 mt-6">
+            <button class="btn btn-ghost rounded-xl" (click)="boardSettingsOpen.set(false)">Close</button>
+          </div>
+        </div>
+      </div>
+    }
 
     <div class="mt-4 text-xs opacity-40 text-center">TanStack board 2m (Upstash 5m) • Signals selectedProject • Responsive: snap scroll mobile → grid desktop</div>
   </div>

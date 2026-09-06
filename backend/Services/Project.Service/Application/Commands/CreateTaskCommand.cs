@@ -12,7 +12,7 @@ namespace Project.Service.Application.Commands;
 /// <summary>
 /// CreateTask - card in BoardList. Title required, Priority Medium default, LabelsJson JSON array, AssigneeId optional. Allowed Member/PM/OrgAdmin/SuperAdmin (Client/Viewer 403). Publishes TaskCreated via Outbox (Task 3.1) for SignalR.
 /// </summary>
-public record CreateTaskCommand(Guid ProjectId, Guid ListId, string Title, string? Description, string Priority, string? LabelsJson, Guid? AssigneeId, Guid CallerId, List<string> CallerRoles) : IRequest<Result<TaskDto>>;
+public record CreateTaskCommand(Guid ProjectId, Guid ListId, string Title, string? Description, string Priority, string? LabelsJson, Guid? AssigneeId, DateTime? DueDate, string? IssueType, string? Epic, int? StoryPoints, DateTime? StartDate, string? Environment, Guid? ParentIssueId, Guid? SprintId, Guid CallerId, List<string> CallerRoles, Guid? TeamId = null) : IRequest<Result<TaskDto>>;
 
 public class CreateTaskValidator : AbstractValidator<CreateTaskCommand>
 {
@@ -42,7 +42,8 @@ public class CreateTaskHandler : IRequestHandler<CreateTaskCommand, Result<TaskD
         var priority = Enum.TryParse<Domain.Enums.TaskPriority>(req.Priority, true, out var p) ? p : Domain.Enums.TaskPriority.Medium;
         var maxPos = await _db.Tasks.Where(t => t.ListId == req.ListId).MaxAsync(t => (int?)t.Position, ct) ?? -1;
 
-        var task = new Domain.Entities.TaskItem(req.ProjectId, req.ListId, req.Title, req.CallerId, maxPos + 1, priority, req.AssigneeId, req.Description, req.LabelsJson);
+        var status = list.Name; // Column is visual of Status
+        var task = new Domain.Entities.TaskItem(req.ProjectId, req.ListId, req.Title, req.CallerId, maxPos + 1, priority, req.AssigneeId, req.Description, req.LabelsJson, req.DueDate, req.IssueType ?? "Task", req.Epic, req.StoryPoints, req.StartDate, req.Environment, req.ParentIssueId, req.SprintId, req.TeamId, status);
         _db.Tasks.Add(task);
 
         // Outbox for MassTransit (Task 3.1) - same transaction
@@ -58,7 +59,7 @@ public class CreateTaskHandler : IRequestHandler<CreateTaskCommand, Result<TaskD
         await _cache.RemoveAsync(CacheKeys.Board(req.ProjectId));
         await _cache.RemoveByPrefixAsync($"tasks:{req.ProjectId}:");
 
-        var dto = new TaskDto(task.Id, task.ProjectId, task.ListId, task.Title, task.Description, task.Priority.ToString(), task.LabelsJson, task.AssigneeId, task.Position, task.CreatedAt);
+        var dto = new TaskDto(task.Id, task.ProjectId, task.ListId, task.Title, task.Description, task.Priority.ToString(), task.LabelsJson, task.AssigneeId, task.Position, task.CreatedAt, task.DueDate, task.IssueType, task.Epic, task.StoryPoints, task.StartDate, task.Environment, task.ParentIssueId, task.SprintId, task.WatchersJson, task.LinkedIssuesJson, task.TimeEstimated, task.TimeSpent, task.TimeRemaining, task.TeamId);
         return Result<TaskDto>.Success(dto);
     }
 }

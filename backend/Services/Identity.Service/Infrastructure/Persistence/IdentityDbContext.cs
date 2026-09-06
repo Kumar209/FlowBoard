@@ -45,6 +45,7 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
             e.HasIndex(x => x.OwnerId);
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);
             e.Property(x => x.Slug).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Description).HasMaxLength(1000);
         });
 
         // Workspace

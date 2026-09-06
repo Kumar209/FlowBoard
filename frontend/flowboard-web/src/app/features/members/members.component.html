@@ -1,21 +1,139 @@
 <div class="bg-base-200 min-h-full">
   <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
-    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Members</h1>
-    <p class="text-sm opacity-60 mt-1">Directory — filtered to your assigned workspaces. Invite only for OrgAdmin.</p>
-    @if (!auth.canCreateWorkspace()) { <span class="badge badge-ghost badge-xs mt-2">View only — OrgAdmin can invite</span> }
-    <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      @for (ws of workspacesQuery.data() || []; track ws.id) {
-        <div class="card bg-base-100 rounded-2xl shadow border border-base-200 p-5">
-          <h3 class="font-semibold">{{ ws.name }}</h3>
-          <p class="text-xs opacity-60 font-mono">{{ ws.slug }}</p>
-          <span class="badge badge-primary badge-xs mt-2">Role {{ ws.role }}</span>
-          <p class="text-xs opacity-40 mt-2">Members via GET /api/workspaces/{{ ws.id.slice(0,4) }}/members (Task 1.5 invite flow, Brevo)</p>
-        </div>
-      }
+    <div class="flex flex-wrap justify-between gap-3 items-center">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Members — Organization</h1>
+        <p class="text-sm opacity-60 mt-1">All employees in your organization — across all workspaces. OrgAdmin can invite, update, remove.</p>
+        <p class="text-xs opacity-40 mt-1">These members are used in <code class="bg-base-300 px-1 rounded">Projects → Team</code> to assign team members (future profile page for each employee).</p>
+      </div>
+      @if (canInvite()) { <button class="btn btn-primary btn-sm rounded-full" (click)="openInvite()">+ Add Employee</button> }
+      @else { <span class="badge badge-ghost badge-xs">View only — OrgAdmin can add</span> }
     </div>
-    @if ((workspacesQuery.data()?.length || 0)===0 && !workspacesQuery.isPending()) {
-      <div class="text-center py-12 opacity-40 text-sm">No workspaces — assign via OrgAdmin invite</div>
+
+    <div class="flex flex-col sm:flex-row gap-2 mt-6">
+      <input type="text" placeholder="Search by name/email/role..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
+      <span class="text-xs opacity-40 self-center">Found {{ filtered().length }} / {{ members().length }}</span>
+      <span class="badge badge-ghost badge-sm self-center">{{ orgId() ? orgId().slice(0,6) : 'org' }} • {{ workspacesQuery.data()?.length || 0 }} workspaces</span>
+    </div>
+
+    @if (orgMembersQuery.isPending() || workspaceMembersAggQuery.isPending()) {
+      <div class="mt-6 space-y-2">
+        @for (i of [1,2,3]; track i) { <div class="card bg-base-100 border p-4 animate-pulse"><div class="h-4 bg-base-300 rounded w-1/4 mb-2"></div><div class="h-3 bg-base-200 rounded w-3/4"></div></div> }
+      </div>
+    } @else if (filtered().length===0) {
+      <div class="mt-6 card bg-base-100 rounded-2xl border border-dashed p-8 text-center">
+        <p class="font-semibold">No members match</p>
+        <p class="text-sm opacity-60">Try search or invite a new member</p>
+      </div>
+    } @else {
+      <!-- Desktop table -->
+      <div class="hidden md:block mt-6 card bg-base-100 rounded-2xl shadow border overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Workspace</th><th>Joined</th><th>Actions</th></tr></thead>
+            <tbody>
+              @for (m of paginated(); track m.userId) {
+                <tr class="hover:bg-base-200">
+                  <td>
+                    <div class="flex items-center gap-2">
+                      <div class="w-8 h-8 rounded-full bg-primary text-primary-content flex items-center justify-center text-xs font-bold">{{ m.fullName.slice(0,1) }}</div>
+                      <div><p class="font-medium text-sm">{{ m.fullName }}</p><p class="text-xs opacity-40 font-mono">{{ m.userId.slice(0,6) }}</p></div>
+                    </div>
+                  </td>
+                  <td class="text-xs">{{ m.email }}</td>
+                  <td><span class="badge badge-sm rounded-full" [ngClass]="m.role==='OrgAdmin'?'badge-primary': m.role==='ProjectManager'?'badge-secondary': m.role==='Client'?'badge-warning':'badge-ghost'">{{ m.role }}</span></td>
+                  <td class="text-xs opacity-60">{{ m.workspaceName || m.workspaceId?.slice(0,6) || '—' }}</td>
+                  <td class="text-xs opacity-60">{{ m.joinedAt | date:'mediumDate' }}</td>
+                  <td>
+                    <div class="flex gap-1">
+                      <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(m)">Edit</button>
+                      @if (canInvite()) { <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmRemove(m)">Remove</button> }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="flex justify-between items-center p-3 border-t border-base-200">
+          <span class="text-xs opacity-40">Page {{ page() }} / {{ totalPages() }} • Total {{ filtered().length }}</span>
+          <div class="flex gap-1">
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+          </div>
+        </div>
+      </div>
+      <!-- Mobile cards -->
+      <div class="md:hidden mt-6 space-y-2">
+        @for (m of paginated(); track m.userId) {
+          <div class="card bg-base-100 rounded-2xl p-3 border shadow-sm">
+            <div class="flex justify-between items-start">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-primary text-primary-content flex items-center justify-center text-xs font-bold">{{ m.fullName.slice(0,1) }}</div>
+                <div><p class="font-medium text-sm">{{ m.fullName }}</p><p class="text-xs opacity-60">{{ m.email }}</p><p class="text-xs"><span class="badge badge-ghost badge-xs">{{ m.role }}</span> • {{ m.workspaceName || '' }}</p></div>
+              </div>
+              <span class="text-xs opacity-40">{{ m.joinedAt | date:'shortDate' }}</span>
+            </div>
+            <div class="flex gap-1 mt-2">
+              <button class="btn btn-ghost btn-xs rounded-full flex-1" (click)="openEdit(m)">Edit</button>
+              @if (canInvite()) { <button class="btn btn-ghost btn-xs rounded-full text-error flex-1" (click)="confirmRemove(m)">Remove</button> }
+            </div>
+          </div>
+        }
+        <div class="flex justify-between items-center mt-3">
+          <span class="text-xs opacity-40">Page {{ page() }} / {{ totalPages() }}</span>
+          <div class="flex gap-1">
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Prev</button>
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+          </div>
+        </div>
+      </div>
     }
-    <p class="text-xs opacity-40 mt-4">{{ hint() }}</p>
+
+    <!-- Add Employee modal -->
+    @if (showInvite()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="showInvite.set(false)"></div>
+        <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border max-h-[90vh] overflow-y-auto">
+          <h3 class="font-bold">Add Employee</h3>
+          <p class="text-xs opacity-60 mt-1">Create employee directly — will appear in org directory and can be added to Teams (used in Projects → Team).</p>
+          <div class="mt-4 space-y-3">
+            <label class="form-control"><span class="label-text text-xs">Full Name *</span><input type="text" placeholder="John Doe" class="input input-bordered rounded-xl" [value]="inviteFullName()" (input)="inviteFullName.set($any($event.target).value)" /></label>
+            <label class="form-control"><span class="label-text text-xs">Email *</span><input type="email" placeholder="user@example.com" class="input input-bordered rounded-xl" [value]="inviteEmail()" (input)="inviteEmail.set($any($event.target).value)" /></label>
+            <label class="form-control"><span class="label-text text-xs">Password *</span><input type="password" placeholder="Temp password" class="input input-bordered rounded-xl" [value]="invitePassword()" (input)="invitePassword.set($any($event.target).value)" /></label>
+            <label class="form-control"><span class="label-text text-xs">Role</span><select class="select select-bordered rounded-xl" [value]="inviteRole()" (change)="inviteRole.set($any($event.target).value)"><option>Member</option><option>ProjectManager</option><option>Client</option><option>Viewer</option><option>OrgAdmin</option></select></label>
+            <label class="form-control"><span class="label-text text-xs">Workspace *</span>
+              <select class="select select-bordered rounded-xl" [value]="inviteWorkspaceId()" (change)="inviteWorkspaceId.set($any($event.target).value)">
+                @for (ws of workspacesQuery.data() || []; track ws.id) { <option [value]="ws.id">{{ ws.name }}</option> }
+              </select>
+            </label>
+          </div>
+          <div class="flex justify-end gap-2 mt-6">
+            <button class="btn btn-ghost rounded-xl" (click)="showInvite.set(false)">Cancel</button>
+            <button class="btn btn-primary rounded-xl" (click)="doInvite()" [disabled]="!inviteFullName().trim() || !inviteEmail().trim() || !invitePassword().trim()" [class.loading]="inviteMutation.isPending()">Add Employee</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Edit modal -->
+    @if (editTarget()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="editTarget.set(null)"></div>
+        <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+          <h3 class="font-bold">Edit {{ editTarget().fullName }}</h3>
+          <p class="text-xs opacity-60 mt-1">Update employee details — OrgAdmin can change name/email/role. Future profile page for more details.</p>
+          <div class="mt-4 space-y-3">
+            <label class="form-control"><span class="label-text text-xs">Full Name</span><input type="text" class="input input-bordered rounded-xl" [value]="editName()" (input)="editName.set($any($event.target).value)" /></label>
+            <label class="form-control"><span class="label-text text-xs">Email</span><input type="email" class="input input-bordered rounded-xl" [value]="editEmail()" (input)="editEmail.set($any($event.target).value)" /></label>
+            <label class="form-control"><span class="label-text text-xs">Role</span><select class="select select-bordered rounded-xl" [value]="editRole()" (change)="editRole.set($any($event.target).value)"><option>Member</option><option>ProjectManager</option><option>Client</option><option>Viewer</option><option>OrgAdmin</option></select></label>
+          </div>
+          <div class="flex justify-end gap-2 mt-6">
+            <button class="btn btn-ghost rounded-xl" (click)="editTarget.set(null)">Cancel</button>
+            <button class="btn btn-primary rounded-xl" (click)="saveEdit()" [class.loading]="updateMutation.isPending()">Save</button>
+          </div>
+        </div>
+      </div>
+    }
   </div>
 </div>

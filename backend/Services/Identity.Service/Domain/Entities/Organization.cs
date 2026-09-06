@@ -10,17 +10,19 @@ public class Organization : BaseEntity, IAggregateRoot
     public string Name { get; private set; } = string.Empty;
     public string Slug { get; private set; } = string.Empty;
     public Guid OwnerId { get; private set; }
+    public string? Description { get; private set; }
     public bool IsActive { get; private set; } = true;
 
     private Organization() { }
 
-    public Organization(string name, string slug, Guid ownerId)
+    public Organization(string name, string slug, Guid ownerId, string? description = null)
     {
         Name = name;
         Slug = slug.ToLowerInvariant();
         OwnerId = ownerId;
+        Description = description;
     }
 
-    public void Update(string name) { Name = name; Touch(); }
+    public void Update(string name, string? description = null) { Name = name; Description = description; Touch(); }
     public void Deactivate() => IsActive = false;
 }

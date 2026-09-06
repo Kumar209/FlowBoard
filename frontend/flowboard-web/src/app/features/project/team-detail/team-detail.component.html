@@ -1,0 +1,67 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
+  <a [routerLink]="['../../team']" class="btn btn-ghost btn-sm rounded-full">← Back to Teams</a>
+
+  @if (team(); as t) {
+    <div class="card bg-base-100 rounded-2xl shadow border p-6">
+      <h1 class="text-2xl font-bold">{{ t.name }}</h1>
+      <p class="text-sm opacity-60 mt-1">{{ t.description || 'No description' }}</p>
+      <p class="text-xs mt-2 badge badge-ghost badge-sm rounded-full">Tasks: — members: {{ t.membersCount }} • Project team</p>
+    </div>
+
+    <div class="card bg-base-100 rounded-2xl shadow border p-4">
+      <div class="flex flex-wrap justify-between gap-2 items-center mb-3">
+        <h3 class="font-bold">Members — {{ filteredMembers().length }} / {{ enrichedMembers().length }}</h3>
+        <input type="text" placeholder="Search by name/email/role..." class="input input-bordered input-sm rounded-full max-w-xs" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
+      </div>
+
+      @if (membersQuery.isPending()) { <span class="loading loading-spinner loading-sm"></span> }
+      @else if (filteredMembers().length===0) { <p class="text-center py-8 opacity-40">No members match — try search or add below</p> }
+      @else {
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead>
+            <tbody>
+              @for (m of paginatedMembers(); track m.userId) {
+                <tr class="hover:bg-base-200">
+                  <td><div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-primary text-primary-content flex items-center justify-center text-xs font-bold">{{ m.fullName.slice(0,1) }}</div><div><p class="font-medium text-sm">{{ m.fullName }}</p><p class="text-xs opacity-60">{{ m.userId.slice(0,6) }}</p></div></div></td>
+                  <td class="text-xs">{{ m.email }}</td>
+                  <td><span class="badge badge-sm rounded-full" [ngClass]="m.role==='OrgAdmin'?'badge-primary': m.role==='ProjectManager'?'badge-secondary':'badge-ghost'">{{ m.role }}</span></td>
+                  <td class="text-xs opacity-60">{{ m.joinedAt | date:'mediumDate' }}</td>
+                  <td><button class="btn btn-ghost btn-xs rounded-full text-error" (click)="remove(m)" [class.loading]="removeMutation.isPending()">Remove</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="flex justify-between items-center mt-3">
+          <span class="text-xs opacity-40">Page {{ page() }} / {{ totalPages() }}</span>
+          <div class="flex gap-1">
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+          </div>
+        </div>
+      }
+    </div>
+
+    <div class="card bg-base-100 rounded-2xl shadow border p-4">
+      <h3 class="font-bold text-sm mb-3">Add from workspace</h3>
+      <input type="text" placeholder="Search workspace members by name/email..." class="input input-bordered input-sm rounded-full w-full max-w-md" [value]="addSearch()" (input)="addSearch.set($any($event.target).value)" />
+      <div class="grid sm:grid-cols-2 gap-2 mt-3 max-h-[320px] overflow-y-auto">
+        @for (wm of filteredWorkspaceMembers(); track wm.userId) {
+          <div class="flex justify-between items-center p-3 rounded-xl border hover:bg-base-200 cursor-pointer" (click)="selectedUserId.set(wm.userId); addMutation.mutate()">
+            <div>
+              <p class="font-medium text-sm">{{ wm.fullName }}</p>
+              <p class="text-xs opacity-60">{{ wm.email }} • {{ wm.role }}</p>
+            </div>
+            <span class="btn btn-primary btn-xs rounded-full">Add</span>
+          </div>
+        }
+        @if (filteredWorkspaceMembers().length===0) { <p class="text-xs opacity-40 col-span-full text-center py-4">No available members — all added or no match</p> }
+      </div>
+    </div>
+  } @else if (teamQuery.isPending()) {
+    <div class="flex justify-center py-12"><span class="loading loading-spinner"></span></div>
+  } @else {
+    <div class="alert alert-error rounded-xl">Team not found</div>
+  }
+</div>
