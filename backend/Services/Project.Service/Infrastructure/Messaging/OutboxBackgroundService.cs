@@ -43,6 +43,7 @@ public class OutboxBackgroundService : BackgroundService
                     .Take(20)
                     .ToListAsync(stoppingToken);
 
+                var jsonOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 foreach (var msg in messages)
                 {
                     try
@@ -51,21 +52,21 @@ public class OutboxBackgroundService : BackgroundService
                         {
                             case "TaskCreated":
                                 {
-                                    var evt = JsonSerializer.Deserialize<TaskCreatedEvent>(msg.Payload);
+                                    var evt = JsonSerializer.Deserialize<TaskCreatedEvent>(msg.Payload, jsonOpts);
                                     if (evt != null) await publisher.Publish(evt, stoppingToken);
                                     else _logger.LogWarning("[Outbox] TaskCreated payload null {Id}", msg.Id);
                                     break;
                                 }
                             case "TaskMoved":
                                 {
-                                    var evt = JsonSerializer.Deserialize<TaskMovedEvent>(msg.Payload);
+                                    var evt = JsonSerializer.Deserialize<TaskMovedEvent>(msg.Payload, jsonOpts);
                                     if (evt != null) await publisher.Publish(evt, stoppingToken);
                                     else _logger.LogWarning("[Outbox] TaskMoved payload null {Id}", msg.Id);
                                     break;
                                 }
                             case "TaskCommented":
                                 {
-                                    var evt = JsonSerializer.Deserialize<TaskCommentedEvent>(msg.Payload);
+                                    var evt = JsonSerializer.Deserialize<TaskCommentedEvent>(msg.Payload, jsonOpts);
                                     if (evt != null) await publisher.Publish(evt, stoppingToken);
                                     else _logger.LogWarning("[Outbox] TaskCommented payload null {Id}", msg.Id);
                                     break;
