@@ -125,14 +125,16 @@ export class TaskDetailModalComponent {
   });
 
   // Queries — MNC: assignee/watchers derive from Project Members (not workspace). WorkspaceMembers only used to populate Project Members.
+  effectiveProjectId = computed(() => this.projectId() || this.task()?.projectId || '');
   membersQuery = injectQuery(() => ({
-    queryKey: ['project-members', this.projectId()] as const,
+    queryKey: ['project-members', this.effectiveProjectId()] as const,
     queryFn: async () => {
-      const res:any = await firstValueFrom(this.projectService.getProjectMembers(this.projectId(), 1, 100));
+      const pid = this.effectiveProjectId();
+      const res:any = await firstValueFrom(this.projectService.getProjectMembers(pid, 1, 100));
       const items = res?.items ?? res?.Items ?? (Array.isArray(res) ? res : []);
       return Array.isArray(items) ? items : [];
     },
-    enabled: this.open() && !!this.projectId(),
+    enabled: this.open() && !!this.effectiveProjectId(),
   }));
   // Normalized for template @for (handles paginated object vs array)
   projectMembersList = computed(() => {
@@ -143,24 +145,24 @@ export class TaskDetailModalComponent {
     return Array.isArray(items) ? items : [];
   });
   environmentsQuery = injectQuery(() => ({
-    queryKey: ['environments', this.projectId()] as const,
-    queryFn: () => firstValueFrom(this.projectService.getEnvironments(this.projectId())),
-    enabled: this.open() && !!this.projectId(),
+    queryKey: ['environments', this.effectiveProjectId()] as const,
+    queryFn: () => firstValueFrom(this.projectService.getEnvironments(this.effectiveProjectId())),
+    enabled: this.open() && !!this.effectiveProjectId(),
   }));
   sprintsForTaskQuery = injectQuery(() => ({
-    queryKey: ['sprints', this.projectId()] as const,
-    queryFn: () => firstValueFrom(this.projectService.getSprints(this.projectId())),
-    enabled: this.open() && !!this.projectId(),
+    queryKey: ['sprints', this.effectiveProjectId()] as const,
+    queryFn: () => firstValueFrom(this.projectService.getSprints(this.effectiveProjectId())),
+    enabled: this.open() && !!this.effectiveProjectId(),
   }));
   teamsQuery = injectQuery(() => ({
-    queryKey: ['teams', this.projectId()] as const,
-    queryFn: () => firstValueFrom(this.projectService.getTeams(this.projectId())),
-    enabled: this.open() && !!this.projectId(),
+    queryKey: ['teams', this.effectiveProjectId()] as const,
+    queryFn: () => firstValueFrom(this.projectService.getTeams(this.effectiveProjectId())),
+    enabled: this.open() && !!this.effectiveProjectId(),
   }));
   boardForTaskQuery = injectQuery(() => ({
-    queryKey: ['board', this.projectId()] as const,
-    queryFn: () => firstValueFrom(this.projectService.getBoard(this.projectId())),
-    enabled: this.open() && !!this.projectId(),
+    queryKey: ['board', this.effectiveProjectId()] as const,
+    queryFn: () => firstValueFrom(this.projectService.getBoard(this.effectiveProjectId())),
+    enabled: this.open() && !!this.effectiveProjectId(),
   }));
   isScrumBoard = computed(() => {
     const boardId = this.task()?.boardId || '';
