@@ -12,6 +12,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 var cs = builder.Configuration.GetConnectionString("Default") ?? "Server=localhost;Database=flowboard;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 builder.Services.AddDbContext<NotificationDbContext>(o => o.UseSqlServer(cs, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "notification")));
+builder.Services.AddScoped<Notification.Service.Application.Interfaces.IApplicationDbContext>(sp => sp.GetRequiredService<NotificationDbContext>());
+builder.Services.AddScoped<Notification.Service.Application.Interfaces.INotificationService, Notification.Service.Infrastructure.Services.NotificationService>();
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "FlowBoard.Identity";

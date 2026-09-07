@@ -10,6 +10,7 @@ namespace Shared.Contracts.Events;
 public record TaskCreatedEvent(
     Guid TaskId,
     Guid ProjectId,
+    Guid WorkspaceId,
     Guid ListId,
     string Title,
     Guid ActorId,
@@ -23,6 +24,7 @@ public record TaskCreatedEvent(
 public record TaskMovedEvent(
     Guid TaskId,
     Guid ProjectId,
+    Guid WorkspaceId,
     Guid FromListId,
     Guid ToListId,
     int Position,
@@ -37,6 +39,7 @@ public record TaskMovedEvent(
 public record TaskCommentedEvent(
     Guid TaskId,
     Guid ProjectId,
+    Guid WorkspaceId,
     Guid CommentId,
     Guid ActorId,
     DateTime OccurredOnUtc,

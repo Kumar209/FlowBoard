@@ -22,7 +22,8 @@ public class TaskService : ITaskService
         var status = list.Name;
         var task = new Domain.Entities.TaskItem(projectId, listId, title, callerId, maxPos + 1, prio, assigneeId, description, labelsJson, dueDate, issueType ?? "Task", epic, storyPoints, startDate, environment, parentIssueId, sprintId, teamId, status);
         _db.Tasks.Add(task);
-        var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, ListId = task.ListId, Title = task.Title, ActorId = callerId, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
+        var workspaceId = await _db.Projects.Where(p => p.Id == projectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, WorkspaceId = workspaceId, ListId = task.ListId, Title = task.Title, ActorId = callerId, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
         _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskCreated", JsonSerializer.Serialize(evt)));
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(projectId, task.Id, callerId, "TaskCreated", JsonSerializer.Serialize(new { task.Title, list.Name })));
         await _db.SaveChangesAsync(ct);
@@ -64,7 +65,8 @@ public class TaskService : ITaskService
         if (targetList == null) return Result.Failure("Target list not found");
         var fromListId = task.ListId;
         task.MoveToList(toListId, newPosition, targetList.Name);
-        var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, FromListId = fromListId, ToListId = toListId, Position = newPosition, ActorId = callerId, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
+        var workspaceId = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, WorkspaceId = workspaceId, FromListId = fromListId, ToListId = toListId, Position = newPosition, ActorId = callerId, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
         _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskMoved", JsonSerializer.Serialize(evt)));
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, callerId, "TaskMoved", JsonSerializer.Serialize(new { fromListId, toListId })));
         await _db.SaveChangesAsync(ct);
