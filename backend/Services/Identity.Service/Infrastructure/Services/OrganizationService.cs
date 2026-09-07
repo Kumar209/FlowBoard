@@ -91,10 +91,50 @@ public class OrganizationService : IOrganizationService
             user.UpdateEmail(email.ToLowerInvariant());
         }
         await _db.SaveChangesAsync(ct);
-        if (!string.IsNullOrWhiteSpace(role) && workspaceId.HasValue && Enum.TryParse<WorkspaceRole>(role, true, out var newRole))
+        // Handle workspace change and role update
+        if (workspaceId.HasValue)
         {
-            var member = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == workspaceId.Value && m.UserId == userId, ct);
-            if (member != null) { member.Role = newRole; await _db.SaveChangesAsync(ct); }
+            var targetWorkspaceId = workspaceId.Value;
+            // Check if user is already member of target workspace
+            var existingMember = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == targetWorkspaceId && m.UserId == userId, ct);
+            if (existingMember != null)
+            {
+                // Update role if provided
+                if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<WorkspaceRole>(role, true, out var newRole))
+                {
+                    existingMember.Role = newRole;
+                    await _db.SaveChangesAsync(ct);
+                }
+            }
+            else
+            {
+                // Not a member of target workspace - add them (move from old workspace if needed)
+                // Optionally remove from other workspaces in same org? For now, just add to target
+                if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<WorkspaceRole>(role, true, out var parsedRole))
+                {
+                    _db.WorkspaceMembers.Add(new WorkspaceMember(targetWorkspaceId, userId, parsedRole));
+                    await _db.SaveChangesAsync(ct);
+                }
+                else
+                {
+                    // Add with existing role or Member
+                    var oldMember = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.UserId == userId, ct);
+                    var oldRole = oldMember?.Role ?? WorkspaceRole.Member;
+                    if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<WorkspaceRole>(role, true, out var r)) oldRole = r;
+                    _db.WorkspaceMembers.Add(new WorkspaceMember(targetWorkspaceId, userId, oldRole));
+                    await _db.SaveChangesAsync(ct);
+                }
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(role))
+        {
+            // No workspace change, just update role in current workspace(s)
+            var memberships = await _db.WorkspaceMembers.Where(m => m.UserId == userId).ToListAsync(ct);
+            if (Enum.TryParse<WorkspaceRole>(role, true, out var newRole2))
+            {
+                foreach(var m in memberships) m.Role = newRole2;
+                await _db.SaveChangesAsync(ct);
+            }
         }
         var memberInfo = await _db.WorkspaceMembers.Where(m => m.UserId == userId).Join(_db.Users, m => m.UserId, u => u.Id, (m,u) => new { m.WorkspaceId, m.Role, m.JoinedAt, u.FullName, u.Email, u.AvatarUrl }).FirstOrDefaultAsync(ct);
         return new OrgMemberDto(userId, user.FullName, user.Email, user.AvatarUrl, memberInfo?.Role.ToString() ?? role ?? "Member", memberInfo != null ? (int)memberInfo.Role : 0, memberInfo?.WorkspaceId ?? Guid.Empty, memberInfo?.JoinedAt ?? DateTime.UtcNow);
