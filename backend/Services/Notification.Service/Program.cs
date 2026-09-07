@@ -71,24 +71,24 @@ builder.Services.AddMassTransit(x =>
         cfg.Publish<TaskMovedEvent>(c => c.ExchangeType = "fanout");
         cfg.Publish<TaskCommentedEvent>(c => c.ExchangeType = "fanout");
         cfg.UseMessageRetry(r => r.Immediate(3));
-        // Quorum durable queues per consumer (MNC-grade)
+        // Quorum durable queues per consumer (MNC-grade) — Durable must be set before ConfigureConsumer
         cfg.ReceiveEndpoint("notification-task-created", e =>
         {
+            e.Durable = true;
             e.ConfigureConsumer<TaskCreatedConsumer>(context);
             e.UseMessageRetry(r => r.Intervals(100, 500, 1000));
-            e.Durable = true;
         });
         cfg.ReceiveEndpoint("notification-task-moved", e =>
         {
+            e.Durable = true;
             e.ConfigureConsumer<TaskMovedConsumer>(context);
             e.UseMessageRetry(r => r.Intervals(100, 500, 1000));
-            e.Durable = true;
         });
         cfg.ReceiveEndpoint("notification-task-commented", e =>
         {
+            e.Durable = true;
             e.ConfigureConsumer<TaskCommentedConsumer>(context);
             e.UseMessageRetry(r => r.Intervals(100, 500, 1000));
-            e.Durable = true;
         });
         cfg.ConfigureEndpoints(context);
     });

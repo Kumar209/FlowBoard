@@ -20,7 +20,7 @@ public class TaskCreatedConsumer : IConsumer<TaskCreatedEvent>
     public async Task Consume(ConsumeContext<TaskCreatedEvent> ctx)
     {
         var msg = ctx.Message;
-        var result = await _service.PersistTaskCreatedAsync(msg.EventId, msg.ProjectId, msg.WorkspaceId, msg.TaskId, msg.Title, msg.ActorId, msg.RecipientUserIds, msg.OccurredOnUtc);
+        var result = await _service.PersistTaskCreatedAsync(msg.EventId, msg.ProjectId, msg.WorkspaceId, msg.TaskId, msg.Title, msg.ActorId, msg.RecipientUserIds ?? new List<Guid>(), msg.OccurredOnUtc);
         if (!result.IsSuccess) _logger.LogWarning("[Consumer] TaskCreated persist failed {EventId} {Err}", msg.EventId, result.Error);
         else _logger.LogInformation("[Consumer] TaskCreated {TaskId} persisted {EventId}", msg.TaskId, msg.EventId);
         // MNC: workspace toast (bell) only — project group is for board live sync, but taskCreated is global notification, so workspace only
@@ -42,7 +42,7 @@ public class TaskMovedConsumer : IConsumer<TaskMovedEvent>
     public async Task Consume(ConsumeContext<TaskMovedEvent> ctx)
     {
         var msg = ctx.Message;
-        var result = await _service.PersistTaskMovedAsync(msg.EventId, msg.ProjectId, msg.WorkspaceId, msg.TaskId, msg.FromListId, msg.ToListId, msg.Position, msg.ActorId, msg.RecipientUserIds, msg.OccurredOnUtc);
+        var result = await _service.PersistTaskMovedAsync(msg.EventId, msg.ProjectId, msg.WorkspaceId, msg.TaskId, msg.FromListId, msg.ToListId, msg.Position, msg.ActorId, msg.RecipientUserIds ?? new List<Guid>(), msg.OccurredOnUtc);
         if (!result.IsSuccess) _logger.LogWarning("[Consumer] TaskMoved persist failed {EventId} {Err}", msg.EventId, result.Error);
         else _logger.LogInformation("[Consumer] TaskMoved {TaskId} {From}->{To}", msg.TaskId, msg.FromListId, msg.ToListId);
         // MNC: project:{id} only for live board animation (typing/move), not workspace broadcast
@@ -64,7 +64,7 @@ public class TaskCommentedConsumer : IConsumer<TaskCommentedEvent>
     public async Task Consume(ConsumeContext<TaskCommentedEvent> ctx)
     {
         var msg = ctx.Message;
-        var result = await _service.PersistTaskCommentedAsync(msg.EventId, msg.ProjectId, msg.WorkspaceId, msg.TaskId, msg.CommentId, msg.ActorId, msg.RecipientUserIds, msg.OccurredOnUtc);
+        var result = await _service.PersistTaskCommentedAsync(msg.EventId, msg.ProjectId, msg.WorkspaceId, msg.TaskId, msg.CommentId, msg.ActorId, msg.RecipientUserIds ?? new List<Guid>(), msg.OccurredOnUtc);
         if (!result.IsSuccess) _logger.LogWarning("[Consumer] TaskCommented persist failed {EventId} {Err}", msg.EventId, result.Error);
         await _hub.Clients.Group($"project:{msg.ProjectId}").SendAsync("taskCommented", new { taskId = msg.TaskId, projectId = msg.ProjectId, workspaceId = msg.WorkspaceId, commentId = msg.CommentId });
     }
