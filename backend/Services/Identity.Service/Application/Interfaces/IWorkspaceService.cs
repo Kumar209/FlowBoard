@@ -10,6 +10,7 @@ public interface IWorkspaceService
     Task<WorkspaceDto> UpdateWorkspaceAsync(Guid workspaceId, string name, string? slug, Guid callerId, CancellationToken ct = default);
     Task DeleteWorkspaceAsync(Guid workspaceId, Guid callerId, CancellationToken ct = default);
     Task<List<WorkspaceMemberDto>> GetMembersAsync(Guid workspaceId, Guid callerId, CancellationToken ct = default);
+    Task<(List<WorkspaceMemberDto> Items, int Total)> GetMembersPagedAsync(Guid workspaceId, Guid callerId, int page, int pageSize, string? search, CancellationToken ct = default);
     Task<WorkspaceMemberDto> ChangeRoleAsync(Guid workspaceId, Guid userId, string role, Guid callerId, CancellationToken ct = default);
 }
 

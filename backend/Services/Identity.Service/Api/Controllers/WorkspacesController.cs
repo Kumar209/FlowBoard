@@ -63,12 +63,18 @@ public class WorkspacesController : ControllerBase
     }
 
     [HttpGet("{id}/members")]
-    public async Task<IActionResult> GetMembers(Guid id)
+    public async Task<IActionResult> GetMembers(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
-        var result = await _mediator.Send(new GetWorkspaceMembersQuery(id, userId.Value));
+        var result = await _mediator.Send(new GetWorkspaceMembersQuery(id, userId.Value, page, pageSize, search));
         if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
-        return Ok(result.Value);
+        // If paginated request (search or page !=1), return wrapper with items/total, else return array for backward compat
+        if (!string.IsNullOrWhiteSpace(search) || page != 1 || pageSize != 20)
+        {
+            Response.Headers.Append("X-Total-Count", result.Value.Total.ToString());
+            return Ok(new { items = result.Value.Items, total = result.Value.Total, page, pageSize });
+        }
+        return Ok(result.Value.Items);
     }
 
     [HttpPut("{id}/members/{userId}/role")]

@@ -65,6 +65,11 @@ export class ProjectService {
   getWorkspaceMembers(workspaceId: string) {
     return this.http.get<WorkspaceMemberDto[]>(`${environment.apiUrl}/api/workspaces/${workspaceId}/members`, { withCredentials: true });
   }
+  getWorkspaceMembersPaged(workspaceId: string, page=1, pageSize=20, search?: string) {
+    let params:any = { page, pageSize };
+    if (search) params.search = search;
+    return this.http.get<{items: WorkspaceMemberDto[], total: number}>(`${environment.apiUrl}/api/workspaces/${workspaceId}/members`, { params, withCredentials: true });
+  }
   // Boards (Enterprise: Project → Boards)
   getBoards(projectId: string) {
     return this.http.get<BoardDtoFull[]>(`${environment.apiUrl}/api/projects/${projectId}/boards`, { withCredentials: true });

@@ -109,6 +109,23 @@ public class WorkspaceService : IWorkspaceService
             .ToListAsync(ct);
     }
 
+    public async Task<(List<WorkspaceMemberDto> Items, int Total)> GetMembersPagedAsync(Guid workspaceId, Guid callerId, int page, int pageSize, string? search, CancellationToken ct = default)
+    {
+        var isMember = await _db.WorkspaceMembers.AnyAsync(m => m.WorkspaceId == workspaceId && m.UserId == callerId, ct);
+        if (!isMember) throw new ForbiddenException("Forbidden");
+        var query = _db.WorkspaceMembers.Where(m => m.WorkspaceId == workspaceId).Include(m => m.User).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.ToLowerInvariant();
+            query = query.Where(m => m.User!.FullName.ToLower().Contains(s) || m.User!.Email.ToLower().Contains(s) || m.Role.ToString().ToLower().Contains(s));
+        }
+        var total = await query.CountAsync(ct);
+        var items = await query.OrderBy(m => m.User!.FullName).Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(m => new WorkspaceMemberDto(m.WorkspaceId, m.UserId, m.User!.Email, m.User.FullName, m.User.AvatarUrl, m.Role.ToString(), (int)m.Role, m.JoinedAt))
+            .ToListAsync(ct);
+        return (items, total);
+    }
+
     public async Task<WorkspaceMemberDto> ChangeRoleAsync(Guid workspaceId, Guid userId, string role, Guid callerId, CancellationToken ct = default)
     {
         var callerMembership = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == workspaceId && m.UserId == callerId, ct);

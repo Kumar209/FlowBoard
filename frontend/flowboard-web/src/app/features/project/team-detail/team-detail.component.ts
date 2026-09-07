@@ -50,10 +50,19 @@ export class TeamDetailComponent {
   }));
 
   workspaceMembersQuery = injectQuery(() => ({
-    queryKey: ['workspace-members', this.workspaceId()] as const,
-    queryFn: () => firstValueFrom(this.ps.getWorkspaceMembers(this.workspaceId())),
+    queryKey: ['workspace-members', this.workspaceId(), this.addSearch(), this.addPage()] as const,
+    queryFn: async () => {
+      const res:any = await firstValueFrom(this.ps.getWorkspaceMembersPaged(this.workspaceId(), this.addPage(), this.addPageSize, this.addSearch() || undefined));
+      // Backend returns {items, total} when paginated, else array
+      if (res.items) return res.items;
+      return res as any[];
+    },
     enabled: !!this.workspaceId(),
   }));
+  workspaceMembersTotal = computed(() => {
+    // For API paginated, total is in header or response, but we estimate from filtered
+    return this.workspaceMembersQuery.data()?.length || 0;
+  });
 
   search = signal('');
   addSearch = signal('');
@@ -66,10 +75,10 @@ export class TeamDetailComponent {
   // Map team members to full workspace user info (name, email, role)
   enrichedMembers = computed(() => {
     const teamMembers = this.membersQuery.data() || [];
-    const wsMembers = this.workspaceMembersQuery.data() || [];
-    const map = new Map(wsMembers.map((m:any) => [m.userId, m]));
+    const wsMembers = this.workspaceMembersQuery.data() || [] as any[];
+    const map = new Map<string, any>(wsMembers.map((m:any) => [m.userId, m]));
     return teamMembers.map((tm:any) => {
-      const ws = map.get(tm.userId);
+      const ws:any = map.get(tm.userId);
       return { ...tm, fullName: ws?.fullName || tm.userId.slice(0,8), email: ws?.email || '', role: ws?.role || 'Member', avatarUrl: ws?.avatarUrl };
     });
   });

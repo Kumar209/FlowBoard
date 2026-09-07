@@ -45,11 +45,28 @@
 
     <div class="card bg-base-100 rounded-2xl shadow border p-4">
       <div class="flex flex-wrap justify-between gap-2 items-center mb-3">
-        <h3 class="font-bold text-sm">Add from workspace — {{ filteredWorkspaceMembers().length }} available</h3>
+        <h3 class="font-bold text-sm">Add from workspace — {{ filteredWorkspaceMembers().length }} available (API paginated)</h3>
         <span class="text-xs opacity-40">Page {{ addPage() }} / {{ totalAddPages() }}</span>
       </div>
-      <input type="text" placeholder="Search workspace members by name/email... (handles 100s with pagination)" class="input input-bordered input-sm rounded-full w-full max-w-md" [value]="addSearch()" (input)="addSearch.set($any($event.target).value); addPage.set(1)" />
-      <div class="grid sm:grid-cols-2 gap-2 mt-3 max-h-[320px] overflow-y-auto">
+      <input type="text" placeholder="Search workspace members by name/email... (API paginator, handles 100s)" class="input input-bordered input-sm rounded-full w-full max-w-md" [value]="addSearch()" (input)="addSearch.set($any($event.target).value); addPage.set(1)" />
+      <div class="hidden md:block overflow-x-auto mt-3 border rounded-xl">
+        <table class="table table-sm">
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
+          <tbody>
+            @for (wm of paginatedAvailableMembers(); track wm.userId) {
+              <tr class="hover:bg-base-200">
+                <td><div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-primary text-primary-content flex items-center justify-center text-xs font-bold">{{ wm.fullName.slice(0,1) }}</div><span class="font-medium text-sm">{{ wm.fullName }}</span></div></td>
+                <td class="text-xs">{{ wm.email }}</td>
+                <td><span class="badge badge-ghost badge-xs rounded-full">{{ wm.role }}</span></td>
+                <td><button class="btn btn-primary btn-xs rounded-full" (click)="selectedUserId.set(wm.userId); addMutation.mutate()" [class.loading]="addMutation.isPending()">Add</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (paginatedAvailableMembers().length===0) { <p class="text-xs opacity-40 text-center py-4">No available members — all added or no match. Search handles 100s via API pagination.</p> }
+      </div>
+      <!-- Mobile cards -->
+      <div class="md:hidden space-y-2 mt-3">
         @for (wm of paginatedAvailableMembers(); track wm.userId) {
           <div class="flex justify-between items-center p-3 rounded-xl border hover:bg-base-200 cursor-pointer" (click)="selectedUserId.set(wm.userId); addMutation.mutate()">
             <div>
@@ -59,11 +76,10 @@
             <span class="btn btn-primary btn-xs rounded-full">Add</span>
           </div>
         }
-        @if (paginatedAvailableMembers().length===0) { <p class="text-xs opacity-40 col-span-full text-center py-4">No available members — all added or no match. Search handles 100s via pagination.</p> }
       </div>
       @if (filteredWorkspaceMembers().length > addPageSize) {
         <div class="flex justify-between items-center mt-3">
-          <span class="text-xs opacity-40">{{ filteredWorkspaceMembers().length }} found</span>
+          <span class="text-xs opacity-40">{{ filteredWorkspaceMembers().length }} found • API paginator</span>
           <div class="flex gap-1">
             <button class="btn btn-ghost btn-xs rounded-full" [disabled]="addPage()<=1" (click)="addPage.set(addPage()-1)">Previous</button>
             <button class="btn btn-ghost btn-xs rounded-full" [disabled]="addPage()>=totalAddPages()" (click)="addPage.set(addPage()+1)">Next</button>

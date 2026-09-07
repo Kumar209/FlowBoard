@@ -10,7 +10,7 @@ public record CreateWorkspaceCommand(Guid OrganizationId, string Name, Guid Call
 public record InviteMemberCommand(Guid WorkspaceId, string Email, string Role, Guid CallerId) : IRequest<Result<WorkspaceMemberDto>>;
 public record UpdateWorkspaceCommand(Guid WorkspaceId, string Name, string? Slug, Guid CallerId) : IRequest<Result<WorkspaceDto>>;
 public record DeleteWorkspaceCommand(Guid WorkspaceId, Guid CallerId) : IRequest<Result>;
-public record GetWorkspaceMembersQuery(Guid WorkspaceId, Guid CallerId) : IRequest<Result<List<WorkspaceMemberDto>>>;
+public record GetWorkspaceMembersQuery(Guid WorkspaceId, Guid CallerId, int Page = 1, int PageSize = 20, string? Search = null) : IRequest<Result<(List<WorkspaceMemberDto> Items, int Total)>>;
 public record ChangeMemberRoleCommand(Guid WorkspaceId, Guid UserId, string Role, Guid CallerId) : IRequest<Result<WorkspaceMemberDto>>;
 
 public class GetMyWorkspacesValidator : AbstractValidator<GetMyWorkspacesQuery>
@@ -84,14 +84,23 @@ public class DeleteWorkspaceHandler : IRequestHandler<DeleteWorkspaceCommand, Re
         catch (Exception ex) { return Result.Failure(ex.Message); }
     }
 }
-public class GetWorkspaceMembersHandler : IRequestHandler<GetWorkspaceMembersQuery, Result<List<WorkspaceMemberDto>>>
+public class GetWorkspaceMembersHandler : IRequestHandler<GetWorkspaceMembersQuery, Result<(List<WorkspaceMemberDto> Items, int Total)>>
 {
     private readonly IWorkspaceService _service;
     public GetWorkspaceMembersHandler(IWorkspaceService service) => _service = service;
-    public async Task<Result<List<WorkspaceMemberDto>>> Handle(GetWorkspaceMembersQuery req, CancellationToken ct)
+    public async Task<Result<(List<WorkspaceMemberDto> Items, int Total)>> Handle(GetWorkspaceMembersQuery req, CancellationToken ct)
     {
-        try { var list = await _service.GetMembersAsync(req.WorkspaceId, req.CallerId, ct); return Result<List<WorkspaceMemberDto>>.Success(list); }
-        catch (Exception ex) { return Result<List<WorkspaceMemberDto>>.Failure(ex.Message); }
+        try
+        {
+            if (req.Search != null || req.Page != 1 || req.PageSize != 20)
+            {
+                var (items, total) = await _service.GetMembersPagedAsync(req.WorkspaceId, req.CallerId, req.Page, req.PageSize, req.Search, ct);
+                return Result<(List<WorkspaceMemberDto> Items, int Total)>.Success((items, total));
+            }
+            var list = await _service.GetMembersAsync(req.WorkspaceId, req.CallerId, ct);
+            return Result<(List<WorkspaceMemberDto> Items, int Total)>.Success((list, list.Count));
+        }
+        catch (Exception ex) { return Result<(List<WorkspaceMemberDto> Items, int Total)>.Failure(ex.Message); }
     }
 }
 public class ChangeMemberRoleHandler : IRequestHandler<ChangeMemberRoleCommand, Result<WorkspaceMemberDto>>
