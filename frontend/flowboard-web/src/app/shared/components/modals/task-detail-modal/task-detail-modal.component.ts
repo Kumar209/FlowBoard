@@ -60,9 +60,7 @@ export class TaskDetailModalComponent {
   linkedSearch = signal('');
   filteredWatchers = computed(() => {
     const q = this.watcherSearch().toLowerCase().trim();
-    const raw:any = this.membersQuery.data();
-    const members = Array.isArray(raw) ? raw : (raw?.items ?? raw?.Items ?? []);
-    const list = Array.isArray(members) ? members : [];
+    const list = this.projectMembersList();
     if (!q) return list.slice(0,5);
     return list.filter((m:any) => (m.email||'').toLowerCase().includes(q) || (m.fullName||'').toLowerCase().includes(q)).slice(0,5);
   });
@@ -136,6 +134,14 @@ export class TaskDetailModalComponent {
     },
     enabled: this.open() && !!this.projectId(),
   }));
+  // Normalized for template @for (handles paginated object vs array)
+  projectMembersList = computed(() => {
+    const raw:any = this.membersQuery.data();
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    const items = raw.items ?? raw.Items ?? [];
+    return Array.isArray(items) ? items : [];
+  });
   environmentsQuery = injectQuery(() => ({
     queryKey: ['environments', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getEnvironments(this.projectId())),
@@ -361,7 +367,7 @@ export class TaskDetailModalComponent {
   confirmDeleteComment(id:string){ this.deleteCommentConfirmId.set(id); }
   doDeleteComment(){ const id=this.deleteCommentConfirmId(); if(!id) return; this.deleteCommentMut.mutate(id); this.deleteCommentConfirmId.set(null); }
   getAuthorDisplay(authorId:string){
-    const members = this.membersQuery.data() || [];
+    const members = this.projectMembersList();
     const m = members.find((x:any)=> x.userId===authorId);
     if (m) return { name: m.fullName, avatar: m.avatarUrl, email: m.email };
     // Fallback to current user if author is self

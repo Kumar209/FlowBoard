@@ -144,11 +144,17 @@
             <!-- Assignee picker -->
             <div class="flex flex-col gap-1">
               <span class="opacity-60 text-xs font-semibold">Assignee</span>
-              @if (membersQuery.data(); as members) {
-                <select class="select select-bordered select-sm rounded-xl w-full" [value]="assigneeId()" (change)="assigneeId.set($any($event.target).value)">
-                  <option value="">Unassigned</option>
-                  @for (m of members; track m.userId) { <option [value]="m.userId">{{ m.fullName }} ({{ m.role }}) — {{ m.email }}</option> }
-                </select>
+              @if (projectMembersList().length || membersQuery.isPending()) {
+                @if (projectMembersList().length) {
+                  <select class="select select-bordered select-sm rounded-xl w-full" [value]="assigneeId()" (change)="assigneeId.set($any($event.target).value)">
+                    <option value="">Unassigned</option>
+                    @for (m of projectMembersList(); track m.userId) { <option [value]="m.userId">{{ m.fullName }} ({{ m.role }}) — {{ m.email }}</option> }
+                  </select>
+                } @else if (membersQuery.isPending()) {
+                  <select class="select select-bordered select-sm rounded-xl w-full" disabled><option>Loading members...</option></select>
+                } @else {
+                  <select class="select select-bordered select-sm rounded-xl w-full" disabled><option>No project members — add in Members</option></select>
+                }
               } @else {
                 <select class="select select-bordered select-sm rounded-xl w-full" disabled><option>Loading members...</option></select>
               }

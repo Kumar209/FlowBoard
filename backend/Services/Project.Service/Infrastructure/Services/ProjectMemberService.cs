@@ -13,14 +13,43 @@ public class ProjectMemberService : IProjectMemberService
 
     public async Task<PaginatedResult<ProjectMemberDto>> GetMembersAsync(Guid projectId, int page, int pageSize, string? search, CancellationToken ct = default)
     {
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         var q = _db.ProjectMembers.Where(pm => pm.ProjectId == projectId);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.ToLower();
-            // search on Role; FullName/Email fetched via join later, fallback to Role filter
             q = q.Where(pm => pm.Role.ToLower().Contains(s));
         }
         var total = await q.CountAsync(ct);
+        // Fallback for existing projects with no explicit ProjectMembers: show workspace members as project members (so assignee not empty)
+        if (total == 0 && project != null)
+        {
+            try
+            {
+                var wsMembers = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0}", project.WorkspaceId).ToListAsync(ct);
+                var wsDtos = new List<ProjectMemberDto>();
+                foreach (var uid in wsMembers)
+                {
+                    string email = uid.ToString()[..8], fullName = uid.ToString()[..8];
+                    try
+                    {
+                        var row = await _db.Database.SqlQueryRaw<UserRow>("SELECT Id as UserId, Email, FullName FROM [identity].[Users] WHERE Id = {0}", uid).FirstOrDefaultAsync(ct);
+                        if (row != null) { email = row.Email; fullName = row.FullName; }
+                    }
+                    catch { }
+                    wsDtos.Add(new ProjectMemberDto(Guid.Empty, projectId, uid, email, fullName, "Member", DateTime.UtcNow));
+                }
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var s = search.ToLower();
+                    wsDtos = wsDtos.Where(d => d.FullName.ToLower().Contains(s) || d.Email.ToLower().Contains(s)).ToList();
+                }
+                total = wsDtos.Count;
+                var paged = wsDtos.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+                return new PaginatedResult<ProjectMemberDto>(paged, total, page, pageSize);
+            }
+            catch { }
+        }
         var items = await q.OrderBy(pm => pm.JoinedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         // Enrich with Identity Users (same DB, different schema)
         var userIds = items.Select(i => i.UserId).ToList();
