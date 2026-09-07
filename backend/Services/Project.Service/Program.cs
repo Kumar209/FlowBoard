@@ -32,6 +32,9 @@ builder.Services.AddScoped<ITaskService, Project.Service.Infrastructure.Services
 builder.Services.AddScoped<ISprintService, Project.Service.Infrastructure.Services.SprintService>();
 builder.Services.AddScoped<ITeamService, Project.Service.Infrastructure.Services.TeamService>();
 builder.Services.AddScoped<IEnvironmentService, Project.Service.Infrastructure.Services.EnvironmentService>();
+builder.Services.AddScoped<ICommentService, Project.Service.Infrastructure.Services.CommentService>();
+builder.Services.AddScoped<ISubTaskService, Project.Service.Infrastructure.Services.SubTaskService>();
+builder.Services.AddScoped<IActivityService, Project.Service.Infrastructure.Services.ActivityService>();
 
 // MassTransit 8.3 + CloudAMQP (same amqps:// key local/prod, 2s Outbox poll, durable quorum, retry 3x + _error)
 var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? builder.Configuration["RabbitMQ__Host"] ?? "";

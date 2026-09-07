@@ -1,10 +1,8 @@
 using FluentValidation;
 using MediatR;
 using SharedKernel;
-using Project.Service.Application.Caching;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
-using System.Text.Json;
 
 namespace Project.Service.Application.Commands;
 
@@ -24,24 +22,8 @@ public class AddCommentValidator : AbstractValidator<AddCommentCommand>
 
 public class AddCommentHandler : IRequestHandler<AddCommentCommand, Result<CommentDto>>
 {
-    private readonly IApplicationDbContext _db;
-    private readonly IRedisCacheService _cache;
-    public AddCommentHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
-
-    public async Task<Result<CommentDto>> Handle(AddCommentCommand req, CancellationToken ct)
-    {
-        var task = await _db.Tasks.FindAsync(new object[] { req.TaskId }, ct);
-        if (task == null) return Result<CommentDto>.Failure("Task not found");
-
-        var comment = new Domain.Entities.Comment(req.TaskId, req.CallerId, req.Content);
-        _db.Comments.Add(comment);
-
-        var evt = new { TaskId = req.TaskId, ProjectId = task.ProjectId, CommentId = comment.Id, ActorId = req.CallerId, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
-        _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskCommented", JsonSerializer.Serialize(evt)));
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, req.TaskId, req.CallerId, "TaskCommented", JsonSerializer.Serialize(new { req.Content })));
-
-        await _db.SaveChangesAsync(ct);
-        await _cache.RemoveAsync(CacheKeys.Board(task.ProjectId));
-        return Result<CommentDto>.Success(new CommentDto(comment.Id, comment.TaskId, comment.AuthorId, comment.Content, comment.CreatedAt));
-    }
+    private readonly ICommentService _service;
+    public AddCommentHandler(ICommentService service) => _service = service;
+    public Task<Result<CommentDto>> Handle(AddCommentCommand req, CancellationToken ct)
+        => _service.AddCommentAsync(req.TaskId, req.Content, req.CallerId, req.CallerRoles, ct);
 }
