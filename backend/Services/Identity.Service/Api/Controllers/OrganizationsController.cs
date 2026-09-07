@@ -55,7 +55,8 @@ public class OrganizationsController : ControllerBase
     public async Task<IActionResult> CreateEmployee(Guid id, [FromBody] CreateEmployeeRequest req)
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
-        var result = await _mediator.Send(new CreateEmployeeCommand(id, req.FullName, req.Email, req.Password, req.Role, req.WorkspaceId, userId.Value));
+        var workspaceIds = req.WorkspaceIds ?? (req.WorkspaceId.HasValue ? new List<Guid> { req.WorkspaceId.Value } : null);
+        var result = await _mediator.Send(new CreateEmployeeCommand(id, req.FullName, req.Email, req.Password, req.Role, workspaceIds, userId.Value));
         if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
         return StatusCode(201, result.Value);
     }
@@ -64,7 +65,8 @@ public class OrganizationsController : ControllerBase
     public async Task<IActionResult> UpdateEmployee(Guid id, Guid userId, [FromBody] UpdateEmployeeRequest req)
     {
         var callerId = GetUserId(); if (callerId == null) return Unauthorized();
-        var result = await _mediator.Send(new UpdateEmployeeCommand(id, userId, req.FullName, req.Email, req.Role, req.WorkspaceId, callerId.Value));
+        var workspaceIds = req.WorkspaceIds ?? (req.WorkspaceId.HasValue ? new List<Guid> { req.WorkspaceId.Value } : null);
+        var result = await _mediator.Send(new UpdateEmployeeCommand(id, userId, req.FullName, req.Email, req.Role, workspaceIds, callerId.Value));
         if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : BadRequest(new { error = result.Error });
         return Ok(result.Value);
     }
@@ -87,5 +89,5 @@ public class OrganizationsController : ControllerBase
 
 public record CreateOrgRequest(string Name, string? Description = null);
 public record UpdateOrgRequest(string Name, string? Description);
-public record CreateEmployeeRequest(string FullName, string Email, string Password, string Role, Guid? WorkspaceId = null);
-public record UpdateEmployeeRequest(string? FullName = null, string? Email = null, string? Role = null, Guid? WorkspaceId = null);
+public record CreateEmployeeRequest(string FullName, string Email, string Password, string Role, Guid? WorkspaceId = null, List<Guid>? WorkspaceIds = null);
+public record UpdateEmployeeRequest(string? FullName = null, string? Email = null, string? Role = null, Guid? WorkspaceId = null, List<Guid>? WorkspaceIds = null);

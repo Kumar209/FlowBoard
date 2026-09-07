@@ -28,12 +28,12 @@ export class MembersComponent {
   inviteEmail = signal('');
   invitePassword = signal('');
   inviteRole = signal('Member');
-  inviteWorkspaceId = signal('');
+  inviteWorkspaceIds = signal<string[]>([]);
   editTarget = signal<any>(null);
   editName = signal('');
   editEmail = signal('');
   editRole = signal('Member');
-  editWorkspaceId = signal('');
+  editWorkspaceIds = signal<string[]>([]);
 
   workspacesQuery = injectQuery(() => ({
     queryKey: ['workspaces'] as const,
@@ -95,13 +95,14 @@ export class MembersComponent {
     mutationFn: () => {
       const orgId = this.orgId();
       if (!orgId) throw new Error('No organization');
-      return firstValueFrom(this.ws.createOrganizationMember(orgId, this.inviteFullName().trim(), this.inviteEmail().trim(), this.invitePassword().trim(), this.inviteRole(), this.inviteWorkspaceId() || undefined));
+      const wids = this.inviteWorkspaceIds();
+      return firstValueFrom(this.ws.createOrganizationMember(orgId, this.inviteFullName().trim(), this.inviteEmail().trim(), this.invitePassword().trim(), this.inviteRole(), wids.length ? wids as any : undefined));
     },
     onSuccess: () => {
       this.qc.invalidateQueries({queryKey:['org-members']});
       this.qc.invalidateQueries({queryKey:['agg-members']});
       this.showInvite.set(false);
-      this.inviteFullName.set(''); this.inviteEmail.set(''); this.invitePassword.set('');
+      this.inviteFullName.set(''); this.inviteEmail.set(''); this.invitePassword.set(''); this.inviteWorkspaceIds.set([]);
       this.toast.success('Employee created');
     },
     onError: (e:any) => this.toast.error(e.error?.error || 'Create failed')
@@ -117,7 +118,10 @@ export class MembersComponent {
     onError: (e:any) => this.toast.error(e.error?.error || 'Remove failed')
   }));
   updateMutation = injectMutation(() => ({
-    mutationFn: () => firstValueFrom(this.ws.updateOrganizationMember(this.orgId(), this.editTarget()!.userId, this.editName().trim() || undefined, this.editEmail().trim() || undefined, this.editRole(), this.editWorkspaceId() || undefined)),
+    mutationFn: () => {
+      const wids = this.editWorkspaceIds();
+      return firstValueFrom(this.ws.updateOrganizationMember(this.orgId(), this.editTarget()!.userId, this.editName().trim() || undefined, this.editEmail().trim() || undefined, this.editRole(), wids.length ? wids as any : undefined));
+    },
     onSuccess: () => {
       this.qc.invalidateQueries({queryKey:['org-members']});
       this.qc.invalidateQueries({queryKey:['agg-members']});
@@ -127,10 +131,24 @@ export class MembersComponent {
     onError: (e:any) => this.toast.error(e.error?.error || 'Update failed')
   }));
 
-  openInvite(){ this.inviteFullName.set(''); this.inviteEmail.set(''); this.invitePassword.set(''); this.inviteRole.set('Member'); this.inviteWorkspaceId.set(this.workspacesQuery.data()?.[0]?.id || ''); this.showInvite.set(true); }
+  openInvite(){
+    const wss = this.workspacesQuery.data() || [];
+    const dev = wss.find((w:any) => w.name.toLowerCase().includes('development')) || wss[0];
+    this.inviteFullName.set(''); this.inviteEmail.set(''); this.invitePassword.set(''); this.inviteRole.set('Member');
+    this.inviteWorkspaceIds.set(dev ? [dev.id] : wss.slice(0,1).map((w:any)=>w.id));
+    this.showInvite.set(true);
+  }
   doInvite(){ if(!this.inviteFullName().trim() || !this.inviteEmail().trim() || !this.invitePassword().trim()) return; this.inviteMutation.mutate(); }
   confirmRemove(m:any){ this.removeMutation.mutate(m.userId); }
-  openEdit(m:any){ this.editTarget.set(m); this.editName.set(m.fullName); this.editEmail.set(m.email); this.editRole.set(m.role); this.editWorkspaceId.set(m.workspaceId || this.workspacesQuery.data()?.[0]?.id || ''); }
+  openEdit(m:any){
+    this.editTarget.set(m);
+    this.editName.set(m.fullName);
+    this.editEmail.set(m.email);
+    this.editRole.set(m.role);
+    const wids = (m as any).workspaceIds as string[] | undefined;
+    const allWids = wids && wids.length ? wids : ((m as any).workspaceId ? [(m as any).workspaceId] : []);
+    this.editWorkspaceIds.set(allWids.length ? allWids : (this.workspacesQuery.data()?.slice(0,1).map((w:any)=>w.id) || []));
+  }
   saveEdit(){
     const t = this.editTarget(); if(!t) return;
     this.updateMutation.mutate();

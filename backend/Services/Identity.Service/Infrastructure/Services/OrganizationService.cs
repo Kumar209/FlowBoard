@@ -47,13 +47,20 @@ public class OrganizationService : IOrganizationService
         var orgExists = await _db.Organizations.AnyAsync(o => o.Id == organizationId, ct);
         if (!orgExists) throw new NotFoundException("Organization not found");
         var workspaceIds = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).ToListAsync(ct);
+        var workspaceMap = await _db.Workspaces.Where(w => workspaceIds.Contains(w.Id)).ToDictionaryAsync(w => w.Id, w => w.Name, ct);
         var members = await _db.WorkspaceMembers.Where(m => workspaceIds.Contains(m.WorkspaceId))
             .Join(_db.Users, m => m.UserId, u => u.Id, (m,u) => new { m.WorkspaceId, m.UserId, m.Role, m.JoinedAt, u.FullName, u.Email, u.AvatarUrl })
             .ToListAsync(ct);
-        return members.GroupBy(x => x.UserId).Select(g => g.First()).Select(x => new OrgMemberDto(x.UserId, x.FullName, x.Email, x.AvatarUrl, x.Role.ToString(), (int)x.Role, x.WorkspaceId, x.JoinedAt)).ToList();
+        // Group by UserId and collect all workspaces for that user
+        return members.GroupBy(x => x.UserId).Select(g => {
+            var first = g.First();
+            var allWorkspaceIds = g.Select(x => x.WorkspaceId).Distinct().ToList();
+            var allWorkspaceNames = allWorkspaceIds.Select(id => workspaceMap.TryGetValue(id, out var name) ? name : id.ToString()[..6]).ToList();
+            return new OrgMemberDto(first.UserId, first.FullName, first.Email, first.AvatarUrl, first.Role.ToString(), (int)first.Role, first.WorkspaceId, first.JoinedAt, allWorkspaceNames, allWorkspaceIds);
+        }).ToList();
     }
 
-    public async Task<OrgMemberDto> CreateEmployeeAsync(Guid organizationId, string fullName, string email, string password, string role, Guid? workspaceId, Guid callerId, CancellationToken ct = default)
+    public async Task<OrgMemberDto> CreateEmployeeAsync(Guid organizationId, string fullName, string email, string password, string role, List<Guid>? workspaceIds, Guid callerId, CancellationToken ct = default)
     {
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
@@ -66,16 +73,25 @@ public class OrganizationService : IOrganizationService
         var user = new User(email.ToLowerInvariant(), BCrypt.Net.BCrypt.HashPassword(password), fullName);
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
-        var targetWorkspaceId = workspaceId ?? await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).FirstOrDefaultAsync(ct);
-        if (targetWorkspaceId != Guid.Empty)
+        var targetWorkspaceIds = workspaceIds;
+        if (targetWorkspaceIds == null || !targetWorkspaceIds.Any())
         {
-            _db.WorkspaceMembers.Add(new WorkspaceMember(targetWorkspaceId, user.Id, parsedRole));
+            var first = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).FirstOrDefaultAsync(ct);
+            if (first != Guid.Empty) targetWorkspaceIds = new List<Guid> { first };
+        }
+        if (targetWorkspaceIds != null)
+        {
+            foreach (var wid in targetWorkspaceIds.Where(id => id != Guid.Empty))
+            {
+                _db.WorkspaceMembers.Add(new WorkspaceMember(wid, user.Id, parsedRole));
+            }
             await _db.SaveChangesAsync(ct);
         }
-        return new OrgMemberDto(user.Id, user.FullName, user.Email, user.AvatarUrl, parsedRole.ToString(), (int)parsedRole, targetWorkspaceId, DateTime.UtcNow);
+        var firstWorkspaceId = targetWorkspaceIds?.FirstOrDefault() ?? Guid.Empty;
+        return new OrgMemberDto(user.Id, user.FullName, user.Email, user.AvatarUrl, parsedRole.ToString(), (int)parsedRole, firstWorkspaceId, DateTime.UtcNow);
     }
 
-    public async Task<OrgMemberDto> UpdateEmployeeAsync(Guid organizationId, Guid userId, string? fullName, string? email, string? role, Guid? workspaceId, Guid callerId, CancellationToken ct = default)
+    public async Task<OrgMemberDto> UpdateEmployeeAsync(Guid organizationId, Guid userId, string? fullName, string? email, string? role, List<Guid>? workspaceIds, Guid callerId, CancellationToken ct = default)
     {
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
@@ -91,44 +107,40 @@ public class OrganizationService : IOrganizationService
             user.UpdateEmail(email.ToLowerInvariant());
         }
         await _db.SaveChangesAsync(ct);
-        // Handle workspace change and role update
-        if (workspaceId.HasValue)
+        // Handle workspaceIds and role update - sync to exactly the provided workspaceIds
+        if (workspaceIds != null)
         {
-            var targetWorkspaceId = workspaceId.Value;
-            // Check if user is already member of target workspace
-            var existingMember = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == targetWorkspaceId && m.UserId == userId, ct);
-            if (existingMember != null)
+            var orgWorkspaceIds = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).ToListAsync(ct);
+            var validWorkspaceIds = workspaceIds.Where(id => orgWorkspaceIds.Contains(id)).ToList();
+            var currentWorkspaceIds = await _db.WorkspaceMembers.Where(m => m.UserId == userId && orgWorkspaceIds.Contains(m.WorkspaceId)).Select(m => m.WorkspaceId).ToListAsync(ct);
+            var toAdd = validWorkspaceIds.Except(currentWorkspaceIds).ToList();
+            var toRemove = currentWorkspaceIds.Except(validWorkspaceIds).ToList();
+            if (toRemove.Any())
             {
-                // Update role if provided
-                if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<WorkspaceRole>(role, true, out var newRole))
-                {
-                    existingMember.Role = newRole;
-                    await _db.SaveChangesAsync(ct);
-                }
+                var toRemoveMembers = await _db.WorkspaceMembers.Where(m => m.UserId == userId && toRemove.Contains(m.WorkspaceId)).ToListAsync(ct);
+                _db.WorkspaceMembers.RemoveRange(toRemoveMembers);
             }
+            WorkspaceRole targetRole = WorkspaceRole.Member;
+            if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<WorkspaceRole>(role, true, out var parsed)) targetRole = parsed;
             else
             {
-                // Not a member of target workspace - add them (move from old workspace if needed)
-                // Optionally remove from other workspaces in same org? For now, just add to target
-                if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<WorkspaceRole>(role, true, out var parsedRole))
-                {
-                    _db.WorkspaceMembers.Add(new WorkspaceMember(targetWorkspaceId, userId, parsedRole));
-                    await _db.SaveChangesAsync(ct);
-                }
-                else
-                {
-                    // Add with existing role or Member
-                    var oldMember = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.UserId == userId, ct);
-                    var oldRole = oldMember?.Role ?? WorkspaceRole.Member;
-                    if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<WorkspaceRole>(role, true, out var r)) oldRole = r;
-                    _db.WorkspaceMembers.Add(new WorkspaceMember(targetWorkspaceId, userId, oldRole));
-                    await _db.SaveChangesAsync(ct);
-                }
+                var existing = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.UserId == userId, ct);
+                if (existing != null) targetRole = existing.Role;
             }
+            foreach (var wid in toAdd)
+            {
+                _db.WorkspaceMembers.Add(new WorkspaceMember(wid, userId, targetRole));
+            }
+            // Update role for existing that remain
+            if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<WorkspaceRole>(role, true, out var newRole))
+            {
+                var remaining = await _db.WorkspaceMembers.Where(m => m.UserId == userId && validWorkspaceIds.Contains(m.WorkspaceId)).ToListAsync(ct);
+                foreach (var m in remaining) m.Role = newRole;
+            }
+            await _db.SaveChangesAsync(ct);
         }
         else if (!string.IsNullOrWhiteSpace(role))
         {
-            // No workspace change, just update role in current workspace(s)
             var memberships = await _db.WorkspaceMembers.Where(m => m.UserId == userId).ToListAsync(ct);
             if (Enum.TryParse<WorkspaceRole>(role, true, out var newRole2))
             {

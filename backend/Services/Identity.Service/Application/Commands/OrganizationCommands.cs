@@ -9,8 +9,8 @@ public record GetMyOrganizationsQuery(Guid UserId) : IRequest<Result<List<Organi
 public record CreateOrganizationCommand(string Name, string? Description, Guid CallerId) : IRequest<Result<OrganizationDto>>;
 public record UpdateOrganizationCommand(Guid OrganizationId, string Name, string? Description, Guid CallerId) : IRequest<Result<OrganizationDto>>;
 public record GetOrgMembersQuery(Guid OrganizationId, Guid CallerId) : IRequest<Result<List<OrgMemberDto>>>;
-public record CreateEmployeeCommand(Guid OrganizationId, string FullName, string Email, string Password, string Role, Guid? WorkspaceId, Guid CallerId) : IRequest<Result<OrgMemberDto>>;
-public record UpdateEmployeeCommand(Guid OrganizationId, Guid UserId, string? FullName, string? Email, string? Role, Guid? WorkspaceId, Guid CallerId) : IRequest<Result<OrgMemberDto>>;
+public record CreateEmployeeCommand(Guid OrganizationId, string FullName, string Email, string Password, string Role, List<Guid>? WorkspaceIds, Guid CallerId) : IRequest<Result<OrgMemberDto>>;
+public record UpdateEmployeeCommand(Guid OrganizationId, Guid UserId, string? FullName, string? Email, string? Role, List<Guid>? WorkspaceIds, Guid CallerId) : IRequest<Result<OrgMemberDto>>;
 public record DeleteEmployeeCommand(Guid OrganizationId, Guid UserId, Guid CallerId) : IRequest<Result>;
 
 public class GetMyOrganizationsHandler : IRequestHandler<GetMyOrganizationsQuery, Result<List<OrganizationDto>>>
@@ -59,7 +59,7 @@ public class CreateEmployeeHandler : IRequestHandler<CreateEmployeeCommand, Resu
     public CreateEmployeeHandler(IOrganizationService service) => _service = service;
     public async Task<Result<OrgMemberDto>> Handle(CreateEmployeeCommand req, CancellationToken ct)
     {
-        try { var dto = await _service.CreateEmployeeAsync(req.OrganizationId, req.FullName, req.Email, req.Password, req.Role, req.WorkspaceId, req.CallerId, ct); return Result<OrgMemberDto>.Success(dto); }
+        try { var dto = await _service.CreateEmployeeAsync(req.OrganizationId, req.FullName, req.Email, req.Password, req.Role, req.WorkspaceIds, req.CallerId, ct); return Result<OrgMemberDto>.Success(dto); }
         catch (Exception ex) { return Result<OrgMemberDto>.Failure(ex.Message); }
     }
 }
@@ -69,7 +69,7 @@ public class UpdateEmployeeHandler : IRequestHandler<UpdateEmployeeCommand, Resu
     public UpdateEmployeeHandler(IOrganizationService service) => _service = service;
     public async Task<Result<OrgMemberDto>> Handle(UpdateEmployeeCommand req, CancellationToken ct)
     {
-        try { var dto = await _service.UpdateEmployeeAsync(req.OrganizationId, req.UserId, req.FullName, req.Email, req.Role, req.WorkspaceId, req.CallerId, ct); return Result<OrgMemberDto>.Success(dto); }
+        try { var dto = await _service.UpdateEmployeeAsync(req.OrganizationId, req.UserId, req.FullName, req.Email, req.Role, req.WorkspaceIds, req.CallerId, ct); return Result<OrgMemberDto>.Success(dto); }
         catch (Exception ex) { return Result<OrgMemberDto>.Failure(ex.Message); }
     }
 }

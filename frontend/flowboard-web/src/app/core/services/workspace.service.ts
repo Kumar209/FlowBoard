@@ -35,11 +35,11 @@ export class WorkspaceService {
   getOrganizationMembers(organizationId: string) {
     return this.http.get<any[]>(`${environment.apiUrl}/api/organizations/${organizationId}/members`, { withCredentials: true });
   }
-  createOrganizationMember(organizationId: string, fullName: string, email: string, password: string, role: string, workspaceId?: string) {
-    return this.http.post(`${environment.apiUrl}/api/organizations/${organizationId}/employees`, { FullName: fullName, Email: email, Password: password, Role: role, WorkspaceId: workspaceId }, { withCredentials: true });
+  createOrganizationMember(organizationId: string, fullName: string, email: string, password: string, role: string, workspaceIds?: string[]) {
+    return this.http.post(`${environment.apiUrl}/api/organizations/${organizationId}/employees`, { FullName: fullName, Email: email, Password: password, Role: role, WorkspaceIds: workspaceIds }, { withCredentials: true });
   }
-  updateOrganizationMember(organizationId: string, userId: string, fullName?: string, email?: string, role?: string, workspaceId?: string) {
-    return this.http.put(`${environment.apiUrl}/api/organizations/${organizationId}/employees/${userId}`, { FullName: fullName, Email: email, Role: role, WorkspaceId: workspaceId }, { withCredentials: true });
+  updateOrganizationMember(organizationId: string, userId: string, fullName?: string, email?: string, role?: string, workspaceIds?: string[]) {
+    return this.http.put(`${environment.apiUrl}/api/organizations/${organizationId}/employees/${userId}`, { FullName: fullName, Email: email, Role: role, WorkspaceIds: workspaceIds }, { withCredentials: true });
   }
   deleteOrganizationMember(organizationId: string, userId: string) {
     return this.http.delete(`${environment.apiUrl}/api/organizations/${organizationId}/employees/${userId}`, { withCredentials: true });
