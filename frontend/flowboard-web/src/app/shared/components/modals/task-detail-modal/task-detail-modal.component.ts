@@ -1,4 +1,13 @@
-import { Component, ChangeDetectionStrategy, input, output, signal, computed, effect, inject } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  input,
+  output,
+  signal,
+  computed,
+  effect,
+  inject,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../../core/services/project.service';
@@ -17,7 +26,7 @@ import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-quer
   imports: [CommonModule, ConfirmDeleteComponent],
   templateUrl: './task-detail-modal.component.html',
   styleUrls: ['./task-detail-modal.component.css'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TaskDetailModalComponent {
   open = input<boolean>(false);
@@ -27,7 +36,28 @@ export class TaskDetailModalComponent {
   workspaceId = input<string>('');
   loading = input<boolean>(false);
   closed = output<void>();
-  saved = output<{title:string; description:string; priority:string; listId:string; labelsJson?:string; assigneeId?:string; dueDate?:string; issueType?:string; epic?:string; storyPoints?:number; startDate?:string; environment?:string; parentIssueId?:string; sprintId?:string; watchersJson?:string; linkedIssuesJson?:string; timeEstimated?:number; timeSpent?:number; timeRemaining?:number; teamId?:string}>();
+  saved = output<{
+    title: string;
+    description: string;
+    priority: string;
+    listId: string;
+    labelsJson?: string;
+    assigneeId?: string;
+    dueDate?: string;
+    issueType?: string;
+    epic?: string;
+    storyPoints?: number;
+    startDate?: string;
+    environment?: string;
+    parentIssueId?: string;
+    sprintId?: string;
+    watchersJson?: string;
+    linkedIssuesJson?: string;
+    timeEstimated?: number;
+    timeSpent?: number;
+    timeRemaining?: number;
+    teamId?: string;
+  }>();
 
   private projectService = inject(ProjectService);
   auth = inject(AuthService);
@@ -61,31 +91,40 @@ export class TaskDetailModalComponent {
   filteredWatchers = computed(() => {
     const q = this.watcherSearch().toLowerCase().trim();
     const list = this.projectMembersList();
-    if (!q) return list.slice(0,5);
-    return list.filter((m:any) => (m.email||'').toLowerCase().includes(q) || (m.fullName||'').toLowerCase().includes(q)).slice(0,5);
+    if (!q) return list.slice(0, 5);
+    return list
+      .filter(
+        (m: any) =>
+          (m.email || '').toLowerCase().includes(q) || (m.fullName || '').toLowerCase().includes(q),
+      )
+      .slice(0, 5);
   });
   filteredParents = computed(() => {
     const q = this.parentSearch().toLowerCase().trim();
     const tasks = this.boardTasks();
     if (!q) return [];
-    return tasks.filter((t:any) => t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q)).slice(0,5);
+    return tasks
+      .filter((t: any) => t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q))
+      .slice(0, 5);
   });
   filteredLinked = computed(() => {
     const q = this.linkedSearch().toLowerCase().trim();
     const tasks = this.boardTasks();
     if (!q) return [];
-    return tasks.filter((t:any) => t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q)).slice(0,5);
+    return tasks
+      .filter((t: any) => t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q))
+      .slice(0, 5);
   });
   parentDisplayName = computed(() => {
     const pid = this.parentIssueId();
     if (!pid) return '';
-    const t = this.boardTasks().find((x:any) => x.id === pid);
-    return t ? `${t.title} (${t.id.slice(0,6)})` : pid.slice(0,6);
+    const t = this.boardTasks().find((x: any) => x.id === pid);
+    return t ? `${t.title} (${t.id.slice(0, 6)})` : pid.slice(0, 6);
   });
   childIssues = computed(() => {
     const tid = this.task()?.id;
     if (!tid) return [];
-    return this.boardTasks().filter((t:any) => t.parentIssueId === tid);
+    return this.boardTasks().filter((t: any) => t.parentIssueId === tid);
   });
   boardTasks = signal<any[]>([]);
   newSubtask = signal('');
@@ -94,7 +133,7 @@ export class TaskDetailModalComponent {
   editCommentContent = signal('');
   editingSubtaskId = signal<string | null>(null);
   editSubtaskTitle = signal('');
-  activeTab = signal<'comments'|'history'>('comments');
+  activeTab = signal<'comments' | 'history'>('comments');
   deleteSubtaskConfirmId = signal<string | null>(null);
   deleteCommentConfirmId = signal<string | null>(null);
 
@@ -102,35 +141,94 @@ export class TaskDetailModalComponent {
   labelsJson = computed(() => {
     const raw = this.labels().trim();
     if (!raw) return undefined;
-    const arr = raw.split(',').map(s=>s.trim()).filter(Boolean);
+    const arr = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     return JSON.stringify(arr);
   });
   watchersJson = computed(() => {
-    const raw=this.watchers().trim(); if(!raw) return undefined;
-    return JSON.stringify(raw.split(',').map(s=>s.trim()).filter(Boolean));
+    const raw = this.watchers().trim();
+    if (!raw) return undefined;
+    return JSON.stringify(
+      raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
   });
   linkedIssuesJson = computed(() => {
-    const raw=this.linkedIssues().trim(); if(!raw) return undefined;
-    return JSON.stringify(raw.split(',').map(s=>s.trim()).filter(Boolean));
+    const raw = this.linkedIssues().trim();
+    if (!raw) return undefined;
+    return JSON.stringify(
+      raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
   });
   isDirty = computed(() => {
     const t = this.task();
-    if(!t) return false;
-    const due = t.dueDate ? (t.dueDate as string).slice(0,10) : '';
-    const start = t.startDate ? (t.startDate as string).slice(0,10) : '';
-    const labelsDisplay = (()=>{ try{ const a=JSON.parse(t.labelsJson||'[]'); return Array.isArray(a)?a.join(', '):'';}catch{return t.labelsJson||''}})();
-    const watchersDisplay = (()=>{ try{ const a=JSON.parse(t.watchersJson||'[]'); return Array.isArray(a)?a.join(', '):'';}catch{return ''}})();
-    const linkedDisplay = (()=>{ try{ const a=JSON.parse(t.linkedIssuesJson||'[]'); return Array.isArray(a)?a.join(', '):'';}catch{return ''}})();
-    return this.title() !== t.title || this.description() !== (t.description||'') || this.priority() !== t.priority || this.listId() !== t.listId || this.labels() !== labelsDisplay || (this.assigneeId()||'') !== (t.assigneeId||'') || this.dueDate() !== due || this.issueType() !== (t.issueType||'Task') || this.epic() !== (t.epic||'') || (this.storyPoints() ?? null) !== (t.storyPoints ?? null) || this.startDate() !== start || this.environmentSel() !== (t.environment||'') || this.parentIssueId() !== (t.parentIssueId||'') || this.sprintId() !== (t.sprintId||'') || this.teamId() !== (t.teamId||'') || this.watchers() !== watchersDisplay || this.linkedIssues() !== linkedDisplay || (this.timeEstimated() ?? null) !== (t.timeEstimated ?? null) || (this.timeSpent() ?? null) !== (t.timeSpent ?? null) || (this.timeRemaining() ?? null) !== (t.timeRemaining ?? null);
+    if (!t) return false;
+    const due = t.dueDate ? (t.dueDate as string).slice(0, 10) : '';
+    const start = t.startDate ? (t.startDate as string).slice(0, 10) : '';
+    const labelsDisplay = (() => {
+      try {
+        const a = JSON.parse(t.labelsJson || '[]');
+        return Array.isArray(a) ? a.join(', ') : '';
+      } catch {
+        return t.labelsJson || '';
+      }
+    })();
+    const watchersDisplay = (() => {
+      try {
+        const a = JSON.parse(t.watchersJson || '[]');
+        return Array.isArray(a) ? a.join(', ') : '';
+      } catch {
+        return '';
+      }
+    })();
+    const linkedDisplay = (() => {
+      try {
+        const a = JSON.parse(t.linkedIssuesJson || '[]');
+        return Array.isArray(a) ? a.join(', ') : '';
+      } catch {
+        return '';
+      }
+    })();
+    return (
+      this.title() !== t.title ||
+      this.description() !== (t.description || '') ||
+      this.priority() !== t.priority ||
+      this.listId() !== t.listId ||
+      this.labels() !== labelsDisplay ||
+      (this.assigneeId() || '') !== (t.assigneeId || '') ||
+      this.dueDate() !== due ||
+      this.issueType() !== (t.issueType || 'Task') ||
+      this.epic() !== (t.epic || '') ||
+      (this.storyPoints() ?? null) !== (t.storyPoints ?? null) ||
+      this.startDate() !== start ||
+      this.environmentSel() !== (t.environment || '') ||
+      this.parentIssueId() !== (t.parentIssueId || '') ||
+      this.sprintId() !== (t.sprintId || '') ||
+      this.teamId() !== (t.teamId || '') ||
+      this.watchers() !== watchersDisplay ||
+      this.linkedIssues() !== linkedDisplay ||
+      (this.timeEstimated() ?? null) !== (t.timeEstimated ?? null) ||
+      (this.timeSpent() ?? null) !== (t.timeSpent ?? null) ||
+      (this.timeRemaining() ?? null) !== (t.timeRemaining ?? null)
+    );
   });
 
   // Queries — MNC: assignee/watchers derive from Project Members (not workspace). WorkspaceMembers only used to populate Project Members.
   effectiveProjectId = computed(() => this.projectId() || this.task()?.projectId || '');
+
+
   membersQuery = injectQuery(() => ({
     queryKey: ['project-members', this.effectiveProjectId()] as const,
     queryFn: async () => {
       const pid = this.effectiveProjectId();
-      const res:any = await firstValueFrom(this.projectService.getProjectMembers(pid, 1, 100));
+      const res: any = await firstValueFrom(this.projectService.getProjectMembers(pid, 1, 100));
       const items = res?.items ?? res?.Items ?? (Array.isArray(res) ? res : []);
       return Array.isArray(items) ? items : [];
     },
@@ -138,7 +236,7 @@ export class TaskDetailModalComponent {
   }));
   // Normalized for template @for (handles paginated object vs array)
   projectMembersList = computed(() => {
-    const raw:any = this.membersQuery.data();
+    const raw: any = this.membersQuery.data();
     if (!raw) return [];
     if (Array.isArray(raw)) return raw;
     const items = raw.items ?? raw.Items ?? [];
@@ -193,38 +291,89 @@ export class TaskDetailModalComponent {
 
   historyQuery = injectQuery(() => ({
     queryKey: ['activities-task', this.projectId(), this.task()?.id] as const,
-    queryFn: () => firstValueFrom(this.projectService.getActivities(this.projectId(), 1, 20, this.task()?.id)),
-    enabled: this.open() && !!this.projectId() && !!this.task()?.id && this.activeTab()==='history',
+    queryFn: () =>
+      firstValueFrom(this.projectService.getActivities(this.projectId(), 1, 20, this.task()?.id)),
+    enabled:
+      this.open() && !!this.projectId() && !!this.task()?.id && this.activeTab() === 'history',
   }));
 
   // Mutations - invalidate board + activities for realtime (no refresh needed)
   createSubtaskMut = injectMutation(() => ({
-    mutationFn: (title:string) => firstValueFrom(this.projectService.createSubTask(this.task().id, title)),
-    onSuccess: () => { this.queryClient.invalidateQueries({queryKey:['subtasks', this.task().id]}); this.queryClient.invalidateQueries({queryKey:['board', this.projectId()]}); this.queryClient.invalidateQueries({queryKey:['activities', this.projectId()]}); this.queryClient.invalidateQueries({queryKey:['activities-task', this.projectId(), this.task().id]}); this.newSubtask.set(''); }
+    mutationFn: (title: string) =>
+      firstValueFrom(this.projectService.createSubTask(this.task().id, title)),
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['subtasks', this.task().id] });
+      this.queryClient.invalidateQueries({ queryKey: ['board', this.projectId()] });
+      this.queryClient.invalidateQueries({ queryKey: ['activities', this.projectId()] });
+      this.queryClient.invalidateQueries({
+        queryKey: ['activities-task', this.projectId(), this.task().id],
+      });
+      this.newSubtask.set('');
+    },
   }));
   toggleSubtaskMut = injectMutation(() => ({
-    mutationFn: (id:string) => firstValueFrom(this.projectService.toggleSubTask(id)),
-    onSuccess: () => { this.queryClient.invalidateQueries({queryKey:['subtasks', this.task().id]}); this.queryClient.invalidateQueries({queryKey:['board', this.projectId()]}); this.queryClient.invalidateQueries({queryKey:['activities-task', this.projectId(), this.task().id]}); }
+    mutationFn: (id: string) => firstValueFrom(this.projectService.toggleSubTask(id)),
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['subtasks', this.task().id] });
+      this.queryClient.invalidateQueries({ queryKey: ['board', this.projectId()] });
+      this.queryClient.invalidateQueries({
+        queryKey: ['activities-task', this.projectId(), this.task().id],
+      });
+    },
   }));
   updateSubtaskMut = injectMutation(() => ({
-    mutationFn: (vars:{id:string; title:string}) => firstValueFrom(this.projectService.updateSubTask(vars.id, vars.title)),
-    onSuccess: () => { this.queryClient.invalidateQueries({queryKey:['subtasks', this.task().id]}); this.queryClient.invalidateQueries({queryKey:['activities-task', this.projectId(), this.task().id]}); this.editingSubtaskId.set(null); }
+    mutationFn: (vars: { id: string; title: string }) =>
+      firstValueFrom(this.projectService.updateSubTask(vars.id, vars.title)),
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['subtasks', this.task().id] });
+      this.queryClient.invalidateQueries({
+        queryKey: ['activities-task', this.projectId(), this.task().id],
+      });
+      this.editingSubtaskId.set(null);
+    },
   }));
   deleteSubtaskMut = injectMutation(() => ({
-    mutationFn: (id:string) => firstValueFrom(this.projectService.deleteSubTask(id)),
-    onSuccess: () => { this.queryClient.invalidateQueries({queryKey:['subtasks', this.task().id]}); this.queryClient.invalidateQueries({queryKey:['board', this.projectId()]}); this.queryClient.invalidateQueries({queryKey:['activities-task', this.projectId(), this.task().id]}); }
+    mutationFn: (id: string) => firstValueFrom(this.projectService.deleteSubTask(id)),
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['subtasks', this.task().id] });
+      this.queryClient.invalidateQueries({ queryKey: ['board', this.projectId()] });
+      this.queryClient.invalidateQueries({
+        queryKey: ['activities-task', this.projectId(), this.task().id],
+      });
+    },
   }));
   createCommentMut = injectMutation(() => ({
-    mutationFn: (content:string) => firstValueFrom(this.projectService.createComment(this.task().id, content)),
-    onSuccess: () => { this.queryClient.invalidateQueries({queryKey:['comments', this.task().id]}); this.queryClient.invalidateQueries({queryKey:['board', this.projectId()]}); this.queryClient.invalidateQueries({queryKey:['activities', this.projectId()]}); this.newComment.set(''); this.queryClient.invalidateQueries({queryKey:['activities-task', this.projectId(), this.task().id]}); }
+    mutationFn: (content: string) =>
+      firstValueFrom(this.projectService.createComment(this.task().id, content)),
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['comments', this.task().id] });
+      this.queryClient.invalidateQueries({ queryKey: ['board', this.projectId()] });
+      this.queryClient.invalidateQueries({ queryKey: ['activities', this.projectId()] });
+      this.newComment.set('');
+      this.queryClient.invalidateQueries({
+        queryKey: ['activities-task', this.projectId(), this.task().id],
+      });
+    },
   }));
   updateCommentMut = injectMutation(() => ({
-    mutationFn: (vars:{id:string; content:string}) => firstValueFrom(this.projectService.updateComment(vars.id, vars.content)),
-    onSuccess: () => { this.queryClient.invalidateQueries({queryKey:['comments', this.task().id]}); this.queryClient.invalidateQueries({queryKey:['activities-task', this.projectId(), this.task().id]}); this.editingCommentId.set(null); }
+    mutationFn: (vars: { id: string; content: string }) =>
+      firstValueFrom(this.projectService.updateComment(vars.id, vars.content)),
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['comments', this.task().id] });
+      this.queryClient.invalidateQueries({
+        queryKey: ['activities-task', this.projectId(), this.task().id],
+      });
+      this.editingCommentId.set(null);
+    },
   }));
   deleteCommentMut = injectMutation(() => ({
-    mutationFn: (id:string) => firstValueFrom(this.projectService.deleteComment(id)),
-    onSuccess: () => { this.queryClient.invalidateQueries({queryKey:['comments', this.task().id]}); this.queryClient.invalidateQueries({queryKey:['activities-task', this.projectId(), this.task().id]}); }
+    mutationFn: (id: string) => firstValueFrom(this.projectService.deleteComment(id)),
+    onSuccess: () => {
+      this.queryClient.invalidateQueries({ queryKey: ['comments', this.task().id] });
+      this.queryClient.invalidateQueries({
+        queryKey: ['activities-task', this.projectId(), this.task().id],
+      });
+    },
   }));
 
   currentUserId = computed(() => this.auth.currentUser()?.id || '');
@@ -244,9 +393,24 @@ export class TaskDetailModalComponent {
     this.startDate.set(t.startDate ? (t.startDate as string).slice(0, 10) : '');
     this.environmentSel.set(t.environment || '');
     this.parentIssueId.set(t.parentIssueId || '');
-    try { const a = JSON.parse(t.labelsJson || '[]'); this.labels.set(Array.isArray(a) ? a.join(', ') : (t.labelsJson || '')); } catch { this.labels.set(t.labelsJson || ''); }
-    try { const w = JSON.parse(t.watchersJson || '[]'); this.watchers.set(Array.isArray(w) ? w.join(', ') : ''); } catch { this.watchers.set(''); }
-    try { const l = JSON.parse(t.linkedIssuesJson || '[]'); this.linkedIssues.set(Array.isArray(l) ? l.join(', ') : ''); } catch { this.linkedIssues.set(''); }
+    try {
+      const a = JSON.parse(t.labelsJson || '[]');
+      this.labels.set(Array.isArray(a) ? a.join(', ') : t.labelsJson || '');
+    } catch {
+      this.labels.set(t.labelsJson || '');
+    }
+    try {
+      const w = JSON.parse(t.watchersJson || '[]');
+      this.watchers.set(Array.isArray(w) ? w.join(', ') : '');
+    } catch {
+      this.watchers.set('');
+    }
+    try {
+      const l = JSON.parse(t.linkedIssuesJson || '[]');
+      this.linkedIssues.set(Array.isArray(l) ? l.join(', ') : '');
+    } catch {
+      this.linkedIssues.set('');
+    }
     this.timeEstimated.set(t.timeEstimated ?? null);
     this.timeSpent.set(t.timeSpent ?? null);
     this.timeRemaining.set(t.timeRemaining ?? null);
@@ -254,84 +418,172 @@ export class TaskDetailModalComponent {
   }
 
   constructor() {
-    effect(() => {
-      if (this.open() && this.task()) {
-        this.populateForm(this.task());
-      }
-    }, { allowSignalWrites: true });
-    effect(() => {
-      const detail = this.taskDetailQuery.data() as any;
-      if (detail?.task && this.open()) {
-        this.populateForm(detail.task);
-      }
-    }, { allowSignalWrites: true });
-    effect(() => {
-      const board = this.boardForTaskQuery.data();
-      if (board && (board as any).tasks) {
-        this.boardTasks.set((board as any).tasks);
-      }
-    }, { allowSignalWrites: true });
+    // Single populateForm — detail is authoritative, fallback to task input
+    effect(
+      () => {
+        if (!this.open()) return;
+        const detailTask = (this.taskDetailQuery.data() as any)?.task;
+        const t = detailTask ?? this.task();
+        if (t) this.populateForm(t);
+      },
+      { allowSignalWrites: true },
+    );
+    effect(
+      () => {
+        const board = this.boardForTaskQuery.data();
+        if (board && (board as any).tasks) {
+          this.boardTasks.set((board as any).tasks);
+        }
+      },
+      { allowSignalWrites: true },
+    );
   }
 
-  openParentIssue(){
+  openParentIssue() {
     const pid = this.parentIssueId();
-    if(!pid) return;
-    const parent = this.boardTasks().find((t:any) => t.id === pid);
-    if(parent) { this.closed.emit(); setTimeout(()=> { const event = new CustomEvent('openTask', {detail: parent}); window.dispatchEvent(event); }, 100); }
+    if (!pid) return;
+    const parent = this.boardTasks().find((t: any) => t.id === pid);
+    if (parent) {
+      this.closed.emit();
+      setTimeout(() => {
+        const event = new CustomEvent('openTask', { detail: parent });
+        window.dispatchEvent(event);
+      }, 100);
+    }
   }
-  openChildIssue(child:any){
+  openChildIssue(child: any) {
     this.closed.emit();
-    setTimeout(()=> { const event = new CustomEvent('openTask', {detail: child}); window.dispatchEvent(event); }, 100);
+    setTimeout(() => {
+      const event = new CustomEvent('openTask', { detail: child });
+      window.dispatchEvent(event);
+    }, 100);
   }
-  removeLinkedIssue(id:string){
+  removeLinkedIssue(id: string) {
     try {
       const arr = JSON.parse(this.linkedIssues() ? this.linkedIssues() : '[]');
-      const filtered = Array.isArray(arr) ? arr.filter((x:any) => (typeof x === 'string' ? x !== id : x.id !== id)) : [];
+      const filtered = Array.isArray(arr)
+        ? arr.filter((x: any) => (typeof x === 'string' ? x !== id : x.id !== id))
+        : [];
       // Also handle comma-separated string case
-      if(!Array.isArray(arr) || filtered.length===arr.length){
-        const parts = this.linkedIssues().split(',').map(s=>s.trim()).filter(Boolean);
-        const newParts = parts.filter(p => p !== id);
+      if (!Array.isArray(arr) || filtered.length === arr.length) {
+        const parts = this.linkedIssues()
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const newParts = parts.filter((p) => p !== id);
         this.linkedIssues.set(newParts.join(', '));
       } else {
         this.linkedIssues.set(JSON.stringify(filtered));
       }
     } catch {
-      const parts = this.linkedIssues().split(',').map(s=>s.trim()).filter(Boolean);
-      this.linkedIssues.set(parts.filter(p => p !== id).join(', '));
+      const parts = this.linkedIssues()
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      this.linkedIssues.set(parts.filter((p) => p !== id).join(', '));
     }
   }
   getLinkedDisplayIds(): string[] {
     try {
       const arr = JSON.parse(this.linkedIssues() || '[]');
-      if(Array.isArray(arr)) return arr.map((x:any) => typeof x === 'string' ? x : x.id || x);
+      if (Array.isArray(arr)) return arr.map((x: any) => (typeof x === 'string' ? x : x.id || x));
     } catch {}
-    return this.linkedIssues().split(',').map(s=>s.trim()).filter(Boolean);
+    return this.linkedIssues()
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
   getLinkedTask(lid: string): any {
-    return this.boardTasks().find((x:any) => x.id === lid) || { title: lid.slice(0,8), id: lid, priority: '', status: '' };
+    return (
+      this.boardTasks().find((x: any) => x.id === lid) || {
+        title: lid.slice(0, 8),
+        id: lid,
+        priority: '',
+        status: '',
+      }
+    );
   }
   save() {
-    this.saved.emit({title: this.title().trim(), description: this.description().trim(), priority: this.priority(), listId: this.listId(), labelsJson: this.labelsJson(), assigneeId: this.assigneeId() || undefined, dueDate: this.dueDate() || undefined, issueType: this.issueType(), epic: this.epic().trim() || undefined, storyPoints: this.storyPoints() ?? undefined, startDate: this.startDate() || undefined, environment: this.environmentSel() || undefined, parentIssueId: this.parentIssueId() || undefined, sprintId: this.sprintId() || undefined, watchersJson: this.watchersJson(), linkedIssuesJson: this.linkedIssuesJson(), timeEstimated: this.timeEstimated() ?? undefined, timeSpent: this.timeSpent() ?? undefined, timeRemaining: this.timeRemaining() ?? undefined, teamId: this.teamId() || undefined});
+    this.saved.emit({
+      title: this.title().trim(),
+      description: this.description().trim(),
+      priority: this.priority(),
+      listId: this.listId(),
+      labelsJson: this.labelsJson(),
+      assigneeId: this.assigneeId() || undefined,
+      dueDate: this.dueDate() || undefined,
+      issueType: this.issueType(),
+      epic: this.epic().trim() || undefined,
+      storyPoints: this.storyPoints() ?? undefined,
+      startDate: this.startDate() || undefined,
+      environment: this.environmentSel() || undefined,
+      parentIssueId: this.parentIssueId() || undefined,
+      sprintId: this.sprintId() || undefined,
+      watchersJson: this.watchersJson(),
+      linkedIssuesJson: this.linkedIssuesJson(),
+      timeEstimated: this.timeEstimated() ?? undefined,
+      timeSpent: this.timeSpent() ?? undefined,
+      timeRemaining: this.timeRemaining() ?? undefined,
+      teamId: this.teamId() || undefined,
+    });
   }
-  addSubtask(){ const v=this.newSubtask().trim(); if(!v) return; this.createSubtaskMut.mutate(v); }
-  addComment(){ const v=this.newComment().trim(); if(!v) return; this.createCommentMut.mutate(v); }
-  startEditComment(c:any){ this.editingCommentId.set(c.id); this.editCommentContent.set(c.content); }
-  saveEditComment(){ const id=this.editingCommentId(); const v=this.editCommentContent().trim(); if(!id||!v) return; this.updateCommentMut.mutate({id, content:v}); }
-  startEditSubtask(s:any){ this.editingSubtaskId.set(s.id); this.editSubtaskTitle.set(s.title); }
-  saveEditSubtask(){ const id=this.editingSubtaskId(); const v=this.editSubtaskTitle().trim(); if(!id||!v) return; this.updateSubtaskMut.mutate({id, title:v}); }
-  confirmDeleteSubtask(id:string){ this.deleteSubtaskConfirmId.set(id); }
-  doDeleteSubtask(){ const id=this.deleteSubtaskConfirmId(); if(!id) return; this.deleteSubtaskMut.mutate(id); this.deleteSubtaskConfirmId.set(null); }
-  confirmDeleteComment(id:string){ this.deleteCommentConfirmId.set(id); }
-  doDeleteComment(){ const id=this.deleteCommentConfirmId(); if(!id) return; this.deleteCommentMut.mutate(id); this.deleteCommentConfirmId.set(null); }
-  getAuthorDisplay(authorId:string){
+  addSubtask() {
+    const v = this.newSubtask().trim();
+    if (!v) return;
+    this.createSubtaskMut.mutate(v);
+  }
+  addComment() {
+    const v = this.newComment().trim();
+    if (!v) return;
+    this.createCommentMut.mutate(v);
+  }
+  startEditComment(c: any) {
+    this.editingCommentId.set(c.id);
+    this.editCommentContent.set(c.content);
+  }
+  saveEditComment() {
+    const id = this.editingCommentId();
+    const v = this.editCommentContent().trim();
+    if (!id || !v) return;
+    this.updateCommentMut.mutate({ id, content: v });
+  }
+  startEditSubtask(s: any) {
+    this.editingSubtaskId.set(s.id);
+    this.editSubtaskTitle.set(s.title);
+  }
+  saveEditSubtask() {
+    const id = this.editingSubtaskId();
+    const v = this.editSubtaskTitle().trim();
+    if (!id || !v) return;
+    this.updateSubtaskMut.mutate({ id, title: v });
+  }
+  confirmDeleteSubtask(id: string) {
+    this.deleteSubtaskConfirmId.set(id);
+  }
+  doDeleteSubtask() {
+    const id = this.deleteSubtaskConfirmId();
+    if (!id) return;
+    this.deleteSubtaskMut.mutate(id);
+    this.deleteSubtaskConfirmId.set(null);
+  }
+  confirmDeleteComment(id: string) {
+    this.deleteCommentConfirmId.set(id);
+  }
+  doDeleteComment() {
+    const id = this.deleteCommentConfirmId();
+    if (!id) return;
+    this.deleteCommentMut.mutate(id);
+    this.deleteCommentConfirmId.set(null);
+  }
+  getAuthorDisplay(authorId: string) {
     const members = this.projectMembersList();
-    const m = members.find((x:any)=> x.userId===authorId);
+    const m = members.find((x: any) => x.userId === authorId);
     if (m) return { name: m.fullName, avatar: m.avatarUrl, email: m.email };
     // Fallback to current user if author is self
-    if (authorId===this.currentUserId()) {
-      const u=this.auth.currentUser();
+    if (authorId === this.currentUserId()) {
+      const u = this.auth.currentUser();
       return { name: u?.fullName || 'You', avatar: u?.avatarUrl, email: u?.email || '' };
     }
-    return { name: authorId.slice(0,8), avatar: undefined, email: '' };
+    return { name: authorId.slice(0, 8), avatar: undefined, email: '' };
   }
 }
