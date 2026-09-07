@@ -26,7 +26,7 @@
                   <td><span class="badge badge-ghost badge-xs rounded-full">{{ a.projectKey }} {{ a.projectName | slice:0:12 }}</span></td>
                   <td><span class="badge badge-sm rounded-full" [ngClass]="a.action==='TaskCreated'?'badge-success': a.action==='TaskMoved'?'badge-warning':'badge-ghost'">{{ a.action }}</span></td>
                   <td class="text-xs max-w-[320px] truncate">{{ a.payloadJson | slice:0:80 }}</td>
-                  <td class="text-xs font-mono opacity-60">{{ a.actorId.slice(0,6) }}</td>
+                  <td class="text-xs"><span class="font-medium">{{ getActorDisplay(a.actorId).split(' (')[0] }}</span> <span class="opacity-60">({{ getActorDisplay(a.actorId).split('(')[1] || '' }}</span></td>
                 </tr>
               }
             </tbody>

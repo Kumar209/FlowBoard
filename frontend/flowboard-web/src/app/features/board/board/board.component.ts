@@ -61,11 +61,16 @@ export class BoardComponent {
     return boards[0]?.id || null;
   });
 
-  currentBoardType = computed(() => {
+  currentBoard = computed(() => {
     const bv = this.boardView();
     const boards = this.boardsQuery.data() || [];
-    const b = boards.find((x:any)=> x.id===bv || x.name.toLowerCase().includes(bv));
+    return boards.find((x:any)=> x.id===bv) || boards.find((x:any)=> x.name.toLowerCase().includes(bv)) || boards[0] || null;
+  });
+  currentBoardName = computed(() => this.currentBoard()?.name || (this.boardView()=='engineering' ? 'Engineering Board' : this.boardView()=='qa' ? 'QA Board' : this.boardView()=='support' ? 'Support Board' : 'Board'));
+  currentBoardType = computed(() => {
+    const b = this.currentBoard();
     if (b) return b.type;
+    const bv = this.boardView();
     if (bv==='engineering') return 'Scrum';
     if (bv==='qa' || bv==='support') return 'Kanban';
     return 'Kanban';

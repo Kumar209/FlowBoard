@@ -14,11 +14,12 @@
       @if (boardQuery.isPending()) { <span class="loading loading-spinner loading-xs"></span> }
     </div>
     <!-- Board tabs + Sprint selector per spec -->
-    <div class="card bg-base-100 rounded-2xl shadow border p-3 mb-4">
+     <div class="card bg-base-100 rounded-2xl shadow border p-3 mb-4">
       <div class="flex flex-wrap gap-2 items-center justify-between">
         <div class="flex items-center gap-2">
-          <h2 class="font-bold text-sm">{{ boardView()=='engineering' ? 'Engineering Board' : boardView()=='qa' ? 'QA Board' : boardView()=='support' ? 'Support Board' : 'Board' }}</h2>
-          <span class="badge badge-ghost badge-xs hidden sm:inline">{{ boardView() }}</span>
+          <h2 class="font-bold text-sm">{{ currentBoardName() }}</h2>
+          <span class="badge badge-primary badge-xs hidden sm:inline">{{ currentBoardName() }}</span>
+          <span class="badge badge-ghost badge-xs hidden sm:inline">{{ currentBoard()?.type || boardView() }}</span>
           <button class="btn btn-ghost btn-xs rounded-full hidden sm:inline" (click)="openBoardSettings()">⚙ Board Settings</button>
         </div>
         <div class="flex items-center gap-1 text-xs">
@@ -51,7 +52,7 @@
      <!-- Board view indicator + Filters for Task 2.5: search (FULLTEXT), priority, label -->
     <div class="flex flex-wrap items-center gap-2 mb-2 text-xs">
       <span class="opacity-60">View:</span>
-      <span class="badge badge-primary badge-sm rounded-full">{{ boardView() }}</span>
+      <span class="badge badge-primary badge-sm rounded-full">{{ currentBoardName() }}</span>
       <span class="opacity-40">• Boards are views of same Project tasks (multi-board per project) — filter below</span>
     </div>
     <div class="flex flex-col sm:flex-row gap-2 mb-4">

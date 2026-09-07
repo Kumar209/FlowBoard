@@ -49,8 +49,29 @@ export class ActivityComponent {
     enabled: () => !!this.workspacesQuery.data()?.length,
   }));
 
+  // For actor name/role, fetch first workspace members as sample (org-wide would need dedicated endpoint, use first workspace)
+  sampleMembersQuery = injectQuery(() => ({
+    queryKey: ['sample-members'] as const,
+    queryFn: async () => {
+      const wss = this.workspacesQuery.data() || [];
+      if (!wss.length) return [];
+      try {
+        const ms = await firstValueFrom(this.projectService.getWorkspaceMembers(wss[0].id));
+        return ms as any[];
+      } catch { return []; }
+    },
+    enabled: () => !!this.workspacesQuery.data()?.length,
+  }));
+
+  getActorDisplay = (actorId: string) => {
+    const members = this.sampleMembersQuery.data() || [];
+    const m = members.find((x:any) => x.userId === actorId);
+    if (m) return `${m.fullName} (${m.role})`;
+    return actorId.slice(0,6);
+  };
+
   orgActivitiesQuery = injectQuery(() => ({
-    queryKey: ['org-activities', this.page()] as const,
+    queryKey: ['org-activities', this.page(), this.allProjectsQuery.data()?.length || 0] as const,
     queryFn: async () => {
       const projects = this.allProjectsQuery.data() || [];
       if (!projects.length) return { items: [], total: 0 };
@@ -66,7 +87,7 @@ export class ActivityComponent {
       const start = (this.page()-1)*this.pageSize;
       return { items: allActivities.slice(start, start+this.pageSize), total: allActivities.length };
     },
-    enabled: () => !!this.allProjectsQuery.data()?.length,
+    enabled: !!this.allProjectsQuery.data()?.length,
   }));
 
   total = computed(() => this.orgActivitiesQuery.data()?.total || 0);

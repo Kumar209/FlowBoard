@@ -48,7 +48,7 @@ export class MembersComponent {
   orgMembersQuery = injectQuery(() => ({
     queryKey: ['org-members', this.orgId()] as const,
     queryFn: () => firstValueFrom(this.ws.getOrganizationMembers(this.orgId())),
-    enabled: () => !!this.orgId(),
+    enabled: !!this.orgId(),
   }));
 
   // Fallback: aggregate workspace members if org endpoint fails

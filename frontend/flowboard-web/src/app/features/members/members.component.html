@@ -16,7 +16,7 @@
       <span class="badge badge-ghost badge-sm self-center">{{ orgId() ? orgId().slice(0,6) : 'org' }} • {{ workspacesQuery.data()?.length || 0 }} workspaces</span>
     </div>
 
-    @if (orgMembersQuery.isPending() || workspaceMembersAggQuery.isPending()) {
+    @if ((orgId() ? orgMembersQuery.isPending() : workspaceMembersAggQuery.isPending())) {
       <div class="mt-6 space-y-2">
         @for (i of [1,2,3]; track i) { <div class="card bg-base-100 border p-4 animate-pulse"><div class="h-4 bg-base-300 rounded w-1/4 mb-2"></div><div class="h-3 bg-base-200 rounded w-3/4"></div></div> }
       </div>
