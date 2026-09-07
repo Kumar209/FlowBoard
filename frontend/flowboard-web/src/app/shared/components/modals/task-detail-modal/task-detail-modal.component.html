@@ -7,7 +7,7 @@
         <div class="flex items-center gap-2 text-xs">
           <span class="opacity-60">{{ task().key || task().id.slice(0,6) }}</span>
           <span class="badge badge-sm" [ngClass]="task().priority==='High'?'badge-warning': task().priority==='Urgent'?'badge-error': task().priority==='Low'?'badge-ghost':'badge-info'">{{ priority() || task().priority }}</span>
-          @if (subtasksQuery.data(); as subs) { <span class="badge badge-ghost badge-xs">{{ subs.filter(s=>s.isCompleted).length }}/{{ subs.length }} subtasks</span> }
+          @if (subtasksList(); as subs) { <span class="badge badge-ghost badge-xs">{{ subs.filter(s=>s.isCompleted).length }}/{{ subs.length }} subtasks</span> }
         </div>
         <button class="btn btn-ghost btn-sm btn-circle" (click)="closed.emit()">✕</button>
       </div>
@@ -25,12 +25,12 @@
           <div class="border border-base-200 rounded-2xl p-3 bg-base-100">
             <div class="flex justify-between items-center mb-2">
               <h4 class="font-semibold text-sm">Subtasks</h4>
-              @if (subtasksQuery.data(); as subs) {
+              @if (subtasksList(); as subs) {
                 <span class="text-xs opacity-60">{{ subs.filter(s=>s.isCompleted).length }} / {{ subs.length }}</span>
               }
             </div>
-            @if (subtasksQuery.isPending()) { <span class="loading loading-spinner loading-xs"></span> }
-            @if (subtasksQuery.data(); as subs) {
+            @if (taskDetailQuery.isPending()) { <span class="loading loading-spinner loading-xs"></span> }
+            @if (subtasksList(); as subs) {
               <div class="space-y-2 max-h-[180px] overflow-y-auto">
                 @for (s of subs; track s.id) {
                   <div class="flex items-center gap-2 p-2 rounded-xl border border-base-200 bg-base-200/30">
@@ -68,7 +68,7 @@
 
             @if (activeTab()==='comments') {
               <!-- Comments list -->
-              @if (commentsQuery.data(); as comments) {
+              @if (commentsList(); as comments) {
                 <div class="space-y-2 max-h-[200px] overflow-y-auto mb-3">
                   @for (c of comments; track c.id) {
                     <div class="p-2 rounded-xl bg-base-200/40 border border-base-200">

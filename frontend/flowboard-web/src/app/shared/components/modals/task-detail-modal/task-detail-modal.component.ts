@@ -280,17 +280,9 @@ export class TaskDetailModalComponent {
     return hasSprints; // Scrum if project has sprints
   });
 
-  subtasksQuery = injectQuery(() => ({
-    queryKey: ['subtasks', this.task()?.id] as const,
-    queryFn: () => firstValueFrom(this.projectService.getSubTasks(this.task().id)),
-    enabled: this.open() && !!this.task()?.id,
-  }));
-
-  commentsQuery = injectQuery(() => ({
-    queryKey: ['comments', this.task()?.id] as const,
-    queryFn: () => firstValueFrom(this.projectService.getComments(this.task().id)),
-    enabled: this.open() && !!this.task()?.id,
-  }));
+  // Subtasks/Comments derived from detail (single GET /tasks/:id/detail already returns subTasks/comments) — no extra Network on open
+  subtasksList = computed(() => (this.taskDetailQuery.data() as any)?.subTasks ?? []);
+  commentsList = computed(() => (this.taskDetailQuery.data() as any)?.comments ?? []);
 
   taskDetailQuery = injectQuery(() => ({
     queryKey: ['task-detail', this.task()?.id] as const,
@@ -318,6 +310,7 @@ export class TaskDetailModalComponent {
       this.queryClient.invalidateQueries({
         queryKey: ['activities-task', this.projectId(), this.task().id],
       });
+      this.queryClient.invalidateQueries({queryKey:['task-detail', this.task().id]});
       this.newSubtask.set('');
     },
   }));
