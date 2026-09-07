@@ -258,19 +258,19 @@ export class TaskDetailModalComponent {
       if (this.open() && this.task()) {
         this.populateForm(this.task());
       }
-    });
+    }, { allowSignalWrites: true });
     effect(() => {
       const detail = this.taskDetailQuery.data() as any;
       if (detail?.task && this.open()) {
         this.populateForm(detail.task);
       }
-    });
+    }, { allowSignalWrites: true });
     effect(() => {
       const board = this.boardForTaskQuery.data();
       if (board && (board as any).tasks) {
         this.boardTasks.set((board as any).tasks);
       }
-    });
+    }, { allowSignalWrites: true });
   }
 
   openParentIssue(){
