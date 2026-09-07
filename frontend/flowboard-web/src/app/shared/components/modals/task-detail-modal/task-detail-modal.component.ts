@@ -14,6 +14,7 @@ import { ProjectService } from '../../../../core/services/project.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ConfirmDeleteComponent } from '../confirm-delete/confirm-delete.component';
+import { LoaderComponent } from '../../loader/loader.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**
@@ -23,7 +24,7 @@ import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-quer
 @Component({
   selector: 'app-task-detail-modal',
   standalone: true,
-  imports: [CommonModule, ConfirmDeleteComponent],
+  imports: [CommonModule, ConfirmDeleteComponent, LoaderComponent],
   templateUrl: './task-detail-modal.component.html',
   styleUrls: ['./task-detail-modal.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -233,8 +234,8 @@ export class TaskDetailModalComponent {
       return Array.isArray(items) ? items : [];
     },
     enabled: !!this.effectiveProjectId(),
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   }));
   // Normalized for template @for (handles paginated object vs array)
   projectMembersList = computed(() => {
@@ -248,30 +249,41 @@ export class TaskDetailModalComponent {
     queryKey: ['environments', this.effectiveProjectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getEnvironments(this.effectiveProjectId())),
     enabled: !!this.effectiveProjectId(),
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   }));
   sprintsForTaskQuery = injectQuery(() => ({
     queryKey: ['sprints', this.effectiveProjectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getSprints(this.effectiveProjectId())),
     enabled: !!this.effectiveProjectId(),
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   }));
   teamsQuery = injectQuery(() => ({
     queryKey: ['teams', this.effectiveProjectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getTeams(this.effectiveProjectId())),
     enabled: !!this.effectiveProjectId(),
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   }));
   boardForTaskQuery = injectQuery(() => ({
     queryKey: ['board', this.effectiveProjectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getBoard(this.effectiveProjectId())),
     enabled: !!this.effectiveProjectId(),
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   }));
+  isDetailReady = computed(() => {
+    const detailTask = (this.taskDetailQuery.data() as any)?.task;
+    const t = detailTask ?? this.task();
+    if (!t) return false;
+    if (this.taskDetailQuery.isPending()) return false;
+    if (this.membersQuery.isPending() || this.teamsQuery.isPending() || this.sprintsForTaskQuery.isPending()) return false;
+    if (t.teamId && !this.teamsQuery.data()?.some((x: any) => x.id === t.teamId)) return false;
+    if (t.sprintId && !this.sprintsForTaskQuery.data()?.some((x: any) => x.id === t.sprintId)) return false;
+    if (t.assigneeId && !this.projectMembersList().some((m: any) => m.userId === t.assigneeId)) return false;
+    return true;
+  });
   isScrumBoard = computed(() => {
     const boardId = this.task()?.boardId || '';
     const boards = (this.boardForTaskQuery.data() as any)?.project ? [] : []; // fallback

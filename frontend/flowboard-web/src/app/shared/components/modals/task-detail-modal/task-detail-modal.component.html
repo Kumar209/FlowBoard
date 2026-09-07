@@ -12,6 +12,11 @@
         <button class="btn btn-ghost btn-sm btn-circle" (click)="closed.emit()">✕</button>
       </div>
 
+      @if (!isDetailReady()) {
+        <div class="flex-1 flex items-center justify-center p-8">
+          <app-loader text="Loading issue details — team, sprint, assignee..." size="md" />
+        </div>
+      } @else {
       <div class="flex flex-col lg:flex-row flex-1 overflow-hidden">
         <!-- Left: Title + Description + Subtasks + Activity -->
         <div class="flex-1 p-3 sm:p-4 overflow-y-auto space-y-5 min-h-[300px]">
@@ -342,6 +347,7 @@
           <p class="text-[10px] opacity-40 text-center">Changes save priority/labels/due/assignee/status via PUT /tasks • lists via PUT/DELETE /lists</p>
         </div>
       </div>
+      }
     </div>
   </div>
 }
