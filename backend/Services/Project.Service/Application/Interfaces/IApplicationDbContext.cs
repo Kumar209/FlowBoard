@@ -20,6 +20,7 @@ public interface IApplicationDbContext
     DbSet<ActivityLog> ActivityLogs { get; }
     DbSet<OutboxMessage> OutboxMessages { get; }
     DbSet<ProjectEnvironment> Environments { get; }
+    DbSet<ProjectMember> ProjectMembers { get; }
 
     DatabaseFacade Database { get; }
 

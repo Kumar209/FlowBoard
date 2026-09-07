@@ -1,0 +1,63 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
+  <h1 class="text-2xl font-bold">Project Members</h1>
+  <p class="text-sm opacity-60">Add members from workspace. Teams and assignees derive from here.</p>
+
+  <div class="card bg-base-100 rounded-2xl shadow border p-4">
+    <div class="flex flex-wrap justify-between gap-2 items-center mb-3">
+      <h3 class="font-bold">Members — {{ membersQuery.data()?.total || 0 }}</h3>
+      <input type="text" placeholder="Search by name/email..." class="input input-bordered input-sm rounded-full max-w-xs" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
+    </div>
+    @if(membersQuery.isPending()){ <span class="loading loading-spinner"></span> }
+    @else {
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead>
+          <tbody>
+            @for(m of paginatedMembers(); track m.userId){
+              <tr class="hover:bg-base-200">
+                <td><div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-primary text-primary-content flex items-center justify-center text-xs font-bold">{{m.fullName.slice(0,1)}}</div><span class="font-medium text-sm">{{m.fullName}}</span></div></td>
+                <td class="text-xs">{{m.email}}</td>
+                <td><span class="badge badge-ghost badge-xs rounded-full">{{m.role}}</span></td>
+                <td class="text-xs opacity-60">{{m.joinedAt | date:'mediumDate'}}</td>
+                <td><button class="btn btn-ghost btn-xs text-error rounded-full" (click)="remove(m.userId)">Remove</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="flex justify-between items-center mt-3">
+        <span class="text-xs opacity-40">Page {{page()}} / {{totalPages()}}</span>
+        <div class="flex gap-1">
+          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="card bg-base-100 rounded-2xl shadow border p-4">
+    <div class="flex flex-wrap justify-between gap-2 items-center mb-3">
+      <h3 class="font-bold text-sm">Add from workspace</h3>
+      <span class="text-xs opacity-40">Page {{addPage()}} / {{totalAddPages()}}</span>
+    </div>
+    <input type="text" placeholder="Search workspace members..." class="input input-bordered input-sm rounded-full w-full max-w-md" [value]="addSearch()" (input)="addSearch.set($any($event.target).value); addPage.set(1)" />
+    <div class="overflow-x-auto mt-3 border rounded-xl">
+      <table class="table table-sm">
+        <thead><tr><th>Name</th><th>Email</th><th>Actions</th></tr></thead>
+        <tbody>
+          @for(wm of filteredAvailable(); track wm.userId){
+            <tr class="hover:bg-base-200"><td><span class="font-medium text-sm">{{wm.fullName}}</span></td><td class="text-xs">{{wm.email}}</td><td><button class="btn btn-primary btn-xs rounded-full" (click)="add(wm.userId)">Add</button></td></tr>
+          }
+        </tbody>
+      </table>
+      @if(filteredAvailable().length===0){<p class="text-xs opacity-40 text-center py-4">No available members</p>}
+    </div>
+    <div class="flex justify-between items-center mt-3">
+      <span class="text-xs opacity-40">{{workspaceTotal()}} total workspace members</span>
+      <div class="flex gap-1">
+        <button class="btn btn-ghost btn-xs rounded-full" [disabled]="addPage()<=1" (click)="addPage.set(addPage()-1)">Previous</button>
+        <button class="btn btn-ghost btn-xs rounded-full" [disabled]="addPage()>=totalAddPages()" (click)="addPage.set(addPage()+1)">Next</button>
+      </div>
+    </div>
+  </div>
+</div>

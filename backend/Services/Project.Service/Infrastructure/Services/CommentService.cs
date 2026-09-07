@@ -20,7 +20,12 @@ public class CommentService : ICommentService
         var comment = new Domain.Entities.Comment(taskId, callerId, content);
         _db.Comments.Add(comment);
         var workspaceId = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
-        var evt = new { TaskId = taskId, ProjectId = task.ProjectId, WorkspaceId = workspaceId, CommentId = comment.Id, ActorId = callerId, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
+        var recipientIds = await _db.ProjectMembers.Where(pm => pm.ProjectId == task.ProjectId).Select(pm => pm.UserId).ToListAsync(ct);
+        if (!recipientIds.Any())
+        {
+            try { recipientIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0}", workspaceId).ToListAsync(ct); } catch { }
+        }
+        var evt = new { TaskId = taskId, ProjectId = task.ProjectId, WorkspaceId = workspaceId, CommentId = comment.Id, ActorId = callerId, RecipientUserIds = recipientIds, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
         _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskCommented", JsonSerializer.Serialize(evt)));
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, taskId, callerId, "TaskCommented", JsonSerializer.Serialize(new { content })));
         await _db.SaveChangesAsync(ct);

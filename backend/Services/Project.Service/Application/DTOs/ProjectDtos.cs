@@ -17,3 +17,4 @@ public record ActivityDto(Guid Id, Guid ProjectId, Guid? TaskId, Guid ActorId, s
 public record SubTaskDto(Guid Id, Guid TaskId, string Title, bool IsCompleted, DateTime CreatedAt);
 public record PaginatedResult<T>(List<T> Items, int Total, int Page, int PageSize);
 public record TaskDetailDto(TaskDto Task, List<SubTaskDto> SubTasks, List<CommentDto> Comments);
+public record ProjectMemberDto(Guid Id, Guid ProjectId, Guid UserId, string Email, string FullName, string Role, DateTime JoinedAt);

@@ -62,6 +62,11 @@ export class ProjectLayoutComponent {
     queryFn: () => firstValueFrom(this.projectService.getTeams(this.projectId())),
     enabled: !!this.projectId(),
   }));
+  projectMembersQuery = injectQuery(() => ({
+    queryKey: ['project-members', this.projectId()] as const,
+    queryFn: () => firstValueFrom(this.projectService.getProjectMembers(this.projectId(), 1, 1)),
+    enabled: !!this.projectId(),
+  }));
   boardViews = computed(() => {
     const api = this.boardsQuery.data();
     if (api && api.length>0) return api.map((b:any)=> ({id:b.id, name:b.name, filter:'all', icon: b.type==='Scrum'?'🟣':'🔵', type: `${b.type} • ${b.name}`} ));
@@ -92,6 +97,7 @@ export class ProjectLayoutComponent {
     const sprintsCount = this.sprintsQuery.data()?.length ?? 0;
     const teamsCount = this.teamsQuery.data()?.length ?? 0;
     const taskCount = allTasks.length;
+    const projectMembersCount = (this.projectMembersQuery.data() as any)?.total ?? 0;
     return [
       { label:'Overview', icon:'◎', path: `${base}/overview`, badge: '' },
       { label:'Boards', icon:'⧉', path: `${base}/boards`, badge: `${boardsCount}` },
@@ -99,6 +105,7 @@ export class ProjectLayoutComponent {
       { label:'Sprints', icon:'⚡', path: `${base}/sprints`, badge: `${sprintsCount}` },
       { label:'Issues', icon:'◉', path: `${base}/issues`, badge: `${taskCount}` },
       { label:'Teams', icon:'◐', path: `${base}/team`, badge: teamsCount ? `${teamsCount}` : '' },
+      { label:'Members', icon:'◑', path: `${base}/members`, badge: projectMembersCount ? `${projectMembersCount}` : '' },
       { label:'Environments', icon:'⬢', path: `${base}/environments`, badge: '' },
       { label:'Activity', icon:'◷', path: `${base}/activity`, badge: '' },
       { label:'Docs', icon:'▭', path: `${base}/docs`, badge: '' },

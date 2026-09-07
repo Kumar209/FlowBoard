@@ -131,6 +131,19 @@ export class ProjectService {
   updateTask(taskId: string, title: string, description?: string, priority = 'Medium', listId?: string, labelsJson?: string, assigneeId?: string, dueDate?: string, issueType?: string, epic?: string, storyPoints?: number, startDate?: string, taskEnv?: string, parentIssueId?: string, sprintId?: string, watchersJson?: string, linkedIssuesJson?: string, timeEstimated?: number, timeSpent?: number, timeRemaining?: number, teamId?: string) {
     return this.http.put(`${environment.apiUrl}/api/tasks/${taskId}`, { title, description, priority, listId, labelsJson, assigneeId, dueDate, issueType, epic, storyPoints, startDate, environment: taskEnv, parentIssueId, sprintId, watchersJson, linkedIssuesJson, timeEstimated, timeSpent, timeRemaining, teamId }, { withCredentials: true });
   }
+  // Project Members (Enterprise: Project has explicit members from workspace)
+  getProjectMembers(projectId: string, page=1, pageSize=20, search?: string) {
+    let params:any = { page, pageSize };
+    if(search) params.search = search;
+    return this.http.get<{items: any[], total: number, page: number, pageSize: number}>(`${environment.apiUrl}/api/projects/${projectId}/members`, { params, withCredentials: true });
+  }
+  addProjectMember(projectId: string, userId: string, role='Member') {
+    return this.http.post<any>(`${environment.apiUrl}/api/projects/${projectId}/members`, { UserId: userId, Role: role }, { withCredentials: true });
+  }
+  removeProjectMember(projectId: string, userId: string) {
+    return this.http.delete(`${environment.apiUrl}/api/projects/${projectId}/members/${userId}`, { withCredentials: true });
+  }
+
   // Teams
   getTeams(projectId: string) {
     return this.http.get<any[]>(`${environment.apiUrl}/api/projects/${projectId}/teams`, { withCredentials: true });

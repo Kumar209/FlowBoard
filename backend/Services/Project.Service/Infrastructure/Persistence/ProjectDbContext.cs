@@ -22,6 +22,7 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<ProjectEnvironment> Environments => Set<ProjectEnvironment>();
+    public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -187,6 +188,18 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.HasIndex(x => x.ProcessedAt);
             e.HasIndex(x => x.OccurredOn);
             e.Ignore(x => x.DomainEvents);
+        });
+
+        // ProjectMember (Enterprise: Project has explicit members from workspace)
+        b.Entity<ProjectMember>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Role).HasMaxLength(20).IsRequired();
+            e.HasIndex(x => new { x.ProjectId, x.UserId }).IsUnique();
+            e.HasIndex(x => x.ProjectId);
+            e.HasIndex(x => x.UserId);
+            e.Ignore(x => x.DomainEvents);
+            e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

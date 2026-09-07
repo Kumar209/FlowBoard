@@ -107,6 +107,8 @@ public class TeamService : ITeamService
     {
         var team = await _db.Teams.FirstOrDefaultAsync(t => t.Id == teamId, ct);
         if (team == null) return Result<TeamMemberDto>.Failure("Team not found");
+        var isProjectMember = await _db.ProjectMembers.AnyAsync(pm => pm.ProjectId == team.ProjectId && pm.UserId == userId, ct);
+        if (!isProjectMember) return Result<TeamMemberDto>.Failure("User must be a project member first - add to Project Members");
         var exists = await _db.TeamMembers.AnyAsync(m => m.TeamId == teamId && m.UserId == userId, ct);
         if (exists) return Result<TeamMemberDto>.Failure("Already member");
         var member = new Domain.Entities.TeamMember(teamId, userId);

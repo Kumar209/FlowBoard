@@ -26,6 +26,7 @@ export const routes: Routes = [
           { path: 'issues', loadComponent: () => import('./features/project/issues/issues.component').then(m => m.IssuesComponent) },
           { path: 'team', loadComponent: () => import('./features/project/team/team.component').then(m => m.TeamComponent) },
           { path: 'team/:teamId', loadComponent: () => import('./features/project/team-detail/team-detail.component').then(m => m.TeamDetailComponent) },
+          { path: 'members', loadComponent: () => import('./features/project/members/project-members.component').then(m => m.ProjectMembersComponent) },
           { path: 'activity', loadComponent: () => import('./features/project/activity/project-activity.component').then(m => m.ProjectActivityComponent) },
           { path: 'environments', loadComponent: () => import('./features/project/environments/environments.component').then(m => m.EnvironmentsComponent) },
           { path: 'docs', loadComponent: () => import('./features/project/docs/docs.component').then(m => m.DocsComponent) },

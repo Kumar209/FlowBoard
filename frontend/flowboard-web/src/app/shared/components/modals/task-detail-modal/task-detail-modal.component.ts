@@ -124,11 +124,14 @@ export class TaskDetailModalComponent {
     return this.title() !== t.title || this.description() !== (t.description||'') || this.priority() !== t.priority || this.listId() !== t.listId || this.labels() !== labelsDisplay || (this.assigneeId()||'') !== (t.assigneeId||'') || this.dueDate() !== due || this.issueType() !== (t.issueType||'Task') || this.epic() !== (t.epic||'') || (this.storyPoints() ?? null) !== (t.storyPoints ?? null) || this.startDate() !== start || this.environmentSel() !== (t.environment||'') || this.parentIssueId() !== (t.parentIssueId||'') || this.sprintId() !== (t.sprintId||'') || this.teamId() !== (t.teamId||'') || this.watchers() !== watchersDisplay || this.linkedIssues() !== linkedDisplay || (this.timeEstimated() ?? null) !== (t.timeEstimated ?? null) || (this.timeSpent() ?? null) !== (t.timeSpent ?? null) || (this.timeRemaining() ?? null) !== (t.timeRemaining ?? null);
   });
 
-  // Queries
+  // Queries — MNC: assignee/watchers derive from Project Members (not workspace). WorkspaceMembers only used to populate Project Members.
   membersQuery = injectQuery(() => ({
-    queryKey: ['workspace-members', this.workspaceId()] as const,
-    queryFn: () => firstValueFrom(this.projectService.getWorkspaceMembers(this.workspaceId())),
-    enabled: this.open() && !!this.workspaceId(),
+    queryKey: ['project-members', this.projectId()] as const,
+    queryFn: async () => {
+      const res:any = await firstValueFrom(this.projectService.getProjectMembers(this.projectId(), 1, 100));
+      return res.items as any[];
+    },
+    enabled: this.open() && !!this.projectId(),
   }));
   environmentsQuery = injectQuery(() => ({
     queryKey: ['environments', this.projectId()] as const,

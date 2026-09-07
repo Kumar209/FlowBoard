@@ -14,6 +14,7 @@ public record TaskCreatedEvent(
     Guid ListId,
     string Title,
     Guid ActorId,
+    List<Guid> RecipientUserIds,
     DateTime OccurredOnUtc,
     Guid EventId,
     string CorrelationId) : IIntegrationEvent;
@@ -29,6 +30,7 @@ public record TaskMovedEvent(
     Guid ToListId,
     int Position,
     Guid ActorId,
+    List<Guid> RecipientUserIds,
     DateTime OccurredOnUtc,
     Guid EventId,
     string CorrelationId) : IIntegrationEvent;
@@ -42,6 +44,7 @@ public record TaskCommentedEvent(
     Guid WorkspaceId,
     Guid CommentId,
     Guid ActorId,
+    List<Guid> RecipientUserIds,
     DateTime OccurredOnUtc,
     Guid EventId,
     string CorrelationId) : IIntegrationEvent;
