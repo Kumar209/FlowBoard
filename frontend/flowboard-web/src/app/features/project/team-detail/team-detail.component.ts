@@ -53,16 +53,15 @@ export class TeamDetailComponent {
     queryKey: ['workspace-members', this.workspaceId(), this.addSearch(), this.addPage()] as const,
     queryFn: async () => {
       const res:any = await firstValueFrom(this.ps.getWorkspaceMembersPaged(this.workspaceId(), this.addPage(), this.addPageSize, this.addSearch() || undefined));
-      // Backend returns {items, total} when paginated, else array
-      if (res.items) return res.items;
-      return res as any[];
+      // Backend returns {items, total} when paginated (normalize to same shape)
+      if (res.items) return { items: res.items as any[], total: res.total as number };
+      const arr = res as any[];
+      return { items: arr, total: arr.length };
     },
     enabled: !!this.workspaceId(),
   }));
-  workspaceMembersTotal = computed(() => {
-    // For API paginated, total is in header or response, but we estimate from filtered
-    return this.workspaceMembersQuery.data()?.length || 0;
-  });
+  workspaceMembersItems = computed(() => this.workspaceMembersQuery.data()?.items || []);
+  workspaceMembersTotalRaw = computed(() => this.workspaceMembersQuery.data()?.total || 0);
 
   search = signal('');
   addSearch = signal('');
@@ -73,9 +72,10 @@ export class TeamDetailComponent {
   addPageSize = 8;
 
   // Map team members to full workspace user info (name, email, role)
+  // Note: workspace list is paginated (pageSize 8), so map may be partial — fallback keeps name from team data
   enrichedMembers = computed(() => {
     const teamMembers = this.membersQuery.data() || [];
-    const wsMembers = this.workspaceMembersQuery.data() || [] as any[];
+    const wsMembers = this.workspaceMembersItems() as any[];
     const map = new Map<string, any>(wsMembers.map((m:any) => [m.userId, m]));
     return teamMembers.map((tm:any) => {
       const ws:any = map.get(tm.userId);
@@ -96,19 +96,14 @@ export class TeamDetailComponent {
   });
 
   filteredWorkspaceMembers = computed(() => {
-    const q = this.addSearch().toLowerCase().trim();
-    const list = this.workspaceMembersQuery.data() || [];
+    const list = this.workspaceMembersItems();
     const teamMembers = this.membersQuery.data() || [];
     const existing = new Set(teamMembers.map((m:any) => m.userId));
-    const available = list.filter((m:any) => !existing.has(m.userId));
-    const filtered = !q ? available : available.filter((m:any) => m.fullName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q));
-    return filtered;
+    // Server already filters by addSearch, so only exclude team members here (handles 100s via API pagination)
+    return list.filter((m:any) => !existing.has(m.userId));
   });
-  totalAddPages = computed(() => Math.max(1, Math.ceil(this.filteredWorkspaceMembers().length / this.addPageSize)));
-  paginatedAvailableMembers = computed(() => {
-    const start = (this.addPage()-1)*this.addPageSize;
-    return this.filteredWorkspaceMembers().slice(start, start+this.addPageSize);
-  });
+  totalAddPages = computed(() => Math.max(1, Math.ceil(this.workspaceMembersTotalRaw() / this.addPageSize)));
+  paginatedAvailableMembers = computed(() => this.filteredWorkspaceMembers());
 
   addMutation = injectMutation(() => ({
     mutationFn: () => firstValueFrom(this.ps.addTeamMember(this.teamId(), this.selectedUserId())),

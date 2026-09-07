@@ -77,15 +77,13 @@
           </div>
         }
       </div>
-      @if (filteredWorkspaceMembers().length > addPageSize) {
-        <div class="flex justify-between items-center mt-3">
-          <span class="text-xs opacity-40">{{ filteredWorkspaceMembers().length }} found • API paginator</span>
-          <div class="flex gap-1">
-            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="addPage()<=1" (click)="addPage.set(addPage()-1)">Previous</button>
-            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="addPage()>=totalAddPages()" (click)="addPage.set(addPage()+1)">Next</button>
-          </div>
+      <div class="flex justify-between items-center mt-3">
+        <span class="text-xs opacity-40">Page {{ addPage() }} / {{ totalAddPages() }} • {{ workspaceMembersTotalRaw() }} total • {{ filteredWorkspaceMembers().length }} available on page • API paginator (handles 100s)</span>
+        <div class="flex gap-1">
+          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="addPage()<=1" (click)="addPage.set(addPage()-1)">Previous</button>
+          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="addPage()>=totalAddPages()" (click)="addPage.set(addPage()+1)">Next</button>
         </div>
-      }
+      </div>
     </div>
   } @else if (teamQuery.isPending()) {
     <div class="flex justify-center py-12"><span class="loading loading-spinner"></span></div>
