@@ -1,11 +1,14 @@
 using System.Text;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Project.Service.Application.Behaviors;
 using Project.Service.Application.Interfaces;
 using Project.Service.Infrastructure.Caching;
+using Project.Service.Infrastructure.Messaging;
 using Project.Service.Infrastructure.Persistence;
+using Shared.Contracts.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 // DbContext - Same DB flowboard with schema [project] (Task 2.1) - DIP with IApplicationDbContext (like Identity Task 1.2.1)
@@ -29,6 +32,34 @@ builder.Services.AddScoped<ITaskService, Project.Service.Infrastructure.Services
 builder.Services.AddScoped<ISprintService, Project.Service.Infrastructure.Services.SprintService>();
 builder.Services.AddScoped<ITeamService, Project.Service.Infrastructure.Services.TeamService>();
 builder.Services.AddScoped<IEnvironmentService, Project.Service.Infrastructure.Services.EnvironmentService>();
+
+// MassTransit 8.3 + CloudAMQP (same amqps:// key local/prod, 2s Outbox poll, durable quorum, retry 3x + _error)
+var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? builder.Configuration["RabbitMQ__Host"] ?? "";
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        if (!string.IsNullOrWhiteSpace(rabbitHost) && !rabbitHost.Contains("PASTE_"))
+        {
+            cfg.Host(new Uri(rabbitHost));
+        }
+        else
+        {
+            // Fallback to in-memory for local dev without CloudAMQP (best-effort, Outbox still persists)
+            cfg.Host("rabbitmq://localhost");
+        }
+        // Contracts -> durable fanout exchange flowboard.events (quorum, same key local/prod)
+        cfg.Message<TaskCreatedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Message<TaskMovedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Message<TaskCommentedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Publish<TaskCreatedEvent>(c => c.ExchangeType = "fanout");
+        cfg.Publish<TaskMovedEvent>(c => c.ExchangeType = "fanout");
+        cfg.Publish<TaskCommentedEvent>(c => c.ExchangeType = "fanout");
+        cfg.UseMessageRetry(r => r.Immediate(3));
+        cfg.ConfigureEndpoints(context);
+    });
+});
+builder.Services.AddHostedService<OutboxBackgroundService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(o =>

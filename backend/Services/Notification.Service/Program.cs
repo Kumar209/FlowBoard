@@ -1,4 +1,26 @@
+using MassTransit;
+using Shared.Contracts.Events;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// MassTransit 8.3 + CloudAMQP same key local/prod (consumer side, Task 3.2 will add consumers + SignalR Hub)
+var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? builder.Configuration["RabbitMQ__Host"] ?? "";
+builder.Services.AddMassTransit(x =>
+{
+    // No consumers yet (Task 3.2 adds TaskCreated/Moved consumers); just topology setup for 3.1 verification
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        if (!string.IsNullOrWhiteSpace(rabbitHost) && !rabbitHost.Contains("PASTE_"))
+            cfg.Host(new Uri(rabbitHost));
+        else
+            cfg.Host("rabbitmq://localhost");
+        cfg.Message<TaskCreatedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Message<TaskMovedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Message<TaskCommentedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.UseMessageRetry(r => r.Immediate(3));
+        cfg.ConfigureEndpoints(context);
+    });
+});
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(o =>
