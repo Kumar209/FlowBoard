@@ -62,6 +62,13 @@ public class OrganizationService : IOrganizationService
 
     public async Task<OrgMemberDto> CreateEmployeeAsync(Guid organizationId, string fullName, string email, string password, string role, List<Guid>? workspaceIds, Guid callerId, CancellationToken ct = default)
     {
+        // Legacy single role for multiple workspaces - delegate to per-workspace method with same role for all
+        var wsRoles = workspaceIds?.Select(wid => new WorkspaceRoleAssignment(wid, role)).ToList();
+        return await CreateEmployeeWithRolesAsync(organizationId, fullName, email, password, wsRoles ?? new List<WorkspaceRoleAssignment>(), callerId, ct);
+    }
+
+    public async Task<OrgMemberDto> CreateEmployeeWithRolesAsync(Guid organizationId, string fullName, string email, string password, List<WorkspaceRoleAssignment> workspaceRoles, Guid callerId, CancellationToken ct = default)
+    {
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
         var isOwner = org.OwnerId == callerId;
@@ -69,29 +76,34 @@ public class OrganizationService : IOrganizationService
         if (!isOwner && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(password)) throw new ValidationException("FullName, Email, Password required");
         if (await _db.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower(), ct)) throw new ValidationException("Email already exists");
-        if (!Enum.TryParse<WorkspaceRole>(role, true, out var parsedRole)) throw new ValidationException("Invalid role");
         var user = new User(email.ToLowerInvariant(), BCrypt.Net.BCrypt.HashPassword(password), fullName);
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
-        var targetWorkspaceIds = workspaceIds;
-        if (targetWorkspaceIds == null || !targetWorkspaceIds.Any())
+        var targetRoles = workspaceRoles;
+        if (targetRoles == null || !targetRoles.Any())
         {
             var first = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).FirstOrDefaultAsync(ct);
-            if (first != Guid.Empty) targetWorkspaceIds = new List<Guid> { first };
+            if (first != Guid.Empty) targetRoles = new List<WorkspaceRoleAssignment> { new WorkspaceRoleAssignment(first, "Member") };
         }
-        if (targetWorkspaceIds != null)
+        foreach (var wr in targetRoles.Where(x => x.WorkspaceId != Guid.Empty))
         {
-            foreach (var wid in targetWorkspaceIds.Where(id => id != Guid.Empty))
-            {
-                _db.WorkspaceMembers.Add(new WorkspaceMember(wid, user.Id, parsedRole));
-            }
-            await _db.SaveChangesAsync(ct);
+            if (!Enum.TryParse<WorkspaceRole>(wr.Role, true, out var parsed)) throw new ValidationException($"Invalid role {wr.Role}");
+            _db.WorkspaceMembers.Add(new WorkspaceMember(wr.WorkspaceId, user.Id, parsed));
         }
-        var firstWorkspaceId = targetWorkspaceIds?.FirstOrDefault() ?? Guid.Empty;
-        return new OrgMemberDto(user.Id, user.FullName, user.Email, user.AvatarUrl, parsedRole.ToString(), (int)parsedRole, firstWorkspaceId, DateTime.UtcNow);
+        await _db.SaveChangesAsync(ct);
+        var firstRole = targetRoles.FirstOrDefault()?.Role ?? "Member";
+        var firstWid = targetRoles.FirstOrDefault()?.WorkspaceId ?? Guid.Empty;
+        Enum.TryParse<WorkspaceRole>(firstRole, true, out var firstParsed);
+        return new OrgMemberDto(user.Id, user.FullName, user.Email, user.AvatarUrl, firstParsed.ToString(), (int)firstParsed, firstWid, DateTime.UtcNow);
     }
 
     public async Task<OrgMemberDto> UpdateEmployeeAsync(Guid organizationId, Guid userId, string? fullName, string? email, string? role, List<Guid>? workspaceIds, Guid callerId, CancellationToken ct = default)
+    {
+        var wr = workspaceIds?.Select(id => new WorkspaceRoleAssignment(id, role ?? "Member")).ToList();
+        return await UpdateEmployeeWithRolesAsync(organizationId, userId, fullName, email, wr, callerId, ct);
+    }
+
+    public async Task<OrgMemberDto> UpdateEmployeeWithRolesAsync(Guid organizationId, Guid userId, string? fullName, string? email, List<WorkspaceRoleAssignment>? workspaceRoles, Guid callerId, CancellationToken ct = default)
     {
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
@@ -107,49 +119,38 @@ public class OrganizationService : IOrganizationService
             user.UpdateEmail(email.ToLowerInvariant());
         }
         await _db.SaveChangesAsync(ct);
-        // Handle workspaceIds and role update - sync to exactly the provided workspaceIds
-        if (workspaceIds != null)
+        if (workspaceRoles != null)
         {
             var orgWorkspaceIds = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).ToListAsync(ct);
-            var validWorkspaceIds = workspaceIds.Where(id => orgWorkspaceIds.Contains(id)).ToList();
+            var validRoles = workspaceRoles.Where(x => orgWorkspaceIds.Contains(x.WorkspaceId)).ToList();
             var currentWorkspaceIds = await _db.WorkspaceMembers.Where(m => m.UserId == userId && orgWorkspaceIds.Contains(m.WorkspaceId)).Select(m => m.WorkspaceId).ToListAsync(ct);
-            var toAdd = validWorkspaceIds.Except(currentWorkspaceIds).ToList();
-            var toRemove = currentWorkspaceIds.Except(validWorkspaceIds).ToList();
+            var validIds = validRoles.Select(x => x.WorkspaceId).ToList();
+            var toAdd = validRoles.Where(x => !currentWorkspaceIds.Contains(x.WorkspaceId)).ToList();
+            var toRemove = currentWorkspaceIds.Except(validIds).ToList();
             if (toRemove.Any())
             {
                 var toRemoveMembers = await _db.WorkspaceMembers.Where(m => m.UserId == userId && toRemove.Contains(m.WorkspaceId)).ToListAsync(ct);
                 _db.WorkspaceMembers.RemoveRange(toRemoveMembers);
             }
-            WorkspaceRole targetRole = WorkspaceRole.Member;
-            if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<WorkspaceRole>(role, true, out var parsed)) targetRole = parsed;
-            else
+            foreach (var wr in toAdd)
             {
-                var existing = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.UserId == userId, ct);
-                if (existing != null) targetRole = existing.Role;
+                if (!Enum.TryParse<WorkspaceRole>(wr.Role, true, out var parsed)) throw new ValidationException($"Invalid role {wr.Role}");
+                _db.WorkspaceMembers.Add(new WorkspaceMember(wr.WorkspaceId, userId, parsed));
             }
-            foreach (var wid in toAdd)
+            // Update roles for existing that remain (if role changed)
+            foreach (var wr in validRoles)
             {
-                _db.WorkspaceMembers.Add(new WorkspaceMember(wid, userId, targetRole));
-            }
-            // Update role for existing that remain
-            if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<WorkspaceRole>(role, true, out var newRole))
-            {
-                var remaining = await _db.WorkspaceMembers.Where(m => m.UserId == userId && validWorkspaceIds.Contains(m.WorkspaceId)).ToListAsync(ct);
-                foreach (var m in remaining) m.Role = newRole;
+                var existing = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == wr.WorkspaceId && m.UserId == userId, ct);
+                if (existing != null && Enum.TryParse<WorkspaceRole>(wr.Role, true, out var newRole) && existing.Role != newRole)
+                {
+                    existing.Role = newRole;
+                }
             }
             await _db.SaveChangesAsync(ct);
         }
-        else if (!string.IsNullOrWhiteSpace(role))
-        {
-            var memberships = await _db.WorkspaceMembers.Where(m => m.UserId == userId).ToListAsync(ct);
-            if (Enum.TryParse<WorkspaceRole>(role, true, out var newRole2))
-            {
-                foreach(var m in memberships) m.Role = newRole2;
-                await _db.SaveChangesAsync(ct);
-            }
-        }
         var memberInfo = await _db.WorkspaceMembers.Where(m => m.UserId == userId).Join(_db.Users, m => m.UserId, u => u.Id, (m,u) => new { m.WorkspaceId, m.Role, m.JoinedAt, u.FullName, u.Email, u.AvatarUrl }).FirstOrDefaultAsync(ct);
-        return new OrgMemberDto(userId, user.FullName, user.Email, user.AvatarUrl, memberInfo?.Role.ToString() ?? role ?? "Member", memberInfo != null ? (int)memberInfo.Role : 0, memberInfo?.WorkspaceId ?? Guid.Empty, memberInfo?.JoinedAt ?? DateTime.UtcNow);
+        var firstRole = workspaceRoles?.FirstOrDefault()?.Role ?? "Member";
+        return new OrgMemberDto(userId, user.FullName, user.Email, user.AvatarUrl, memberInfo?.Role.ToString() ?? firstRole, memberInfo != null ? (int)memberInfo.Role : 0, memberInfo?.WorkspaceId ?? Guid.Empty, memberInfo?.JoinedAt ?? DateTime.UtcNow);
     }
 
     public async Task DeleteEmployeeAsync(Guid organizationId, Guid userId, Guid callerId, CancellationToken ct = default)

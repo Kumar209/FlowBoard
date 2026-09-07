@@ -35,11 +35,11 @@ export class WorkspaceService {
   getOrganizationMembers(organizationId: string) {
     return this.http.get<any[]>(`${environment.apiUrl}/api/organizations/${organizationId}/members`, { withCredentials: true });
   }
-  createOrganizationMember(organizationId: string, fullName: string, email: string, password: string, role: string, workspaceIds?: string[]) {
-    return this.http.post(`${environment.apiUrl}/api/organizations/${organizationId}/employees`, { FullName: fullName, Email: email, Password: password, Role: role, WorkspaceIds: workspaceIds }, { withCredentials: true });
+  createOrganizationMember(organizationId: string, fullName: string, email: string, password: string, workspaceRoles: {workspaceId: string, role: string}[]) {
+    return this.http.post(`${environment.apiUrl}/api/organizations/${organizationId}/employees`, { FullName: fullName, Email: email, Password: password, Role: workspaceRoles[0]?.role || 'Member', WorkspaceIds: workspaceRoles.map(r=>r.workspaceId), WorkspaceRoles: workspaceRoles }, { withCredentials: true });
   }
-  updateOrganizationMember(organizationId: string, userId: string, fullName?: string, email?: string, role?: string, workspaceIds?: string[]) {
-    return this.http.put(`${environment.apiUrl}/api/organizations/${organizationId}/employees/${userId}`, { FullName: fullName, Email: email, Role: role, WorkspaceIds: workspaceIds }, { withCredentials: true });
+  updateOrganizationMember(organizationId: string, userId: string, fullName?: string, email?: string, workspaceRoles?: {workspaceId: string, role: string}[]) {
+    return this.http.put(`${environment.apiUrl}/api/organizations/${organizationId}/employees/${userId}`, { FullName: fullName, Email: email, Role: workspaceRoles?.[0]?.role, WorkspaceIds: workspaceRoles?.map(r=>r.workspaceId), WorkspaceRoles: workspaceRoles }, { withCredentials: true });
   }
   deleteOrganizationMember(organizationId: string, userId: string) {
     return this.http.delete(`${environment.apiUrl}/api/organizations/${organizationId}/employees/${userId}`, { withCredentials: true });

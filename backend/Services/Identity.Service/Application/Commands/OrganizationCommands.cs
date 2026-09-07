@@ -11,6 +11,8 @@ public record UpdateOrganizationCommand(Guid OrganizationId, string Name, string
 public record GetOrgMembersQuery(Guid OrganizationId, Guid CallerId) : IRequest<Result<List<OrgMemberDto>>>;
 public record CreateEmployeeCommand(Guid OrganizationId, string FullName, string Email, string Password, string Role, List<Guid>? WorkspaceIds, Guid CallerId) : IRequest<Result<OrgMemberDto>>;
 public record UpdateEmployeeCommand(Guid OrganizationId, Guid UserId, string? FullName, string? Email, string? Role, List<Guid>? WorkspaceIds, Guid CallerId) : IRequest<Result<OrgMemberDto>>;
+public record CreateEmployeeWithRolesCommand(Guid OrganizationId, string FullName, string Email, string Password, List<Identity.Service.Application.Interfaces.WorkspaceRoleAssignment> WorkspaceRoles, Guid CallerId) : IRequest<Result<OrgMemberDto>>;
+public record UpdateEmployeeWithRolesCommand(Guid OrganizationId, Guid UserId, string? FullName, string? Email, List<Identity.Service.Application.Interfaces.WorkspaceRoleAssignment>? WorkspaceRoles, Guid CallerId) : IRequest<Result<OrgMemberDto>>;
 public record DeleteEmployeeCommand(Guid OrganizationId, Guid UserId, Guid CallerId) : IRequest<Result>;
 
 public class GetMyOrganizationsHandler : IRequestHandler<GetMyOrganizationsQuery, Result<List<OrganizationDto>>>
@@ -63,6 +65,16 @@ public class CreateEmployeeHandler : IRequestHandler<CreateEmployeeCommand, Resu
         catch (Exception ex) { return Result<OrgMemberDto>.Failure(ex.Message); }
     }
 }
+public class CreateEmployeeWithRolesHandler : IRequestHandler<CreateEmployeeWithRolesCommand, Result<OrgMemberDto>>
+{
+    private readonly IOrganizationService _service;
+    public CreateEmployeeWithRolesHandler(IOrganizationService service) => _service = service;
+    public async Task<Result<OrgMemberDto>> Handle(CreateEmployeeWithRolesCommand req, CancellationToken ct)
+    {
+        try { var dto = await _service.CreateEmployeeWithRolesAsync(req.OrganizationId, req.FullName, req.Email, req.Password, req.WorkspaceRoles, req.CallerId, ct); return Result<OrgMemberDto>.Success(dto); }
+        catch (Exception ex) { return Result<OrgMemberDto>.Failure(ex.Message); }
+    }
+}
 public class UpdateEmployeeHandler : IRequestHandler<UpdateEmployeeCommand, Result<OrgMemberDto>>
 {
     private readonly IOrganizationService _service;
@@ -70,6 +82,16 @@ public class UpdateEmployeeHandler : IRequestHandler<UpdateEmployeeCommand, Resu
     public async Task<Result<OrgMemberDto>> Handle(UpdateEmployeeCommand req, CancellationToken ct)
     {
         try { var dto = await _service.UpdateEmployeeAsync(req.OrganizationId, req.UserId, req.FullName, req.Email, req.Role, req.WorkspaceIds, req.CallerId, ct); return Result<OrgMemberDto>.Success(dto); }
+        catch (Exception ex) { return Result<OrgMemberDto>.Failure(ex.Message); }
+    }
+}
+public class UpdateEmployeeWithRolesHandler : IRequestHandler<UpdateEmployeeWithRolesCommand, Result<OrgMemberDto>>
+{
+    private readonly IOrganizationService _service;
+    public UpdateEmployeeWithRolesHandler(IOrganizationService service) => _service = service;
+    public async Task<Result<OrgMemberDto>> Handle(UpdateEmployeeWithRolesCommand req, CancellationToken ct)
+    {
+        try { var dto = await _service.UpdateEmployeeWithRolesAsync(req.OrganizationId, req.UserId, req.FullName, req.Email, req.WorkspaceRoles, req.CallerId, ct); return Result<OrgMemberDto>.Success(dto); }
         catch (Exception ex) { return Result<OrgMemberDto>.Failure(ex.Message); }
     }
 }

@@ -102,18 +102,25 @@
             <label class="form-control"><span class="label-text text-xs">Email *</span><input type="email" placeholder="user@example.com" class="input input-bordered rounded-xl" [value]="inviteEmail()" (input)="inviteEmail.set($any($event.target).value)" /></label>
             <label class="form-control"><span class="label-text text-xs">Password *</span><input type="password" placeholder="Temp password" class="input input-bordered rounded-xl" [value]="invitePassword()" (input)="invitePassword.set($any($event.target).value)" /></label>
             <label class="form-control"><span class="label-text text-xs">Role</span><select class="select select-bordered rounded-xl" [value]="inviteRole()" (change)="inviteRole.set($any($event.target).value)"><option>Member</option><option>ProjectManager</option><option>Client</option><option>Viewer</option><option>OrgAdmin</option></select></label>
-            <label class="form-control"><span class="label-text text-xs">Workspaces *</span>
-              <div class="border rounded-xl p-3 max-h-32 overflow-y-auto space-y-1">
+            <label class="form-control"><span class="label-text text-xs">Workspaces * (per-workspace role)</span>
+              <div class="border rounded-xl p-3 max-h-40 overflow-y-auto space-y-2">
                 @for (ws of workspacesQuery.data() || []; track ws.id) {
-                  <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" class="checkbox checkbox-sm" [checked]="inviteWorkspaceIds().includes(ws.id)" (change)="inviteWorkspaceIds.set($event.target.checked ? [...inviteWorkspaceIds(), ws.id] : inviteWorkspaceIds().filter(id=>id!==ws.id))" />
-                    <span class="text-sm">{{ ws.name }}</span>
-                    <span class="text-xs opacity-40 font-mono">{{ ws.slug }}</span>
-                  </label>
+                  <div class="flex items-center gap-2">
+                    <label class="flex items-center gap-2 cursor-pointer flex-1">
+                      <input type="checkbox" class="checkbox checkbox-sm" [checked]="inviteWorkspaceIds().includes(ws.id)" (change)="onInviteWorkspaceChecked(ws.id, $any($event.target).checked)" />
+                      <span class="text-sm">{{ ws.name }}</span>
+                      <span class="text-xs opacity-40 font-mono">{{ ws.slug }}</span>
+                    </label>
+                    @if (inviteWorkspaceIds().includes(ws.id)) {
+                      <select class="select select-bordered select-sm rounded-lg max-w-[140px]" [value]="inviteWorkspaceRoles()[ws.id] || inviteRole()" (change)="onInviteRoleChange(ws.id, $any($event.target).value)">
+                        <option>Member</option><option>ProjectManager</option><option>Client</option><option>Viewer</option><option>OrgAdmin</option>
+                      </select>
+                    }
+                  </div>
                 }
                 @if ((workspacesQuery.data()?.length||0)===0) { <span class="text-xs opacity-40">No workspaces</span> }
               </div>
-              <span class="label-text-alt text-[10px] opacity-40">Default Development checked — shows names, not ids</span>
+              <span class="label-text-alt text-[10px] opacity-40">Checked workspaces get per-workspace role (default Member, Development checked). Shows names, not ids.</span>
             </label>
           </div>
           <div class="flex justify-end gap-2 mt-6">
@@ -135,17 +142,24 @@
             <label class="form-control"><span class="label-text text-xs">Full Name</span><input type="text" class="input input-bordered rounded-xl" [value]="editName()" (input)="editName.set($any($event.target).value)" /></label>
             <label class="form-control"><span class="label-text text-xs">Email</span><input type="email" class="input input-bordered rounded-xl" [value]="editEmail()" (input)="editEmail.set($any($event.target).value)" /></label>
             <label class="form-control"><span class="label-text text-xs">Role</span><select class="select select-bordered rounded-xl" [value]="editRole()" (change)="editRole.set($any($event.target).value)"><option>Member</option><option>ProjectManager</option><option>Client</option><option>Viewer</option><option>OrgAdmin</option></select></label>
-            <label class="form-control"><span class="label-text text-xs">Workspaces</span>
-              <div class="border rounded-xl p-3 max-h-32 overflow-y-auto space-y-1">
+            <label class="form-control"><span class="label-text text-xs">Workspaces (per-workspace role)</span>
+              <div class="border rounded-xl p-3 max-h-40 overflow-y-auto space-y-2">
                 @for (ws of workspacesQuery.data() || []; track ws.id) {
-                  <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" class="checkbox checkbox-sm" [checked]="editWorkspaceIds().includes(ws.id)" (change)="editWorkspaceIds.set($event.target.checked ? [...editWorkspaceIds(), ws.id] : editWorkspaceIds().filter(id=>id!==ws.id))" />
-                    <span class="text-sm">{{ ws.name }}</span>
-                    <span class="text-xs opacity-40 font-mono">{{ ws.slug }}</span>
-                  </label>
+                  <div class="flex items-center gap-2">
+                    <label class="flex items-center gap-2 cursor-pointer flex-1">
+                      <input type="checkbox" class="checkbox checkbox-sm" [checked]="editWorkspaceIds().includes(ws.id)" (change)="onEditWorkspaceChecked(ws.id, $any($event.target).checked)" />
+                      <span class="text-sm">{{ ws.name }}</span>
+                      <span class="text-xs opacity-40 font-mono">{{ ws.slug }}</span>
+                    </label>
+                    @if (editWorkspaceIds().includes(ws.id)) {
+                      <select class="select select-bordered select-sm rounded-lg max-w-[140px]" [value]="editWorkspaceRoles()[ws.id] || editRole()" (change)="onEditRoleChange(ws.id, $any($event.target).value)">
+                        <option>Member</option><option>ProjectManager</option><option>Client</option><option>Viewer</option><option>OrgAdmin</option>
+                      </select>
+                    }
+                  </div>
                 }
               </div>
-              <span class="label-text-alt text-[10px] opacity-40">Check multiple — shows names, not ids. Unchecked removes from that workspace.</span>
+              <span class="label-text-alt text-[10px] opacity-40">Per-workspace role — shows names, not ids. Unchecked removes.</span>
             </label>
           </div>
           <div class="flex justify-end gap-2 mt-6">

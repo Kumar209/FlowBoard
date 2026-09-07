@@ -29,11 +29,13 @@ export class MembersComponent {
   invitePassword = signal('');
   inviteRole = signal('Member');
   inviteWorkspaceIds = signal<string[]>([]);
+  inviteWorkspaceRoles = signal<Record<string,string>>({});
   editTarget = signal<any>(null);
   editName = signal('');
   editEmail = signal('');
   editRole = signal('Member');
   editWorkspaceIds = signal<string[]>([]);
+  editWorkspaceRoles = signal<Record<string,string>>({});
 
   workspacesQuery = injectQuery(() => ({
     queryKey: ['workspaces'] as const,
@@ -96,7 +98,8 @@ export class MembersComponent {
       const orgId = this.orgId();
       if (!orgId) throw new Error('No organization');
       const wids = this.inviteWorkspaceIds();
-      return firstValueFrom(this.ws.createOrganizationMember(orgId, this.inviteFullName().trim(), this.inviteEmail().trim(), this.invitePassword().trim(), this.inviteRole(), wids.length ? wids as any : undefined));
+      const roles = wids.map(id => ({ workspaceId: id, role: this.inviteWorkspaceRoles()[id] || this.inviteRole() }));
+      return firstValueFrom(this.ws.createOrganizationMember(orgId, this.inviteFullName().trim(), this.inviteEmail().trim(), this.invitePassword().trim(), roles as any));
     },
     onSuccess: () => {
       this.qc.invalidateQueries({queryKey:['org-members']});
@@ -120,7 +123,8 @@ export class MembersComponent {
   updateMutation = injectMutation(() => ({
     mutationFn: () => {
       const wids = this.editWorkspaceIds();
-      return firstValueFrom(this.ws.updateOrganizationMember(this.orgId(), this.editTarget()!.userId, this.editName().trim() || undefined, this.editEmail().trim() || undefined, this.editRole(), wids.length ? wids as any : undefined));
+      const roles = wids.map(id => ({ workspaceId: id, role: this.editWorkspaceRoles()[id] || this.editRole() }));
+      return firstValueFrom(this.ws.updateOrganizationMember(this.orgId(), this.editTarget()!.userId, this.editName().trim() || undefined, this.editEmail().trim() || undefined, roles as any));
     },
     onSuccess: () => {
       this.qc.invalidateQueries({queryKey:['org-members']});
@@ -135,11 +139,39 @@ export class MembersComponent {
     const wss = this.workspacesQuery.data() || [];
     const dev = wss.find((w:any) => w.name.toLowerCase().includes('development')) || wss[0];
     this.inviteFullName.set(''); this.inviteEmail.set(''); this.invitePassword.set(''); this.inviteRole.set('Member');
-    this.inviteWorkspaceIds.set(dev ? [dev.id] : wss.slice(0,1).map((w:any)=>w.id));
+    const ids = dev ? [dev.id] : wss.slice(0,1).map((w:any)=>w.id);
+    this.inviteWorkspaceIds.set(ids);
+    const map: Record<string,string> = {};
+    ids.forEach(id => map[id] = 'Member');
+    this.inviteWorkspaceRoles.set(map);
     this.showInvite.set(true);
   }
   doInvite(){ if(!this.inviteFullName().trim() || !this.inviteEmail().trim() || !this.invitePassword().trim()) return; this.inviteMutation.mutate(); }
   confirmRemove(m:any){ this.removeMutation.mutate(m.userId); }
+  onInviteWorkspaceChecked(workspaceId: string, checked: boolean){
+    if(checked){
+      this.inviteWorkspaceIds.set([...this.inviteWorkspaceIds(), workspaceId]);
+      this.inviteWorkspaceRoles.set({...this.inviteWorkspaceRoles(), [workspaceId]: this.inviteRole()});
+    } else {
+      this.inviteWorkspaceIds.set(this.inviteWorkspaceIds().filter(id=>id!==workspaceId));
+      const copy = {...this.inviteWorkspaceRoles()}; delete copy[workspaceId]; this.inviteWorkspaceRoles.set(copy);
+    }
+  }
+  onInviteRoleChange(workspaceId: string, role: string){
+    this.inviteWorkspaceRoles.set({...this.inviteWorkspaceRoles(), [workspaceId]: role});
+  }
+  onEditWorkspaceChecked(workspaceId: string, checked: boolean){
+    if(checked){
+      this.editWorkspaceIds.set([...this.editWorkspaceIds(), workspaceId]);
+      this.editWorkspaceRoles.set({...this.editWorkspaceRoles(), [workspaceId]: this.editRole()});
+    } else {
+      this.editWorkspaceIds.set(this.editWorkspaceIds().filter(id=>id!==workspaceId));
+      const copy = {...this.editWorkspaceRoles()}; delete copy[workspaceId]; this.editWorkspaceRoles.set(copy);
+    }
+  }
+  onEditRoleChange(workspaceId: string, role: string){
+    this.editWorkspaceRoles.set({...this.editWorkspaceRoles(), [workspaceId]: role});
+  }
   openEdit(m:any){
     this.editTarget.set(m);
     this.editName.set(m.fullName);
@@ -147,7 +179,11 @@ export class MembersComponent {
     this.editRole.set(m.role);
     const wids = (m as any).workspaceIds as string[] | undefined;
     const allWids = wids && wids.length ? wids : ((m as any).workspaceId ? [(m as any).workspaceId] : []);
-    this.editWorkspaceIds.set(allWids.length ? allWids : (this.workspacesQuery.data()?.slice(0,1).map((w:any)=>w.id) || []));
+    const ids = allWids.length ? allWids : (this.workspacesQuery.data()?.slice(0,1).map((w:any)=>w.id) || []);
+    this.editWorkspaceIds.set(ids);
+    const map: Record<string,string> = {};
+    ids.forEach(id => map[id] = m.role);
+    this.editWorkspaceRoles.set(map);
   }
   saveEdit(){
     const t = this.editTarget(); if(!t) return;
