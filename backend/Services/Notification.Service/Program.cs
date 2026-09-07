@@ -40,11 +40,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-// SignalR 10.0 + Upstash Redis backplane (same rediss:// key local/prod)
+// SignalR 10.0 + Upstash Redis backplane (same rediss:// key local/prod) — best-effort with AbortOnConnectFail=false
 var redisConn = builder.Configuration["Redis:Connection"] ?? builder.Configuration["Redis__Connection"] ?? "";
 if (!string.IsNullOrWhiteSpace(redisConn) && !redisConn.Contains("PASTE_"))
 {
-    builder.Services.AddSignalR().AddStackExchangeRedis(redisConn, opts => opts.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("FlowBoard"));
+    builder.Services.AddSignalR().AddStackExchangeRedis(redisConn, opts =>
+    {
+        opts.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("FlowBoard");
+        opts.Configuration.AbortOnConnectFail = false;
+        opts.Configuration.ConnectRetry = 3;
+    });
 }
 else
 {

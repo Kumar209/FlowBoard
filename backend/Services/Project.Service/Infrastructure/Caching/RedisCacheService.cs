@@ -23,7 +23,10 @@ public class RedisCacheService : IRedisCacheService
         }
         try
         {
-            _mux = ConnectionMultiplexer.Connect(conn);
+            var opts = ConfigurationOptions.Parse(conn);
+            opts.AbortOnConnectFail = false;
+            opts.ConnectRetry = 3;
+            _mux = ConnectionMultiplexer.Connect(opts);
             _db = _mux.GetDatabase();
             logger.LogInformation("[Redis] Connected to Upstash");
         }
