@@ -302,6 +302,43 @@ export class TaskDetailModalComponent {
     });
   }
 
+  openParentIssue(){
+    const pid = this.parentIssueId();
+    if(!pid) return;
+    const parent = this.boardTasks().find((t:any) => t.id === pid);
+    if(parent) { this.closed.emit(); setTimeout(()=> { const event = new CustomEvent('openTask', {detail: parent}); window.dispatchEvent(event); }, 100); }
+  }
+  openChildIssue(child:any){
+    this.closed.emit();
+    setTimeout(()=> { const event = new CustomEvent('openTask', {detail: child}); window.dispatchEvent(event); }, 100);
+  }
+  removeLinkedIssue(id:string){
+    try {
+      const arr = JSON.parse(this.linkedIssues() ? this.linkedIssues() : '[]');
+      const filtered = Array.isArray(arr) ? arr.filter((x:any) => (typeof x === 'string' ? x !== id : x.id !== id)) : [];
+      // Also handle comma-separated string case
+      if(!Array.isArray(arr) || filtered.length===arr.length){
+        const parts = this.linkedIssues().split(',').map(s=>s.trim()).filter(Boolean);
+        const newParts = parts.filter(p => p !== id);
+        this.linkedIssues.set(newParts.join(', '));
+      } else {
+        this.linkedIssues.set(JSON.stringify(filtered));
+      }
+    } catch {
+      const parts = this.linkedIssues().split(',').map(s=>s.trim()).filter(Boolean);
+      this.linkedIssues.set(parts.filter(p => p !== id).join(', '));
+    }
+  }
+  getLinkedDisplayIds(): string[] {
+    try {
+      const arr = JSON.parse(this.linkedIssues() || '[]');
+      if(Array.isArray(arr)) return arr.map((x:any) => typeof x === 'string' ? x : x.id || x);
+    } catch {}
+    return this.linkedIssues().split(',').map(s=>s.trim()).filter(Boolean);
+  }
+  getLinkedTask(lid: string): any {
+    return this.boardTasks().find((x:any) => x.id === lid) || { title: lid.slice(0,8), id: lid, priority: '', status: '' };
+  }
   save() {
     this.saved.emit({title: this.title().trim(), description: this.description().trim(), priority: this.priority(), listId: this.listId(), labelsJson: this.labelsJson(), assigneeId: this.assigneeId() || undefined, dueDate: this.dueDate() || undefined, issueType: this.issueType(), epic: this.epic().trim() || undefined, storyPoints: this.storyPoints() ?? undefined, startDate: this.startDate() || undefined, environment: this.environmentSel() || undefined, parentIssueId: this.parentIssueId() || undefined, sprintId: this.sprintId() || undefined, watchersJson: this.watchersJson(), linkedIssuesJson: this.linkedIssuesJson(), timeEstimated: this.timeEstimated() ?? undefined, timeSpent: this.timeSpent() ?? undefined, timeRemaining: this.timeRemaining() ?? undefined, teamId: this.teamId() || undefined});
   }

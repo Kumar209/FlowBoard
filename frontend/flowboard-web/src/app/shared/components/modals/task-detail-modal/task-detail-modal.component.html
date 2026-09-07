@@ -230,23 +230,42 @@
             </div>
 
             <div class="flex flex-col gap-1 relative">
-              <span class="opacity-60 text-xs font-semibold">Parent Issue @if(parentIssueId()){<span class="opacity-40">• {{ parentDisplayName() }}</span> <button class="badge badge-ghost badge-xs ml-1" (click)="parentIssueId.set(''); parentSearch.set('')">Clear</button>}</span>
-              <input type="text" placeholder="Search parent by title/ID..." class="input input-bordered input-sm rounded-xl" [value]="parentSearch()" (input)="parentSearch.set($any($event.target).value)" />
-              @if (parentSearch() && filteredParents().length>0) {
-                <div class="absolute top-full left-0 right-0 mt-1 bg-base-100 border rounded-xl shadow-xl z-20 max-h-32 overflow-y-auto">
-                  @for (t of filteredParents(); track t.id) {
-                    <button class="w-full text-left px-3 py-2 hover:bg-base-200 text-xs" (click)="parentIssueId.set(t.id); parentSearch.set('')">{{ t.title }} — {{ t.id.slice(0,6) }}</button>
-                  }
+              <span class="opacity-60 text-xs font-semibold">Parent Issue</span>
+              @if (parentIssueId()) {
+                <div class="flex items-center gap-2 p-2 rounded-xl bg-primary/10 border border-primary/20">
+                  <span class="badge badge-primary badge-xs">Parent</span>
+                  <span class="flex-1 text-sm font-medium truncate">{{ parentDisplayName() }}</span>
+                  <button class="btn btn-ghost btn-xs rounded-full" (click)="openParentIssue()">Open</button>
+                  <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="parentIssueId.set(''); parentSearch.set('')">Clear</button>
                 </div>
               }
-              @if (!parentSearch() && parentIssueId()) {
-                <p class="text-xs opacity-60">Selected: {{ parentDisplayName() }}</p>
-              }
+              <div class="relative">
+                <input type="text" [placeholder]="parentIssueId() ? 'Change parent — search by title/ID...' : 'Search parent by title/ID...'" class="input input-bordered input-sm rounded-xl w-full" [value]="parentSearch()" (input)="parentSearch.set($any($event.target).value)" />
+                @if (parentSearch() && filteredParents().length>0) {
+                  <div class="absolute top-full left-0 right-0 mt-1 bg-base-100 border rounded-xl shadow-xl z-20 max-h-40 overflow-y-auto">
+                    @for (t of filteredParents(); track t.id) {
+                      <button class="w-full text-left px-3 py-2 hover:bg-base-200 text-xs flex justify-between items-center" (click)="parentIssueId.set(t.id); parentSearch.set('')">
+                        <span>{{ t.title }} — {{ t.id.slice(0,6) }} • {{ t.status }}</span>
+                        <span class="badge badge-ghost badge-xs">{{ t.priority }}</span>
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
               @if (childIssues().length>0) {
-                <div class="mt-1 p-2 rounded-xl bg-base-200/30 border text-xs">
-                  <span class="font-semibold">Child issues ({{ childIssues().length }}):</span>
-                  @for (c of childIssues(); track c.id) { <span class="badge badge-ghost badge-xs ml-1">{{ c.title | slice:0:12 }} {{ c.id.slice(0,4) }}</span> }
-                  <p class="opacity-40 mt-1">When this issue is parent, its children appear here (not as subtasks). Subtasks are checklist inside issue; Parent/Child is hierarchy (Epic→Story), Linked is relates-to.</p>
+                <div class="mt-2 p-3 rounded-xl bg-base-200/40 border">
+                  <p class="text-xs font-semibold">Child issues ({{ childIssues().length }}) — hierarchy (Epic→Story)</p>
+                  <div class="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                    @for (c of childIssues(); track c.id) {
+                      <div class="flex items-center gap-2 p-2 rounded-lg bg-base-100 border hover:bg-base-200 cursor-pointer" (click)="openChildIssue(c)">
+                        <span class="badge badge-ghost badge-xs">{{ c.id.slice(0,6) }}</span>
+                        <span class="flex-1 text-xs font-medium truncate">{{ c.title }}</span>
+                        <span class="badge badge-xs" [ngClass]="c.priority==='High'?'badge-warning':'badge-ghost'">{{ c.priority }}</span>
+                        <span class="text-xs opacity-60">{{ c.status }}</span>
+                      </div>
+                    }
+                  </div>
+                  <p class="text-[10px] opacity-40 mt-2">Subtasks are checklist inside issue; Parent/Child shows hierarchy. Click child to open.</p>
                 </div>
               }
             </div>
@@ -270,17 +289,28 @@
             </div>
 
             <div class="flex flex-col gap-1 relative">
-              <span class="opacity-60 text-xs font-semibold">Linked Issues</span>
-              <input type="text" placeholder="Search to add — e.g., blocks FB-102" class="input input-bordered input-sm rounded-xl" [value]="linkedSearch()" (input)="linkedSearch.set($any($event.target).value)" />
-              @if (linkedSearch() && filteredLinked().length>0) {
-                <div class="absolute top-full left-0 right-0 mt-1 bg-base-100 border rounded-xl shadow-xl z-20 max-h-32 overflow-y-auto">
-                  @for (t of filteredLinked(); track t.id) {
-                    <button class="w-full text-left px-3 py-2 hover:bg-base-200 text-xs" (click)="linkedIssues.set(linkedIssues() ? linkedIssues()+', '+t.id : t.id); linkedSearch.set('')">{{ t.title }} — {{ t.id.slice(0,6) }}</button>
+              <span class="opacity-60 text-xs font-semibold">Linked Issues @if(getLinkedDisplayIds().length){<span class="opacity-40">• {{ getLinkedDisplayIds().length }}</span>}</span>
+              @if (getLinkedDisplayIds().length>0) {
+                <div class="flex flex-wrap gap-1 p-2 rounded-xl bg-base-200/30 border">
+                  @for (lid of getLinkedDisplayIds(); track lid) {
+                    <span class="badge badge-sm rounded-full gap-1">
+                      <a class="link link-hover" (click)="openChildIssue(getLinkedTask(lid))">{{ getLinkedTask(lid).title | slice:0:14 }} {{ getLinkedTask(lid).id.slice(0,4) }}</a>
+                      <button class="btn btn-ghost btn-xs rounded-full h-4 w-4 p-0" (click)="removeLinkedIssue(lid)">✕</button>
+                    </span>
                   }
                 </div>
               }
-              <input type="text" placeholder="Current: blocks FB-102, relates to FB-103 (comma ids)" class="input input-bordered input-sm rounded-xl mt-1" [value]="linkedIssues()" (input)="linkedIssues.set($any($event.target).value)" />
-              <span class="text-[10px] opacity-40">Search above to add, or type ids directly (like parent search).</span>
+              <div class="relative">
+                <input type="text" placeholder="Search to link — e.g., blocks, relates to..." class="input input-bordered input-sm rounded-xl w-full" [value]="linkedSearch()" (input)="linkedSearch.set($any($event.target).value)" />
+                @if (linkedSearch() && filteredLinked().length>0) {
+                  <div class="absolute top-full left-0 right-0 mt-1 bg-base-100 border rounded-xl shadow-xl z-20 max-h-32 overflow-y-auto">
+                    @for (t of filteredLinked(); track t.id) {
+                      <button class="w-full text-left px-3 py-2 hover:bg-base-200 text-xs flex justify-between" (click)="linkedIssues.set(linkedIssues() ? linkedIssues()+', '+t.id : t.id); linkedSearch.set('')"><span>{{ t.title }} — {{ t.id.slice(0,6) }}</span><span class="badge badge-ghost badge-xs">{{ t.status }}</span></button>
+                    }
+                  </div>
+                }
+              </div>
+              <span class="text-[10px] opacity-40">Linked shows relates-to (not hierarchy). Parent/Child is hierarchy, Subtasks are checklist. Click badge to open linked issue.</span>
             </div>
 
             <div class="border-t border-base-200 pt-2">
