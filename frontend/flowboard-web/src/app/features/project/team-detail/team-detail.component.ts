@@ -28,6 +28,11 @@ export class TeamDetailComponent {
     this.route.paramMap.subscribe(m => {
       const tid = m.get('teamId'); if(tid) this.teamId.set(tid);
       const pid = m.get('pid'); if(pid) this.projectId.set(pid);
+      const wid = m.get('wid'); if(wid) this.workspaceId.set(wid);
+    });
+    this.route.parent?.paramMap.subscribe(m => {
+      const pid = m.get('pid'); if(pid) this.projectId.set(pid);
+      const wid = m.get('wid'); if(wid) this.workspaceId.set(wid);
     });
   }
 
