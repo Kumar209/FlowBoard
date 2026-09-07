@@ -22,47 +22,22 @@ public class UpdateEnvironmentValidator : AbstractValidator<UpdateEnvironmentCom
 
 public class CreateEnvironmentHandler : IRequestHandler<CreateEnvironmentCommand, Result<ProjectEnvironmentDto>>
 {
-    private readonly IApplicationDbContext _db;
-    public CreateEnvironmentHandler(IApplicationDbContext db) => _db = db;
-    public async Task<Result<ProjectEnvironmentDto>> Handle(CreateEnvironmentCommand req, CancellationToken ct)
-    {
-        if (req.CallerRoles.Contains("Viewer") || req.CallerRoles.Contains("Client"))
-            return Result<ProjectEnvironmentDto>.Failure("Forbidden - Viewer/Client cannot create environments");
-        var exists = await _db.Environments.AnyAsync(e => e.ProjectId == req.ProjectId && e.Name == req.Name, ct);
-        if (exists) return Result<ProjectEnvironmentDto>.Failure("Environment with same name already exists");
-        var env = new Domain.Entities.ProjectEnvironment(req.ProjectId, req.Name, req.Url, req.Description, req.Status ?? "Active");
-        _db.Environments.Add(env);
-        await _db.SaveChangesAsync(ct);
-        return Result<ProjectEnvironmentDto>.Success(new ProjectEnvironmentDto(env.Id, env.ProjectId, env.Name, env.Url, env.Description, env.Status, env.CreatedAt));
-    }
+    private readonly IEnvironmentService _service;
+    public CreateEnvironmentHandler(IEnvironmentService service) => _service = service;
+    public Task<Result<ProjectEnvironmentDto>> Handle(CreateEnvironmentCommand req, CancellationToken ct)
+        => _service.CreateEnvironmentAsync(req.ProjectId, req.Name, req.Url, req.Description, req.Status, req.CallerId, req.CallerRoles, ct);
 }
 public class UpdateEnvironmentHandler : IRequestHandler<UpdateEnvironmentCommand, Result<ProjectEnvironmentDto>>
 {
-    private readonly IApplicationDbContext _db;
-    public UpdateEnvironmentHandler(IApplicationDbContext db) => _db = db;
-    public async Task<Result<ProjectEnvironmentDto>> Handle(UpdateEnvironmentCommand req, CancellationToken ct)
-    {
-        if (req.CallerRoles.Contains("Viewer") || req.CallerRoles.Contains("Client"))
-            return Result<ProjectEnvironmentDto>.Failure("Forbidden - Viewer/Client cannot update environments");
-        var env = await _db.Environments.FindAsync(new object[]{ req.EnvironmentId }, ct);
-        if (env == null) return Result<ProjectEnvironmentDto>.Failure("Environment not found");
-        env.Update(req.Name, req.Url, req.Description, req.Status ?? "Active");
-        await _db.SaveChangesAsync(ct);
-        return Result<ProjectEnvironmentDto>.Success(new ProjectEnvironmentDto(env.Id, env.ProjectId, env.Name, env.Url, env.Description, env.Status, env.CreatedAt));
-    }
+    private readonly IEnvironmentService _service;
+    public UpdateEnvironmentHandler(IEnvironmentService service) => _service = service;
+    public Task<Result<ProjectEnvironmentDto>> Handle(UpdateEnvironmentCommand req, CancellationToken ct)
+        => _service.UpdateEnvironmentAsync(req.EnvironmentId, req.Name, req.Url, req.Description, req.Status, req.CallerId, req.CallerRoles, ct);
 }
 public class DeleteEnvironmentHandler : IRequestHandler<DeleteEnvironmentCommand, Result<bool>>
 {
-    private readonly IApplicationDbContext _db;
-    public DeleteEnvironmentHandler(IApplicationDbContext db) => _db = db;
-    public async Task<Result<bool>> Handle(DeleteEnvironmentCommand req, CancellationToken ct)
-    {
-        if (req.CallerRoles.Contains("Viewer") || req.CallerRoles.Contains("Client"))
-            return Result<bool>.Failure("Forbidden - Viewer/Client cannot delete environments");
-        var env = await _db.Environments.FindAsync(new object[]{ req.EnvironmentId }, ct);
-        if (env == null) return Result<bool>.Failure("Environment not found");
-        _db.Environments.Remove(env);
-        await _db.SaveChangesAsync(ct);
-        return Result<bool>.Success(true);
-    }
+    private readonly IEnvironmentService _service;
+    public DeleteEnvironmentHandler(IEnvironmentService service) => _service = service;
+    public Task<Result<bool>> Handle(DeleteEnvironmentCommand req, CancellationToken ct)
+        => _service.DeleteEnvironmentAsync(req.EnvironmentId, req.CallerId, req.CallerRoles, ct);
 }

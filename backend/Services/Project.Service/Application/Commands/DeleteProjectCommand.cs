@@ -12,21 +12,8 @@ public record DeleteProjectCommand(Guid ProjectId, Guid CallerId, List<string> C
 
 public class DeleteProjectHandler : IRequestHandler<DeleteProjectCommand, Result<bool>>
 {
-    private readonly IApplicationDbContext _db;
-    private readonly IRedisCacheService _cache;
-    public DeleteProjectHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
-    public async Task<Result<bool>> Handle(DeleteProjectCommand req, CancellationToken ct)
-    {
-        var allowed = new[] { "OrgAdmin", "SuperAdmin" };
-        if (!req.CallerRoles.Any(r => allowed.Contains(r)))
-            return Result<bool>.Failure("Forbidden - Need OrgAdmin/SuperAdmin to delete project");
-        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == req.ProjectId, ct);
-        if (project == null) return Result<bool>.Failure("Project not found");
-        _db.Projects.Remove(project);
-        await _db.SaveChangesAsync(ct);
-        await _cache.RemoveByPrefixAsync($"projects:{project.WorkspaceId}:");
-        await _cache.RemoveAsync($"board:{project.Id}");
-        await _cache.RemoveByPrefixAsync($"tasks:{project.Id}:");
-        return Result<bool>.Success(true);
-    }
+    private readonly IProjectService _service;
+    public DeleteProjectHandler(IProjectService service) => _service = service;
+    public Task<Result<bool>> Handle(DeleteProjectCommand req, CancellationToken ct)
+        => _service.DeleteProjectAsync(req.ProjectId, req.CallerId, req.CallerRoles, ct);
 }

@@ -23,6 +23,12 @@ builder.Services.AddMediatR(cfg =>
     cfg.AddBehavior(typeof(MediatR.IPipelineBehavior<,>), typeof(CachingBehavior<,>));
 });
 builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
+builder.Services.AddScoped<IProjectService, Project.Service.Infrastructure.Services.ProjectService>();
+builder.Services.AddScoped<IBoardService, Project.Service.Infrastructure.Services.BoardService>();
+builder.Services.AddScoped<ITaskService, Project.Service.Infrastructure.Services.TaskService>();
+builder.Services.AddScoped<ISprintService, Project.Service.Infrastructure.Services.SprintService>();
+builder.Services.AddScoped<ITeamService, Project.Service.Infrastructure.Services.TeamService>();
+builder.Services.AddScoped<IEnvironmentService, Project.Service.Infrastructure.Services.EnvironmentService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(o =>

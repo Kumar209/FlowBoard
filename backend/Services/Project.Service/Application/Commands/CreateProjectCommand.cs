@@ -26,41 +26,8 @@ public class CreateProjectValidator : AbstractValidator<CreateProjectCommand>
 
 public class CreateProjectHandler : IRequestHandler<CreateProjectCommand, Result<ProjectDto>>
 {
-    private readonly IApplicationDbContext _db;
-    private readonly IRedisCacheService _cache;
-    public CreateProjectHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
-
-    public async Task<Result<ProjectDto>> Handle(CreateProjectCommand req, CancellationToken ct)
-    {
-        // Policy: Only OrgAdmin, ProjectManager, SuperAdmin can create (Task 2.2 spec) - Member/Client/Viewer 403
-        var allowed = new[] { "OrgAdmin", "ProjectManager", "SuperAdmin" };
-        if (!req.CallerRoles.Any(r => allowed.Contains(r)))
-            return Result<ProjectDto>.Failure("Forbidden - Need OrgAdmin/ProjectManager. Your roles: " + string.Join(",", req.CallerRoles));
-
-        // Generate Key like FB-3: first 2-3 letters of name uppercase + count
-        var prefix = new string(req.Name.Where(char.IsLetter).Take(3).ToArray()).ToUpperInvariant();
-        if (prefix.Length < 2) prefix = "PRJ";
-        var count = await _db.Projects.CountAsync(p => p.WorkspaceId == req.WorkspaceId, ct);
-        var key = $"{prefix}-{count + 1}";
-
-        // Ensure unique WorkspaceId+Key (index unique)
-        var exists = await _db.Projects.AnyAsync(p => p.WorkspaceId == req.WorkspaceId && p.Key == key, ct);
-        if (exists) key = $"{prefix}-{Guid.NewGuid().ToString()[..4].ToUpper()}";
-
-        var project = new ProjectEntity(req.WorkspaceId, req.Name, key, req.CallerId, req.Description);
-        _db.Projects.Add(project);
-        await _db.SaveChangesAsync(ct);
-
-        // No auto boards/columns/sprints - project starts fully empty per workflow (user creates Teams → Boards → Columns manually)
-
-        // Activity log
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(project.Id, null, req.CallerId, "ProjectCreated", $"{{\"name\":\"{req.Name}\",\"key\":\"{key}\"}}"));
-        await _db.SaveChangesAsync(ct);
-
-        // MNC-grade: invalidate workspace projects cache (pipeline will MISS next GET)
-        await _cache.RemoveByPrefixAsync($"projects:{req.WorkspaceId}:");
-
-        var dto = new ProjectDto(project.Id, project.WorkspaceId, project.Name, project.Key, project.Description, project.OwnerId, project.CreatedAt);
-        return Result<ProjectDto>.Success(dto);
-    }
+    private readonly IProjectService _service;
+    public CreateProjectHandler(IProjectService service) => _service = service;
+    public Task<Result<ProjectDto>> Handle(CreateProjectCommand req, CancellationToken ct)
+        => _service.CreateProjectAsync(req.WorkspaceId, req.Name, req.Description, req.CallerId, req.CallerRoles, ct);
 }

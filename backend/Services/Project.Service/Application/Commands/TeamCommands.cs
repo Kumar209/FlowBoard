@@ -24,77 +24,40 @@ public class UpdateTeamValidator : AbstractValidator<UpdateTeamCommand>
 
 public class CreateTeamHandler : IRequestHandler<CreateTeamCommand, Result<TeamDto>>
 {
-    private readonly IApplicationDbContext _db;
-    public CreateTeamHandler(IApplicationDbContext db) => _db = db;
-    public async Task<Result<TeamDto>> Handle(CreateTeamCommand req, CancellationToken ct)
-    {
-        var proj = await _db.Projects.FirstOrDefaultAsync(p => p.Id == req.ProjectId, ct);
-        if (proj == null) return Result<TeamDto>.Failure("Project not found");
-        var exists = await _db.Teams.AnyAsync(t => t.ProjectId == req.ProjectId && t.Name == req.Name, ct);
-        if (exists) return Result<TeamDto>.Failure("Team name already exists in this project");
-        var team = new Domain.Entities.Team(req.ProjectId, req.Name, req.Description);
-        _db.Teams.Add(team);
-        await _db.SaveChangesAsync(ct);
-        return Result<TeamDto>.Success(new TeamDto(team.Id, team.ProjectId, team.Name, team.Description, team.CreatedAt, 0));
-    }
+    private readonly ITeamService _service;
+    public CreateTeamHandler(ITeamService service) => _service = service;
+    public Task<Result<TeamDto>> Handle(CreateTeamCommand req, CancellationToken ct)
+        => _service.CreateTeamAsync(req.ProjectId, req.Name, req.Description, req.CallerId, ct);
 }
 
 public class UpdateTeamHandler : IRequestHandler<UpdateTeamCommand, Result<TeamDto>>
 {
-    private readonly IApplicationDbContext _db;
-    public UpdateTeamHandler(IApplicationDbContext db) => _db = db;
-    public async Task<Result<TeamDto>> Handle(UpdateTeamCommand req, CancellationToken ct)
-    {
-        var team = await _db.Teams.FirstOrDefaultAsync(t => t.Id == req.TeamId, ct);
-        if (team == null) return Result<TeamDto>.Failure("Team not found");
-        team.Update(req.Name, req.Description);
-        await _db.SaveChangesAsync(ct);
-        var count = await _db.TeamMembers.CountAsync(m => m.TeamId == team.Id, ct);
-        return Result<TeamDto>.Success(new TeamDto(team.Id, team.ProjectId, team.Name, team.Description, team.CreatedAt, count));
-    }
+    private readonly ITeamService _service;
+    public UpdateTeamHandler(ITeamService service) => _service = service;
+    public Task<Result<TeamDto>> Handle(UpdateTeamCommand req, CancellationToken ct)
+        => _service.UpdateTeamAsync(req.TeamId, req.Name, req.Description, req.CallerId, ct);
 }
 
 public class DeleteTeamHandler : IRequestHandler<DeleteTeamCommand, Result<object>>
 {
-    private readonly IApplicationDbContext _db;
-    public DeleteTeamHandler(IApplicationDbContext db) => _db = db;
-    public async Task<Result<object>> Handle(DeleteTeamCommand req, CancellationToken ct)
-    {
-        var team = await _db.Teams.FirstOrDefaultAsync(t => t.Id == req.TeamId, ct);
-        if (team == null) return Result<object>.Failure("Team not found");
-        _db.Teams.Remove(team);
-        await _db.SaveChangesAsync(ct);
-        return Result<object>.Success(new { message = "Deleted" });
-    }
+    private readonly ITeamService _service;
+    public DeleteTeamHandler(ITeamService service) => _service = service;
+    public Task<Result<object>> Handle(DeleteTeamCommand req, CancellationToken ct)
+        => _service.DeleteTeamAsync(req.TeamId, req.CallerId, ct).ContinueWith(t => t.Result.IsSuccess ? Result<object>.Success(new { message = "Deleted" }) : Result<object>.Failure(t.Result.Error!), ct);
 }
 
 public class AddTeamMemberHandler : IRequestHandler<AddTeamMemberCommand, Result<TeamMemberDto>>
 {
-    private readonly IApplicationDbContext _db;
-    public AddTeamMemberHandler(IApplicationDbContext db) => _db = db;
-    public async Task<Result<TeamMemberDto>> Handle(AddTeamMemberCommand req, CancellationToken ct)
-    {
-        var team = await _db.Teams.FirstOrDefaultAsync(t => t.Id == req.TeamId, ct);
-        if (team == null) return Result<TeamMemberDto>.Failure("Team not found");
-        var exists = await _db.TeamMembers.AnyAsync(m => m.TeamId == req.TeamId && m.UserId == req.UserId, ct);
-        if (exists) return Result<TeamMemberDto>.Failure("Already member");
-        var member = new Domain.Entities.TeamMember(req.TeamId, req.UserId);
-        _db.TeamMembers.Add(member);
-        await _db.SaveChangesAsync(ct);
-        return Result<TeamMemberDto>.Success(new TeamMemberDto(member.Id, member.TeamId, member.UserId, member.JoinedAt));
-    }
+    private readonly ITeamService _service;
+    public AddTeamMemberHandler(ITeamService service) => _service = service;
+    public Task<Result<TeamMemberDto>> Handle(AddTeamMemberCommand req, CancellationToken ct)
+        => _service.AddMemberAsync(req.TeamId, req.UserId, req.CallerId, ct);
 }
 
 public class RemoveTeamMemberHandler : IRequestHandler<RemoveTeamMemberCommand, Result<object>>
 {
-    private readonly IApplicationDbContext _db;
-    public RemoveTeamMemberHandler(IApplicationDbContext db) => _db = db;
-    public async Task<Result<object>> Handle(RemoveTeamMemberCommand req, CancellationToken ct)
-    {
-        var member = await _db.TeamMembers.FirstOrDefaultAsync(m => m.TeamId == req.TeamId && m.UserId == req.UserId, ct);
-        if (member == null) return Result<object>.Failure("Member not found");
-        _db.TeamMembers.Remove(member);
-        await _db.SaveChangesAsync(ct);
-        return Result<object>.Success(new { message = "Removed" });
-    }
+    private readonly ITeamService _service;
+    public RemoveTeamMemberHandler(ITeamService service) => _service = service;
+    public Task<Result<object>> Handle(RemoveTeamMemberCommand req, CancellationToken ct)
+        => _service.RemoveMemberAsync(req.TeamId, req.UserId, req.CallerId, ct).ContinueWith(t => t.Result.IsSuccess ? Result<object>.Success(new { message = "Removed" }) : Result<object>.Failure(t.Result.Error!), ct);
 }

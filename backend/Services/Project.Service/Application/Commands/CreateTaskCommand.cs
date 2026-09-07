@@ -27,39 +27,8 @@ public class CreateTaskValidator : AbstractValidator<CreateTaskCommand>
 
 public class CreateTaskHandler : IRequestHandler<CreateTaskCommand, Result<TaskDto>>
 {
-    private readonly IApplicationDbContext _db;
-    private readonly IRedisCacheService _cache;
-    public CreateTaskHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
-
-    public async Task<Result<TaskDto>> Handle(CreateTaskCommand req, CancellationToken ct)
-    {
-        if (req.CallerRoles.Contains("Client") || req.CallerRoles.Contains("Viewer"))
-            return Result<TaskDto>.Failure("Forbidden - Client/Viewer cannot create tasks");
-
-        var list = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == req.ListId && b.ProjectId == req.ProjectId, ct);
-        if (list == null) return Result<TaskDto>.Failure("List not found in project");
-
-        var priority = Enum.TryParse<Domain.Enums.TaskPriority>(req.Priority, true, out var p) ? p : Domain.Enums.TaskPriority.Medium;
-        var maxPos = await _db.Tasks.Where(t => t.ListId == req.ListId).MaxAsync(t => (int?)t.Position, ct) ?? -1;
-
-        var status = list.Name; // Column is visual of Status
-        var task = new Domain.Entities.TaskItem(req.ProjectId, req.ListId, req.Title, req.CallerId, maxPos + 1, priority, req.AssigneeId, req.Description, req.LabelsJson, req.DueDate, req.IssueType ?? "Task", req.Epic, req.StoryPoints, req.StartDate, req.Environment, req.ParentIssueId, req.SprintId, req.TeamId, status);
-        _db.Tasks.Add(task);
-
-        // Outbox for MassTransit (Task 3.1) - same transaction
-        var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, ListId = task.ListId, Title = task.Title, ActorId = req.CallerId, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
-        _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskCreated", JsonSerializer.Serialize(evt)));
-
-        // Activity
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(req.ProjectId, task.Id, req.CallerId, "TaskCreated", JsonSerializer.Serialize(new { task.Title, list.Name })));
-
-        await _db.SaveChangesAsync(ct);
-
-        // MNC-grade: invalidate read caches via pipeline invalidation (not controller) - keeps Api thin
-        await _cache.RemoveAsync(CacheKeys.Board(req.ProjectId));
-        await _cache.RemoveByPrefixAsync($"tasks:{req.ProjectId}:");
-
-        var dto = new TaskDto(task.Id, task.ProjectId, task.ListId, task.Title, task.Description, task.Priority.ToString(), task.LabelsJson, task.AssigneeId, task.Position, task.CreatedAt, task.DueDate, task.IssueType, task.Epic, task.StoryPoints, task.StartDate, task.Environment, task.ParentIssueId, task.SprintId, task.WatchersJson, task.LinkedIssuesJson, task.TimeEstimated, task.TimeSpent, task.TimeRemaining, task.TeamId);
-        return Result<TaskDto>.Success(dto);
-    }
+    private readonly ITaskService _service;
+    public CreateTaskHandler(ITaskService service) => _service = service;
+    public Task<Result<TaskDto>> Handle(CreateTaskCommand req, CancellationToken ct)
+        => _service.CreateTaskAsync(req.ProjectId, req.ListId, req.Title, req.Description, req.Priority, req.LabelsJson, req.AssigneeId, req.DueDate, req.IssueType, req.Epic, req.StoryPoints, req.StartDate, req.Environment, req.ParentIssueId, req.SprintId, req.TeamId, req.CallerId, req.CallerRoles, ct);
 }

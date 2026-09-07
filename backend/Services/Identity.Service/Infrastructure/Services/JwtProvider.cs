@@ -5,7 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
 
-namespace Identity.Service.Application.Services;
+namespace Identity.Service.Infrastructure.Services;
 
 // Generates JWT access token (15m) with claims: sub, email, orgIds, workspaceIds, roles
 // Enterprise: Implements IJwtProvider (Application interface) - DIP, mockable

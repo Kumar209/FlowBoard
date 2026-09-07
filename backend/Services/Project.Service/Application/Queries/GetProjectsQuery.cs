@@ -17,17 +17,8 @@ public record GetProjectsQuery(Guid WorkspaceId, int Page = 1, int PageSize = 20
 
 public class GetProjectsHandler : IRequestHandler<GetProjectsQuery, PaginatedResult<ProjectDto>>
 {
-    private readonly IApplicationDbContext _db;
-    public GetProjectsHandler(IApplicationDbContext db) => _db = db;
-
-    public async Task<PaginatedResult<ProjectDto>> Handle(GetProjectsQuery req, CancellationToken ct)
-    {
-        var q = _db.Projects.Where(p => p.WorkspaceId == req.WorkspaceId);
-        var total = await q.CountAsync(ct);
-        var items = await q.OrderByDescending(p => p.CreatedAt)
-            .Skip((req.Page - 1) * req.PageSize).Take(req.PageSize)
-            .Select(p => new ProjectDto(p.Id, p.WorkspaceId, p.Name, p.Key, p.Description, p.OwnerId, p.CreatedAt))
-            .ToListAsync(ct);
-        return new PaginatedResult<ProjectDto>(items, total, req.Page, req.PageSize);
-    }
+    private readonly IProjectService _service;
+    public GetProjectsHandler(IProjectService service) => _service = service;
+    public Task<PaginatedResult<ProjectDto>> Handle(GetProjectsQuery req, CancellationToken ct)
+        => _service.GetProjectsAsync(req.WorkspaceId, req.Page, req.PageSize, ct);
 }

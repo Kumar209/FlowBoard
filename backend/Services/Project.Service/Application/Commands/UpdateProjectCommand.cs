@@ -24,21 +24,8 @@ public class UpdateProjectValidator : AbstractValidator<UpdateProjectCommand>
 
 public class UpdateProjectHandler : IRequestHandler<UpdateProjectCommand, Result<ProjectDto>>
 {
-    private readonly IApplicationDbContext _db;
-    private readonly IRedisCacheService _cache;
-    public UpdateProjectHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
-    public async Task<Result<ProjectDto>> Handle(UpdateProjectCommand req, CancellationToken ct)
-    {
-        var allowed = new[] { "OrgAdmin", "ProjectManager", "SuperAdmin" };
-        if (!req.CallerRoles.Any(r => allowed.Contains(r)))
-            return Result<ProjectDto>.Failure("Forbidden - Need OrgAdmin/ProjectManager");
-        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == req.ProjectId, ct);
-        if (project == null) return Result<ProjectDto>.Failure("Project not found");
-        project.Update(req.Name, req.Description);
-        await _db.SaveChangesAsync(ct);
-        await _cache.RemoveByPrefixAsync($"projects:{project.WorkspaceId}:");
-        await _cache.RemoveAsync($"board:{project.Id}");
-        var dto = new ProjectDto(project.Id, project.WorkspaceId, project.Name, project.Key, project.Description, project.OwnerId, project.CreatedAt);
-        return Result<ProjectDto>.Success(dto);
-    }
+    private readonly IProjectService _service;
+    public UpdateProjectHandler(IProjectService service) => _service = service;
+    public Task<Result<ProjectDto>> Handle(UpdateProjectCommand req, CancellationToken ct)
+        => _service.UpdateProjectAsync(req.ProjectId, req.Name, req.Description, req.Slug, req.CallerId, req.CallerRoles, ct);
 }

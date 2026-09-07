@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Identity.Service.Application.Interfaces;
 
-namespace Identity.Service.Application.Services;
+namespace Identity.Service.Infrastructure.Services;
 
 // Brevo Transactional API - sends invite emails (300/day free, same key local/prod)
 // Docs: https://developers.brevo.com/docs/transactional-emails
@@ -71,3 +71,4 @@ public class BrevoEmailService : IBrevoEmailService
         }
     }
 }
+

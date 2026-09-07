@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Identity.Service.Application.Interfaces;
-using Identity.Service.Application.Services;
+using Identity.Service.Infrastructure.Services;
 using Identity.Service.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,10 +19,12 @@ builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<Id
 // 2. MediatR - CQRS handlers for Register/Login/Refresh (FluentValidation validators are auto-discovered but not required for build)
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
 
-// 3. Application services - DIP interfaces (enterprise)
+// 3. Application services - DIP interfaces (enterprise) - Infrastructure implementations
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
+builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddHttpClient<IBrevoEmailService, BrevoEmailService>();
 
 // 4. JWT Authentication - reads Jwt:Key/Issuer/Audience from config (32+ chars, HS256, 15m)

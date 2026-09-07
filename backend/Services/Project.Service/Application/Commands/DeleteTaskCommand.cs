@@ -15,25 +15,8 @@ public class DeleteTaskValidator : AbstractValidator<DeleteTaskCommand>
 
 public class DeleteTaskHandler : IRequestHandler<DeleteTaskCommand, Result>
 {
-    private readonly IApplicationDbContext _db;
-    private readonly IRedisCacheService _cache;
-    public DeleteTaskHandler(IApplicationDbContext db, IRedisCacheService cache) { _db = db; _cache = cache; }
-
-    public async Task<Result> Handle(DeleteTaskCommand req, CancellationToken ct)
-    {
-        if (req.CallerRoles.Contains("Client") || req.CallerRoles.Contains("Viewer"))
-            return Result.Failure("Forbidden - Client/Viewer cannot delete tasks");
-
-        var task = await _db.Tasks.FindAsync(new object[] { req.TaskId }, ct);
-        if (task == null) return Result.Failure("Task not found");
-
-        _db.Tasks.Remove(task);
-        await _db.SaveChangesAsync(ct);
-        await _db.ActivityLogs.AddAsync(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, req.CallerId, "TaskDeleted", $"{{\"title\":\"{task.Title}\"}}"), ct);
-        await _db.SaveChangesAsync(ct);
-        await _cache.RemoveAsync(CacheKeys.Board(task.ProjectId));
-        await _cache.RemoveByPrefixAsync(CacheKeys.Board(task.ProjectId) + ":");
-        await _cache.RemoveByPrefixAsync($"tasks:{task.ProjectId}:");
-        return Result.Success();
-    }
+    private readonly ITaskService _service;
+    public DeleteTaskHandler(ITaskService service) => _service = service;
+    public Task<Result> Handle(DeleteTaskCommand req, CancellationToken ct)
+        => _service.DeleteTaskAsync(req.TaskId, req.CallerId, req.CallerRoles, ct);
 }

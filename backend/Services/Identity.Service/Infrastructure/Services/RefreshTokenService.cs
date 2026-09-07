@@ -4,7 +4,7 @@ using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace Identity.Service.Application.Services;
+namespace Identity.Service.Infrastructure.Services;
 
 // Handles refresh token generation (64-byte random, SHA256 hashed), rotation, and revocation
 // Enterprise: Implements IRefreshTokenService (Application interface) - DIP, depends on IApplicationDbContext not concrete DbContext
@@ -74,3 +74,4 @@ public class RefreshTokenService : IRefreshTokenService
         await _db.SaveChangesAsync();
     }
 }
+

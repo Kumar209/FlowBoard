@@ -25,54 +25,22 @@ public class UpdateBoardValidator : AbstractValidator<UpdateBoardCommand>
 
 public class CreateBoardHandler : IRequestHandler<CreateBoardCommand, Result<BoardInfoDto>>
 {
-    private readonly IApplicationDbContext _db;
-    public CreateBoardHandler(IApplicationDbContext db) => _db = db;
-    public async Task<Result<BoardInfoDto>> Handle(CreateBoardCommand req, CancellationToken ct)
-    {
-        if (req.CallerRoles.Contains("Viewer") || req.CallerRoles.Contains("Client"))
-            return Result<BoardInfoDto>.Failure("Forbidden - Viewer/Client cannot create boards");
-        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == req.ProjectId, ct);
-        if (project == null) return Result<BoardInfoDto>.Failure("Project not found");
-        var maxPos = await _db.Boards.Where(b => b.ProjectId == req.ProjectId).MaxAsync(b => (int?)b.Position, ct) ?? -1;
-        var board = new Domain.Entities.Board(req.ProjectId, req.Name, req.Type ?? "Kanban", req.Description, maxPos + 1, req.FilterJson);
-        _db.Boards.Add(board);
-        await _db.SaveChangesAsync(ct);
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(req.ProjectId, null, req.CallerId, "BoardCreated", $"{{\"name\":\"{req.Name}\"}}"));
-        await _db.SaveChangesAsync(ct);
-        return Result<BoardInfoDto>.Success(new BoardInfoDto(board.Id, board.ProjectId, board.Name, board.Type, board.Description, board.Position, board.CreatedAt, board.FilterJson));
-    }
+    private readonly IBoardService _service;
+    public CreateBoardHandler(IBoardService service) => _service = service;
+    public Task<Result<BoardInfoDto>> Handle(CreateBoardCommand req, CancellationToken ct)
+        => _service.CreateBoardAsync(req.ProjectId, req.Name, req.Type, req.Description, req.FilterJson, req.CallerId, req.CallerRoles, ct);
 }
 public class UpdateBoardHandler : IRequestHandler<UpdateBoardCommand, Result<BoardInfoDto>>
 {
-    private readonly IApplicationDbContext _db;
-    public UpdateBoardHandler(IApplicationDbContext db) => _db = db;
-    public async Task<Result<BoardInfoDto>> Handle(UpdateBoardCommand req, CancellationToken ct)
-    {
-        if (req.CallerRoles.Contains("Viewer") || req.CallerRoles.Contains("Client"))
-            return Result<BoardInfoDto>.Failure("Forbidden - Viewer/Client cannot update boards");
-        var board = await _db.Boards.FindAsync(new object[]{ req.BoardId }, ct);
-        if (board == null) return Result<BoardInfoDto>.Failure("Board not found");
-        board.Rename(req.Name);
-        if (!string.IsNullOrEmpty(req.Type)) board.UpdateType(req.Type);
-        board.SetFilter(req.FilterJson);
-        await _db.SaveChangesAsync(ct);
-        return Result<BoardInfoDto>.Success(new BoardInfoDto(board.Id, board.ProjectId, board.Name, board.Type, board.Description, board.Position, board.CreatedAt, board.FilterJson));
-    }
+    private readonly IBoardService _service;
+    public UpdateBoardHandler(IBoardService service) => _service = service;
+    public Task<Result<BoardInfoDto>> Handle(UpdateBoardCommand req, CancellationToken ct)
+        => _service.UpdateBoardAsync(req.BoardId, req.Name, req.Type, req.FilterJson, req.CallerId, req.CallerRoles, ct);
 }
 public class DeleteBoardHandler : IRequestHandler<DeleteBoardCommand, Result<bool>>
 {
-    private readonly IApplicationDbContext _db;
-    public DeleteBoardHandler(IApplicationDbContext db) => _db = db;
-    public async Task<Result<bool>> Handle(DeleteBoardCommand req, CancellationToken ct)
-    {
-        if (req.CallerRoles.Contains("Viewer") || req.CallerRoles.Contains("Client"))
-            return Result<bool>.Failure("Forbidden - Viewer/Client cannot delete boards");
-        var board = await _db.Boards.FindAsync(new object[]{ req.BoardId }, ct);
-        if (board == null) return Result<bool>.Failure("Board not found");
-        var hasSprints = await _db.Sprints.AnyAsync(s => s.BoardId == req.BoardId, ct);
-        if (hasSprints) return Result<bool>.Failure("Cannot delete board with sprints - delete sprints first");
-        _db.Boards.Remove(board);
-        await _db.SaveChangesAsync(ct);
-        return Result<bool>.Success(true);
-    }
+    private readonly IBoardService _service;
+    public DeleteBoardHandler(IBoardService service) => _service = service;
+    public Task<Result<bool>> Handle(DeleteBoardCommand req, CancellationToken ct)
+        => _service.DeleteBoardAsync(req.BoardId, req.CallerId, req.CallerRoles, ct);
 }
