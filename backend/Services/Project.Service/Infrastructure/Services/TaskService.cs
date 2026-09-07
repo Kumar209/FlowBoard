@@ -92,9 +92,13 @@ public class TaskService : ITaskService
         if (callerRoles.Contains("Client") || callerRoles.Contains("Viewer")) return Result.Failure("Forbidden - Client/Viewer cannot delete tasks");
         var task = await _db.Tasks.FindAsync(new object[] { taskId }, ct);
         if (task == null) return Result.Failure("Task not found");
+        var projectId = task.ProjectId;
+        var taskTitle = task.Title;
+        var taskIdForLog = task.Id;
+        // Audit log before delete — TaskId null for deletion event so FK does not conflict (history remains, FK SetNull)
+        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(projectId, null, callerId, "TaskDeleted", $"{{\"title\":\"{taskTitle}\",\"taskId\":\"{taskIdForLog}\"}}"));
         _db.Tasks.Remove(task);
         await _db.SaveChangesAsync(ct);
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, callerId, "TaskDeleted", $"{{\"title\":\"{task.Title}\"}}"));
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveAsync($"board:{task.ProjectId}");
         await _cache.RemoveByPrefixAsync($"board:{task.ProjectId}:");
