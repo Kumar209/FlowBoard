@@ -40,6 +40,7 @@
             <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
           </div>
         </div>
+        <app-confirm-delete [open]="!!deleteConfirmMember()" title="Remove from team?" [message]="'Remove ' + (deleteConfirmMember()?.fullName || deleteConfirmMember()?.userId?.slice(0,8) || '') + ' from team?'" [loading]="removeMutation.isPending()" (cancelled)="cancelRemove()" (confirmed)="confirmRemove()" />
       }
     </div>
 

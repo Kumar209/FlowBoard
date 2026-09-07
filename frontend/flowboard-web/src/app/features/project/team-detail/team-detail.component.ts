@@ -4,12 +4,13 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmDeleteComponent } from '../../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
   selector: 'app-team-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, ConfirmDeleteComponent],
   templateUrl: './team-detail.component.html',
   styleUrls: ['./team-detail.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -124,5 +125,9 @@ export class TeamDetailComponent {
     onError: (e:any) => this.toast.error(e.error?.error || 'Remove failed')
   }));
 
-  remove(member:any){ if(confirm(`Remove ${member.userId} from team?`)) this.removeMutation.mutate(member.userId); }
+  deleteConfirmMember = signal<any | null>(null);
+
+  remove(member:any){ this.deleteConfirmMember.set(member); }
+  cancelRemove(){ this.deleteConfirmMember.set(null); }
+  confirmRemove(){ const m=this.deleteConfirmMember(); if(!m) return; this.removeMutation.mutate(m.userId); this.deleteConfirmMember.set(null); }
 }
