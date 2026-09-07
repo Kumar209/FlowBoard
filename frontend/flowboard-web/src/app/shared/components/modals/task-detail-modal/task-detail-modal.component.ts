@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../../core/services/project.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { ToastService } from '../../../../core/services/toast.service';
 import { ConfirmDeleteComponent } from '../confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
@@ -30,6 +31,7 @@ export class TaskDetailModalComponent {
 
   private projectService = inject(ProjectService);
   auth = inject(AuthService);
+  private toast = inject(ToastService);
   private queryClient = inject(QueryClient);
 
   // Editable fields - Must add per user request: IssueType, Sprint, Epic, StoryPoints, StartDate, Environment, Watchers, LinkedIssues, Time Tracking, ParentIssue

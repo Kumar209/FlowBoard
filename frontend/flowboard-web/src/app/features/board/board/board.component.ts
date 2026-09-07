@@ -1,4 +1,4 @@
-import { Component, inject, signal, ChangeDetectionStrategy, computed, effect } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy, computed, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -126,6 +126,9 @@ export class BoardComponent {
   });
 
   constructor() {
+    // Initialize from snapshot queryParam to avoid race with default effect
+    const initialSprint = this.route.snapshot.queryParamMap.get('sprint');
+    if (initialSprint) this.selectedSprint.set(initialSprint);
     queueMicrotask(() => {
       this.route.queryParamMap.subscribe(m => {
         const v = m.get('view') || this.route.parent?.snapshot.queryParamMap.get('view') || 'main';
@@ -138,10 +141,11 @@ export class BoardComponent {
         if (v) this.boardView.set(v);
       });
     });
-    // Default to first sprint when sprints load and no sprint selected (remove All/Backlog per user request)
+    // Default to first sprint when sprints load and no sprint selected (and no query param)
     effect(() => {
       const sprints = this.sprints();
-      if (sprints.length > 0 && !this.selectedSprint()) {
+      const hasQuerySprint = this.route.snapshot.queryParamMap.get('sprint');
+      if (sprints.length > 0 && !this.selectedSprint() && !hasQuerySprint) {
         this.selectedSprint.set(sprints[0].id);
       }
     });
@@ -229,6 +233,22 @@ export class BoardComponent {
   }
 
   openDetail(task:any) { this.selectedTask.set(task); this.detailOpen.set(true); }
+  @HostListener('window:openTask', ['$event'])
+  onOpenTask(event: any){
+    const task = event.detail;
+    if(!task || !task.id){
+      this.toast.error('Issue not found in current project');
+      return;
+    }
+    const found = this.boardQuery.data()?.tasks?.find((t:any) => t.id === task.id);
+    if(found){
+      this.openDetail(found);
+    } else {
+      // Fallback: try to open with provided task data (may be from other board/project, still show)
+      this.openDetail(task);
+      if(!found) this.toast.error('Parent/Child not in current board view — opened anyway');
+    }
+  }
   onDetailSave(e:{title:string; description:string; priority:string; listId:string; labelsJson?:string; assigneeId?:string; dueDate?:string; issueType?:string; epic?:string; storyPoints?:number; startDate?:string; environment?:string; parentIssueId?:string; sprintId?:string; watchersJson?:string; linkedIssuesJson?:string; timeEstimated?:number; timeSpent?:number; timeRemaining?:number; teamId?:string}) {
     const t = this.selectedTask();
     if(!t) return;

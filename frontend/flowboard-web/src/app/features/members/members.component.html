@@ -127,6 +127,12 @@
             <label class="form-control"><span class="label-text text-xs">Full Name</span><input type="text" class="input input-bordered rounded-xl" [value]="editName()" (input)="editName.set($any($event.target).value)" /></label>
             <label class="form-control"><span class="label-text text-xs">Email</span><input type="email" class="input input-bordered rounded-xl" [value]="editEmail()" (input)="editEmail.set($any($event.target).value)" /></label>
             <label class="form-control"><span class="label-text text-xs">Role</span><select class="select select-bordered rounded-xl" [value]="editRole()" (change)="editRole.set($any($event.target).value)"><option>Member</option><option>ProjectManager</option><option>Client</option><option>Viewer</option><option>OrgAdmin</option></select></label>
+            <label class="form-control"><span class="label-text text-xs">Workspace</span>
+              <select class="select select-bordered rounded-xl" [value]="editWorkspaceId()" (change)="editWorkspaceId.set($any($event.target).value)">
+                @for (ws of workspacesQuery.data() || []; track ws.id) { <option [value]="ws.id">{{ ws.name }}</option> }
+              </select>
+              <span class="label-text-alt text-[10px] opacity-40">Changing workspace moves member to that workspace (OrgAdmin).</span>
+            </label>
           </div>
           <div class="flex justify-end gap-2 mt-6">
             <button class="btn btn-ghost rounded-xl" (click)="editTarget.set(null)">Cancel</button>

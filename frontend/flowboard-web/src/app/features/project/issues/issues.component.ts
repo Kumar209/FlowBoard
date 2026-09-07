@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -81,6 +81,14 @@ export class IssuesComponent {
     onError: (e:any) => this.toast.error(e.error?.error || 'Delete failed')
   }));
   openDetail(t:any){ this.selectedTask.set(t); this.detailOpen.set(true); }
+  @HostListener('window:openTask', ['$event'])
+  onOpenTask(event:any){
+    const task = event.detail;
+    if(!task?.id){ this.toast.error('Issue not found'); return; }
+    const found = this.boardQuery.data()?.tasks?.find((x:any)=>x.id===task.id);
+    this.openDetail(found || task);
+    if(!found) this.toast.error('Linked issue not in current project view — opened anyway');
+  }
   confirmDelete(t:any){ this.deleteTarget.set(t); }
   getTeamName(teamId?:string){ if(!teamId) return '—'; return this.teamsQuery.data()?.find((x:any)=>x.id===teamId)?.name || '—'; }
   getSprintName(sprintId?:string){ if(!sprintId) return 'Backlog'; return this.sprintsQuery.data()?.find((x:any)=>x.id===sprintId)?.name || 'Backlog'; }

@@ -33,6 +33,7 @@ export class MembersComponent {
   editName = signal('');
   editEmail = signal('');
   editRole = signal('Member');
+  editWorkspaceId = signal('');
 
   workspacesQuery = injectQuery(() => ({
     queryKey: ['workspaces'] as const,
@@ -116,7 +117,7 @@ export class MembersComponent {
     onError: (e:any) => this.toast.error(e.error?.error || 'Remove failed')
   }));
   updateMutation = injectMutation(() => ({
-    mutationFn: () => firstValueFrom(this.ws.updateOrganizationMember(this.orgId(), this.editTarget()!.userId, this.editName().trim() || undefined, this.editEmail().trim() || undefined, this.editRole())),
+    mutationFn: () => firstValueFrom(this.ws.updateOrganizationMember(this.orgId(), this.editTarget()!.userId, this.editName().trim() || undefined, this.editEmail().trim() || undefined, this.editRole(), this.editWorkspaceId() || undefined)),
     onSuccess: () => {
       this.qc.invalidateQueries({queryKey:['org-members']});
       this.qc.invalidateQueries({queryKey:['agg-members']});
@@ -129,7 +130,7 @@ export class MembersComponent {
   openInvite(){ this.inviteFullName.set(''); this.inviteEmail.set(''); this.invitePassword.set(''); this.inviteRole.set('Member'); this.inviteWorkspaceId.set(this.workspacesQuery.data()?.[0]?.id || ''); this.showInvite.set(true); }
   doInvite(){ if(!this.inviteFullName().trim() || !this.inviteEmail().trim() || !this.invitePassword().trim()) return; this.inviteMutation.mutate(); }
   confirmRemove(m:any){ this.removeMutation.mutate(m.userId); }
-  openEdit(m:any){ this.editTarget.set(m); this.editName.set(m.fullName); this.editEmail.set(m.email); this.editRole.set(m.role); }
+  openEdit(m:any){ this.editTarget.set(m); this.editName.set(m.fullName); this.editEmail.set(m.email); this.editRole.set(m.role); this.editWorkspaceId.set(m.workspaceId || this.workspacesQuery.data()?.[0]?.id || ''); }
   saveEdit(){
     const t = this.editTarget(); if(!t) return;
     this.updateMutation.mutate();
