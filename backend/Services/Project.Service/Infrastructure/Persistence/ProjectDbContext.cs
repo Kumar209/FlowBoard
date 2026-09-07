@@ -165,7 +165,7 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.HasOne(x => x.Task).WithMany(x => x.Comments).HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ActivityLog — audit history, TaskId is nullable and must NOT block task deletion (MNC: logs remain, no FK constraint to Tasks to avoid cycles)
+        // ActivityLog — audit history, TaskId is plain Guid (no FK to Tasks), ProjectId FK to Projects only — avoids DELETE conflict
         b.Entity<ActivityLog>(e =>
         {
             e.HasKey(x => x.Id);
@@ -176,7 +176,7 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.HasIndex(x => x.ActorId);
             e.HasIndex(x => x.OccurredAt);
             e.Ignore(x => x.DomainEvents);
-            // No FK to Tasks — TaskId is plain Guid, history remains after task deleted (avoids FK_ActivityLogs_Tasks_TaskId conflict)
+            e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // OutboxMessage

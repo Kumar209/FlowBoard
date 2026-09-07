@@ -15,7 +15,6 @@ public class ActivityLog : BaseEntity
     public DateTime OccurredAt { get; private set; } = DateTime.UtcNow;
 
     public Project? Project { get; private set; }
-    public TaskItem? Task { get; private set; }
 
     private ActivityLog() { }
 
