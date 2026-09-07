@@ -229,85 +229,40 @@ export class TaskDetailModalComponent {
 
   currentUserId = computed(() => this.auth.currentUser()?.id || '');
 
-  private setTeamIdNormalized(rawId: string | null | undefined) {
-    if (!rawId) { this.teamId.set(''); return; }
-    const teams = this.teamsQuery.data() || [];
-    const matched = teams.find((tm:any) => tm.id.toLowerCase() === rawId.toLowerCase());
-    this.teamId.set(matched ? matched.id : rawId);
-  }
-  private setSprintIdNormalized(rawId: string | null | undefined) {
-    if (!rawId) { this.sprintId.set(''); return; }
-    const sprints = this.sprintsForTaskQuery.data() || [];
-    const matched = sprints.find((s:any) => s.id.toLowerCase() === rawId.toLowerCase() || s.name.toLowerCase() === rawId.toLowerCase());
-    this.sprintId.set(matched ? matched.id : rawId);
+  private populateForm(t: any) {
+    this.title.set(t.title || '');
+    this.description.set(t.description || '');
+    this.priority.set(t.priority || 'Medium');
+    this.listId.set(t.listId || '');
+    this.assigneeId.set(t.assigneeId || '');
+    this.teamId.set(t.teamId || '');
+    this.sprintId.set(t.sprintId || '');
+    this.dueDate.set(t.dueDate ? (t.dueDate as string).slice(0, 10) : '');
+    this.issueType.set(t.issueType || 'Task');
+    this.epic.set(t.epic || '');
+    this.storyPoints.set(t.storyPoints ?? null);
+    this.startDate.set(t.startDate ? (t.startDate as string).slice(0, 10) : '');
+    this.environmentSel.set(t.environment || '');
+    this.parentIssueId.set(t.parentIssueId || '');
+    try { const a = JSON.parse(t.labelsJson || '[]'); this.labels.set(Array.isArray(a) ? a.join(', ') : (t.labelsJson || '')); } catch { this.labels.set(t.labelsJson || ''); }
+    try { const w = JSON.parse(t.watchersJson || '[]'); this.watchers.set(Array.isArray(w) ? w.join(', ') : ''); } catch { this.watchers.set(''); }
+    try { const l = JSON.parse(t.linkedIssuesJson || '[]'); this.linkedIssues.set(Array.isArray(l) ? l.join(', ') : ''); } catch { this.linkedIssues.set(''); }
+    this.timeEstimated.set(t.timeEstimated ?? null);
+    this.timeSpent.set(t.timeSpent ?? null);
+    this.timeRemaining.set(t.timeRemaining ?? null);
+    this.activeTab.set('comments');
   }
 
   constructor() {
     effect(() => {
       if (this.open() && this.task()) {
-        const t = this.task();
-        this.title.set(t.title || '');
-        this.description.set(t.description || '');
-        this.priority.set(t.priority || 'Medium');
-        this.listId.set(t.listId || '');
-        try { const a=JSON.parse(t.labelsJson||'[]'); this.labels.set(Array.isArray(a)?a.join(', '): (t.labelsJson||'')); } catch { this.labels.set(t.labelsJson||''); }
-        this.assigneeId.set(t.assigneeId || '');
-        this.dueDate.set(t.dueDate ? (t.dueDate as string).slice(0,10) : '');
-        this.issueType.set(t.issueType || 'Task');
-        this.epic.set(t.epic || '');
-        this.storyPoints.set(t.storyPoints ?? null);
-        this.startDate.set(t.startDate ? (t.startDate as string).slice(0,10) : '');
-        this.environmentSel.set(t.environment || '');
-        this.parentIssueId.set(t.parentIssueId || '');
-        this.setSprintIdNormalized(t.sprintId);
-        this.setTeamIdNormalized(t.teamId);
-        try { const w=JSON.parse(t.watchersJson||'[]'); this.watchers.set(Array.isArray(w)?w.join(', '):''); } catch { this.watchers.set(''); }
-        try { const l=JSON.parse(t.linkedIssuesJson||'[]'); this.linkedIssues.set(Array.isArray(l)?l.join(', '):''); } catch { this.linkedIssues.set(''); }
-        this.timeEstimated.set(t.timeEstimated ?? null);
-        this.timeSpent.set(t.timeSpent ?? null);
-        this.timeRemaining.set(t.timeRemaining ?? null);
-        this.activeTab.set('comments');
+        this.populateForm(this.task());
       }
     });
     effect(() => {
       const detail = this.taskDetailQuery.data() as any;
       if (detail?.task && this.open()) {
-        const t = detail.task;
-        this.title.set(t.title || '');
-        this.description.set(t.description || '');
-        this.priority.set(t.priority || 'Medium');
-        this.listId.set(t.listId || '');
-        try { const a=JSON.parse(t.labelsJson||'[]'); this.labels.set(Array.isArray(a)?a.join(', '): (t.labelsJson||'')); } catch { this.labels.set(t.labelsJson||''); }
-        this.assigneeId.set(t.assigneeId || '');
-        this.dueDate.set(t.dueDate ? (t.dueDate as string).slice(0,10) : '');
-        this.issueType.set(t.issueType || 'Task');
-        this.epic.set(t.epic || '');
-        this.storyPoints.set(t.storyPoints ?? null);
-        this.startDate.set(t.startDate ? (t.startDate as string).slice(0,10) : '');
-        this.environmentSel.set(t.environment || '');
-        this.parentIssueId.set(t.parentIssueId || '');
-        this.setSprintIdNormalized(t.sprintId);
-        this.setTeamIdNormalized(t.teamId);
-        try { const w=JSON.parse(t.watchersJson||'[]'); this.watchers.set(Array.isArray(w)?w.join(', '):''); } catch { this.watchers.set(''); }
-        try { const l=JSON.parse(t.linkedIssuesJson||'[]'); this.linkedIssues.set(Array.isArray(l)?l.join(', '):''); } catch { this.linkedIssues.set(''); }
-        this.timeEstimated.set(t.timeEstimated ?? null);
-        this.timeSpent.set(t.timeSpent ?? null);
-        this.timeRemaining.set(t.timeRemaining ?? null);
-      }
-    });
-    // Re-sync when teams/sprints load to fix case-mismatch (teamId lowercase vs option id case)
-    effect(() => {
-      const teams = this.teamsQuery.data();
-      if (teams && this.open() && this.task()) {
-        const raw = this.task()?.teamId || this.teamId();
-        if (raw) this.setTeamIdNormalized(raw);
-      }
-    });
-    effect(() => {
-      const sprints = this.sprintsForTaskQuery.data();
-      if (sprints && this.open() && this.task()) {
-        const raw = this.task()?.sprintId || this.sprintId();
-        if (raw) this.setSprintIdNormalized(raw);
+        this.populateForm(detail.task);
       }
     });
     effect(() => {
