@@ -21,37 +21,8 @@ public class LoginCommandValidator : AbstractValidator<LoginCommand>
 
 public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResponse>>
 {
-    private readonly IApplicationDbContext _db;
-    private readonly IJwtProvider _jwt;
-    private readonly IRefreshTokenService _refreshService;
-    private readonly IPasswordHasher _passwordHasher;
-
-    public LoginCommandHandler(IApplicationDbContext db, IJwtProvider jwt, IRefreshTokenService refreshService, IPasswordHasher passwordHasher)
-    {
-        _db = db;
-        _jwt = jwt;
-        _refreshService = refreshService;
-        _passwordHasher = passwordHasher;
-    }
-
-    public async Task<Result<AuthResponse>> Handle(LoginCommand request, CancellationToken ct)
-    {
-        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == request.Email.ToLowerInvariant(), ct);
-        if (user == null || !user.IsActive) return Result<AuthResponse>.Failure("Invalid credentials");
-        if (!_passwordHasher.Verify(request.Password, user.PasswordHash)) return Result<AuthResponse>.Failure("Invalid credentials");
-
-        var memberships = await _db.WorkspaceMembers
-            .Where(x => x.UserId == user.Id)
-            .Select(x => new ValueTuple<Guid, string>(x.WorkspaceId, x.Role.ToString()))
-            .ToListAsync(ct);
-
-        var (accessToken, accessExpires) = _jwt.GenerateAccessToken(user, memberships);
-        var (rawRefresh, hashRefresh, refreshExpires) = _refreshService.GenerateRawToken();
-        var refreshToken = new RefreshToken(user.Id, hashRefresh, refreshExpires);
-        _db.RefreshTokens.Add(refreshToken);
-        await _db.SaveChangesAsync(ct);
-
-        var response = new AuthResponse(user.Id, user.Email, user.FullName, accessToken, rawRefresh, accessExpires, refreshExpires);
-        return Result<AuthResponse>.Success(response);
-    }
+    private readonly IAuthService _authService;
+    public LoginCommandHandler(IAuthService authService) => _authService = authService;
+    public Task<Result<AuthResponse>> Handle(LoginCommand request, CancellationToken ct)
+        => _authService.LoginAsync(request.Email, request.Password, ct);
 }

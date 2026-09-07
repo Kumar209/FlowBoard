@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Identity.Service.Api.DTOs;
 using Identity.Service.Application.Commands;
 using Identity.Service.Application.Interfaces;
+using Identity.Service.Application.Queries;
 
 namespace Identity.Service.Api.Controllers;
 
@@ -14,12 +15,10 @@ namespace Identity.Service.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IMediator _mediator;
-    private readonly IApplicationDbContext _db;
 
-    public AuthController(IMediator mediator, IApplicationDbContext db)
+    public AuthController(IMediator mediator)
     {
         _mediator = mediator;
-        _db = db;
     }
 
     // POST /api/auth/register - Anon, creates User + default Org/Workspace + tokens, sets HttpOnly refresh cookie
@@ -83,14 +82,12 @@ public class AuthController : ControllerBase
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         if (userId == null || !Guid.TryParse(userId, out var guid)) return Unauthorized(new { error = "Invalid token" });
 
-        var user = await _db.Users.FirstOrDefaultAsync(x => x.Id == guid);
-        if (user == null) return NotFound(new { error = "User not found" });
-
-        var memberships = await _db.WorkspaceMembers.Where(x => x.UserId == guid).ToListAsync();
+        var result = await _mediator.Send(new GetCurrentUserQuery(guid));
+        if (result.IsFailure) return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : BadRequest(new { error = result.Error });
         return Ok(new
         {
-            user = new UserResponse(user.Id, user.Email, user.FullName, user.AvatarUrl),
-            workspaces = memberships.Select(m => new { workspaceId = m.WorkspaceId, role = m.Role.ToString() })
+            user = result.Value.User,
+            workspaces = result.Value.Memberships.Select(m => new { workspaceId = m.WorkspaceId, role = m.Role })
         });
     }
 
