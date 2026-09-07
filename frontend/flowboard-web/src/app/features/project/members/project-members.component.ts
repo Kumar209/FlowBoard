@@ -4,12 +4,13 @@ import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmDeleteComponent } from '../../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
   selector: 'app-project-members',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ConfirmDeleteComponent],
   templateUrl: './project-members.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -83,6 +84,10 @@ export class ProjectMembersComponent {
     onError: (e:any)=> this.toast.error(e.error?.error||'Remove failed')
   }));
 
+  deleteConfirmUserId = signal<string | null>(null);
+
   add(userId:string){ this.addMutation.mutate(userId); }
-  remove(userId:string){ if(confirm('Remove from project? Also removes from teams.')) this.removeMutation.mutate(userId); }
+  remove(userId:string){ this.deleteConfirmUserId.set(userId); }
+  confirmRemove(){ const id=this.deleteConfirmUserId(); if(!id) return; this.removeMutation.mutate(id); this.deleteConfirmUserId.set(null); }
+  cancelRemove(){ this.deleteConfirmUserId.set(null); }
 }

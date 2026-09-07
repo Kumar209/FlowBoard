@@ -49,19 +49,17 @@ export class TeamDetailComponent {
     enabled: !!this.teamId(),
   }));
 
-  workspaceMembersQuery = injectQuery(() => ({
-    queryKey: ['workspace-members', this.workspaceId(), this.addSearch(), this.addPage()] as const,
+  // MNC: Teams derive from Project Members, not Workspace. Project Members is source for Teams/Assignee/Watchers.
+  projectMembersQuery = injectQuery(() => ({
+    queryKey: ['project-members', this.projectId(), this.addSearch(), this.addPage()] as const,
     queryFn: async () => {
-      const res:any = await firstValueFrom(this.ps.getWorkspaceMembersPaged(this.workspaceId(), this.addPage(), this.addPageSize, this.addSearch() || undefined));
-      // Backend returns {items, total} when paginated (normalize to same shape)
-      if (res.items) return { items: res.items as any[], total: res.total as number };
-      const arr = res as any[];
-      return { items: arr, total: arr.length };
+      const res:any = await firstValueFrom(this.ps.getProjectMembers(this.projectId(), this.addPage(), this.addPageSize, this.addSearch() || undefined));
+      return { items: (res.items || res.Items || []) as any[], total: (res.total || res.Total || 0) as number };
     },
-    enabled: !!this.workspaceId(),
+    enabled: !!this.projectId(),
   }));
-  workspaceMembersItems = computed(() => this.workspaceMembersQuery.data()?.items || []);
-  workspaceMembersTotalRaw = computed(() => this.workspaceMembersQuery.data()?.total || 0);
+  workspaceMembersItems = computed(() => this.projectMembersQuery.data()?.items || []);
+  workspaceMembersTotalRaw = computed(() => this.projectMembersQuery.data()?.total || 0);
 
   search = signal('');
   addSearch = signal('');

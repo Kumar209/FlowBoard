@@ -32,6 +32,7 @@
           <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
         </div>
       </div>
+      <app-confirm-delete [open]="!!deleteConfirmUserId()" title="Remove from project?" message="This will permanently remove the member from project and all teams. This cannot be undone." [loading]="removeMutation.isPending()" (cancelled)="cancelRemove()" (confirmed)="confirmRemove()" />
     }
   </div>
 

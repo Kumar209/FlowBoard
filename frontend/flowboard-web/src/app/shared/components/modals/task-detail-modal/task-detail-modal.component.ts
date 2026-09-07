@@ -60,9 +60,11 @@ export class TaskDetailModalComponent {
   linkedSearch = signal('');
   filteredWatchers = computed(() => {
     const q = this.watcherSearch().toLowerCase().trim();
-    const members = this.membersQuery.data() || [];
-    if (!q) return members.slice(0,5);
-    return members.filter((m:any) => m.email.toLowerCase().includes(q) || m.fullName.toLowerCase().includes(q)).slice(0,5);
+    const raw:any = this.membersQuery.data();
+    const members = Array.isArray(raw) ? raw : (raw?.items ?? raw?.Items ?? []);
+    const list = Array.isArray(members) ? members : [];
+    if (!q) return list.slice(0,5);
+    return list.filter((m:any) => (m.email||'').toLowerCase().includes(q) || (m.fullName||'').toLowerCase().includes(q)).slice(0,5);
   });
   filteredParents = computed(() => {
     const q = this.parentSearch().toLowerCase().trim();
@@ -129,7 +131,8 @@ export class TaskDetailModalComponent {
     queryKey: ['project-members', this.projectId()] as const,
     queryFn: async () => {
       const res:any = await firstValueFrom(this.projectService.getProjectMembers(this.projectId(), 1, 100));
-      return res.items as any[];
+      const items = res?.items ?? res?.Items ?? (Array.isArray(res) ? res : []);
+      return Array.isArray(items) ? items : [];
     },
     enabled: this.open() && !!this.projectId(),
   }));
