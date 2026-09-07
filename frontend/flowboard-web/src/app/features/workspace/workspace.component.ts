@@ -9,6 +9,7 @@ import { WorkspaceService } from '../../core/services/workspace.service';
 import { ProjectModalComponent } from '../../shared/components/modals/project-modal/project-modal.component';
 import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
+import { ROLE_LABEL_MAP } from '../../shared/constants/roles';
 
 /**
  * WorkspaceComponent - MNC-grade: modals for Create/Update/Delete project + toast + dropdown.
@@ -66,18 +67,9 @@ export class WorkspaceComponent {
     const wid = this.workspaceId();
     const m = this.auth.memberships().find((x) => x.workspaceId === wid);
     const raw = m?.roleName ?? m?.role;
-    const map: Record<string, string> = {
-      '0': 'Member',
-      '1': 'ProjectManager',
-      '2': 'OrgAdmin',
-      '3': 'Client',
-      '4': 'Viewer',
-      '5': 'SuperAdmin',
-    };
-    if (raw !== undefined) return map[String(raw)] ?? String(raw);
-    // fallback to workspace role from workspacesQuery (covers direct ws.role number)
+    if (raw !== undefined) return (ROLE_LABEL_MAP as any)[String(raw)] ?? String(raw);
     const ws = this.workspacesQuery.data()?.find((w) => w.id === wid);
-    if (ws?.role !== undefined) return map[String(ws.role)] ?? String(ws.role);
+    if (ws?.role !== undefined) return (ROLE_LABEL_MAP as any)[String(ws.role)] ?? String(ws.role);
     return 'Member';
   });
 

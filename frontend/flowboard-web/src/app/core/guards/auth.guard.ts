@@ -1,6 +1,7 @@
 import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
-import { AuthService, WorkspaceRole } from '../services/auth.service';
+import { AuthService } from '../services/auth.service';
+import { WorkspaceRole, ROLE_VALUE_MAP } from '../../shared/constants/roles';
 
 // Protects routes - requires isAuthenticated (Signals) with in-memory restore via HttpOnly refresh
 export const authGuard: CanActivateFn = async () => {
@@ -30,9 +31,8 @@ export const roleGuard = (allowedRoles: (WorkspaceRole | number | string)[]): Ca
     if (!auth.isAuthenticated()) { router.navigate(['/login']); return false; }
     // No memberships yet (fresh login) -> allow but let page fetch me() to hydrate; guard passes to avoid blocking
     if (auth.memberships().length === 0) return true;
-    const roleMap: Record<string, number> = { Member: 0, ProjectManager: 1, OrgAdmin: 2, Client: 3, Viewer: 4, SuperAdmin: 5 };
-    const allowedNums = allowedRoles.map(r => typeof r === 'string' ? (roleMap[r] ?? Number(r)) : Number(r));
-    const has = auth.memberships().some(m => allowedNums.includes(Number(m.role)) || (m.roleName && allowedNums.includes(roleMap[m.roleName] ?? -1)));
+    const allowedNums = allowedRoles.map(r => typeof r === 'string' ? (ROLE_VALUE_MAP[r as string] ?? Number(r)) : Number(r));
+    const has = auth.memberships().some(m => allowedNums.includes(Number(m.role)) || (m.roleName && allowedNums.includes(ROLE_VALUE_MAP[m.roleName] ?? -1)));
     if (!has) { router.navigate(['/']); return false; }
     return true;
   };

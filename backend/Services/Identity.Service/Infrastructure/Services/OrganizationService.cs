@@ -88,6 +88,7 @@ public class OrganizationService : IOrganizationService
         foreach (var wr in targetRoles.Where(x => x.WorkspaceId != Guid.Empty))
         {
             if (!Enum.TryParse<WorkspaceRole>(wr.Role, true, out var parsed)) throw new ValidationException($"Invalid role {wr.Role}");
+            if (parsed == WorkspaceRole.SuperAdmin) throw new ValidationException("SuperAdmin not allowed at organization level - use 5 roles only");
             _db.WorkspaceMembers.Add(new WorkspaceMember(wr.WorkspaceId, user.Id, parsed));
         }
         await _db.SaveChangesAsync(ct);

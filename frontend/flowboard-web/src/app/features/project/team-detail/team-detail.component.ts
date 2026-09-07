@@ -60,6 +60,8 @@ export class TeamDetailComponent {
   selectedUserId = signal('');
   page = signal(1);
   pageSize = 8;
+  addPage = signal(1);
+  addPageSize = 8;
 
   // Map team members to full workspace user info (name, email, role)
   enrichedMembers = computed(() => {
@@ -90,8 +92,13 @@ export class TeamDetailComponent {
     const teamMembers = this.membersQuery.data() || [];
     const existing = new Set(teamMembers.map((m:any) => m.userId));
     const available = list.filter((m:any) => !existing.has(m.userId));
-    if(!q) return available.slice(0,12);
-    return available.filter((m:any) => m.fullName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)).slice(0,12);
+    const filtered = !q ? available : available.filter((m:any) => m.fullName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q));
+    return filtered;
+  });
+  totalAddPages = computed(() => Math.max(1, Math.ceil(this.filteredWorkspaceMembers().length / this.addPageSize)));
+  paginatedAvailableMembers = computed(() => {
+    const start = (this.addPage()-1)*this.addPageSize;
+    return this.filteredWorkspaceMembers().slice(start, start+this.addPageSize);
   });
 
   addMutation = injectMutation(() => ({
