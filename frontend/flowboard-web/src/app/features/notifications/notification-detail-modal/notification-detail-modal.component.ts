@@ -17,6 +17,24 @@ export class NotificationDetailModalComponent {
     try { return JSON.parse(this.notification()?.payloadJson || '{}'); } catch { return {}; }
   });
 
+  prettyPayload = computed(() => {
+    const n = this.notification();
+    if (!n) return '{}';
+    const p: any = this.payload();
+    // Build enriched display object with names, not IDs
+    const obj: any = {};
+    if (n.taskTitle || p.TaskTitle || p.Title) obj.taskTitle = n.taskTitle || p.TaskTitle || p.Title || '';
+    if (n.projectName) obj.projectName = n.projectName;
+    else if (p.ProjectName || p.ProjectKey) obj.project = p.ProjectName || p.ProjectKey || '';
+    if (p.FromListName || p.fromListName) obj.fromList = p.FromListName || p.fromListName;
+    if (p.ToListName || p.toListName || p.ListName) obj.toList = p.ToListName || p.toListName || p.ListName || '';
+    if (p.CommentContent || p.content) obj.comment = p.CommentContent || p.content || '';
+    if (n.actorName || p.ActorName) obj.actor = (n.actorName || p.ActorName || '') + (p.ActorRole ? ` (${p.ActorRole})` : '');
+    // Only include non-empty
+    Object.keys(obj).forEach(k => { if (!obj[k] || obj[k].toString().trim() === '') delete obj[k]; });
+    return JSON.stringify(obj, null, 2);
+  });
+
   humanMessage = computed(() => {
     const n = this.notification();
     if (!n) return '';

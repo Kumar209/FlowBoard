@@ -19,8 +19,8 @@
         <div class="flex justify-between"><span class="opacity-60">When</span><span class="text-xs">{{ notification().occurredOnUtc | date:'medium' }}</span></div>
         <div class="flex justify-between"><span class="opacity-60">Status</span><span class="badge badge-sm" [ngClass]="notification().isRead ? 'badge-ghost' : 'badge-warning'">{{ notification().isRead ? 'Read' : 'Unread' }}</span></div>
         <details class="bg-base-200 rounded-xl p-3">
-          <summary class="text-xs font-semibold cursor-pointer">Raw payload</summary>
-          <pre class="text-xs whitespace-pre-wrap break-all mt-2">{{ notification().payloadJson }}</pre>
+          <summary class="text-xs font-semibold cursor-pointer">Payload (names)</summary>
+          <pre class="text-xs whitespace-pre-wrap break-all mt-2">{{ prettyPayload() }}</pre>
         </details>
       </div>
       <button class="btn btn-primary btn-sm w-full rounded-xl mt-4" (click)="closed.emit()">Close</button>
