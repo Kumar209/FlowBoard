@@ -7,8 +7,11 @@ export interface NotificationDto {
   eventId: string;
   recipientUserId: string;
   projectId: string;
+  projectName: string;
   taskId: string;
+  taskTitle: string;
   actorUserId: string;
+  actorName: string;
   action: string;
   payloadJson: string;
   workspaceId: string;

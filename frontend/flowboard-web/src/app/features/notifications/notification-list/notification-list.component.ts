@@ -53,16 +53,20 @@ export class NotificationListComponent {
     try { return JSON.parse(n.payloadJson || '{}'); } catch { return {}; }
   }
   getTaskDisplay(n: any): string {
+    // Prefer enriched DTO taskTitle, fallback to payload, then id
+    if (n.taskTitle && n.taskTitle.trim() !== '') return n.taskTitle;
     const p = this.parsePayload(n);
-    return p.TaskTitle || p.Title || p.title || n.taskId.slice(0,8);
+    return p.TaskTitle || p.Title || p.title || (n.taskId ? n.taskId.slice(0,8) : '');
   }
   getProjectDisplay(n: any): string {
+    if (n.projectName && n.projectName.trim() !== '') return n.projectName;
     const p = this.parsePayload(n);
-    return p.ProjectKey || p.projectKey || n.projectId.slice(0,8);
+    return p.ProjectName || p.ProjectKey || p.projectKey || (n.projectId ? n.projectId.slice(0,8) : '');
   }
   getActorDisplay(n: any): string {
+    if (n.actorName && n.actorName.trim() !== '') return n.actorName;
     const p = this.parsePayload(n);
-    return p.ActorName || p.actorName || p.FullName || n.actorUserId.slice(0,8);
+    return p.ActorName || p.actorName || p.FullName || (n.actorUserId ? n.actorUserId.slice(0,8) : '');
   }
   getActionBadge(n: any): string {
     // hide empty handling: payload already has names

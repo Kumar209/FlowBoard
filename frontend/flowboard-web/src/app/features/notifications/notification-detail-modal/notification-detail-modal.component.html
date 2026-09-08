@@ -11,11 +11,11 @@
           <p class="text-sm font-medium">{{ humanMessage() }}</p>
           <p class="text-xs opacity-60 mt-1">{{ notification().occurredOnUtc | date:'medium' }} • {{ notification().action }}</p>
         </div>
-        <div class="flex justify-between"><span class="opacity-60">Task</span><span class="text-xs font-medium">{{ payload().TaskTitle || payload().Title || notification().taskId.slice(0,8) }}</span></div>
-        <div class="flex justify-between"><span class="opacity-60">Project</span><span class="text-xs font-mono">{{ payload().ProjectKey || notification().projectId.slice(0,8) }}</span></div>
+        @if (notification().taskTitle || payload().TaskTitle) { <div class="flex justify-between"><span class="opacity-60">Task</span><span class="text-xs font-medium">{{ notification().taskTitle || payload().TaskTitle || payload().Title }}</span></div> }
+        @if (notification().projectName || payload().ProjectName) { <div class="flex justify-between"><span class="opacity-60">Project</span><span class="text-xs">{{ notification().projectName || payload().ProjectName || payload().ProjectKey }}</span></div> }
         @if (payload().ListName || payload().ToListName) { <div class="flex justify-between"><span class="opacity-60">List</span><span class="text-xs">{{ payload().ListName || payload().ToListName }}</span></div> }
         @if (payload().FromListName && payload().ToListName) { <div class="flex justify-between"><span class="opacity-60">Move</span><span class="text-xs">{{ payload().FromListName }} → {{ payload().ToListName }}</span></div> }
-        <div class="flex justify-between"><span class="opacity-60">Actor</span><span class="text-xs">{{ payload().ActorName || notification().actorUserId.slice(0,8) }} @if(payload().ActorRole){ <span class="badge badge-ghost badge-xs">{{ payload().ActorRole }}</span> }</span></div>
+        <div class="flex justify-between"><span class="opacity-60">Actor</span><span class="text-xs">{{ notification().actorName || payload().ActorName || payload().actorName }} @if(payload().ActorRole){ <span class="badge badge-ghost badge-xs">{{ payload().ActorRole }}</span> }</span></div>
         <div class="flex justify-between"><span class="opacity-60">When</span><span class="text-xs">{{ notification().occurredOnUtc | date:'medium' }}</span></div>
         <div class="flex justify-between"><span class="opacity-60">Status</span><span class="badge badge-sm" [ngClass]="notification().isRead ? 'badge-ghost' : 'badge-warning'">{{ notification().isRead ? 'Read' : 'Unread' }}</span></div>
         <details class="bg-base-200 rounded-xl p-3">

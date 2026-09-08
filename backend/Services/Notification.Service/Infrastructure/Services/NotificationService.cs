@@ -46,12 +46,55 @@ public class NotificationService : INotificationService
         var q = _db.Notifications.Where(n => n.RecipientUserId == recipientUserId);
         if (unreadOnly == true) q = q.Where(n => !n.IsRead);
         var total = await q.CountAsync(ct);
-        var items = await q.OrderBy(n => n.IsRead).ThenByDescending(n => n.OccurredOnUtc)
+        var raw = await q.OrderBy(n => n.IsRead).ThenByDescending(n => n.OccurredOnUtc)
             .Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(n => new NotificationDto(n.Id, n.EventId, n.RecipientUserId, n.ProjectId, n.TaskId, n.ActorUserId, n.Action, n.PayloadJson, n.WorkspaceId, n.IsRead, n.OccurredOnUtc, n.CreatedAt))
             .ToListAsync(ct);
+
+        // Enrich with names (ProjectName, TaskTitle, ActorName) for MNC-grade display
+        var items = new List<NotificationDto>();
+        foreach (var n in raw)
+        {
+            string projectName = "";
+            string taskTitle = "";
+            string actorName = "";
+            try
+            {
+                var proj = await _db.Database.SqlQueryRaw<ProjectNameRow>("SELECT Name FROM [project].[Projects] WHERE Id = {0}", n.ProjectId).FirstOrDefaultAsync(ct);
+                if (proj != null) projectName = proj.Name;
+            }
+            catch { }
+            if (n.TaskId.HasValue)
+            {
+                try
+                {
+                    var task = await _db.Database.SqlQueryRaw<TaskTitleRow>("SELECT Title FROM [project].[Tasks] WHERE Id = {0}", n.TaskId.Value).FirstOrDefaultAsync(ct);
+                    if (task != null) taskTitle = task.Title;
+                }
+                catch { }
+                // Fallback to payload title if DB missing (for deleted tasks)
+                if (string.IsNullOrWhiteSpace(taskTitle))
+                {
+                    try { var p = System.Text.Json.JsonDocument.Parse(n.PayloadJson); if (p.RootElement.TryGetProperty("TaskTitle", out var v) || p.RootElement.TryGetProperty("Title", out v) || p.RootElement.TryGetProperty("title", out v)) taskTitle = v.GetString() ?? ""; } catch { }
+                }
+            }
+            try
+            {
+                var actor = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", n.ActorUserId).FirstOrDefaultAsync(ct);
+                if (actor != null) actorName = actor.FullName ?? actor.Email ?? "";
+            }
+            catch { }
+            // Fallback to payload actor name
+            if (string.IsNullOrWhiteSpace(actorName))
+            {
+                try { var p = System.Text.Json.JsonDocument.Parse(n.PayloadJson); if (p.RootElement.TryGetProperty("ActorName", out var v)) actorName = v.GetString() ?? ""; } catch { }
+            }
+            items.Add(new NotificationDto(n.Id, n.EventId, n.RecipientUserId, n.ProjectId, projectName ?? "", n.TaskId, taskTitle ?? "", n.ActorUserId, actorName ?? "", n.Action, n.PayloadJson, n.WorkspaceId, n.IsRead, n.OccurredOnUtc, n.CreatedAt));
+        }
         return new PaginatedNotificationsResult(items, total, page, pageSize);
     }
+    private class ProjectNameRow { public string Name { get; set; } = ""; }
+    private class TaskTitleRow { public string Title { get; set; } = ""; }
+    private class ActorNameRow { public string? FullName { get; set; } public string? Email { get; set; } }
 
     public async Task<Result> MarkAsReadAsync(Guid notificationId, Guid recipientUserId, CancellationToken ct = default)
     {

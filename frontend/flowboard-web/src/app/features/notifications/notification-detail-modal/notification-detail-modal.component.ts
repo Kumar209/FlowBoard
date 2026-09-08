@@ -21,16 +21,16 @@ export class NotificationDetailModalComponent {
     const n = this.notification();
     if (!n) return '';
     const p: any = this.payload();
-    const actor = p.ActorName || p.actorName || p.FullName || '';
+    const actor = n.actorName || p.ActorName || p.actorName || p.FullName || '';
     const role = p.ActorRole || p.actorRole ? ` (${p.ActorRole || p.actorRole})` : '';
-    let title = p.TaskTitle || p.Title || p.title || p.name || '';
-    // hide empty title -> fallback to Task id short or action
+    let title = n.taskTitle || p.TaskTitle || p.Title || p.title || p.name || '';
     if (!title || title.trim() === '') title = '';
     const fromName = p.FromListName || p.fromListName || '';
     const toName = p.ToListName || p.toListName || p.ListName || p.listName || '';
     if (n.action === 'TaskMoved') {
       if (title && fromName && toName) return `${actor}${role} moved "${title}" from ${fromName} → ${toName}`;
       if (fromName && toName) return `${actor}${role} moved task from ${fromName} → ${toName}`;
+      if (title) return `${actor || 'Someone'}${role} moved "${title}"`;
       return `${actor || 'Someone'}${role} ${n.action}`;
     }
     if (n.action === 'TaskCreated') {
