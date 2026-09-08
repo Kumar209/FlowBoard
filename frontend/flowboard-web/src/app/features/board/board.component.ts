@@ -137,12 +137,17 @@ export class BoardComponent {
         this.boardView.set(v);
         const s = m.get('sprint');
         if (s) this.selectedSprint.set(s);
+        const taskId = m.get('task');
+        if (taskId) this.openTaskFromQuery(taskId);
       });
       this.route.parent?.queryParamMap?.subscribe(m => {
         const v = m.get('view') || this.route.snapshot.queryParamMap.get('view') || 'main';
         if (v) this.boardView.set(v);
       });
     });
+    // Open task from ?task= deepLink (notification)
+    const initialTask = this.route.snapshot.queryParamMap.get('task');
+    if (initialTask) queueMicrotask(() => this.openTaskFromQuery(initialTask));
     // Default to first sprint when sprints load and no sprint selected (and no query param)
     effect(() => {
       const sprints = this.sprints();
@@ -158,6 +163,18 @@ export class BoardComponent {
         this.realtime.connect().then(() => this.realtime.joinProject(pid));
       }
     }, { allowSignalWrites: true });
+  }
+
+  private async openTaskFromQuery(taskId: string) {
+    if (!taskId) return;
+    // Try board cache first
+    const found = this.boardQuery.data()?.tasks?.find((t: any) => t.id === taskId);
+    if (found) { this.openDetail(found); return; }
+    try {
+      const detail: any = await firstValueFrom(this.projectService.getTaskDetail(taskId));
+      if (detail?.task) this.openDetail(detail.task);
+      else if (detail) this.openDetail(detail);
+    } catch {}
   }
 
   // Modals

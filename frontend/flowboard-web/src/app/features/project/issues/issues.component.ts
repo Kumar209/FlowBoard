@@ -23,6 +23,32 @@ export class IssuesComponent {
   private qc = inject(QueryClient);
   projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || '');
   workspaceId = signal(this.route.parent?.snapshot.paramMap.get('wid') || '');
+
+  constructor() {
+    queueMicrotask(() => {
+      this.route.queryParamMap.subscribe(m => {
+        const taskId = m.get('task');
+        if (taskId) this.openTaskFromQuery(taskId);
+      });
+      this.route.parent?.queryParamMap?.subscribe(m => {
+        const taskId = m.get('task');
+        if (taskId) this.openTaskFromQuery(taskId);
+      });
+    });
+    const initialTask = this.route.snapshot.queryParamMap.get('task') || this.route.parent?.snapshot.queryParamMap.get('task');
+    if (initialTask) queueMicrotask(() => this.openTaskFromQuery(initialTask));
+  }
+
+  private async openTaskFromQuery(taskId: string) {
+    if (!taskId) return;
+    const found = this.boardQuery.data()?.tasks?.find((x: any) => x.id === taskId);
+    if (found) { this.openDetail(found); return; }
+    try {
+      const detail: any = await firstValueFrom(this.ps.getTaskDetail(taskId));
+      if (detail?.task) this.openDetail(detail.task);
+      else if (detail) this.openDetail(detail);
+    } catch {}
+  }
   typeFilter = signal('');
   search = signal('');
   page = signal(1);

@@ -41,16 +41,16 @@
             ><span class="text-xs">{{ payload().SprintName || payload().sprintName }}</span>
           </div>
         }
-        @if (payload().ListName || payload().ToListName) {
+        @if (payload().ListName || payload().ToListName || payload().listName || payload().toList || payload().toColumn) {
           <div class="flex justify-between">
             <span class="opacity-60">Column</span
-            ><span class="text-xs">{{ payload().ListName || payload().ToListName }}</span>
+            ><span class="text-xs">{{ payload().ListName || payload().ToListName || payload().listName || payload().toList || payload().toColumn }}</span>
           </div>
         }
-        @if (payload().FromListName && payload().ToListName) {
+        @if ((payload().FromListName || payload().fromList || payload().fromColumn) && (payload().ToListName || payload().toList || payload().toColumn)) {
           <div class="flex justify-between">
             <span class="opacity-60">Move</span
-            ><span class="text-xs">{{ payload().FromListName }} → {{ payload().ToListName }}</span>
+            ><span class="text-xs">{{ payload().FromListName || payload().fromList || payload().fromColumn }} → {{ payload().ToListName || payload().toList || payload().toColumn }}</span>
           </div>
         }
         <div class="flex justify-between">
