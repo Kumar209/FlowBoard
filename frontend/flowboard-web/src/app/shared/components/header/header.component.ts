@@ -53,16 +53,22 @@ export class HeaderComponent {
     try {
       const p = JSON.parse(n.payloadJson || '{}');
       const title = n.taskTitle || p.TaskTitle || p.Title || p.title || '';
-      const from = p.FromListName || p.fromListName || '';
-      const to = p.ToListName || p.toListName || '';
+      const from = p.FromListName || p.fromListName || p.fromList || '';
+      const to = p.ToListName || p.toListName || p.toList || '';
       const board = p.BoardName || p.boardName || '';
       const actor = n.actorName || p.ActorName || '';
       const boardPart = board ? ` in ${board}` : '';
+      const displayAction = (n.action || '').replace(/^Task/, 'Issue');
       if (n.action === 'TaskMoved' && title) return `${actor ? actor + ' ' : ''}moved "${title}" ${from ? 'from ' + from : ''} → ${to}${boardPart}`;
-      if (n.action === 'TaskCreated' && title) return `${actor ? actor + ' ' : ''}created "${title}"${boardPart}`;
+      if (n.action === 'TaskCreated' && title) return `${actor ? actor + ' ' : ''}created an issue "${title}"${boardPart}`;
+      if (n.action === 'TaskCommented' && title) {
+        const preview = p.CommentContent || p.commentPreview || '';
+        if (preview) return `${actor ? actor + ' ' : ''}commented on "${title}": "${preview.slice(0,30)}"`;
+        return `${actor ? actor + ' ' : ''}commented on "${title}"`;
+      }
       if (title) return title;
-      return n.action;
-    } catch { return n.action; }
+      return displayAction;
+    } catch { return (n.action || '').replace(/^Task/, 'Issue'); }
   }
 
   openNotifDetail(n: any) {

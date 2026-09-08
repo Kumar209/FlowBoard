@@ -17,9 +17,9 @@ public class NotificationService : INotificationService
         string projectName = "", actorName = "", listName = "";
         try { var pr = await _db.Database.SqlQueryRaw<ProjectNameRow>("SELECT Name FROM [project].[Projects] WHERE Id = {0}", projectId).FirstOrDefaultAsync(ct); if (pr != null) projectName = pr.Name; } catch { }
         try { var ar = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", actorUserId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? ""; } catch { }
-        // Try to get list name from payload? For TaskCreated, list is not directly known, but we can try to get via task
         try { var t = await _db.Database.SqlQueryRaw<TaskListRow>("SELECT ListId FROM [project].[Tasks] WHERE Id = {0}", taskId).FirstOrDefaultAsync(ct); if (t != null) { var l = await _db.Database.SqlQueryRaw<ListNameRow>("SELECT Name, BoardId FROM [project].[BoardLists] WHERE Id = {0}", t.ListId).FirstOrDefaultAsync(ct); if (l != null) listName = l.Name; } } catch { }
-        var payload = System.Text.Json.JsonSerializer.Serialize(new { taskTitle = title, projectName, listName, actorName });
+        var deepLink = $"/w/{workspaceId}/p/{projectId}/board?task={taskId}";
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { taskTitle = title, projectName, listName, actorName, deepLink });
         return await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskCreated", payload, recipientUserIds, occurredOnUtc, ct);
     }
 
@@ -47,7 +47,8 @@ public class NotificationService : INotificationService
         {
             try { var tt = await _db.Database.SqlQueryRaw<ListNameRow>("SELECT Name FROM [project].[BoardLists] WHERE Id = {0}", toListId).FirstOrDefaultAsync(ct); if (tt != null) toListName = tt.Name; } catch { }
         }
-        var payload = System.Text.Json.JsonSerializer.Serialize(new { taskTitle, projectName, fromList = fromListName, toList = toListName, boardName, sprintName, actorName, actorRole });
+        var deepLink = $"/w/{workspaceId}/p/{projectId}/board?task={taskId}";
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { taskTitle, projectName, fromList = fromListName, toList = toListName, boardName, sprintName, actorName, actorRole, deepLink });
         return await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskMoved", payload, recipientUserIds, occurredOnUtc, ct);
     }
 
@@ -58,7 +59,8 @@ public class NotificationService : INotificationService
         try { var pr = await _db.Database.SqlQueryRaw<ProjectNameRow>("SELECT Name FROM [project].[Projects] WHERE Id = {0}", projectId).FirstOrDefaultAsync(ct); if (pr != null) projectName = pr.Name; } catch { }
         try { var ar = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", actorUserId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? ""; } catch { }
         try { var c = await _db.Database.SqlQueryRaw<CommentRow>("SELECT Content FROM [project].[Comments] WHERE Id = {0}", commentId).FirstOrDefaultAsync(ct); if (c != null) commentPreview = c.Content.Length > 80 ? c.Content.Substring(0,80) + "..." : c.Content; } catch { }
-        var payload = System.Text.Json.JsonSerializer.Serialize(new { taskTitle, projectName, actorName, commentId, commentPreview });
+        var deepLink = $"/w/{workspaceId}/p/{projectId}/board?task={taskId}";
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { taskTitle, projectName, actorName, commentId, commentPreview, deepLink });
         return await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskCommented", payload, recipientUserIds, occurredOnUtc, ct);
     }
 

@@ -49,11 +49,11 @@ export class NotificationListComponent {
     onSuccess: () => this.queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   }));
 
+  getDisplayAction(action: string): string { return (action || '').replace(/^Task/, 'Issue'); }
   parsePayload(n: any): any {
     try { return JSON.parse(n.payloadJson || '{}'); } catch { return {}; }
   }
   getTaskDisplay(n: any): string {
-    // Prefer enriched DTO taskTitle, fallback to payload, then id
     if (n.taskTitle && n.taskTitle.trim() !== '') return n.taskTitle;
     const p = this.parsePayload(n);
     return p.TaskTitle || p.Title || p.title || (n.taskId ? n.taskId.slice(0,8) : '');

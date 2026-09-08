@@ -10,12 +10,12 @@
         <div class="bg-primary/10 rounded-xl p-3 text-center">
           <p class="text-sm font-medium">{{ humanMessage() }}</p>
           <p class="text-xs opacity-60 mt-1">
-            {{ notification().occurredOnUtc | date: 'medium' }} • {{ notification().action }}
+            {{ notification().occurredOnUtc | date: 'medium' }} • {{ displayAction() }}
           </p>
         </div>
         @if (notification().taskTitle || payload().TaskTitle) {
           <div class="flex justify-between">
-            <span class="opacity-60">Task</span
+            <span class="opacity-60">Issue</span
             ><span class="text-xs font-medium">{{
               notification().taskTitle || payload().TaskTitle || payload().Title
             }}</span>
@@ -79,9 +79,12 @@
           <pre class="text-xs whitespace-pre-wrap break-all mt-2">{{ prettyPayload() }}</pre>
         </details>
       </div>
-      <button class="btn btn-primary btn-sm w-full rounded-xl mt-4" (click)="closed.emit()">
-        Close
-      </button>
+      <div class="flex gap-2 mt-4">
+        @if (payload().deepLink || payload().DeepLink || notification().taskId) {
+          <button class="btn btn-outline btn-sm flex-1 rounded-xl" (click)="goToIssue()">Go to Issue</button>
+        }
+        <button class="btn btn-primary btn-sm flex-1 rounded-xl" (click)="closed.emit()">Close</button>
+      </div>
     </div>
   </div>
 }

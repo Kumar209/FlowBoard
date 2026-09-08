@@ -17,12 +17,12 @@
   } @else {
     <div class="hidden md:block overflow-x-auto bg-base-100 rounded-2xl shadow border">
       <table class="table table-sm">
-        <thead><tr><th>Time</th><th>Action</th><th>Project</th><th>Task</th><th>Actor</th><th>Read</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Time</th><th>Action</th><th>Project</th><th>Issue</th><th>Actor</th><th>Read</th><th>Actions</th></tr></thead>
         <tbody>
           @for (n of filtered(); track n.id) {
             <tr class="hover:bg-base-200" [class.bg-warning/10]="!n.isRead">
               <td class="text-xs">{{ n.occurredOnUtc | date:'short' }}</td>
-              <td><span class="badge badge-sm" [ngClass]="n.action==='TaskMoved'?'badge-warning': n.action==='TaskCreated'?'badge-success':'badge-info'">{{ n.action }}</span></td>
+              <td><span class="badge badge-sm" [ngClass]="n.action==='TaskMoved'?'badge-warning': n.action==='TaskCreated'?'badge-success':'badge-info'">{{ getDisplayAction(n.action) }}</span></td>
               <td class="text-xs font-mono">{{ getProjectDisplay(n) }}</td>
               <td class="text-xs font-medium max-w-[180px] truncate" [title]="getTaskDisplay(n)">{{ getTaskDisplay(n) }}</td>
               <td class="text-xs">{{ getActorDisplay(n) }}</td>

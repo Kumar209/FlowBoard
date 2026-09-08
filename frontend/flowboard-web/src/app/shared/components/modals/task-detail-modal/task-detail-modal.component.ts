@@ -365,7 +365,9 @@ export class TaskDetailModalComponent {
       firstValueFrom(this.projectService.createComment(this.task().id, content)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['comments', this.task().id] });
+      this.queryClient.invalidateQueries({ queryKey: ['task-detail', this.task().id] });
       this.queryClient.invalidateQueries({ queryKey: ['board', this.projectId()] });
+      this.queryClient.invalidateQueries({ queryKey: ['board', this.effectiveProjectId()] });
       this.queryClient.invalidateQueries({ queryKey: ['activities', this.projectId()] });
       this.newComment.set('');
       this.queryClient.invalidateQueries({
@@ -378,6 +380,7 @@ export class TaskDetailModalComponent {
       firstValueFrom(this.projectService.updateComment(vars.id, vars.content)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['comments', this.task().id] });
+      this.queryClient.invalidateQueries({ queryKey: ['task-detail', this.task().id] });
       this.queryClient.invalidateQueries({
         queryKey: ['activities-task', this.projectId(), this.task().id],
       });
@@ -388,6 +391,7 @@ export class TaskDetailModalComponent {
     mutationFn: (id: string) => firstValueFrom(this.projectService.deleteComment(id)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['comments', this.task().id] });
+      this.queryClient.invalidateQueries({ queryKey: ['task-detail', this.task().id] });
       this.queryClient.invalidateQueries({
         queryKey: ['activities-task', this.projectId(), this.task().id],
       });
