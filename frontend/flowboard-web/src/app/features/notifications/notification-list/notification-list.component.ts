@@ -49,6 +49,26 @@ export class NotificationListComponent {
     onSuccess: () => this.queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   }));
 
+  parsePayload(n: any): any {
+    try { return JSON.parse(n.payloadJson || '{}'); } catch { return {}; }
+  }
+  getTaskDisplay(n: any): string {
+    const p = this.parsePayload(n);
+    return p.TaskTitle || p.Title || p.title || n.taskId.slice(0,8);
+  }
+  getProjectDisplay(n: any): string {
+    const p = this.parsePayload(n);
+    return p.ProjectKey || p.projectKey || n.projectId.slice(0,8);
+  }
+  getActorDisplay(n: any): string {
+    const p = this.parsePayload(n);
+    return p.ActorName || p.actorName || p.FullName || n.actorUserId.slice(0,8);
+  }
+  getActionBadge(n: any): string {
+    // hide empty handling: payload already has names
+    return n.action;
+  }
+
   openDetail(n: any) {
     this.selected.set(n);
     this.detailOpen.set(true);

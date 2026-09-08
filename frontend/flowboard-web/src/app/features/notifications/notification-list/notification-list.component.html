@@ -22,10 +22,10 @@
           @for (n of filtered(); track n.id) {
             <tr class="hover:bg-base-200" [class.bg-warning/10]="!n.isRead">
               <td class="text-xs">{{ n.occurredOnUtc | date:'short' }}</td>
-              <td><span class="badge badge-sm" [ngClass]="n.action==='TaskMoved'?'badge-warning':'badge-info'">{{ n.action }}</span></td>
-              <td class="font-mono text-xs">{{ n.projectId.slice(0,8) }}</td>
-              <td class="font-mono text-xs">{{ n.taskId.slice(0,8) }}</td>
-              <td class="font-mono text-xs">{{ n.actorUserId.slice(0,8) }}</td>
+              <td><span class="badge badge-sm" [ngClass]="n.action==='TaskMoved'?'badge-warning': n.action==='TaskCreated'?'badge-success':'badge-info'">{{ n.action }}</span></td>
+              <td class="text-xs font-mono">{{ getProjectDisplay(n) }}</td>
+              <td class="text-xs font-medium max-w-[180px] truncate" [title]="getTaskDisplay(n)">{{ getTaskDisplay(n) }}</td>
+              <td class="text-xs">{{ getActorDisplay(n) }}</td>
               <td><span class="badge badge-xs" [ngClass]="n.isRead?'badge-ghost':'badge-warning'">{{ n.isRead?'Read':'Unread' }}</span></td>
               <td><button class="btn btn-primary btn-xs rounded-full" (click)="openDetail(n)">View</button></td>
             </tr>

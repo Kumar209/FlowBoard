@@ -45,7 +45,7 @@
                     <div class="p-2 rounded-xl hover:bg-base-200 flex gap-2 items-start cursor-pointer" [class.bg-primary/10]="!n.isRead" (click)="openNotifDetail(n)">
                       <span class="badge badge-xs mt-1" [ngClass]="n.action==='TaskMoved'?'badge-warning': n.action==='TaskCreated'?'badge-success':'badge-info'">{{ n.action }}</span>
                       <div class="flex-1 min-w-0">
-                        <p class="text-xs font-medium truncate">{{ n.payloadJson | slice:0:60 }}</p>
+                        <p class="text-xs font-medium truncate" [title]="formatNotif(n)">{{ formatNotif(n) }}</p>
                         <p class="text-[10px] opacity-50">{{ n.occurredOnUtc | date:'short' }} • {{ n.action }}</p>
                       </div>
                       <button class="btn btn-ghost btn-xs rounded-full shrink-0" (click)="openNotifDetail(n); $event.stopPropagation()">View</button>
@@ -88,7 +88,6 @@
         </div>
       </div>
 
-      <app-notification-detail-modal [open]="notifDetailOpen()" [notification]="selectedNotif()" (closed)="notifDetailOpen.set(false)" />
       @if (auth.isAuthenticated()) {
         <div class="dropdown dropdown-end hidden lg:block">
           <button type="button" tabindex="0" class="btn btn-ghost h-10 gap-2 rounded-xl px-1.5 sm:px-2">
@@ -170,3 +169,4 @@
     </div>
   </div>
 </header>
+<app-notification-detail-modal [open]="notifDetailOpen()" [notification]="selectedNotif()" (closed)="notifDetailOpen.set(false)" />

@@ -49,6 +49,20 @@ export class HeaderComponent {
   toggleNotif() { this.notifOpen.update(v => !v); }
   closeNotif() { this.notifOpen.set(false); }
 
+  formatNotif(n: any): string {
+    try {
+      const p = JSON.parse(n.payloadJson || '{}');
+      const title = p.TaskTitle || p.Title || p.title || '';
+      const from = p.FromListName || p.fromListName || '';
+      const to = p.ToListName || p.toListName || '';
+      const actor = p.ActorName || '';
+      if (n.action === 'TaskMoved' && title) return `${actor ? actor + ' ' : ''}moved "${title}" ${from ? 'from ' + from : ''} → ${to}`;
+      if (n.action === 'TaskCreated' && title) return `${actor ? actor + ' ' : ''}created "${title}"`;
+      if (title) return title;
+      return n.action;
+    } catch { return n.action; }
+  }
+
   openNotifDetail(n: any) {
     this.selectedNotif.set(n);
     this.notifDetailOpen.set(true);
