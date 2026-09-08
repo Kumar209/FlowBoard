@@ -19,7 +19,7 @@ export const routes: Routes = [
         children: [
           { path: '', redirectTo: 'overview', pathMatch: 'full' },
           { path: 'overview', loadComponent: () => import('./features/project/overview/overview.component').then(m => m.OverviewComponent) },
-          { path: 'board', loadComponent: () => import('./features/board/board/board.component').then(m => m.BoardComponent) },
+          { path: 'board', loadComponent: () => import('./features/board/board.component').then(m => m.BoardComponent) },
           { path: 'boards', loadComponent: () => import('./features/project/boards/boards.component').then(m => m.BoardsComponent) },
           { path: 'backlog', loadComponent: () => import('./features/project/backlog/backlog.component').then(m => m.BacklogComponent) },
           { path: 'sprints', loadComponent: () => import('./features/project/sprints/sprints.component').then(m => m.SprintsComponent) },
@@ -33,7 +33,7 @@ export const routes: Routes = [
           { path: 'settings', loadComponent: () => import('./features/project/settings/settings.component').then(m => m.SettingsComponent) },
         ]
       },
-      { path: 'notifications', loadComponent: () => import('./features/notifications/notification-list.component').then(m => m.NotificationListComponent) },
+      { path: 'notifications', loadComponent: () => import('./features/notifications/notification-list/notification-list.component').then(m => m.NotificationListComponent) },
       { path: 'activity', loadComponent: () => import('./features/activity/activity.component').then(m => m.ActivityComponent) },
       { path: 'members', loadComponent: () => import('./features/members/members.component').then(m => m.MembersComponent) },
       { path: 'system', canActivate: [orgAdminGuard], loadComponent: () => import('./features/system/system.component').then(m => m.SystemComponent) },

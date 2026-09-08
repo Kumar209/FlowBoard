@@ -34,6 +34,7 @@ export class HeaderComponent {
     enabled: this.auth.isAuthenticated(),
     staleTime: 30 * 1000,
   }));
+  
   unread = computed(() => {
     const d: any = this.notificationsQuery.data();
     if (!d?.items) return 0;

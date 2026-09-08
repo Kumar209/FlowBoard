@@ -121,7 +121,28 @@ backend/Services/{Service}/
 
 ---
 
-## 7. Commit & Session
+## 7. Frontend Component — 3-File Rule (MNC-Grade — Strict — Memorize Forever)
+
+**Rule (never break):**
+- Every **component folder** must contain **exactly 3 files**: `*.component.html` + `*.component.ts` + `*.component.css` (css **always empty** `/* No internal CSS */`, all styles via `src/styles.css` Tailwind+DaisyUI).
+- **TS never holds HTML**: `template: `...`` is **forbidden**. Always use `templateUrl: './xxx.component.html'` + `styleUrls` is empty. `imports: [CommonModule]` + `ChangeDetectionStrategy.OnPush`.
+- A **feature folder** (e.g., `features/notifications`) may contain **multiple component subfolders** (e.g., `notification-list/` + `notification-detail-modal/`), each with 3 files. A **child component not shared** by others may live as subfolder inside parent component folder (e.g., `notification-list/notification-detail-modal/`), also 3 files — but shared components go to `shared/components/`.
+- **Double folder forbidden**: `features/board/board/board.component.*` is **incorrect** (component name `board` then folder `board` again). Correct is `features/board/board.component.*` (3 files directly under `features/board/`). Same for any `feature/<name>/<name>/`.
+
+**Correct examples:**
+- `features/notifications/notification-list/notification-list.component.{html,ts,css}` + `features/notifications/notification-detail-modal/notification-detail-modal.component.{html,ts,css}` (sibling component folders)
+- `shared/components/loader/loader.component.{html,ts,css}` (css empty)
+- `features/board/board.component.{html,ts,css}` (not `board/board/board.component.*`)
+
+**Incorrect examples:**
+- `features/notifications/notification-list.component.ts` + `notification-detail-modal.component.ts` in same folder (4 files in one folder — split required)
+- `features/board/board/board.component.*` (nested double)
+
+**Enforcement:** `grep -r "template:" src/app` must return **0** hits. Every `*.ts` must have `templateUrl`. Every `*.css` is empty. `ng build` must stay `0 errors`.
+
+---
+
+## 8. Commit & Session
 
 - `git` at `FlowBoard` root (backend/ + frontend/ siblings), `origin https://github.com/Kumar209/FlowBoard.git` `main`
 - One task at a time, `TASK_LOG.md` 8-section + `Progress Overview` `X/26`, `SESSION_RESUME.md` + `Documents/*.md` + `Postman` remain source of truth — any new chat must read them before coding, even if told "already verified"
@@ -129,4 +150,4 @@ backend/Services/{Service}/
 
 ---
 
-*Last updated: 2026-09-07 — Strict pattern memorized, Services moved to Infrastructure, Controllers refactored to Command/Query/Service.*
+*Last updated: 2026-09-08 — Added Frontend 3-File Rule (html+ts+css, no inline template, no double folder), fixed notifications/board structure, memorized for all future tasks.*

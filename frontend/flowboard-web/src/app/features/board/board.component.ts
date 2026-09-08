@@ -3,15 +3,15 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { DragDropModule, CdkDragDrop, transferArrayItem, moveItemInArray } from '@angular/cdk/drag-drop';
-import { TaskCardComponent } from '../../../shared/components/task-card/task-card.component';
-import { TaskCreateModalComponent } from '../../../shared/components/modals/task-create-modal/task-create-modal.component';
-import { TaskDetailModalComponent } from '../../../shared/components/modals/task-detail-modal/task-detail-modal.component';
-import { ColumnModalComponent } from '../../../shared/components/modals/column-modal/column-modal.component';
-import { ConfirmDeleteComponent } from '../../../shared/components/modals/confirm-delete/confirm-delete.component';
-import { ProjectService } from '../../../core/services/project.service';
-import { AuthService } from '../../../core/services/auth.service';
-import { ToastService } from '../../../core/services/toast.service';
-import { BoardRealtimeService } from '../../../core/services/board-realtime.service';
+import { TaskCardComponent } from '../../shared/components/task-card/task-card.component';
+import { TaskCreateModalComponent } from '../../shared/components/modals/task-create-modal/task-create-modal.component';
+import { TaskDetailModalComponent } from '../../shared/components/modals/task-detail-modal/task-detail-modal.component';
+import { ColumnModalComponent } from '../../shared/components/modals/column-modal/column-modal.component';
+import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-delete/confirm-delete.component';
+import { ProjectService } from '../../core/services/project.service';
+import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { BoardRealtimeService } from '../../core/services/board-realtime.service';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**

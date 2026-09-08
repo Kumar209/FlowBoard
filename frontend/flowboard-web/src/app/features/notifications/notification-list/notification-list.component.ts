@@ -1,8 +1,8 @@
 import { Component, ChangeDetectionStrategy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
-import { NotificationService } from '../../core/services/notification.service';
-import { NotificationDetailModalComponent } from './notification-detail-modal.component';
+import { NotificationService } from '../../../core/services/notification.service';
+import { NotificationDetailModalComponent } from '../notification-detail-modal/notification-detail-modal.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
