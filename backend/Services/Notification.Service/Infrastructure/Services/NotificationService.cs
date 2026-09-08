@@ -12,13 +12,55 @@ public class NotificationService : INotificationService
     public NotificationService(IApplicationDbContext db) => _db = db;
 
     public async Task<Result> PersistTaskCreatedAsync(Guid eventId, Guid projectId, Guid workspaceId, Guid taskId, string title, Guid actorUserId, List<Guid> recipientUserIds, DateTime occurredOnUtc, CancellationToken ct = default)
-        => await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskCreated", $"{{\"title\":\"{title}\"}}", recipientUserIds, occurredOnUtc, ct);
+    {
+        // Enrich payload with names for MNC-grade display
+        string projectName = "", actorName = "", listName = "";
+        try { var pr = await _db.Database.SqlQueryRaw<ProjectNameRow>("SELECT Name FROM [project].[Projects] WHERE Id = {0}", projectId).FirstOrDefaultAsync(ct); if (pr != null) projectName = pr.Name; } catch { }
+        try { var ar = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", actorUserId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? ""; } catch { }
+        // Try to get list name from payload? For TaskCreated, list is not directly known, but we can try to get via task
+        try { var t = await _db.Database.SqlQueryRaw<TaskListRow>("SELECT ListId FROM [project].[Tasks] WHERE Id = {0}", taskId).FirstOrDefaultAsync(ct); if (t != null) { var l = await _db.Database.SqlQueryRaw<ListNameRow>("SELECT Name, BoardId FROM [project].[BoardLists] WHERE Id = {0}", t.ListId).FirstOrDefaultAsync(ct); if (l != null) listName = l.Name; } } catch { }
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { taskTitle = title, projectName, listName, actorName });
+        return await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskCreated", payload, recipientUserIds, occurredOnUtc, ct);
+    }
 
-    public async Task<Result> PersistTaskMovedAsync(Guid eventId, Guid projectId, Guid workspaceId, Guid taskId, Guid fromListId, Guid toListId, int position, Guid actorUserId, List<Guid> recipientUserIds, DateTime occurredOnUtc, CancellationToken ct = default)
-        => await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskMoved", $"{{\"from\":\"{fromListId}\",\"to\":\"{toListId}\"}}", recipientUserIds, occurredOnUtc, ct);
+    public async Task<Result> PersistTaskMovedAsync(Guid eventId, Guid projectId, Guid workspaceId, Guid taskId, Guid fromListId, string fromListName, Guid toListId, string toListName, string boardName, string sprintName, string taskTitle, string projectName, string actorName, string actorRole, int position, Guid actorUserId, List<Guid> recipientUserIds, DateTime occurredOnUtc, CancellationToken ct = default)
+    {
+        // Use enriched names from event (from Project Service), fallback to DB if empty
+        if (string.IsNullOrWhiteSpace(taskTitle))
+        {
+            try { var t = await _db.Database.SqlQueryRaw<TaskTitleRow>("SELECT Title FROM [project].[Tasks] WHERE Id = {0}", taskId).FirstOrDefaultAsync(ct); if (t != null) taskTitle = t.Title; } catch { }
+        }
+        if (string.IsNullOrWhiteSpace(projectName))
+        {
+            try { var pr = await _db.Database.SqlQueryRaw<ProjectNameRow>("SELECT Name FROM [project].[Projects] WHERE Id = {0}", projectId).FirstOrDefaultAsync(ct); if (pr != null) projectName = pr.Name; } catch { }
+        }
+        if (string.IsNullOrWhiteSpace(actorName))
+        {
+            try { var ar = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", actorUserId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? ""; } catch { }
+        }
+        // fromListName/toListName/boardName/sprintName already from event, if empty fallback to DB
+        if (string.IsNullOrWhiteSpace(fromListName))
+        {
+            try { var f = await _db.Database.SqlQueryRaw<ListNameRow>("SELECT Name FROM [project].[BoardLists] WHERE Id = {0}", fromListId).FirstOrDefaultAsync(ct); if (f != null) fromListName = f.Name; } catch { }
+        }
+        if (string.IsNullOrWhiteSpace(toListName))
+        {
+            try { var tt = await _db.Database.SqlQueryRaw<ListNameRow>("SELECT Name FROM [project].[BoardLists] WHERE Id = {0}", toListId).FirstOrDefaultAsync(ct); if (tt != null) toListName = tt.Name; } catch { }
+        }
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { taskTitle, projectName, fromList = fromListName, toList = toListName, boardName, sprintName, actorName, actorRole });
+        return await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskMoved", payload, recipientUserIds, occurredOnUtc, ct);
+    }
 
     public async Task<Result> PersistTaskCommentedAsync(Guid eventId, Guid projectId, Guid workspaceId, Guid taskId, Guid commentId, Guid actorUserId, List<Guid> recipientUserIds, DateTime occurredOnUtc, CancellationToken ct = default)
-        => await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskCommented", $"{{\"commentId\":\"{commentId}\"}}", recipientUserIds, occurredOnUtc, ct);
+    {
+        string taskTitle = "", projectName = "", actorName = "", commentPreview = "";
+        try { var t = await _db.Database.SqlQueryRaw<TaskTitleRow>("SELECT Title FROM [project].[Tasks] WHERE Id = {0}", taskId).FirstOrDefaultAsync(ct); if (t != null) taskTitle = t.Title; } catch { }
+        try { var pr = await _db.Database.SqlQueryRaw<ProjectNameRow>("SELECT Name FROM [project].[Projects] WHERE Id = {0}", projectId).FirstOrDefaultAsync(ct); if (pr != null) projectName = pr.Name; } catch { }
+        try { var ar = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", actorUserId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? ""; } catch { }
+        try { var c = await _db.Database.SqlQueryRaw<CommentRow>("SELECT Content FROM [project].[Comments] WHERE Id = {0}", commentId).FirstOrDefaultAsync(ct); if (c != null) commentPreview = c.Content.Length > 80 ? c.Content.Substring(0,80) + "..." : c.Content; } catch { }
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { taskTitle, projectName, actorName, commentId, commentPreview });
+        return await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskCommented", payload, recipientUserIds, occurredOnUtc, ct);
+    }
 
     private async Task<Result> CreateNotificationsForRecipientsAsync(Guid eventId, Guid projectId, Guid workspaceId, Guid taskId, Guid actorUserId, string action, string payloadJson, List<Guid> recipientUserIds, DateTime occurredOnUtc, CancellationToken ct)
     {
@@ -94,7 +136,13 @@ public class NotificationService : INotificationService
     }
     private class ProjectNameRow { public string Name { get; set; } = ""; }
     private class TaskTitleRow { public string Title { get; set; } = ""; }
+    private class TaskTitleWithSprintRow { public string Title { get; set; } = ""; public Guid? SprintId { get; set; } }
     private class ActorNameRow { public string? FullName { get; set; } public string? Email { get; set; } }
+    private class TaskListRow { public Guid ListId { get; set; } }
+    private class ListNameRow { public string Name { get; set; } = ""; public Guid? BoardId { get; set; } }
+    private class BoardNameRow { public string Name { get; set; } = ""; }
+    private class SprintNameRow { public string Name { get; set; } = ""; }
+    private class CommentRow { public string Content { get; set; } = ""; }
 
     public async Task<Result> MarkAsReadAsync(Guid notificationId, Guid recipientUserId, CancellationToken ct = default)
     {
