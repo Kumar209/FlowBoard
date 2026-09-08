@@ -5,34 +5,7 @@ import { CommonModule } from '@angular/common';
   selector: 'app-notification-detail-modal',
   standalone: true,
   imports: [CommonModule],
-  template: `
-  @if (open() && notification()) {
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-3">
-      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="closed.emit()"></div>
-      <div class="card bg-base-100 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative z-10 border">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="font-bold">Notification Detail</h3>
-          <button class="btn btn-ghost btn-sm btn-circle" (click)="closed.emit()">✕</button>
-        </div>
-        <div class="space-y-3 text-sm">
-          <div class="flex justify-between"><span class="opacity-60">Action</span><span class="badge badge-primary badge-sm">{{ notification().action }}</span></div>
-          <div class="flex justify-between"><span class="opacity-60">Task</span><span class="font-mono text-xs">{{ notification().taskId.slice(0,8) }}</span></div>
-          <div class="flex justify-between"><span class="opacity-60">Project</span><span class="font-mono text-xs">{{ notification().projectId.slice(0,8) }}</span></div>
-          <div class="flex justify-between"><span class="opacity-60">Workspace</span><span class="font-mono text-xs">{{ notification().workspaceId.slice(0,8) }}</span></div>
-          <div class="flex justify-between"><span class="opacity-60">Actor</span><span class="font-mono text-xs">{{ notification().actorUserId.slice(0,8) }}</span></div>
-          <div class="flex justify-between"><span class="opacity-60">Event</span><span class="font-mono text-xs">{{ notification().eventId.slice(0,8) }}</span></div>
-          <div class="flex justify-between"><span class="opacity-60">When</span><span>{{ notification().occurredOnUtc | date:'medium' }}</span></div>
-          <div class="flex justify-between"><span class="opacity-60">Read</span><span class="badge" [ngClass]="notification().isRead ? 'badge-ghost' : 'badge-warning'">{{ notification().isRead ? 'Read' : 'Unread' }}</span></div>
-          <div class="bg-base-200 rounded-xl p-3">
-            <p class="text-xs font-semibold mb-1">Payload</p>
-            <pre class="text-xs whitespace-pre-wrap break-all">{{ notification().payloadJson }}</pre>
-          </div>
-        </div>
-        <button class="btn btn-primary btn-sm w-full rounded-xl mt-4" (click)="closed.emit()">Close</button>
-      </div>
-    </div>
-  }
-  `,
+  templateUrl: './notification-detail-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NotificationDetailModalComponent {

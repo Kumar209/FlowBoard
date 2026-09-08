@@ -1,0 +1,4 @@
+<div class="flex flex-col items-center justify-center py-8 gap-3" [class]="size() === 'sm' ? 'py-4' : 'py-8'">
+  <span class="loading loading-spinner" [class.loading-sm]="size()==='sm'" [class.loading-lg]="size()==='lg'"></span>
+  @if (text()) { <p class="text-xs opacity-60">{{ text() }}</p> }
+</div>
