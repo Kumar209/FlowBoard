@@ -279,10 +279,33 @@ export class TaskDetailModalComponent {
     if (!t) return false;
     if (this.taskDetailQuery.isPending()) return false;
     if (this.membersQuery.isPending() || this.teamsQuery.isPending() || this.sprintsForTaskQuery.isPending()) return false;
-    if (t.teamId && !this.teamsQuery.data()?.some((x: any) => x.id === t.teamId)) return false;
-    if (t.sprintId && !this.sprintsForTaskQuery.data()?.some((x: any) => x.id === t.sprintId)) return false;
-    if (t.assigneeId && !this.projectMembersList().some((m: any) => m.userId === t.assigneeId)) return false;
+    const teamId = (t.teamId || '').toLowerCase();
+    const sprintId = (t.sprintId || '').toLowerCase();
+    const assigneeId = (t.assigneeId || '').toLowerCase();
+    if (teamId && !this.teamsQuery.data()?.some((x: any) => (x.id || '').toLowerCase() === teamId)) return false;
+    if (sprintId && !this.sprintsForTaskQuery.data()?.some((x: any) => (x.id || '').toLowerCase() === sprintId)) return false;
+    if (assigneeId && !this.projectMembersList().some((m: any) => (m.userId || '').toLowerCase() === assigneeId)) return false;
     return true;
+  });
+  debugInfo = computed(() => {
+    const t = (this.taskDetailQuery.data() as any)?.task ?? this.task();
+    return JSON.stringify({
+      teamId: this.teamId(),
+      t_teamId: t?.teamId,
+      assigneeId: this.assigneeId(),
+      t_assigneeId: t?.assigneeId,
+      sprintId: this.sprintId(),
+      t_sprintId: t?.sprintId,
+      effectivePid: this.effectiveProjectId(),
+      teams: this.teamsQuery.data(),
+      sprints: this.sprintsForTaskQuery.data(),
+      members: this.projectMembersList().slice(0,3),
+      isDetailReady: this.isDetailReady(),
+      detailPending: this.taskDetailQuery.isPending(),
+      teamsPending: this.teamsQuery.isPending(),
+      sprintsPending: this.sprintsForTaskQuery.isPending(),
+      membersPending: this.membersQuery.isPending(),
+    }, null, 2);
   });
   isScrumBoard = computed(() => {
     const boardId = this.task()?.boardId || '';
@@ -398,9 +421,9 @@ export class TaskDetailModalComponent {
     this.description.set(t.description || '');
     this.priority.set(t.priority || 'Medium');
     this.listId.set(t.listId || '');
-    this.assigneeId.set(t.assigneeId || '');
-    this.teamId.set(t.teamId || '');
-    this.sprintId.set(t.sprintId || '');
+    this.assigneeId.set((t.assigneeId || '').toString().trim());
+    this.teamId.set((t.teamId || '').toString().trim());
+    this.sprintId.set((t.sprintId || '').toString().trim());
     this.dueDate.set(t.dueDate ? (t.dueDate as string).slice(0, 10) : '');
     this.issueType.set(t.issueType || 'Task');
     this.epic.set(t.epic || '');

@@ -345,6 +345,7 @@
           </div>
           @if (!isDirty()) { <p class="text-[10px] opacity-40 text-center">No changes • Save disabled until you edit</p> }
           <p class="text-[10px] opacity-40 text-center">Changes save priority/labels/due/assignee/status via PUT /tasks • lists via PUT/DELETE /lists</p>
+          <pre class="text-[9px] bg-warning/20 p-2 rounded-xl overflow-auto max-h-32 whitespace-pre-wrap break-all mt-2">{{ debugInfo() }}</pre>
         </div>
       </div>
       }
