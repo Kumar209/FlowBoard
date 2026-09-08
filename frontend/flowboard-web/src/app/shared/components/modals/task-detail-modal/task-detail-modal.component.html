@@ -153,7 +153,7 @@
                 @if (projectMembersList().length) {
                   <select class="select select-bordered select-sm rounded-xl w-full" [value]="assigneeId()" (change)="assigneeId.set($any($event.target).value)">
                     <option value="">Unassigned</option>
-                    @for (m of projectMembersList(); track m.userId) { <option [value]="m.userId">{{ m.fullName }} ({{ m.role }}) — {{ m.email }}</option> }
+                    @for (m of projectMembersList(); track m.userId) { <option [value]="m.userId" [selected]="m.userId.toLowerCase() === assigneeId().toLowerCase()">{{ m.fullName }} ({{ m.role }}) — {{ m.email }}</option> }
                   </select>
                 } @else if (membersQuery.isPending()) {
                   <select class="select select-bordered select-sm rounded-xl w-full" disabled><option>Loading members...</option></select>
@@ -186,7 +186,7 @@
                 @if (teamsQuery.data(); as teams) {
                   <select class="select select-bordered select-sm rounded-xl" [value]="teamId()" (change)="teamId.set($any($event.target).value)">
                     <option value="">No Team</option>
-                    @for (t of teams; track t.id) { <option [value]="t.id">{{ t.name }}</option> }
+                    @for (t of teams; track t.id) { <option [value]="t.id" [selected]="t.id.toLowerCase() === teamId().toLowerCase()">{{ t.name }}</option> }
                   </select>
                   @if (teams.length===0) { <span class="text-[10px] opacity-40">No teams — create in Teams</span> }
                 } @else { <select class="select select-bordered select-sm rounded-xl" disabled><option>Loading teams...</option></select> }
@@ -196,7 +196,7 @@
                 @if (sprintsForTaskQuery.data(); as sprints) {
                   <select class="select select-bordered select-sm rounded-xl" [value]="sprintId()" (change)="sprintId.set($any($event.target).value)">
                     <option value="">No Sprint (Backlog)</option>
-                    @for (s of sprints; track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+                    @for (s of sprints; track s.id) { <option [value]="s.id" [selected]="s.id.toLowerCase() === sprintId().toLowerCase()">{{ s.name }}</option> }
                   </select>
                 } @else {
                   <input type="text" placeholder="Sprint 24" class="input input-bordered input-sm rounded-xl" [value]="sprintId()" (input)="sprintId.set($any($event.target).value)" />
@@ -345,7 +345,6 @@
           </div>
           @if (!isDirty()) { <p class="text-[10px] opacity-40 text-center">No changes • Save disabled until you edit</p> }
           <p class="text-[10px] opacity-40 text-center">Changes save priority/labels/due/assignee/status via PUT /tasks • lists via PUT/DELETE /lists</p>
-          <pre class="text-[9px] bg-warning/20 p-2 rounded-xl overflow-auto max-h-32 whitespace-pre-wrap break-all mt-2">{{ debugInfo() }}</pre>
         </div>
       </div>
       }
