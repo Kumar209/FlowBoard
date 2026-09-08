@@ -55,9 +55,11 @@ export class HeaderComponent {
       const title = n.taskTitle || p.TaskTitle || p.Title || p.title || '';
       const from = p.FromListName || p.fromListName || '';
       const to = p.ToListName || p.toListName || '';
+      const board = p.BoardName || p.boardName || '';
       const actor = n.actorName || p.ActorName || '';
-      if (n.action === 'TaskMoved' && title) return `${actor ? actor + ' ' : ''}moved "${title}" ${from ? 'from ' + from : ''} → ${to}`;
-      if (n.action === 'TaskCreated' && title) return `${actor ? actor + ' ' : ''}created "${title}"`;
+      const boardPart = board ? ` in ${board}` : '';
+      if (n.action === 'TaskMoved' && title) return `${actor ? actor + ' ' : ''}moved "${title}" ${from ? 'from ' + from : ''} → ${to}${boardPart}`;
+      if (n.action === 'TaskCreated' && title) return `${actor ? actor + ' ' : ''}created "${title}"${boardPart}`;
       if (title) return title;
       return n.action;
     } catch { return n.action; }

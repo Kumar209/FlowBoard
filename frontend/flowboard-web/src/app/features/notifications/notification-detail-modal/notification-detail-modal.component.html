@@ -13,7 +13,9 @@
         </div>
         @if (notification().taskTitle || payload().TaskTitle) { <div class="flex justify-between"><span class="opacity-60">Task</span><span class="text-xs font-medium">{{ notification().taskTitle || payload().TaskTitle || payload().Title }}</span></div> }
         @if (notification().projectName || payload().ProjectName) { <div class="flex justify-between"><span class="opacity-60">Project</span><span class="text-xs">{{ notification().projectName || payload().ProjectName || payload().ProjectKey }}</span></div> }
-        @if (payload().ListName || payload().ToListName) { <div class="flex justify-between"><span class="opacity-60">List</span><span class="text-xs">{{ payload().ListName || payload().ToListName }}</span></div> }
+        @if (payload().BoardName || payload().boardName) { <div class="flex justify-between"><span class="opacity-60">Board</span><span class="text-xs">{{ payload().BoardName || payload().boardName }}</span></div> }
+        @if (payload().SprintName || payload().sprintName) { <div class="flex justify-between"><span class="opacity-60">Sprint</span><span class="text-xs">{{ payload().SprintName || payload().sprintName }}</span></div> }
+        @if (payload().ListName || payload().ToListName) { <div class="flex justify-between"><span class="opacity-60">Column</span><span class="text-xs">{{ payload().ListName || payload().ToListName }}</span></div> }
         @if (payload().FromListName && payload().ToListName) { <div class="flex justify-between"><span class="opacity-60">Move</span><span class="text-xs">{{ payload().FromListName }} → {{ payload().ToListName }}</span></div> }
         <div class="flex justify-between"><span class="opacity-60">Actor</span><span class="text-xs">{{ notification().actorName || payload().ActorName || payload().actorName }} @if(payload().ActorRole){ <span class="badge badge-ghost badge-xs">{{ payload().ActorRole }}</span> }</span></div>
         <div class="flex justify-between"><span class="opacity-60">When</span><span class="text-xs">{{ notification().occurredOnUtc | date:'medium' }}</span></div>
