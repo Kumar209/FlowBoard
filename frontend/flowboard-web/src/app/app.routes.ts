@@ -33,6 +33,7 @@ export const routes: Routes = [
           { path: 'settings', loadComponent: () => import('./features/project/settings/settings.component').then(m => m.SettingsComponent) },
         ]
       },
+      { path: 'notifications', loadComponent: () => import('./features/notifications/notification-list.component').then(m => m.NotificationListComponent) },
       { path: 'activity', loadComponent: () => import('./features/activity/activity.component').then(m => m.ActivityComponent) },
       { path: 'members', loadComponent: () => import('./features/members/members.component').then(m => m.MembersComponent) },
       { path: 'system', canActivate: [orgAdminGuard], loadComponent: () => import('./features/system/system.component').then(m => m.SystemComponent) },

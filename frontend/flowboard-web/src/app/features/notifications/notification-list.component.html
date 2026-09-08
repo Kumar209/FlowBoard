@@ -1,0 +1,56 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto">
+  <div class="flex flex-wrap gap-2 justify-between items-center mb-4">
+    <h2 class="text-lg font-bold">Notifications</h2>
+    <button class="btn btn-ghost btn-sm rounded-full" (click)="markAllMut.mutate()" [class.loading]="markAllMut.isPending()">Mark all read</button>
+  </div>
+  <div class="flex flex-col sm:flex-row gap-2 mb-4">
+    <input type="text" placeholder="Search action/payload..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
+    <label class="label cursor-pointer gap-2">
+      <span class="label-text text-xs">Unread only</span>
+      <input type="checkbox" class="checkbox checkbox-xs" [checked]="unreadOnly()" (change)="unreadOnly.set($any($event.target).checked); page.set(1)" />
+    </label>
+    <span class="text-xs opacity-40 self-center">{{ total() }} total</span>
+  </div>
+
+  @if (query.isPending()) {
+    <div class="flex justify-center py-12"><span class="loading loading-spinner"></span></div>
+  } @else {
+    <div class="hidden md:block overflow-x-auto bg-base-100 rounded-2xl shadow border">
+      <table class="table table-sm">
+        <thead><tr><th>Time</th><th>Action</th><th>Project</th><th>Task</th><th>Actor</th><th>Read</th><th>Actions</th></tr></thead>
+        <tbody>
+          @for (n of filtered(); track n.id) {
+            <tr class="hover:bg-base-200" [class.bg-warning/10]="!n.isRead">
+              <td class="text-xs">{{ n.occurredOnUtc | date:'short' }}</td>
+              <td><span class="badge badge-sm" [ngClass]="n.action==='TaskMoved'?'badge-warning':'badge-info'">{{ n.action }}</span></td>
+              <td class="font-mono text-xs">{{ n.projectId.slice(0,8) }}</td>
+              <td class="font-mono text-xs">{{ n.taskId.slice(0,8) }}</td>
+              <td class="font-mono text-xs">{{ n.actorUserId.slice(0,8) }}</td>
+              <td><span class="badge badge-xs" [ngClass]="n.isRead?'badge-ghost':'badge-warning'">{{ n.isRead?'Read':'Unread' }}</span></td>
+              <td><div class="flex gap-1">
+                <button class="btn btn-ghost btn-xs rounded-full" (click)="openDetail(n)">View</button>
+                @if (!n.isRead) { <button class="btn btn-primary btn-xs rounded-full" (click)="markReadMut.mutate(n.id)">Mark read</button> }
+              </div></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="md:hidden space-y-2">
+      @for (n of filtered(); track n.id) {
+        <div class="card bg-base-100 border p-3 rounded-xl" [class.border-warning]="!n.isRead">
+          <div class="flex justify-between"><span class="badge badge-sm">{{ n.action }}</span><span class="text-xs opacity-40">{{ n.occurredOnUtc | date:'short' }}</span></div>
+          <p class="text-xs mt-1 break-all">{{ n.payloadJson | slice:0:80 }}</p>
+          <div class="flex gap-1 mt-2"><button class="btn btn-ghost btn-xs rounded-full" (click)="openDetail(n)">View</button>@if(!n.isRead){<button class="btn btn-primary btn-xs rounded-full" (click)="markReadMut.mutate(n.id)">Read</button>}</div>
+        </div>
+      }
+    </div>
+    <div class="flex justify-between items-center mt-4">
+      <button class="btn btn-ghost btn-sm rounded-full" (click)="prev()" [disabled]="page()<=1">Previous</button>
+      <span class="text-xs">Page {{ page() }} / {{ totalPages() || 1 }}</span>
+      <button class="btn btn-ghost btn-sm rounded-full" (click)="next()" [disabled]="page()>=totalPages()">Next</button>
+    </div>
+  }
+
+  <app-notification-detail-modal [open]="detailOpen()" [notification]="selected()" (closed)="detailOpen.set(false)" />
+</div>
