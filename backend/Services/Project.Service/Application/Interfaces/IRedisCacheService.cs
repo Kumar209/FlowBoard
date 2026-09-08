@@ -9,4 +9,6 @@ public interface IRedisCacheService
     Task SetAsync<T>(string key, T value, TimeSpan ttl);
     Task RemoveAsync(string key);
     Task RemoveByPrefixAsync(string prefix);
+    Task<bool> TryAcquireLockAsync(string key, string value, TimeSpan ttl);
+    Task<bool> ReleaseLockAsync(string key, string value);
 }

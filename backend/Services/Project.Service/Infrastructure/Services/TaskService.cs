@@ -64,27 +64,39 @@ public class TaskService : ITaskService
     public async Task<Result> MoveTaskAsync(Guid taskId, Guid toListId, int newPosition, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
         if (callerRoles.Contains("Client") || callerRoles.Contains("Viewer")) return Result.Failure("Forbidden - Client/Viewer cannot move tasks");
-        var task = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == taskId, ct);
-        if (task == null) return Result.Failure("Task not found");
-        var targetList = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == toListId, ct);
-        if (targetList == null) return Result.Failure("Target list not found");
-        var fromListId = task.ListId;
-        task.MoveToList(toListId, newPosition, targetList.Name);
-        var workspaceId = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
-        var recipientIds = await _db.ProjectMembers.Where(pm => pm.ProjectId == task.ProjectId).Select(pm => pm.UserId).ToListAsync(ct);
-        if (!recipientIds.Any())
+        // Upstash Redis distributed lock SET NX PX 5000 (MNC-grade for concurrent drag)
+        var lockKey = $"lock:task:{taskId}";
+        var lockVal = Guid.NewGuid().ToString();
+        var acquired = await _cache.TryAcquireLockAsync(lockKey, lockVal, TimeSpan.FromMilliseconds(5000));
+        if (!acquired) return Result.Failure("Task is being moved by another user - try again");
+        try
         {
-            try { recipientIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0}", workspaceId).ToListAsync(ct); } catch { }
+            var task = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == taskId, ct);
+            if (task == null) return Result.Failure("Task not found");
+            var targetList = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == toListId, ct);
+            if (targetList == null) return Result.Failure("Target list not found");
+            var fromListId = task.ListId;
+            task.MoveToList(toListId, newPosition, targetList.Name);
+            var workspaceId = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+            var recipientIds = await _db.ProjectMembers.Where(pm => pm.ProjectId == task.ProjectId).Select(pm => pm.UserId).ToListAsync(ct);
+            if (!recipientIds.Any())
+            {
+                try { recipientIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0}", workspaceId).ToListAsync(ct); } catch { }
+            }
+            var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, WorkspaceId = workspaceId, FromListId = fromListId, ToListId = toListId, Position = newPosition, ActorId = callerId, RecipientUserIds = recipientIds, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
+            _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskMoved", JsonSerializer.Serialize(evt)));
+            _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, callerId, "TaskMoved", JsonSerializer.Serialize(new { fromListId, toListId })));
+            await _db.SaveChangesAsync(ct);
+            await _cache.RemoveAsync($"board:{task.ProjectId}");
+            await _cache.RemoveByPrefixAsync($"board:{task.ProjectId}:");
+            await _cache.RemoveByPrefixAsync($"tasks:{task.ProjectId}:");
+            await _cache.RemoveByPrefixAsync("board:");
+            return Result.Success();
         }
-        var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, WorkspaceId = workspaceId, FromListId = fromListId, ToListId = toListId, Position = newPosition, ActorId = callerId, RecipientUserIds = recipientIds, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
-        _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskMoved", JsonSerializer.Serialize(evt)));
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, callerId, "TaskMoved", JsonSerializer.Serialize(new { fromListId, toListId })));
-        await _db.SaveChangesAsync(ct);
-        await _cache.RemoveAsync($"board:{task.ProjectId}");
-        await _cache.RemoveByPrefixAsync($"board:{task.ProjectId}:");
-        await _cache.RemoveByPrefixAsync($"tasks:{task.ProjectId}:");
-        await _cache.RemoveByPrefixAsync("board:");
-        return Result.Success();
+        finally
+        {
+            await _cache.ReleaseLockAsync(lockKey, lockVal);
+        }
     }
 
     public async Task<Result> DeleteTaskAsync(Guid taskId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)

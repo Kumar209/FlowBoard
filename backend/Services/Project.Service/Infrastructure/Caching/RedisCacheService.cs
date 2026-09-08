@@ -86,6 +86,26 @@ public class RedisCacheService : IRedisCacheService
         catch { }
     }
 
+    public async Task<bool> TryAcquireLockAsync(string key, string value, TimeSpan ttl)
+    {
+        if (_db == null) return true; // no Redis = no lock (local dev fallback)
+        try { return await _db.StringSetAsync(key, value, ttl, When.NotExists); }
+        catch { return true; }
+    }
+
+    public async Task<bool> ReleaseLockAsync(string key, string value)
+    {
+        if (_db == null) return true;
+        try
+        {
+            // Lua: only delete if value matches (prevent releasing other owner's lock)
+            var script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+            var res = await _db.ScriptEvaluateAsync(script, new RedisKey[] { key }, new RedisValue[] { value });
+            return (int)res == 1;
+        }
+        catch { return true; }
+    }
+
     // Helpers moved to Application/Caching/CacheKeys for DIP (MNC grade) - keep obsolete for compat but delegate
     [Obsolete("Use CacheKeys.Board() from Application.Caching - do not reference Infra from Api")]
     public static string BoardKey(Guid projectId) => Application.Caching.CacheKeys.Board(projectId);

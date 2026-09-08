@@ -11,6 +11,7 @@ import { ConfirmDeleteComponent } from '../../../shared/components/modals/confir
 import { ProjectService } from '../../../core/services/project.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { BoardRealtimeService } from '../../../core/services/board-realtime.service';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**
@@ -30,6 +31,7 @@ export class BoardComponent {
   auth = inject(AuthService);
   private toast = inject(ToastService);
   private queryClient = inject(QueryClient);
+  private realtime = inject(BoardRealtimeService);
 
   projectId = signal<string>(this.route.snapshot.paramMap.get('pid') || this.route.parent?.snapshot.paramMap.get('pid') || '');
   workspaceId = signal<string>(this.route.snapshot.paramMap.get('wid') || this.route.parent?.snapshot.paramMap.get('wid') || '');
@@ -148,7 +150,14 @@ export class BoardComponent {
       if (sprints.length > 0 && !this.selectedSprint() && !hasQuerySprint) {
         this.selectedSprint.set(sprints[0].id);
       }
-    });
+    }, { allowSignalWrites: true });
+    // Realtime: connect and join project group for taskMoved invalidation
+    effect(() => {
+      const pid = this.projectId();
+      if (pid) {
+        this.realtime.connect().then(() => this.realtime.joinProject(pid));
+      }
+    }, { allowSignalWrites: true });
   }
 
   // Modals
@@ -203,7 +212,24 @@ export class BoardComponent {
   moveMutation = injectMutation(() => ({
     mutationFn: (vars: { taskId:string; toListId:string; newPosition:number }) =>
       firstValueFrom(this.projectService.moveTask(vars.taskId, vars.toListId, vars.newPosition)),
-    onSuccess: () => this.queryClient.invalidateQueries({ queryKey: ['board'] }),
+    onMutate: async (vars) => {
+      const key = ['board', this.projectId(), this.selectedBoardId()] as const;
+      await this.queryClient.cancelQueries({ queryKey: key });
+      const prev = this.queryClient.getQueryData(key) as any;
+      this.queryClient.setQueryData(key, (old: any) => {
+        if (!old) return old;
+        const tasks = old.tasks.map((t: any) => t.id === vars.taskId ? { ...t, listId: vars.toListId, position: vars.newPosition } : t);
+        return { ...old, tasks };
+      });
+      return { prev, key };
+    },
+    onError: (err: any, _vars, ctx: any) => {
+      if (ctx?.prev && ctx?.key) this.queryClient.setQueryData(ctx.key, ctx.prev);
+      const msg = err?.error?.error || err?.message || 'Move failed - locked or forbidden';
+      this.toast.error(msg);
+    },
+    onSettled: () => this.queryClient.invalidateQueries({ queryKey: ['board'] }),
+    onSuccess: () => this.toast.success('Task moved'),
   }));
 
   boardSettingsOpen = signal(false);
