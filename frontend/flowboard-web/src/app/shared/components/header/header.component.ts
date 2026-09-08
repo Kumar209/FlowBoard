@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ThemeService } from '../../../core/services/theme.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { NotificationDetailModalComponent } from '../../../features/notifications/notification-detail-modal/notification-detail-modal.component';
 import { injectQuery, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**
@@ -14,7 +15,7 @@ import { injectQuery, QueryClient } from '@tanstack/angular-query-experimental';
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, NotificationDetailModalComponent],
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -27,6 +28,8 @@ export class HeaderComponent {
   private queryClient = inject(QueryClient);
   mobileOpen = signal(false);
   notifOpen = signal(false);
+  selectedNotif = signal<any>(null);
+  notifDetailOpen = signal(false);
 
   notificationsQuery = injectQuery(() => ({
     queryKey: ['notifications', 'header', 1] as const,
@@ -45,6 +48,17 @@ export class HeaderComponent {
   closeMobile() { this.mobileOpen.set(false); }
   toggleNotif() { this.notifOpen.update(v => !v); }
   closeNotif() { this.notifOpen.set(false); }
+
+  openNotifDetail(n: any) {
+    this.selectedNotif.set(n);
+    this.notifDetailOpen.set(true);
+    this.notifOpen.set(false);
+    if (!n.isRead) {
+      firstValueFrom(this.notificationService.markRead(n.id)).then(() => {
+        this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      });
+    }
+  }
 
   markRead(id: string) {
     firstValueFrom(this.notificationService.markRead(id)).then(() => {

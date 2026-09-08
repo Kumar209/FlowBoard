@@ -30,15 +30,18 @@ export class BoardRealtimeService {
       this.lastEvent.set(`taskMoved:${payload.taskId}`);
       this.queryClient.invalidateQueries({ queryKey: ['board'] });
       this.queryClient.invalidateQueries({ queryKey: ['task-detail', payload.taskId] });
+      this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });
     this.hub.on('taskCreated', (payload: any) => {
       this.lastEvent.set(`taskCreated:${payload.taskId}`);
       this.queryClient.invalidateQueries({ queryKey: ['board'] });
+      this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });
     this.hub.on('taskCommented', (payload: any) => {
       this.lastEvent.set(`taskCommented:${payload.taskId}`);
       this.queryClient.invalidateQueries({ queryKey: ['comments'] });
       this.queryClient.invalidateQueries({ queryKey: ['board'] });
+      this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });
     this.hub.on('connected', () => this.connected.set(true));
     this.hub.onclose(() => this.connected.set(false));

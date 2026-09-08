@@ -27,10 +27,7 @@
               <td class="font-mono text-xs">{{ n.taskId.slice(0,8) }}</td>
               <td class="font-mono text-xs">{{ n.actorUserId.slice(0,8) }}</td>
               <td><span class="badge badge-xs" [ngClass]="n.isRead?'badge-ghost':'badge-warning'">{{ n.isRead?'Read':'Unread' }}</span></td>
-              <td><div class="flex gap-1">
-                <button class="btn btn-ghost btn-xs rounded-full" (click)="openDetail(n)">View</button>
-                @if (!n.isRead) { <button class="btn btn-primary btn-xs rounded-full" (click)="markReadMut.mutate(n.id)">Mark read</button> }
-              </div></td>
+              <td><button class="btn btn-primary btn-xs rounded-full" (click)="openDetail(n)">View</button></td>
             </tr>
           }
         </tbody>
@@ -41,7 +38,7 @@
         <div class="card bg-base-100 border p-3 rounded-xl" [class.border-warning]="!n.isRead">
           <div class="flex justify-between"><span class="badge badge-sm">{{ n.action }}</span><span class="text-xs opacity-40">{{ n.occurredOnUtc | date:'short' }}</span></div>
           <p class="text-xs mt-1 break-all">{{ n.payloadJson | slice:0:80 }}</p>
-          <div class="flex gap-1 mt-2"><button class="btn btn-ghost btn-xs rounded-full" (click)="openDetail(n)">View</button>@if(!n.isRead){<button class="btn btn-primary btn-xs rounded-full" (click)="markReadMut.mutate(n.id)">Read</button>}</div>
+          <div class="flex gap-1 mt-2"><button class="btn btn-primary btn-xs rounded-full" (click)="openDetail(n)">View</button></div>
         </div>
       }
     </div>

@@ -49,7 +49,15 @@ export class NotificationListComponent {
     onSuccess: () => this.queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   }));
 
-  openDetail(n: any) { this.selected.set(n); this.detailOpen.set(true); }
+  openDetail(n: any) {
+    this.selected.set(n);
+    this.detailOpen.set(true);
+    if (!n.isRead) {
+      firstValueFrom(this.notificationService.markRead(n.id)).then(() => {
+        this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      });
+    }
+  }
   next() { if (this.page() < this.totalPages()) this.page.update(v => v + 1); }
   prev() { if (this.page() > 1) this.page.update(v => v - 1); }
 }

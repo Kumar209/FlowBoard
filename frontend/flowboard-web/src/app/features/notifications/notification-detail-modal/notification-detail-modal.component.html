@@ -7,18 +7,21 @@
         <button class="btn btn-ghost btn-sm btn-circle" (click)="closed.emit()">✕</button>
       </div>
       <div class="space-y-3 text-sm">
-        <div class="flex justify-between"><span class="opacity-60">Action</span><span class="badge badge-primary badge-sm">{{ notification().action }}</span></div>
-        <div class="flex justify-between"><span class="opacity-60">Task</span><span class="font-mono text-xs">{{ notification().taskId.slice(0,8) }}</span></div>
-        <div class="flex justify-between"><span class="opacity-60">Project</span><span class="font-mono text-xs">{{ notification().projectId.slice(0,8) }}</span></div>
-        <div class="flex justify-between"><span class="opacity-60">Workspace</span><span class="font-mono text-xs">{{ notification().workspaceId.slice(0,8) }}</span></div>
-        <div class="flex justify-between"><span class="opacity-60">Actor</span><span class="font-mono text-xs">{{ notification().actorUserId.slice(0,8) }}</span></div>
-        <div class="flex justify-between"><span class="opacity-60">Event</span><span class="font-mono text-xs">{{ notification().eventId.slice(0,8) }}</span></div>
-        <div class="flex justify-between"><span class="opacity-60">When</span><span>{{ notification().occurredOnUtc | date:'medium' }}</span></div>
-        <div class="flex justify-between"><span class="opacity-60">Read</span><span class="badge" [ngClass]="notification().isRead ? 'badge-ghost' : 'badge-warning'">{{ notification().isRead ? 'Read' : 'Unread' }}</span></div>
-        <div class="bg-base-200 rounded-xl p-3">
-          <p class="text-xs font-semibold mb-1">Payload</p>
-          <pre class="text-xs whitespace-pre-wrap break-all">{{ notification().payloadJson }}</pre>
+        <div class="bg-primary/10 rounded-xl p-3 text-center">
+          <p class="text-sm font-medium">{{ humanMessage() }}</p>
+          <p class="text-xs opacity-60 mt-1">{{ notification().occurredOnUtc | date:'medium' }} • {{ notification().action }}</p>
         </div>
+        <div class="flex justify-between"><span class="opacity-60">Task</span><span class="text-xs font-medium">{{ payload().TaskTitle || payload().Title || notification().taskId.slice(0,8) }}</span></div>
+        <div class="flex justify-between"><span class="opacity-60">Project</span><span class="text-xs font-mono">{{ payload().ProjectKey || notification().projectId.slice(0,8) }}</span></div>
+        @if (payload().ListName || payload().ToListName) { <div class="flex justify-between"><span class="opacity-60">List</span><span class="text-xs">{{ payload().ListName || payload().ToListName }}</span></div> }
+        @if (payload().FromListName && payload().ToListName) { <div class="flex justify-between"><span class="opacity-60">Move</span><span class="text-xs">{{ payload().FromListName }} → {{ payload().ToListName }}</span></div> }
+        <div class="flex justify-between"><span class="opacity-60">Actor</span><span class="text-xs">{{ payload().ActorName || notification().actorUserId.slice(0,8) }} @if(payload().ActorRole){ <span class="badge badge-ghost badge-xs">{{ payload().ActorRole }}</span> }</span></div>
+        <div class="flex justify-between"><span class="opacity-60">When</span><span class="text-xs">{{ notification().occurredOnUtc | date:'medium' }}</span></div>
+        <div class="flex justify-between"><span class="opacity-60">Status</span><span class="badge badge-sm" [ngClass]="notification().isRead ? 'badge-ghost' : 'badge-warning'">{{ notification().isRead ? 'Read' : 'Unread' }}</span></div>
+        <details class="bg-base-200 rounded-xl p-3">
+          <summary class="text-xs font-semibold cursor-pointer">Raw payload</summary>
+          <pre class="text-xs whitespace-pre-wrap break-all mt-2">{{ notification().payloadJson }}</pre>
+        </details>
       </div>
       <button class="btn btn-primary btn-sm w-full rounded-xl mt-4" (click)="closed.emit()">Close</button>
     </div>

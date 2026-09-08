@@ -22,15 +22,19 @@ public class TaskService : ITaskService
         var status = list.Name;
         var task = new Domain.Entities.TaskItem(projectId, listId, title, callerId, maxPos + 1, prio, assigneeId, description, labelsJson, dueDate, issueType ?? "Task", epic, storyPoints, startDate, environment, parentIssueId, sprintId, teamId, status);
         _db.Tasks.Add(task);
-        var workspaceId = await _db.Projects.Where(p => p.Id == projectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
+        var workspaceId = project?.WorkspaceId ?? await _db.Projects.Where(p => p.Id == projectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        var projectKey = project?.Key ?? "";
+        string actorName = callerId.ToString()[..8], actorRole = callerRoles.FirstOrDefault() ?? "Member";
+        try { var ar = await _db.Database.SqlQueryRaw<UserNameRow>("SELECT Id as UserId, FullName, Email FROM [identity].[Users] WHERE Id = {0}", callerId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? actorName; } catch { }
         var recipientIds = await _db.ProjectMembers.Where(pm => pm.ProjectId == projectId).Select(pm => pm.UserId).ToListAsync(ct);
         if (!recipientIds.Any())
         {
             try { recipientIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0}", workspaceId).ToListAsync(ct); } catch { }
         }
-        var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, WorkspaceId = workspaceId, ListId = task.ListId, Title = task.Title, ActorId = callerId, RecipientUserIds = recipientIds, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
+        var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, WorkspaceId = workspaceId, ProjectKey = projectKey, ListId = task.ListId, ListName = list.Name, Title = task.Title, ActorId = callerId, ActorName = actorName, ActorRole = actorRole, RecipientUserIds = recipientIds, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
         _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskCreated", JsonSerializer.Serialize(evt)));
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(projectId, task.Id, callerId, "TaskCreated", JsonSerializer.Serialize(new { task.Title, list.Name })));
+        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(projectId, task.Id, callerId, "TaskCreated", JsonSerializer.Serialize(new { task.Title, list.Name, projectKey, actorName, actorRole })));
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveAsync($"board:{projectId}");
         await _cache.RemoveByPrefixAsync($"board:{projectId}:");
@@ -75,17 +79,28 @@ public class TaskService : ITaskService
             if (task == null) return Result.Failure("Task not found");
             var targetList = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == toListId, ct);
             if (targetList == null) return Result.Failure("Target list not found");
-            var fromListId = task.ListId;
-            task.MoveToList(toListId, newPosition, targetList.Name);
-            var workspaceId = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
-            var recipientIds = await _db.ProjectMembers.Where(pm => pm.ProjectId == task.ProjectId).Select(pm => pm.UserId).ToListAsync(ct);
-            if (!recipientIds.Any())
-            {
-                try { recipientIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0}", workspaceId).ToListAsync(ct); } catch { }
-            }
-            var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, WorkspaceId = workspaceId, FromListId = fromListId, ToListId = toListId, Position = newPosition, ActorId = callerId, RecipientUserIds = recipientIds, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
-            _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskMoved", JsonSerializer.Serialize(evt)));
-            _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, callerId, "TaskMoved", JsonSerializer.Serialize(new { fromListId, toListId })));
+        var fromListId = task.ListId;
+        var fromList = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == fromListId, ct);
+        var fromListName = fromList?.Name ?? fromListId.ToString()[..4];
+        var taskTitle = task.Title;
+        // Fetch actor name/role for enriched payload (MNC-grade)
+        string actorName = callerId.ToString()[..8], actorRole = callerRoles.FirstOrDefault() ?? "Member";
+        try
+        {
+            var actorRow = await _db.Database.SqlQueryRaw<UserNameRow>("SELECT Id as UserId, FullName, Email FROM [identity].[Users] WHERE Id = {0}", callerId).FirstOrDefaultAsync(ct);
+            if (actorRow != null) actorName = actorRow.FullName ?? actorRow.Email ?? actorName;
+        }
+        catch { }
+        task.MoveToList(toListId, newPosition, targetList.Name);
+        var workspaceId = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        var recipientIds = await _db.ProjectMembers.Where(pm => pm.ProjectId == task.ProjectId).Select(pm => pm.UserId).ToListAsync(ct);
+        if (!recipientIds.Any())
+        {
+            try { recipientIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0}", workspaceId).ToListAsync(ct); } catch { }
+        }
+        var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, WorkspaceId = workspaceId, FromListId = fromListId, FromListName = fromListName, ToListId = toListId, ToListName = targetList.Name, TaskTitle = taskTitle, Position = newPosition, ActorId = callerId, ActorName = actorName, ActorRole = actorRole, RecipientUserIds = recipientIds, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
+        _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskMoved", JsonSerializer.Serialize(evt)));
+        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, callerId, "TaskMoved", JsonSerializer.Serialize(new { fromListId, fromListName, toListId, toListName = targetList.Name, taskTitle, actorName, actorRole })));
             await _db.SaveChangesAsync(ct);
             await _cache.RemoveAsync($"board:{task.ProjectId}");
             await _cache.RemoveByPrefixAsync($"board:{task.ProjectId}:");
@@ -152,4 +167,6 @@ public class TaskService : ITaskService
         var comments = await _db.Comments.Where(c => c.TaskId == taskId).OrderBy(c => c.CreatedAt).Select(c => new CommentDto(c.Id, c.TaskId, c.AuthorId, c.Content, c.CreatedAt)).ToListAsync(ct);
         return new TaskDetailDto(taskDto, subs, comments);
     }
+
+    private class UserNameRow { public Guid UserId { get; set; } public string? FullName { get; set; } public string? Email { get; set; } }
 }
