@@ -78,10 +78,24 @@ export class NotificationDetailModalComponent {
     const n = this.notification();
     if (!n) return;
     const p: any = this.payload();
-    const link = p.deepLink || p.DeepLink || '';
+    let link = p.deepLink || p.DeepLink || p.link || '';
+    // Fallback: construct deepLink per action if payload missing (old rows or header stale)
+    if (!link && n.projectId && n.taskId && n.workspaceId) {
+      if (n.action === 'TaskMoved') {
+        const board = p.BoardName || p.boardName || '';
+        const sprint = p.SprintName || p.sprintName || '';
+        link = `/w/${n.workspaceId}/p/${n.projectId}/board?task=${n.taskId}`;
+        if (board) link += `&view=${encodeURIComponent(board)}`;
+        if (sprint) link += `&sprint=${encodeURIComponent(sprint)}`;
+      } else {
+        link = `/w/${n.workspaceId}/p/${n.projectId}/issues?task=${n.taskId}`;
+      }
+    }
     if (link) {
-      this.closed.emit();
-      this.router.navigateByUrl(link);
+      // Navigate first, then close — ensures header bell modal (inside layout) navigates even when component is destroyed on close
+      this.router.navigateByUrl(link).then(() => this.closed.emit());
+      // Ensure close even if navigation is cancelled / same route
+      setTimeout(() => this.closed.emit(), 200);
     } else if (n.projectId && n.taskId) {
       this.closed.emit();
       // Fallback: dispatch openTask event for board

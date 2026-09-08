@@ -1,7 +1,7 @@
 @if (open() && notification()) {
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-3">
+  <div class="fixed inset-0 z-[80] flex items-center justify-center p-3">
     <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="closed.emit()"></div>
-    <div class="card bg-base-100 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative z-10 border">
+    <div class="card bg-base-100 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative z-10 border" (click)="$event.stopPropagation()">
       <div class="flex justify-between items-center mb-4">
         <h3 class="font-bold">Notification Detail</h3>
         <button class="btn btn-ghost btn-sm btn-circle" (click)="closed.emit()">✕</button>
@@ -81,9 +81,9 @@
       </div>
       <div class="flex gap-2 mt-4">
         @if (payload().deepLink || payload().DeepLink || notification().taskId) {
-          <button class="btn btn-outline btn-sm flex-1 rounded-xl" (click)="goToIssue()">Go to Issue</button>
+          <button class="btn btn-outline btn-sm flex-1 rounded-xl" (click)="goToIssue(); $event.stopPropagation()">Go to Issue</button>
         }
-        <button class="btn btn-primary btn-sm flex-1 rounded-xl" (click)="closed.emit()">Close</button>
+        <button class="btn btn-primary btn-sm flex-1 rounded-xl" (click)="closed.emit(); $event.stopPropagation()">Close</button>
       </div>
     </div>
   </div>
