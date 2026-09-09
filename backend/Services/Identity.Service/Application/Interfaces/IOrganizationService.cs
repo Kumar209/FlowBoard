@@ -8,12 +8,12 @@ public interface IOrganizationService
     Task DeleteOrganizationAsync(Guid organizationId, Guid callerId, CancellationToken ct = default);
     Task<List<OrgMemberDto>> GetOrgMembersAsync(Guid organizationId, Guid callerId, CancellationToken ct = default);
     Task<OrgMemberDto> CreateEmployeeAsync(Guid organizationId, string fullName, string email, string password, string role, List<Guid>? workspaceIds, Guid callerId, CancellationToken ct = default);
-    Task<OrgMemberDto> CreateEmployeeWithRolesAsync(Guid organizationId, string fullName, string email, string password, List<WorkspaceRoleAssignment> workspaceRoles, Guid callerId, CancellationToken ct = default);
+    Task<OrgMemberDto> CreateEmployeeWithRolesAsync(Guid organizationId, string fullName, string email, string password, List<WorkspaceRoleAssignment> workspaceRoles, Guid callerId, CancellationToken ct = default, string? orgRole = null);
     Task<OrgMemberDto> UpdateEmployeeAsync(Guid organizationId, Guid userId, string? fullName, string? email, string? role, List<Guid>? workspaceIds, Guid callerId, CancellationToken ct = default);
     Task<OrgMemberDto> UpdateEmployeeWithRolesAsync(Guid organizationId, Guid userId, string? fullName, string? email, List<WorkspaceRoleAssignment>? workspaceRoles, Guid callerId, CancellationToken ct = default);
     Task DeleteEmployeeAsync(Guid organizationId, Guid userId, Guid callerId, CancellationToken ct = default);
 }
-public record WorkspaceRoleAssignment(Guid WorkspaceId, string Role);
+public record WorkspaceRoleAssignment(Guid WorkspaceId, string Role, Guid? CustomRoleId = null);
 
 public record OrganizationDto(Guid Id, string Name, string Slug, Guid OwnerId, string? Description, DateTime CreatedAt);
 public record OrgMemberDto(Guid UserId, string FullName, string Email, string? AvatarUrl, string Role, int RoleInt, Guid WorkspaceId, DateTime JoinedAt, List<string>? WorkspaceNames = null, List<Guid>? WorkspaceIds = null);

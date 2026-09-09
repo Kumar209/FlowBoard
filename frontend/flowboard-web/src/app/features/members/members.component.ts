@@ -1,6 +1,8 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { WorkspaceService } from '../../core/services/workspace.service';
+import { OrganizationRoleService } from '../../core/services/organization-role.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
@@ -9,7 +11,7 @@ import { firstValueFrom } from 'rxjs';
 @Component({
   selector: 'app-members',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './members.component.html',
   styleUrls: ['./members.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -17,6 +19,7 @@ import { firstValueFrom } from 'rxjs';
 export class MembersComponent {
   auth = inject(AuthService);
   private ws = inject(WorkspaceService);
+  private roleService = inject(OrganizationRoleService);
   private toast = inject(ToastService);
   private qc = inject(QueryClient);
 
@@ -27,6 +30,7 @@ export class MembersComponent {
   inviteFullName = signal('');
   inviteEmail = signal('');
   invitePassword = signal('');
+  showInvitePassword = signal(false);
   inviteRole = signal('Member');
   inviteWorkspaceIds = signal<string[]>([]);
   inviteWorkspaceRoles = signal<Record<string,string>>({});
@@ -51,6 +55,12 @@ export class MembersComponent {
   orgMembersQuery = injectQuery(() => ({
     queryKey: ['org-members', this.orgId()] as const,
     queryFn: () => firstValueFrom(this.ws.getOrganizationMembers(this.orgId())),
+    enabled: !!this.orgId(),
+  }));
+
+  customRolesQuery = injectQuery(() => ({
+    queryKey: ['org-roles', this.orgId()] as const,
+    queryFn: () => firstValueFrom(this.roleService.getRoles(this.orgId())),
     enabled: !!this.orgId(),
   }));
 

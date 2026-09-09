@@ -6,6 +6,14 @@
         "ClusterId": "identity-cluster",
         "Match": { "Path": "/api/auth/{**catch-all}" }
       },
+      "permissions-route": {
+        "ClusterId": "identity-cluster",
+        "Match": { "Path": "/api/permissions/{**catch-all}" }
+      },
+      "permissions-root-route": {
+        "ClusterId": "identity-cluster",
+        "Match": { "Path": "/api/permissions" }
+      },
       "workspace-route": {
         "ClusterId": "identity-cluster",
         "Match": { "Path": "/api/workspaces/{**catch-all}" },

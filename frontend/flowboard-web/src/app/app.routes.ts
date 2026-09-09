@@ -36,6 +36,8 @@ export const routes: Routes = [
       { path: 'notifications', loadComponent: () => import('./features/notifications/notification-list/notification-list.component').then(m => m.NotificationListComponent) },
       { path: 'activity', loadComponent: () => import('./features/activity/activity.component').then(m => m.ActivityComponent) },
       { path: 'members', loadComponent: () => import('./features/members/members.component').then(m => m.MembersComponent) },
+      { path: 'roles', canActivate: [orgAdminGuard], loadComponent: () => import('./features/roles/roles.component').then(m => m.RolesComponent) },
+      { path: 'roles/:roleId/permissions', canActivate: [orgAdminGuard], loadComponent: () => import('./features/roles/role-permissions/role-permissions.component').then(m => m.RolePermissionsComponent) },
       { path: 'system', canActivate: [orgAdminGuard], loadComponent: () => import('./features/system/system.component').then(m => m.SystemComponent) },
     ]
   },

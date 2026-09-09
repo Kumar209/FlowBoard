@@ -30,6 +30,7 @@
         @if (auth.isOrgAdmin() || auth.isSuperAdmin()) {
           <li><a routerLink="/activity" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">◎</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Activity</span></a></li>
           <li><a routerLink="/members" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">◐</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Members</span></a></li>
+          <li><a routerLink="/roles" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">⬡</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Roles</span></a></li>
         }
         @if (auth.isOrgAdmin() || auth.isSuperAdmin()) {
           <li class="menu-title mt-4" [class.lg:hidden]="mainCollapsed()"><span>System</span></li>

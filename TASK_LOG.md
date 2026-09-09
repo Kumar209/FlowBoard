@@ -24,8 +24,8 @@
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
-| Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 0/5 | Pending |
-| **Total** | **0.1 - 6.5** | **15/31** | **In Progress** |
+| Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 1/5 | In Progress |
+| **Total** | **0.1 - 6.5** | **16/31** | **In Progress** |
 
 ---
 
@@ -1314,6 +1314,88 @@ SaaS-owner vs tenant-owner separation is MNC standard (e.g., Vercel SuperAdmin v
 - Depends on: Q1-Q3 company-centric (Register with companyName, single org per user, DB reseeded SuperAdmin `superadmin@flowboard.local`)
 - Unlocks: Production hardening for SaaS billing/delete-any-org
 - Follow-up: Add CloudAMQP alarm for `_error` already done, add Serilog for admin deletes
+
+---
+
+## Task 6.4: Frontend Roles CRUD + Permissions Matrix UI (OrgAdmin Only, 27 Permissions, DIP)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 09 Sep 2026 | 6 - Company-Centric | pending | 5h | Feature |
+
+### 1. Overview
+Built company-centric Roles UI for OrgAdmin — Main sidebar `Roles` (OrgAdmin/SuperAdmin only) with table + Add/Edit/Delete (confirm modal) + separate `/roles/:roleId/permissions` matrix grouped by 27 permissions. Fixed `IOrganizationService` DIP signature (`orgRole`) + YARP `/api/permissions` routing (Order 0 catch-all) and wired Members per-workspace dropdown from `OrganizationWorkspaceRoles` with warning when no roles.
+
+### 2. Objectives
+- Fix build `CS0535` `IOrganizationService.CreateEmployeeWithRolesAsync` missing `orgRole` optional param + `WorkspaceMember.CustomRoleId` handling
+- Add `Gateway.YARP/yarp.json` routes `permissions-route` (`/api/permissions/{**catch-all}`) + `permissions-root-route` (`/api/permissions`) → `identity-cluster :5001` so `OrganizationRolesController [HttpGet("/api/permissions")]` works via Gateway
+- Create `features/roles/roles.component.{html,ts,css}` (OrgAdmin only) table `Name/Description/MembersCount/PermissionsCount/CreatedAt` + Actions `Edit/Delete` + `Manage Permissions` link, `+ Add Role` modal (Name* + Description) + Edit modal + Delete confirm modal + empty warning `No custom roles yet — Go to Roles` + search + TanStack Query + Signals OnPush `firstValueFrom`
+- Create `features/roles/role-permissions/role-permissions.component.{html,ts,css}` separate page grouped by `Group` (`organization/workspace/project/board/task` etc.) with group checkbox (indeterminate), per-permission checkbox `Key/Name`, `PUT role permissions`, sticky save bar, back to `/roles`
+- Add `app.routes.ts` `roles` + `roles/:roleId/permissions` both `canActivate:[orgAdminGuard]` + `layout.component.html` `Roles ⬡` link visible OrgAdmin/SuperAdmin only
+- Update `features/members/members.component.{ts,html}` to fetch `customRolesQuery` via `OrganizationRoleService.getRoles(orgId)` + warning banner `No custom roles created yet — Go to Roles` + per-workspace dropdown populated from `customRoles` (custom first, then fixed `Member/ProjectManager/Client/Viewer/OrgAdmin` fallback) for Add/Edit, `RouterLink` import, showPassword eye already done
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Backend | ASP.NET Core + EF Core 10 | 10.0 | `IdentityDbContext` `[identity]` 9 tables `OrganizationWorkspaceRoles, Permissions 27, RolePermissions` |
+| Backend | YARP | 2.3.0 | `permissions-route` Order-less vs catch-all, `identity-cluster` :5001, `Order 0` project routes already |
+| DIP | `IOrganizationService` + `IOrganizationRoleService` | — | `Controller(IMediator/I*Service)` → `Infrastructure Service (EF)` never `_db` in controller |
+| Frontend | Angular | 22.1.5 Standalone + Signals | `input.required/computed OnPush inject(HttpClient) firstValueFrom` |
+| Frontend | TanStack Query | 5.62 experimental | `injectQuery/injectMutation QueryClient` staleTime 2m, `invalidateQueries(['org-roles'])` |
+| Frontend | Tailwind + DaisyUI | 3.4.17 + 4.12.14 | 6 themes `light/dark/corporate/cupcake/emerald/synthwave` responsive `p-3 sm:p-4` `rounded-2xl` |
+| Build | `dotnet build -c Release` + `npx ng build --configuration production` | — | Verified 0 Warning(s), `roles-component 13.73kB` lazy |
+
+### 4. Implementation Details
+- Fixed `backend/Services/Identity.Service/Infrastructure/Services/OrganizationService.cs:92` added `string? orgRole = null` param to `CreateEmployeeWithRolesAsync` to match `Application/Interfaces/IOrganizationService.cs:11` (CS0535)
+- Fixed `backend/Gateway.YARP/yarp.json:7` added `permissions-route` (`Path /api/permissions/{**catch-all}`) + `permissions-root-route` (`Path /api/permissions`) both `ClusterId identity-cluster` before org/workspace routes so `GET /api/permissions` no longer 404 via YARP; existing `identity-route/workspace-route/org-route` unchanged
+- Created `frontend/src/app/core/services/organization-role.service.ts:1` already existed (`getRoles/createRole/updateRole/deleteRole/getRolePermissions/updateRolePermissions/getPermissions` with `withCredentials:true` + `environment.apiUrl http://localhost:5000`)
+- Created `frontend/src/app/features/roles/roles.component.ts:1` standalone `imports[CommonModule,RouterLink]` `templateUrl/styleUrls` `OnPush` + `signal search/showAdd/addName/addDescription/editTarget/editName/editDescription/deleteTarget` + `workspacesQuery` → `orgId computed` + `rolesQuery ['org-roles',orgId] enabled !!orgId` + `filtered computed` search `name/description` + `canManage computed isOrgAdmin||isSuperAdmin` + `createMutation/updateMutation/deleteMutation` via `firstValueFrom(roleService.*)` + `qc.invalidateQueries(['org-roles'])` + `toast`
+- Created `roles.component.html:1` `bg-base-200` `max-w-7xl p-3 sm:p-4` header `Roles — Workspace` subtitle `Custom per-workspace... Members can have different roles per workspace` + `+ Add Role` btn `canManage` else `View only` badge + search `Found {{filtered().length}} / {{rolesQuery.data()?.length}}` + `orgId slice 0,6` + skeletons `@for i of [1,2,3]` + empty `No custom roles yet` with `+ Create First Role` + desktop `table table-sm Name/Description/Members/Permissions/Created/Actions` + mobile `card` + Add modal (`fixed inset-0 backdrop-blur` `input textarea` `Create` disabled `!addName().trim()` `loading`) + Edit modal + Delete confirm `text-error` with counts
+- Created `roles.component.css:1` `/* No internal CSS */`
+- Created `frontend/src/app/features/roles/role-permissions/role-permissions.component.ts:1` standalone `imports[CommonModule,RouterLink]` `OnPush` + `ActivatedRoute` `roleId signal` + `selected signal Set<string>` + `workspacesQuery/orgId` + `rolePermissionsQuery ['role-permissions',orgId,roleId] enabled !!orgId && !!roleId` with `queueMicrotask set selected from permissionIds` + `permissionsQuery ['permissions']` + `grouped computed` Map `group → PermissionDto[]` sorted `group localeCompare` + `roleDto computed role||Role` + helpers `isChecked/toggle/toggleGroup/isGroupAllChecked/isGroupSomeChecked` + `saveMutation PUT updateRolePermissions` + `invalidate ['role-permissions','org-roles']` + `toast`
+- Created `role-permissions.component.html:1` back `← Back to Roles` + `Permissions Matrix — {{roleDto()?.name}}` + `orgId/roleId slice 0,6` + skeletons + `isError()` branch `Failed to load` + `@for g of grouped() track g.group` `card` header `checkbox indeterminate group AllChecked/SomeChecked` + `grid sm:grid-cols-2 lg:grid-cols-3` `@for p of g.permissions track p.id` `label checkbox name key description` + sticky save bar `Save Permissions` `loading`
+- Created `role-permissions.component.css:1` empty
+- Updated `frontend/src/app/app.routes.ts:38` added `path:'roles' canActivate:[orgAdminGuard] loadComponent RolesComponent` + `path:'roles/:roleId/permissions' canActivate:[orgAdminGuard] loadComponent RolePermissionsComponent` before `system`
+- Updated `frontend/src/app/shared/components/layout/layout.component.html:30` added `@if(isOrgAdmin||isSuperAdmin) <li><a routerLink="/roles" ...>⬡ Roles</a></li>` after Members in Main menu drawer `lg:drawer-open` `mainCollapsed w-72↔w-16`
+- Updated `frontend/src/app/features/members/members.component.ts:1` add `import RouterLink` + `inject OrganizationRoleService` + `customRolesQuery ['org-roles',orgId] enabled !!orgId` alongside `workspacesQuery/orgMembersQuery`
+- Updated `members.component.html:115` add warning `alert-warning` `No custom roles created yet — Go to Roles` `routerLink="/roles"` when `customRolesQuery.data()?.length===0` in both Add/Edit modals + per-workspace `select` now `@if(customRolesQuery.data()?.length>0) @for cr of customRolesQuery... <option [value]="cr.name">{{cr.name}}</option> <option disabled>— Fixed —</option>` before fixed `Member/ProjectManager/Client/Viewer/OrgAdmin` fallback, helper `Checked workspaces get per-workspace role (populated from Roles • custom if exists)`
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Identity.Service/Infrastructure/Services/OrganizationService.cs | Modified | Add `string? orgRole = null` to `CreateEmployeeWithRolesAsync` (CS0535 fix) |
+| backend/Gateway.YARP/yarp.json | Modified | Add `permissions-route` + `permissions-root-route` → `identity-cluster` for `GET /api/permissions` |
+| frontend/flowboard-web/src/app/features/roles/roles.component.ts | Created | Roles CRUD Signals+TanStack OnPush `templateUrl` `styleUrls` |
+| frontend/flowboard-web/src/app/features/roles/roles.component.html | Created | Table/cards/search/modals confirm DaisyUI responsive `p-3 sm:p-4` |
+| frontend/flowboard-web/src/app/features/roles/roles.component.css | Created | Empty `/* No internal CSS */` |
+| frontend/flowboard-web/src/app/features/roles/role-permissions/role-permissions.component.ts | Created | Permissions matrix grouped `selected Set` `PUT` OnPush |
+| frontend/flowboard-web/src/app/features/roles/role-permissions/role-permissions.component.html | Created | Grouped checkboxes `indeterminate` sticky save |
+| frontend/flowboard-web/src/app/features/roles/role-permissions/role-permissions.component.css | Created | Empty |
+| frontend/flowboard-web/src/app/app.routes.ts | Modified | Add `roles` + `roles/:roleId/permissions` with `orgAdminGuard` |
+| frontend/flowboard-web/src/app/shared/components/layout/layout.component.html | Modified | Add `Roles ⬡` link OrgAdmin/SuperAdmin only in Main menu |
+| frontend/flowboard-web/src/app/features/members/members.component.ts | Modified | Add `RouterLink` `OrganizationRoleService` `customRolesQuery` |
+| frontend/flowboard-web/src/app/features/members/members.component.html | Modified | Warning + per-workspace dropdown from `customRoles` (custom→fixed fallback) |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` → `Build succeeded 0 Warning(s) 0 Error(s)` (5 dlls) — fixed CS0535 |
+| Build frontend | Passed | `npx ng build --configuration production` → `Application bundle generation complete [22.5s]` `daissyUI 6 themes` `roles-component 13.73 kB` lazy + `members-component 24.39 kB` + `Initial 465.44 kB` — 0 errors (fixed `isError()` call) |
+| 3-File Rule | Passed | `features/roles/roles.component.{html,ts,css}` + `features/roles/role-permissions/role-permissions.component.{html,ts,css}` each exactly 3 files `css` empty, `ts` `templateUrl` only, `grep -r "template:"` 0 hits |
+| YARP | Passed | `yarp.json` `permissions-route` `/api/permissions/{**catch-all}` → `identity-cluster` verified, `GetAllPermissions [HttpGet("/api/permissions")] [AllowAnonymous]` now proxied via Gateway |
+| Sidebar | Passed | `layout.component.html` `Roles ⬡` `@if(isOrgAdmin||isSuperAdmin)` — Member hidden, OrgAdmin/SuperAdmin visible, `Projects` etc visible all |
+| Guards | Passed | `app.routes.ts` `roles` + `roles/:roleId/permissions` both `canActivate:[orgAdminGuard]` (`Member` 2→ `/` 403 `roleGuard` allows only 2/5) |
+| Roles CRUD | Manual | `GET /api/organizations/{orgId}/workspace-roles` → list, `POST` Name* required duplicate check, `PUT {roleId}` unique, `DELETE {roleId}` blocked if `inUse` else `RemoveRange RolePermissions` — all via `IOrganizationRoleService` + `Handle Forbidden/NotFound/Validation` |
+| Permissions Matrix | Manual | `GET /api/organizations/{orgId}/workspace-roles/{roleId}/permissions` + `GET /api/permissions` (27 `OrderBy Group ThenBy Key`) grouped UI → `PUT {roleId}/permissions {permissionIds}` validates all ids exist, diff `RemoveRange toRemove + AddRange toAdd`, reloads counts |
+| Members Warning | Passed | `customRolesQuery` `['org-roles',orgId]` → if 0 shows `alert-warning No custom roles... Go to Roles` + dropdown shows fixed fallback; if >0 shows custom names first (`Developer, QA...`) then `— Fixed —` separator |
+
+### 7. Enterprise Relevance (MNC Value)
+OrgAdmin-only Roles CRUD with confirm modal + grouped Permissions matrix (like Jira `Project roles → Permissions scheme`) proves enterprise RBAC depth beyond 6 static roles — MNC interviewers test dynamic role creation + per-resource permission grouping + OrgAdmin implicit `all org` + SuperAdmin bypass. YARP `permissions-route` fix shows gateway path precedence mastery (specific `Order 0` vs catch-all). 3-File `templateUrl` + `OnPush` + `Signals` + `TanStack` + `firstValueFrom` + DaisyUI responsive demonstrates MNC Angular scale (50+ components, no scattered CSS). Members warning + per-workspace dropdown populated from `OrganizationWorkspaceRoles` shows cross-feature coupling (single source) and UX resilience (empty state not blank`.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 6.5 `Project Assignee ∩ + Activity split Visibility` — Task assignee dropdown `org ∩ workspace ∩ project` intersection, `OrganizationActivities` vs `ProjectActivities` split, Main `Activity` hidden Member, Project `Activity` visible all, board realtime already fixed
+- Depends on: Task 6.2 (Permissions 27 catalog seeded, `RolePermissions` join) + Task 6.3 (`OrganizationActivities` table) — this Task 6.4 consumes both (roles → permissions matrix PUT, activities future)
+- Follow-up: Keep `OrganizationWorkspaceRole` `Name unique per org` + `WorkspaceMember.CustomRoleId FK NoAction` — next 6.5 will use `CustomRoleId` when assigning Task assignee; after Phase6 + testing, move to Phase 4 `4.1 Cloudinary, 4.2 Attachments UI, 4.3 Gemini 2.5 Flash 15 RPM Redis 5/min, 4.4 ApexCharts Burndown+Brevo` MNC-grade same keys local/prod
 
 ---
 
