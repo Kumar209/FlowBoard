@@ -20,6 +20,7 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
     public DbSet<OrganizationWorkspaceRole> OrganizationWorkspaceRoles => Set<OrganizationWorkspaceRole>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<OrganizationActivity> OrganizationActivities => Set<OrganizationActivity>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -123,6 +124,19 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
             e.HasIndex(x => x.PermissionId);
             e.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Permission).WithMany().HasForeignKey(x => x.PermissionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // OrganizationActivity - org-level audit
+        modelBuilder.Entity<OrganizationActivity>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => x.OrganizationId);
+            e.HasIndex(x => x.ActorUserId);
+            e.HasIndex(x => x.OccurredOn);
+            e.Property(x => x.Action).IsRequired().HasMaxLength(100);
+            e.Property(x => x.PayloadJson).HasMaxLength(4000);
+            e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // RefreshToken

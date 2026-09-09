@@ -165,13 +165,14 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.HasOne(x => x.Task).WithMany(x => x.Comments).HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ActivityLog — audit history, TaskId is plain Guid (no FK to Tasks), ProjectId FK to Projects only — avoids DELETE conflict
+        // ActivityLog — audit history, TaskId is plain Guid (no FK to Tasks), ProjectId FK to Projects only — avoids DELETE conflict, WorkspaceId for org/project split
         b.Entity<ActivityLog>(e =>
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Action).HasMaxLength(100).IsRequired();
             e.Property(x => x.PayloadJson).HasMaxLength(4000);
             e.HasIndex(x => x.ProjectId);
+            e.HasIndex(x => x.WorkspaceId);
             e.HasIndex(x => x.TaskId);
             e.HasIndex(x => x.ActorId);
             e.HasIndex(x => x.OccurredAt);

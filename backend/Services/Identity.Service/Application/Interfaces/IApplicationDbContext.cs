@@ -16,6 +16,7 @@ public interface IApplicationDbContext
     DbSet<OrganizationWorkspaceRole> OrganizationWorkspaceRoles { get; }
     DbSet<Permission> Permissions { get; }
     DbSet<RolePermission> RolePermissions { get; }
+    DbSet<OrganizationActivity> OrganizationActivities { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

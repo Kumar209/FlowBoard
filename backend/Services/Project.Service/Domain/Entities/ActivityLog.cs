@@ -8,6 +8,7 @@ namespace Project.Service.Domain.Entities;
 public class ActivityLog : BaseEntity
 {
     public Guid ProjectId { get; private set; }
+    public Guid? WorkspaceId { get; private set; }
     public Guid? TaskId { get; private set; }
     public Guid ActorId { get; private set; }
     public string Action { get; private set; } = string.Empty; // Created, Moved, Commented, Updated
@@ -18,9 +19,10 @@ public class ActivityLog : BaseEntity
 
     private ActivityLog() { }
 
-    public ActivityLog(Guid projectId, Guid? taskId, Guid actorId, string action, string payloadJson)
+    public ActivityLog(Guid projectId, Guid? taskId, Guid actorId, string action, string payloadJson, Guid? workspaceId = null)
     {
         ProjectId = projectId;
+        WorkspaceId = workspaceId;
         TaskId = taskId;
         ActorId = actorId;
         Action = action;
