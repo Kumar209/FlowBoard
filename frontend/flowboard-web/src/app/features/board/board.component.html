@@ -133,20 +133,20 @@
       <!-- List-view alternative: DaisyUI table desktop -> cards mobile (Task 2.4 spec) -->
       <div class="mt-8">
         <h3 class="font-bold mb-3">List View (DaisyUI table on desktop → cards on mobile)</h3>
-        <!-- Desktop table -->
+        <!-- Desktop table — mirrors sprint filter like Kanban columns -->
         <div class="hidden md:block overflow-x-auto bg-base-100 rounded-2xl shadow border border-base-200">
           <table class="table table-sm">
             <thead><tr><th>Title</th><th>List</th><th>Priority</th><th>Pos</th></tr></thead>
             <tbody>
-              @for (task of boardQuery.data()!.tasks; track task.id) {
-                <tr (click)="openDetail(task)" class="cursor-pointer hover:bg-base-200"><td class="font-medium">{{ task.title }}</td><td><span class="badge badge-ghost badge-xs">{{ task.listId.slice(0,4) }}</span></td><td><span class="badge badge-xs" [ngClass]="task.priority==='High'?'badge-warning': task.priority==='Urgent'?'badge-error':'badge-info'">{{ task.priority }}</span></td><td>{{ task.position }}</td></tr>
+              @for (task of listViewTasks(); track task.id) {
+                <tr (click)="openDetail(task)" class="cursor-pointer hover:bg-base-200"><td class="font-medium">{{ task.title }}</td><td><span class="badge badge-ghost badge-xs">{{ (task.listId || task.status || '').toString().slice(0,4) || '—' }}</span></td><td><span class="badge badge-xs" [ngClass]="task.priority==='High'?'badge-warning': task.priority==='Urgent'?'badge-error':'badge-info'">{{ task.priority }}</span></td><td>{{ task.position }}</td></tr>
               }
             </tbody>
           </table>
         </div>
-        <!-- Mobile cards -->
+        <!-- Mobile cards — mirrors sprint filter -->
         <div class="md:hidden space-y-2">
-          @for (task of boardQuery.data()!.tasks; track task.id) {
+          @for (task of listViewTasks(); track task.id) {
             <div (click)="openDetail(task)"><app-task-card [title]="task.title" [priority]="task.priority" [labelsJson]="task.labelsJson" /></div>
           }
         </div>

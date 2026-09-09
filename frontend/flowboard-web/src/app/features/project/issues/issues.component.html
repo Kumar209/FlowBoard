@@ -32,7 +32,7 @@
                 <tr class="hover:bg-base-200">
                   <td class="font-mono text-xs">{{ t.id.slice(0,4) }}</td>
                   <td class="font-medium max-w-[200px] truncate">{{ t.title }}</td>
-                  <td><span class="badge badge-ghost badge-xs rounded-full">{{ b.lists.find(l=>l.id===t.listId)?.name || t.status || t.listId.slice(0,4) }}</span></td>
+                  <td><span class="badge badge-ghost badge-xs rounded-full">{{ b.lists.find(l=>l.id===t.listId)?.name || t.status || (t.listId || '').slice(0,4) }}</span></td>
                   <td><span class="badge badge-xs rounded-full" [ngClass]="t.priority==='High'?'badge-warning': t.priority==='Urgent'?'badge-error': t.priority==='Low'?'badge-ghost':'badge-info'">{{ t.priority }}</span></td>
                   <td class="text-xs">{{ getTeamName(t.teamId) }}</td>
                   <td class="text-xs">{{ getSprintName(t.sprintId) }}</td>
@@ -40,8 +40,8 @@
                   <td class="text-xs">{{ t.dueDate ? (t.dueDate | date:'shortDate') : '—' }}</td>
                   <td>
                     <div class="flex gap-1">
-                      <button class="btn btn-ghost btn-xs rounded-full" (click)="openDetail(t)">View</button>
-                      <button class="btn btn-ghost btn-xs rounded-full" (click)="openDetail(t)">Edit</button>
+                      <button class="btn btn-ghost btn-xs rounded-full" (click)="openDetail(t, true)">View</button>
+                      <button class="btn btn-ghost btn-xs rounded-full" (click)="openDetail(t, false)">Edit</button>
                       <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(t)">Delete</button>
                     </div>
                   </td>
@@ -71,7 +71,8 @@
               <span class="badge badge-ghost badge-xs">{{ t.id.slice(0,4) }}</span>
             </div>
             <div class="flex gap-1 mt-2">
-              <button class="btn btn-ghost btn-xs rounded-full flex-1" (click)="openDetail(t)">View</button>
+              <button class="btn btn-ghost btn-xs rounded-full flex-1" (click)="openDetail(t, true)">View</button>
+              <button class="btn btn-ghost btn-xs rounded-full flex-1" (click)="openDetail(t, false)">Edit</button>
               <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(t)">Delete</button>
             </div>
           </div>
@@ -85,7 +86,7 @@
         </div>
       </div>
     }
-    <app-task-detail-modal [open]="detailOpen()" [task]="selectedTask()" [lists]="b.lists" [projectId]="projectId()" [workspaceId]="workspaceId()" [loading]="updateMutation.isPending()" (closed)="detailOpen.set(false)" (saved)="onSave($event)" />
+    <app-task-detail-modal [open]="detailOpen()" [task]="selectedTask()" [lists]="b.lists" [projectId]="projectId()" [workspaceId]="workspaceId()" [loading]="updateMutation.isPending()" [readOnly]="detailReadOnly()" (closed)="detailOpen.set(false)" (saved)="onSave($event)" />
     <app-task-create-modal [open]="createOpen()" [listName]="boardQuery.data()?.lists?.[0]?.name || 'To Do'" [projectId]="projectId()" [loading]="createMutation.isPending()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
 
     @if (deleteTarget()) {

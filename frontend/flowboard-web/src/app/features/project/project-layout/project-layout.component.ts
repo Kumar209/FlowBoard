@@ -106,6 +106,7 @@ export class ProjectLayoutComponent {
       { label:'Issues', icon:'◉', path: `${base}/issues`, badge: `${taskCount}` },
       { label:'Teams', icon:'◐', path: `${base}/team`, badge: teamsCount ? `${teamsCount}` : '' },
       { label:'Members', icon:'◑', path: `${base}/members`, badge: projectMembersCount ? `${projectMembersCount}` : '' },
+      { label:'Statuses', icon:'◍', path: `${base}/statuses`, badge: '' },
       { label:'Environments', icon:'⬢', path: `${base}/environments`, badge: '' },
       { label:'Activity', icon:'◷', path: `${base}/activity`, badge: '' },
       { label:'Docs', icon:'▭', path: `${base}/docs`, badge: '' },

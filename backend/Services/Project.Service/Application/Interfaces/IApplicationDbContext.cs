@@ -19,6 +19,8 @@ public interface IApplicationDbContext
     DbSet<Comment> Comments { get; }
     DbSet<ActivityLog> ActivityLogs { get; }
     DbSet<OutboxMessage> OutboxMessages { get; }
+    DbSet<Status> Statuses { get; }
+    DbSet<BoardColumnStatus> BoardColumnStatuses { get; }
     DbSet<ProjectEnvironment> Environments { get; }
     DbSet<ProjectMember> ProjectMembers { get; }
 

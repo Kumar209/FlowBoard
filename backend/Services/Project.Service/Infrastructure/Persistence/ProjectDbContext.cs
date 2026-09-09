@@ -21,6 +21,8 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<Status> Statuses => Set<Status>();
+    public DbSet<BoardColumnStatus> BoardColumnStatuses => Set<BoardColumnStatus>();
     public DbSet<ProjectEnvironment> Environments => Set<ProjectEnvironment>();
     public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
 
@@ -103,7 +105,27 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.HasOne(x => x.Team).WithMany(x => x.Members).HasForeignKey(x => x.TeamId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        // TaskItem (Status = visual column name)
+        // Status - project-level workflow statuses (To Do etc.), explicitly created via Project Settings
+        b.Entity<Status>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            e.HasIndex(x => new { x.ProjectId, x.Name }).IsUnique();
+            e.HasIndex(x => x.ProjectId);
+            e.Ignore(x => x.DomainEvents);
+        });
+
+        // BoardColumnStatus - join for column → status mapping (multiple statuses per column)
+        b.Entity<BoardColumnStatus>(e =>
+        {
+            e.HasKey(x => new { x.ColumnId, x.StatusId });
+            e.HasIndex(x => x.ColumnId);
+            e.HasIndex(x => x.StatusId);
+            e.HasOne(x => x.Column).WithMany().HasForeignKey(x => x.ColumnId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Status).WithMany().HasForeignKey(x => x.StatusId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // TaskItem (Status = project workflow status, StatusId FK; ListId nullable for backlog Jira-like)
         b.Entity<TaskItem>(e =>
         {
             e.HasKey(x => x.Id);
@@ -120,13 +142,15 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.HasIndex(x => x.ProjectId);
             e.HasIndex(x => x.AssigneeId);
             e.HasIndex(x => x.ListId);
+            e.HasIndex(x => x.StatusId);
             e.HasIndex(x => x.SprintId);
             e.HasIndex(x => x.TeamId);
             e.HasIndex(x => x.Status);
             e.HasIndex(x => x.ParentIssueId);
             // FULLTEXT for Title search will be added via raw SQL in migration (SqlServer CONTAINS)
             e.Ignore(x => x.DomainEvents);
-            e.HasOne(x => x.List).WithMany(x => x.Tasks).HasForeignKey(x => x.ListId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.List).WithMany(x => x.Tasks).HasForeignKey(x => x.ListId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne(x => x.StatusRef).WithMany().HasForeignKey(x => x.StatusId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne(x => x.Project).WithMany(x => x.Tasks).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
 

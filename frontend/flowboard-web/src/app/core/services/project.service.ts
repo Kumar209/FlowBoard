@@ -10,10 +10,11 @@ import { environment } from '../../../environments/environment';
 
 export interface Project { id: string; workspaceId: string; name: string; key: string; description?: string; ownerId: string; createdAt: string; }
 export interface BoardList { id: string; projectId: string; name: string; position: number; }
-export interface TaskItem { id: string; projectId: string; listId: string; title: string; description?: string; priority: string; labelsJson?: string; assigneeId?: string; position: number; createdAt: string; dueDate?: string; issueType?: string; epic?: string; storyPoints?: number; startDate?: string; environment?: string; parentIssueId?: string; sprintId?: string; watchersJson?: string; linkedIssuesJson?: string; timeEstimated?: number; timeSpent?: number; timeRemaining?: number; teamId?: string; status?: string; }
+export interface TaskItem { id: string; projectId: string; listId?: string | null; title: string; description?: string; priority: string; labelsJson?: string; assigneeId?: string; position: number; createdAt: string; dueDate?: string; issueType?: string; epic?: string; storyPoints?: number; startDate?: string; environment?: string; parentIssueId?: string; sprintId?: string; watchersJson?: string; linkedIssuesJson?: string; timeEstimated?: number; timeSpent?: number; timeRemaining?: number; teamId?: string; status?: string; statusId?: string | null; }
 export interface BoardDtoFull { id: string; projectId: string; name: string; type: string; description?: string; position: number; createdAt: string; filterJson?: string | null; }
 export interface SprintDto { id: string; projectId: string; boardId: string; name: string; startDate: string; endDate: string; status: string; createdAt: string; }
 export interface ProjectEnvironmentDto { id: string; projectId: string; name: string; url: string; description?: string; status: string; createdAt: string; }
+export interface StatusDto { id: string; projectId: string; name: string; createdAt: string; }
 export interface BoardDto { project: Project; lists: BoardList[]; tasks: TaskItem[]; }
 export interface ActivityDto { id: string; projectId: string; taskId?: string; actorId: string; action: string; payloadJson?: string; occurredAt: string; }
 export interface SubTaskDto { id: string; taskId: string; title: string; isCompleted: boolean; createdAt: string; }
@@ -124,12 +125,27 @@ export class ProjectService {
     return this.http.get<{ items: TaskItem[]; total: number }>(`${environment.apiUrl}/api/tasks`, { params, withCredentials: true });
   }
 
-  createTask(projectId: string, listId: string, title: string, description?: string, priority = 'Medium', labelsJson?: string, assigneeId?: string, dueDate?: string, issueType: string = 'Task', epic?: string, storyPoints?: number, startDate?: string, taskEnv?: string, parentIssueId?: string, sprintId?: string, teamId?: string) {
-    return this.http.post<TaskItem>(`${environment.apiUrl}/api/tasks`, { projectId, listId, title, description, priority, labelsJson, assigneeId, dueDate, issueType, epic, storyPoints, startDate, environment: taskEnv, parentIssueId, sprintId, teamId }, { withCredentials: true });
+  // Statuses - project-level workflow statuses (Jira-like, explicit creation)
+  getStatuses(projectId: string) {
+    return this.http.get<StatusDto[]>(`${environment.apiUrl}/api/projects/${projectId}/statuses`, { withCredentials: true });
+  }
+  createStatus(projectId: string, name: string) {
+    return this.http.post<StatusDto>(`${environment.apiUrl}/api/projects/${projectId}/statuses`, { Name: name }, { withCredentials: true });
+  }
+  updateStatus(statusId: string, name: string) {
+    return this.http.put<StatusDto>(`${environment.apiUrl}/api/statuses/${statusId}`, { Name: name }, { withCredentials: true });
+  }
+  deleteStatus(statusId: string) {
+    return this.http.delete(`${environment.apiUrl}/api/statuses/${statusId}`, { withCredentials: true });
+  }
+  getStatusesLegacy(projectId: string) { return this.getStatuses(projectId); }
+
+  createTask(projectId: string, listId: string | null, title: string, description?: string, priority = 'Medium', labelsJson?: string, assigneeId?: string, dueDate?: string, issueType: string = 'Task', epic?: string, storyPoints?: number, startDate?: string, taskEnv?: string, parentIssueId?: string, sprintId?: string, teamId?: string, statusId?: string) {
+    return this.http.post<TaskItem>(`${environment.apiUrl}/api/tasks`, { projectId, listId: listId || null, title, description, priority, labelsJson, assigneeId, dueDate, issueType, epic, storyPoints, startDate, environment: taskEnv, parentIssueId, sprintId, teamId, statusId }, { withCredentials: true });
   }
 
-  updateTask(taskId: string, title: string, description?: string, priority = 'Medium', listId?: string, labelsJson?: string, assigneeId?: string, dueDate?: string, issueType?: string, epic?: string, storyPoints?: number, startDate?: string, taskEnv?: string, parentIssueId?: string, sprintId?: string, watchersJson?: string, linkedIssuesJson?: string, timeEstimated?: number, timeSpent?: number, timeRemaining?: number, teamId?: string) {
-    return this.http.put(`${environment.apiUrl}/api/tasks/${taskId}`, { title, description, priority, listId, labelsJson, assigneeId, dueDate, issueType, epic, storyPoints, startDate, environment: taskEnv, parentIssueId, sprintId, watchersJson, linkedIssuesJson, timeEstimated, timeSpent, timeRemaining, teamId }, { withCredentials: true });
+  updateTask(taskId: string, title: string, description?: string, priority = 'Medium', listId?: string, labelsJson?: string, assigneeId?: string, dueDate?: string, issueType?: string, epic?: string, storyPoints?: number, startDate?: string, taskEnv?: string, parentIssueId?: string, sprintId?: string, watchersJson?: string, linkedIssuesJson?: string, timeEstimated?: number, timeSpent?: number, timeRemaining?: number, teamId?: string, statusId?: string) {
+    return this.http.put(`${environment.apiUrl}/api/tasks/${taskId}`, { title, description, priority, listId, labelsJson, assigneeId, dueDate, issueType, epic, storyPoints, startDate, environment: taskEnv, parentIssueId, sprintId, watchersJson, linkedIssuesJson, timeEstimated, timeSpent, timeRemaining, teamId, statusId }, { withCredentials: true });
   }
   // Project Members (Enterprise: Project has explicit members from workspace)
   getProjectMembers(projectId: string, page=1, pageSize=20, search?: string) {

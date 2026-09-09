@@ -140,7 +140,19 @@
         <div class="w-full lg:w-[340px] border-t lg:border-t-0 lg:border-l border-base-200 p-3 sm:p-4 space-y-4 overflow-y-auto bg-base-200/30 shrink-0">
           <div class="flex items-center gap-2">
             <span class="text-sm font-semibold shrink-0">Status</span>
-            <select class="select select-bordered select-sm rounded-full flex-1" [value]="listId()" (change)="listId.set($any($event.target).value)">
+            @if (statusesQuery.data(); as statuses) {
+              <select class="select select-bordered select-sm rounded-full flex-1" [value]="statusId()" (change)="statusId.set($any($event.target).value)" [disabled]="readOnly()">
+                <option value="">Select status</option>
+                @for (s of statuses; track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+              </select>
+            } @else {
+              <select class="select select-bordered select-sm rounded-full flex-1" disabled><option>Loading statuses...</option></select>
+            }
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs opacity-60 shrink-0">Board Column</span>
+            <select class="select select-bordered select-xs rounded-full flex-1" [value]="listId()" (change)="listId.set($any($event.target).value)" [disabled]="readOnly()">
+              <option value="">No column (Backlog)</option>
               @for (l of lists(); track l.id) { <option [value]="l.id">{{ l.name }}</option> }
             </select>
           </div>
@@ -339,12 +351,14 @@
           </div>
 
           <div class="flex gap-2 pt-2">
-            <button class="btn btn-ghost btn-sm rounded-xl flex-1" (click)="closed.emit()">Cancel</button>
-            <button class="btn btn-primary btn-sm rounded-xl flex-1" (click)="save()" [disabled]="!title().trim() || !isDirty()" [class.loading]="loading()">
-              Save
-            </button>
+            <button class="btn btn-ghost btn-sm rounded-xl flex-1" (click)="closed.emit()">{{ readOnly() ? 'Close' : 'Cancel' }}</button>
+            @if (!readOnly()) {
+              <button class="btn btn-primary btn-sm rounded-xl flex-1" (click)="save()" [disabled]="!title().trim() || !isDirty()" [class.loading]="loading()">
+                Save
+              </button>
+            }
           </div>
-          @if (!isDirty()) { <p class="text-[10px] opacity-40 text-center">No changes • Save disabled until you edit</p> }
+          @if (!readOnly() && !isDirty()) { <p class="text-[10px] opacity-40 text-center">No changes • Save disabled until you edit</p> }
           <p class="text-[10px] opacity-40 text-center">Changes save priority/labels/due/assignee/status via PUT /tasks • lists via PUT/DELETE /lists</p>
         </div>
       </div>

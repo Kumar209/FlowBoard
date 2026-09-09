@@ -54,6 +54,7 @@ export class IssuesComponent {
   page = signal(1);
   pageSize = 8;
   detailOpen = signal(false);
+  detailReadOnly = signal(false);
   selectedTask = signal<any>(null);
   createOpen = signal(false);
   createListId = signal('');
@@ -106,7 +107,7 @@ export class IssuesComponent {
     onSuccess: () => { this.qc.invalidateQueries({queryKey:['board']}); this.deleteTarget.set(null); this.toast.success('Issue deleted'); },
     onError: (e:any) => this.toast.error(e.error?.error || 'Delete failed')
   }));
-  openDetail(t:any){ this.selectedTask.set(t); this.detailOpen.set(true); }
+  openDetail(t:any, readOnly=false){ this.selectedTask.set(t); this.detailReadOnly.set(readOnly); this.detailOpen.set(true); }
   @HostListener('window:openTask', ['$event'])
   onOpenTask(event:any){
     const task = event.detail;

@@ -9,7 +9,8 @@ namespace Project.Service.Domain.Entities;
 public class TaskItem : BaseEntity, IAggregateRoot
 {
     public Guid ProjectId { get; private set; }
-    public Guid ListId { get; private set; }
+    public Guid? ListId { get; private set; }
+    public Guid? StatusId { get; private set; }
     public string Title { get; private set; } = string.Empty;
     public string? Description { get; private set; }
     public TaskPriority Priority { get; private set; } = TaskPriority.Medium;
@@ -36,12 +37,13 @@ public class TaskItem : BaseEntity, IAggregateRoot
 
     public Project? Project { get; private set; }
     public BoardList? List { get; private set; }
+    public Status? StatusRef { get; private set; }
     public ICollection<SubTask> SubTasks { get; private set; } = new List<SubTask>();
     public ICollection<Comment> Comments { get; private set; } = new List<Comment>();
 
     private TaskItem() { }
 
-    public TaskItem(Guid projectId, Guid listId, string title, Guid createdById, int position, TaskPriority priority = TaskPriority.Medium, Guid? assigneeId = null, string? description = null, string? labelsJson = null, DateTime? dueDate = null, string issueType = "Task", string? epic = null, int? storyPoints = null, DateTime? startDate = null, string? environment = null, Guid? parentIssueId = null, Guid? sprintId = null, Guid? teamId = null, string status = "To Do")
+    public TaskItem(Guid projectId, Guid? listId, string title, Guid createdById, int position, TaskPriority priority = TaskPriority.Medium, Guid? assigneeId = null, string? description = null, string? labelsJson = null, DateTime? dueDate = null, string issueType = "Task", string? epic = null, int? storyPoints = null, DateTime? startDate = null, string? environment = null, Guid? parentIssueId = null, Guid? sprintId = null, Guid? teamId = null, string status = "To Do", Guid? statusId = null)
     {
         ProjectId = projectId;
         ListId = listId;
@@ -62,17 +64,19 @@ public class TaskItem : BaseEntity, IAggregateRoot
         SprintId = sprintId;
         TeamId = teamId;
         Status = status;
+        StatusId = statusId;
     }
 
-    public void MoveToList(Guid newListId, int newPosition, string? newStatus = null)
+    public void MoveToList(Guid? newListId, int newPosition, string? newStatus = null, Guid? newStatusId = null)
     {
         ListId = newListId;
         Position = newPosition;
         if (newStatus != null) Status = newStatus;
+        if (newStatusId != null) StatusId = newStatusId;
         Touch();
     }
 
-    public void Update(string title, string? description, TaskPriority priority, string? labelsJson, Guid? assigneeId, DateTime? dueDate, string? issueType = null, string? epic = null, int? storyPoints = null, DateTime? startDate = null, string? environment = null, Guid? parentIssueId = null, Guid? sprintId = null, string? watchersJson = null, string? linkedIssuesJson = null, int? timeEstimated = null, int? timeSpent = null, int? timeRemaining = null, Guid? teamId = null, string? status = null)
+    public void Update(string title, string? description, TaskPriority priority, string? labelsJson, Guid? assigneeId, DateTime? dueDate, string? issueType = null, string? epic = null, int? storyPoints = null, DateTime? startDate = null, string? environment = null, Guid? parentIssueId = null, Guid? sprintId = null, string? watchersJson = null, string? linkedIssuesJson = null, int? timeEstimated = null, int? timeSpent = null, int? timeRemaining = null, Guid? teamId = null, string? status = null, Guid? statusId = null)
     {
         Title = title;
         Description = description;
@@ -94,6 +98,7 @@ public class TaskItem : BaseEntity, IAggregateRoot
         TimeRemaining = timeRemaining;
         TeamId = teamId;
         if (status != null) Status = status;
+        if (statusId != null) StatusId = statusId;
         Touch();
     }
 

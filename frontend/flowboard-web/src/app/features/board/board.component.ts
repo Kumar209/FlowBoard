@@ -348,7 +348,10 @@ export class BoardComponent {
   }
 
   tasksForList(listId: string) {
-    let tasks = (this.boardQuery.data()?.tasks || []).filter(t => t.listId === listId);
+    // Jira-like: columns are views of Status, not containers. Filter by Status == column name (1:1 for MVP) plus sprint filter. Fallback to ListId for legacy tasks.
+    const col = (this.boardQuery.data()?.lists || []).find((l:any) => l.id === listId);
+    const colStatus = col?.name || '';
+    let tasks = (this.boardQuery.data()?.tasks || []).filter(t => t.listId === listId || (colStatus && t.status === colStatus));
     const sel = this.selectedSprint();
     // Sprint filter: project-owned sprints - filter by SprintId
     if (sel && sel !== 'all') {
@@ -386,5 +389,25 @@ export class BoardComponent {
     if (p) tasks = tasks.filter(t => t.priority === p);
     if (l) tasks = tasks.filter(t => (t.labelsJson||'').toLowerCase().includes(l));
     return tasks.length;
+  });
+
+  listViewTasks = computed(() => {
+    let tasks = this.boardQuery.data()?.tasks || [];
+    const sel = this.selectedSprint();
+    if (sel && sel !== 'all') {
+      if (sel === 'Backlog') tasks = tasks.filter((t:any)=> !t.sprintId);
+      else {
+        const sprint = this.sprints().find(s=> s.name===sel || s.id===sel);
+        const sid = sprint?.id || sel;
+        tasks = tasks.filter((t:any)=> t.sprintId === sid);
+      }
+    }
+    const s = this.taskSearch().toLowerCase();
+    const p = this.priorityFilter();
+    const l = this.labelFilter().toLowerCase();
+    if (s) tasks = tasks.filter(t => t.title.toLowerCase().includes(s) || (t.description||'').toLowerCase().includes(s));
+    if (p) tasks = tasks.filter(t => t.priority === p);
+    if (l) tasks = tasks.filter(t => (t.labelsJson||'').toLowerCase().includes(l));
+    return tasks.sort((a,b) => a.position - b.position);
   });
 }

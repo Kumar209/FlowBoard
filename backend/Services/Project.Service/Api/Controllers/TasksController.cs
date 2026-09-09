@@ -25,8 +25,8 @@ public class TasksController : ControllerBase
         var roles = GetRoles();
         var pid = projectId ?? body.ProjectId;
         var lid = body.ListId;
-        if (pid == Guid.Empty || lid == Guid.Empty) return BadRequest(new { error = "ProjectId and ListId required" });
-        var result = await _mediator.Send(new CreateTaskCommand(pid, lid, body.Title, body.Description, body.Priority ?? "Medium", body.LabelsJson, body.AssigneeId, body.DueDate, body.IssueType, body.Epic, body.StoryPoints, body.StartDate, body.Environment, body.ParentIssueId, body.SprintId, userId.Value, roles, body.TeamId));
+        if (pid == Guid.Empty) return BadRequest(new { error = "ProjectId required" });
+        var result = await _mediator.Send(new CreateTaskCommand(pid, lid, body.Title, body.Description, body.Priority ?? "Medium", body.LabelsJson, body.AssigneeId, body.DueDate, body.IssueType, body.Epic, body.StoryPoints, body.StartDate, body.Environment, body.ParentIssueId, body.SprintId, userId.Value, roles, body.TeamId, body.StatusId));
         if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
         return StatusCode(201, result.Value);
     }
@@ -61,7 +61,7 @@ public class TasksController : ControllerBase
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var roles = GetRoles();
-        var result = await _mediator.Send(new UpdateTaskCommand(taskId, body.Title, body.Description, body.Priority ?? "Medium", body.LabelsJson, body.AssigneeId, body.DueDate, userId.Value, roles, body.IssueType, body.Epic, body.StoryPoints, body.StartDate, body.Environment, body.ParentIssueId, body.SprintId, body.WatchersJson, body.LinkedIssuesJson, body.TimeEstimated, body.TimeSpent, body.TimeRemaining, body.TeamId, body.ListId, body.Status));
+        var result = await _mediator.Send(new UpdateTaskCommand(taskId, body.Title, body.Description, body.Priority ?? "Medium", body.LabelsJson, body.AssigneeId, body.DueDate, userId.Value, roles, body.IssueType, body.Epic, body.StoryPoints, body.StartDate, body.Environment, body.ParentIssueId, body.SprintId, body.WatchersJson, body.LinkedIssuesJson, body.TimeEstimated, body.TimeSpent, body.TimeRemaining, body.TeamId, body.ListId, body.Status, body.StatusId));
         if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
         return Ok(result.Value);
     }
@@ -84,6 +84,6 @@ public class TasksController : ControllerBase
     private List<string> GetRoles() => User.FindAll(ClaimTypes.Role).Select(c => c.Value).Concat(User.FindAll("role").Select(c => c.Value)).Distinct().ToList();
 }
 
-public record CreateTaskBody(Guid ProjectId, Guid ListId, string Title, string? Description, string? Priority, string? LabelsJson, Guid? AssigneeId, DateTime? DueDate, string? IssueType = "Task", string? Epic = null, int? StoryPoints = null, DateTime? StartDate = null, string? Environment = null, Guid? ParentIssueId = null, Guid? SprintId = null, Guid? TeamId = null);
+public record CreateTaskBody(Guid ProjectId, Guid? ListId, string Title, string? Description, string? Priority, string? LabelsJson, Guid? AssigneeId, DateTime? DueDate, string? IssueType = "Task", string? Epic = null, int? StoryPoints = null, DateTime? StartDate = null, string? Environment = null, Guid? ParentIssueId = null, Guid? SprintId = null, Guid? TeamId = null, Guid? StatusId = null);
 public record MoveTaskBody(Guid ToListId, int NewPosition);
-public record UpdateTaskBody(string Title, string? Description, string? Priority, string? LabelsJson, Guid? AssigneeId, DateTime? DueDate, string? IssueType = null, string? Epic = null, int? StoryPoints = null, DateTime? StartDate = null, string? Environment = null, Guid? ParentIssueId = null, Guid? SprintId = null, string? WatchersJson = null, string? LinkedIssuesJson = null, int? TimeEstimated = null, int? TimeSpent = null, int? TimeRemaining = null, Guid? TeamId = null, Guid? ListId = null, string? Status = null);
+public record UpdateTaskBody(string Title, string? Description, string? Priority, string? LabelsJson, Guid? AssigneeId, DateTime? DueDate, string? IssueType = null, string? Epic = null, int? StoryPoints = null, DateTime? StartDate = null, string? Environment = null, Guid? ParentIssueId = null, Guid? SprintId = null, string? WatchersJson = null, string? LinkedIssuesJson = null, int? TimeEstimated = null, int? TimeSpent = null, int? TimeRemaining = null, Guid? TeamId = null, Guid? ListId = null, string? Status = null, Guid? StatusId = null);

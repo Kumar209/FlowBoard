@@ -92,7 +92,7 @@ public class ProjectService : IProjectService
         var listIds = lists.Select(l => l.Id).ToList();
         var tasksQuery = _db.Tasks.Where(t => t.ProjectId == projectId);
         if (boardId.HasValue && boardId.Value != Guid.Empty && listIds.Any())
-            tasksQuery = tasksQuery.Where(t => listIds.Contains(t.ListId));
+            tasksQuery = tasksQuery.Where(t => t.ListId != null && listIds.Contains(t.ListId.Value));
         if (board?.FilterJson != null)
         {
             try
@@ -107,7 +107,7 @@ public class ProjectService : IProjectService
             catch { }
         }
         var tasks = await tasksQuery.OrderBy(t => t.Position)
-            .Select(t => new TaskDto(t.Id, t.ProjectId, t.ListId, t.Title, t.Description, t.Priority.ToString(), t.LabelsJson, t.AssigneeId, t.Position, t.CreatedAt, t.DueDate, t.IssueType, t.Epic, t.StoryPoints, t.StartDate, t.Environment, t.ParentIssueId, t.SprintId, t.WatchersJson, t.LinkedIssuesJson, t.TimeEstimated, t.TimeSpent, t.TimeRemaining, t.TeamId, t.Status))
+            .Select(t => new TaskDto(t.Id, t.ProjectId, t.ListId, t.Title, t.Description, t.Priority.ToString(), t.LabelsJson, t.AssigneeId, t.Position, t.CreatedAt, t.DueDate, t.IssueType, t.Epic, t.StoryPoints, t.StartDate, t.Environment, t.ParentIssueId, t.SprintId, t.WatchersJson, t.LinkedIssuesJson, t.TimeEstimated, t.TimeSpent, t.TimeRemaining, t.TeamId, t.Status, t.StatusId))
             .ToListAsync(ct);
         var dto = new ProjectDto(project.Id, project.WorkspaceId, project.Name, project.Key, project.Description, project.OwnerId, project.CreatedAt);
         return new BoardDto(dto, lists, tasks);

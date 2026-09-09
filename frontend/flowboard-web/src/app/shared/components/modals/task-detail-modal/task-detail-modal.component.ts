@@ -58,6 +58,7 @@ export class TaskDetailModalComponent {
     timeSpent?: number;
     timeRemaining?: number;
     teamId?: string;
+    statusId?: string;
   }>();
 
   private projectService = inject(ProjectService);
@@ -81,6 +82,8 @@ export class TaskDetailModalComponent {
   parentIssueId = signal('');
   sprintId = signal('');
   teamId = signal('');
+  statusId = signal('');
+  readOnly = input<boolean>(false);
   watchers = signal(''); // comma separated userIds
   linkedIssues = signal(''); // comma separated
   timeEstimated = signal<number | null>(null);
@@ -213,6 +216,7 @@ export class TaskDetailModalComponent {
       this.parentIssueId() !== (t.parentIssueId || '') ||
       this.sprintId() !== (t.sprintId || '') ||
       this.teamId() !== (t.teamId || '') ||
+      this.statusId() !== (t.statusId || '') ||
       this.watchers() !== watchersDisplay ||
       this.linkedIssues() !== linkedDisplay ||
       (this.timeEstimated() ?? null) !== (t.timeEstimated ?? null) ||
@@ -269,6 +273,13 @@ export class TaskDetailModalComponent {
   teamsQuery = injectQuery(() => ({
     queryKey: ['teams', this.effectiveProjectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getTeams(this.effectiveProjectId())),
+    enabled: !!this.effectiveProjectId(),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+  }));
+  statusesQuery = injectQuery(() => ({
+    queryKey: ['statuses', this.effectiveProjectId()] as const,
+    queryFn: () => firstValueFrom(this.projectService.getStatuses(this.effectiveProjectId())),
     enabled: !!this.effectiveProjectId(),
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
@@ -412,6 +423,7 @@ export class TaskDetailModalComponent {
     this.description.set(t.description || '');
     this.priority.set(t.priority || 'Medium');
     this.listId.set(t.listId || '');
+    this.statusId.set((t.statusId || '').toString().trim());
     this.assigneeId.set((t.assigneeId || '').toString().trim());
     this.teamId.set((t.teamId || '').toString().trim());
     this.sprintId.set((t.sprintId || '').toString().trim());
@@ -554,6 +566,7 @@ export class TaskDetailModalComponent {
       timeSpent: this.timeSpent() ?? undefined,
       timeRemaining: this.timeRemaining() ?? undefined,
       teamId: this.teamId() || undefined,
+      statusId: this.statusId() || undefined,
     });
   }
   addSubtask() {

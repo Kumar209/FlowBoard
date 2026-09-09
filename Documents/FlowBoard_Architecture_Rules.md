@@ -150,4 +150,35 @@ backend/Services/{Service}/
 
 ---
 
-*Last updated: 2026-09-08 — Added Frontend 3-File Rule (html+ts+css, no inline template, no double folder), fixed notifications/board structure, memorized for all future tasks.*
+## 9. Permissions CRUD Rule (Strict — Every New Feature Must Add Permissions)
+
+**Rule (never skip):**
+- Whenever a new domain, entity, or operation is added (e.g., `Status` in `6.5→7.0`, `Boards`, `Sprints`, `Tasks`, `Files`, `AI`), you **MUST** add its CRUD permissions to the fixed catalog `IdentitySeeder.SeedPermissionsAsync` (`[identity].Permissions`):
+
+```
+{entity}:view    → View {Entity}      — Group {Entity}
+{entity}:create  → Create {Entity}    — Group {Entity}
+{entity}:update  → Update {Entity}    — Group {Entity}
+{entity}:delete  → Delete {Entity}    — Group {Entity}
+```
+
+  plus any extra operation-specific perms (e.g., `task:move`, `task:assign`, `activity:view:org`).
+- `view` is mandatory as the base read gate; `create/update/delete` follow REST `POST/PUT/DELETE`. Use lowercase `:` separator (`status:view` not `StatusView`).
+- Naming: `key` must be `lowercase:view/create/update/delete` (`status:view`, `sprint:view`, `file:view`), `Group` is capitalized (`Status`, `Sprint`, `Board`), `Name` is `View/Create/Update/Delete {Entity}`.
+- For this Jira-like implementation we added `status:view | status:create | status:update | status:delete` (4) → total `27 → 31` permissions (count = previous 27 + 4). Future `Phase 4` (`File`, `AI`) and any new module must do the same (e.g., `attachment:view/create/delete`, `ai:view/create`).
+- Enforcement: `IOrganizationRoleService` + `IOrganizationActivityService` check `activity:view:org` etc. via `RolePermissions` join; `SeedPermissionsAsync` is the single source of truth — no hard-coded permission string outside seeder + check.
+
+**Examples:**
+- `Status` → `status:view / status:create / status:update / status:delete` (implemented `7.0`, `[project].Statuses` + `[project].BoardColumnStatuses`)
+- `Sprint` → `sprint:view / sprint:create / sprint:update / sprint:delete` (already implied by `board` group, but should be explicit for sprint CRUD if separated)
+- `BoardColumn` → `board:update` covers column mapping (or `board:manage`); if new entity `BoardColumn` has its own CRUD, add `boardcolumn:view/...`
+
+**Checklist before `git push`:**
+- [ ] Added 4 `Permission` rows in `IdentitySeeder.cs` with `Group` and `Description`
+- [ ] Updated permission `count` in docs (`27 → 31 → ...`)
+- [ ] Added `RolePermissions` handling (seed for new roles if needed) and checks in `*Service.CanViewAsync` (like `OrganizationActivityService.CanViewAsync` for `status:view`)
+- [ ] Verified `GET /api/permissions` returns new keys
+
+---
+
+*Last updated: 2026-09-09 — Added Permissions CRUD Rule (every new feature must add view/create/update/delete per entity, example status:view/create/update/delete 27→31), Jira company-managed Statuses/Boards/Columns mapping, Statuses explicit creation, Boards as views.*
