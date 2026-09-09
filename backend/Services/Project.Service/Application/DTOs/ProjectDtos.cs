@@ -4,7 +4,7 @@ namespace Project.Service.Application.DTOs;
 /// ProjectDtos - response shapes for Project CQRS. Used by handlers to return clean DTOs instead of entities (avoids EF navigation serialization). Key is prefix like FB-3 for search (Task 2.5).
 /// </summary>
 public record ProjectDto(Guid Id, Guid WorkspaceId, string Name, string Key, string? Description, Guid OwnerId, DateTime CreatedAt);
-public record BoardListDto(Guid Id, Guid ProjectId, string Name, int Position);
+public record BoardListDto(Guid Id, Guid ProjectId, string Name, int Position, List<Guid>? StatusIds = null);
 public record BoardInfoDto(Guid Id, Guid ProjectId, string Name, string Type, string? Description, int Position, DateTime CreatedAt, string? FilterJson = null);
 public record SprintDto(Guid Id, Guid ProjectId, Guid? BoardId, string Name, DateTime StartDate, DateTime EndDate, string Status, DateTime CreatedAt);
 public record ProjectEnvironmentDto(Guid Id, Guid ProjectId, string Name, string Url, string? Description, string Status, DateTime CreatedAt);

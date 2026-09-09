@@ -16,20 +16,34 @@
           <span class="label-text-alt text-xs opacity-40">0 = first column, columns are arranged in position sequence</span>
           @if (positionError()) { <span class="text-error text-xs">● {{ positionError() }}</span> }
         </label>
-        <label class="form-control">
-          <span class="label-text text-xs font-semibold">Mapped Statuses * (project)</span>
+        <label class="form-control relative">
+          <span class="label-text text-xs font-semibold">Mapped Statuses * (project) — dropdown multiselect</span>
           @if (availableStatuses().length===0) {
             <div class="alert alert-warning py-2 text-xs">No statuses — create in Project → Statuses first. Strict manual, no auto.</div>
           } @else {
-            <div class="border rounded-xl p-2 max-h-32 overflow-y-auto space-y-1">
-              @for (s of availableStatuses(); track s.id) {
-                <label class="flex items-center gap-2 cursor-pointer p-1 hover:bg-base-200 rounded-lg">
-                  <input type="checkbox" class="checkbox checkbox-xs" [checked]="selectedStatusIds().includes(s.id)" (change)="toggleStatus(s.id, $any($event.target).checked)" />
-                  <span class="text-sm">{{ s.name }}</span>
-                </label>
-              }
-            </div>
+            <button type="button" class="input input-bordered rounded-xl w-full flex justify-between items-center" (click)="dropdownOpen.set(!dropdownOpen())">
+              <span class="text-sm truncate">
+                @if (selectedStatusIds().length===0) { Select statuses... }
+                @else {
+                  @for (id of selectedStatusIds(); track id) {
+                    <span class="badge badge-sm badge-primary mr-1">{{ availableStatuses().find(s=>s.id===id)?.name || id.slice(0,4) }}</span>
+                  }
+                }
+              </span>
+              <span class="opacity-40">▼</span>
+            </button>
+            @if (dropdownOpen()) {
+              <div class="absolute z-20 mt-1 w-full bg-base-100 border rounded-xl shadow-xl max-h-40 overflow-y-auto p-1">
+                @for (s of availableStatuses(); track s.id) {
+                  <label class="flex items-center gap-2 cursor-pointer p-2 hover:bg-base-200 rounded-lg">
+                    <input type="checkbox" class="checkbox checkbox-xs" [checked]="selectedStatusIds().includes(s.id)" (change)="toggleStatus(s.id, $any($event.target).checked)" />
+                    <span class="text-sm">{{ s.name }}</span>
+                  </label>
+                }
+              </div>
+            }
             @if (selectedStatusIds().length===0) { <span class="text-error text-xs">● Select at least one status</span> }
+            @else { <span class="text-xs opacity-40">{{ selectedStatusIds().length }} selected</span> }
           }
         </label>
         @if (error()) { <div class="text-error text-xs">● {{ error() }}</div> }

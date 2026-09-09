@@ -9,7 +9,7 @@ import { environment } from '../../../environments/environment';
  */
 
 export interface Project { id: string; workspaceId: string; name: string; key: string; description?: string; ownerId: string; createdAt: string; }
-export interface BoardList { id: string; projectId: string; name: string; position: number; }
+export interface BoardList { id: string; projectId: string; name: string; position: number; statusIds?: string[]; }
 export interface TaskItem { id: string; projectId: string; listId?: string | null; title: string; description?: string; priority: string; labelsJson?: string; assigneeId?: string; position: number; createdAt: string; dueDate?: string; issueType?: string; epic?: string; storyPoints?: number; startDate?: string; environment?: string; parentIssueId?: string; sprintId?: string; watchersJson?: string; linkedIssuesJson?: string; timeEstimated?: number; timeSpent?: number; timeRemaining?: number; teamId?: string; status?: string; statusId?: string | null; }
 export interface BoardDtoFull { id: string; projectId: string; name: string; type: string; description?: string; position: number; createdAt: string; filterJson?: string | null; }
 export interface SprintDto { id: string; projectId: string; boardId: string; name: string; startDate: string; endDate: string; status: string; createdAt: string; }

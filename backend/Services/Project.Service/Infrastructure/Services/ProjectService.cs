@@ -88,7 +88,10 @@ public class ProjectService : IProjectService
         var listsQuery = _db.BoardLists.Where(b => b.ProjectId == projectId);
         if (boardId.HasValue && boardId.Value != Guid.Empty)
             listsQuery = listsQuery.Where(b => b.BoardId == boardId.Value);
-        var lists = await listsQuery.OrderBy(b => b.Position).Select(b => new BoardListDto(b.Id, b.ProjectId, b.Name, b.Position)).ToListAsync(ct);
+        var listsRaw = await listsQuery.OrderBy(b => b.Position).ToListAsync(ct);
+        var columnIds = listsRaw.Select(l => l.Id).ToList();
+        var mappings = await _db.BoardColumnStatuses.Where(bcs => columnIds.Contains(bcs.ColumnId)).ToListAsync(ct);
+        var lists = listsRaw.Select(l => new BoardListDto(l.Id, l.ProjectId, l.Name, l.Position, mappings.Where(m => m.ColumnId == l.Id).Select(m => m.StatusId).ToList())).ToList();
         var tasksQuery = _db.Tasks.Where(t => t.ProjectId == projectId);
         // Jira-like: board is a view — return all project tasks, frontend filters by Status == column name (via BoardColumnStatus). No ListId filtering for backlog.
         if (board?.FilterJson != null)

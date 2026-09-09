@@ -30,6 +30,7 @@ export class ColumnModalComponent {
   name = signal('');
   position = signal<number>(0);
   selectedStatusIds = signal<string[]>([]);
+  dropdownOpen = signal(false);
   isUpdate = computed(() => this.mode() === 'update');
 
   positionError = computed(() => {
@@ -49,14 +50,12 @@ export class ColumnModalComponent {
       if (this.open()) {
         this.name.set(this.initialName() || '');
         this.position.set(this.initialPosition());
-        this.selectedStatusIds.set(this.initialStatusIds() || []);
-        // Auto-select status with same name if exists and none selected
-        if (this.selectedStatusIds().length===0 && this.availableStatuses().length) {
-          const match = this.availableStatuses().find(s => s.name.toLowerCase() === this.name().trim().toLowerCase());
-          if (match) this.selectedStatusIds.set([match.id]);
-        }
+        // Only set from initialStatusIds on open, don't auto-select by name to avoid freeze and duplicate
+        const init = this.initialStatusIds() || [];
+        this.selectedStatusIds.set([...init]);
+        this.dropdownOpen.set(false);
       }
-    });
+    }, { allowSignalWrites: true });
   }
 
   toggleStatus(id:string, checked:boolean){
