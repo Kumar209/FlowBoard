@@ -22,7 +22,7 @@ public class BoardListsController : ControllerBase
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var roles = GetRoles();
         if (roles.Contains("Viewer") || roles.Contains("Client")) return StatusCode(403, new { error = "Viewer/Client cannot create lists" });
-        var result = await _mediator.Send(new CreateBoardListCommand(projectId, body.Name, userId.Value, roles, body.BoardId, body.Position));
+        var result = await _mediator.Send(new CreateBoardListCommand(projectId, body.Name, userId.Value, roles, body.BoardId, body.Position, body.StatusIds));
         if (!result.IsSuccess) return BadRequest(new { error = result.Error });
         return StatusCode(201, result.Value);
     }
@@ -66,5 +66,5 @@ public class BoardListsController : ControllerBase
     private List<string> GetRoles() => User.FindAll(ClaimTypes.Role).Select(c => c.Value).Concat(User.FindAll("role").Select(c => c.Value)).Distinct().ToList();
 }
 
-public record CreateListBody(string Name, Guid? BoardId = null, int? Position = null);
-public record UpdateListBody(string Name, int? Position = null);
+public record CreateListBody(string Name, Guid? BoardId = null, int? Position = null, List<Guid>? StatusIds = null);
+public record UpdateListBody(string Name, int? Position = null, List<Guid>? StatusIds = null);

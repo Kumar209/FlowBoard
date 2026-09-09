@@ -56,7 +56,7 @@ public class BoardService : IBoardService
             .Select(b => new BoardInfoDto(b.Id, b.ProjectId, b.Name, b.Type, b.Description, b.Position, b.CreatedAt, b.FilterJson))
             .ToListAsync(ct);
 
-    public async Task<Result<BoardListDto>> CreateBoardListAsync(Guid projectId, string name, Guid callerId, List<string> callerRoles, Guid? boardId, int? position, CancellationToken ct = default)
+    public async Task<Result<BoardListDto>> CreateBoardListAsync(Guid projectId, string name, Guid callerId, List<string> callerRoles, Guid? boardId, int? position, List<Guid>? statusIds = null, CancellationToken ct = default)
     {
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return Result<BoardListDto>.Failure("Project not found");
@@ -66,6 +66,7 @@ public class BoardService : IBoardService
             var firstBoard = await _db.Boards.Where(b => b.ProjectId == projectId).OrderBy(b => b.Position).FirstOrDefaultAsync(ct);
             targetBoardId = firstBoard?.Id;
         }
+        if (targetBoardId == null) return Result<BoardListDto>.Failure("Create a board first — no board to add column to");
         int pos;
         if (position.HasValue)
         {
@@ -81,25 +82,20 @@ public class BoardService : IBoardService
         var normalized = Regex.Replace(name.Trim(), @"[-_]+", " ");
         normalized = Regex.Replace(normalized, @"\s+", " ").Trim();
         var display = string.Join(" ", normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(p => char.ToUpper(p[0]) + p.Substring(1).ToLower()));
+        // Strict: status must already exist — do not auto-create. User must create status in Project → Statuses first.
+        if (statusIds == null || !statusIds.Any())
+            return Result<BoardListDto>.Failure("Select at least one existing Status to map this column to — create statuses in Project → Statuses first. No auto-create.");
+        var existingStatuses = await _db.Statuses.Where(s => s.ProjectId == projectId && statusIds.Contains(s.Id)).ToListAsync(ct);
+        if (existingStatuses.Count != statusIds.Count)
+            return Result<BoardListDto>.Failure("One or more selected statuses not found in this project");
         var list = new BoardList(projectId, display, pos, targetBoardId);
         _db.BoardLists.Add(list);
         await _db.SaveChangesAsync(ct);
-        // Jira-like: column maps to a project status with same normalized name — create status if missing and map
-        var normKey = normalized.ToLowerInvariant();
-        var existingStatuses = await _db.Statuses.Where(s => s.ProjectId == projectId).ToListAsync(ct);
-        var status = existingStatuses.FirstOrDefault(s => Regex.Replace(s.Name.Trim(), @"[-_]+", " ").Trim().ToLowerInvariant() == normKey);
-        if (status == null)
+        foreach (var sid in statusIds.Distinct())
         {
-            status = new Status(projectId, display);
-            _db.Statuses.Add(status);
-            await _db.SaveChangesAsync(ct);
+            _db.BoardColumnStatuses.Add(new BoardColumnStatus(list.Id, sid));
         }
-        var mappingExists = await _db.BoardColumnStatuses.AnyAsync(bcs => bcs.ColumnId == list.Id && bcs.StatusId == status.Id, ct);
-        if (!mappingExists)
-        {
-            _db.BoardColumnStatuses.Add(new BoardColumnStatus(list.Id, status.Id));
-            await _db.SaveChangesAsync(ct);
-        }
+        await _db.SaveChangesAsync(ct);
         _db.ActivityLogs.Add(new ActivityLog(projectId, null, callerId, "ListCreated", $"{{\"name\":\"{name}\"}}"));
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveAsync($"board:{projectId}");

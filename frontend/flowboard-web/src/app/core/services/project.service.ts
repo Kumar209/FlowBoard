@@ -47,8 +47,8 @@ export class ProjectService {
   deleteProject(projectId: string) {
     return this.http.delete(`${environment.apiUrl}/api/projects/${projectId}`, { withCredentials: true });
   }
-  createList(projectId: string, name: string, boardId?: string, position?: number) {
-    return this.http.post<BoardList>(`${environment.apiUrl}/api/projects/${projectId}/lists`, { Name: name, BoardId: boardId || null, Position: position ?? null }, { withCredentials: true });
+  createList(projectId: string, name: string, boardId?: string, position?: number, statusIds?: string[]) {
+    return this.http.post<BoardList>(`${environment.apiUrl}/api/projects/${projectId}/lists`, { Name: name, BoardId: boardId || null, Position: position ?? null, StatusIds: statusIds || null }, { withCredentials: true });
   }
   renameList(projectId: string, listId: string, name: string, position?: number) {
     const body:any = { Name: name };

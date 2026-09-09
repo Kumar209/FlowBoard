@@ -98,6 +98,11 @@ export class BoardComponent {
   priorityFilter = signal('');
   labelFilter = signal('');
 
+  statusesQuery = injectQuery(() => ({
+    queryKey: ['statuses', this.projectId()] as const,
+    queryFn: () => firstValueFrom(this.projectService.getStatuses(this.projectId())),
+    enabled: !!this.projectId(),
+  }));
   sprintsQuery = injectQuery(() => ({
     queryKey: ['sprints', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getSprints(this.projectId())),
@@ -185,8 +190,8 @@ export class BoardComponent {
   selectedTask = signal<any>(null);
 
   createListMutation = injectMutation(() => ({
-    mutationFn: (vars: {name: string; position?: number}) => firstValueFrom(this.projectService.createList(this.projectId(), vars.name, this.selectedBoardId() || undefined, vars.position)),
-    onSuccess: () => { this.queryClient.invalidateQueries({ queryKey: ['board'] }); this.columnModalOpen.set(false); this.newListName.set(''); this.openMenuListId.set(null); this.toast.success('Column created'); },
+    mutationFn: (vars: {name: string; position?: number; statusIds?: string[]}) => firstValueFrom(this.projectService.createList(this.projectId(), vars.name, this.selectedBoardId() || undefined, vars.position, vars.statusIds)),
+    onSuccess: () => { this.queryClient.invalidateQueries({ queryKey: ['board'] }); this.queryClient.invalidateQueries({ queryKey: ['statuses'] }); this.columnModalOpen.set(false); this.newListName.set(''); this.openMenuListId.set(null); this.toast.success('Column created'); },
     onError: (e:any) => { this.toast.error(e?.error?.error || e?.message || 'Create column failed'); },
   }));
   renameListMutation = injectMutation(() => ({
@@ -304,15 +309,28 @@ export class BoardComponent {
   async addSampleColumns(){
     if(!this.canCreateTask()) { this.toast.error('Only PM/OrgAdmin can create columns'); return; }
     const samples = ['To Do','In Progress','Done'];
+    // Ensure statuses exist for sample columns (strict: must exist before column)
+    for(const name of samples){
+      const exists = (this.statusesQuery.data() as any[])?.find((s:any) => s.name.toLowerCase() === name.toLowerCase());
+      if(!exists){
+        try { await firstValueFrom(this.projectService.createStatus(this.projectId(), name)); } catch {}
+      }
+    }
+    await this.queryClient.invalidateQueries({ queryKey: ['statuses', this.projectId()] });
+    // Refresh statuses after creation
+    let statuses: any[] = [];
+    try { statuses = await firstValueFrom(this.projectService.getStatuses(this.projectId())); } catch {}
     for(let i=0;i<samples.length;i++){
-      try { await firstValueFrom(this.projectService.createList(this.projectId(), samples[i], this.selectedBoardId() || undefined, i)); } catch {}
+      const st = statuses.find((s:any) => s.name.toLowerCase() === samples[i].toLowerCase());
+      const sid = st ? [st.id] : [];
+      try { await firstValueFrom(this.projectService.createList(this.projectId(), samples[i], this.selectedBoardId() || undefined, i, sid)); } catch (e:any) { this.toast.error(e.error?.error || samples[i] + ' failed'); }
     }
     this.queryClient.invalidateQueries({ queryKey: ['board'] });
     this.toast.success('Sample columns added');
   }
   openEditColumn(list:any){ this.columnModalMode.set('update'); this.editingColumn.set(list); this.columnModalOpen.set(true); this.openMenuListId.set(null); }
-  onColumnSubmit(e:{name:string; position:number}){
-    if(this.columnModalMode()==='create') this.createListMutation.mutate({name: e.name, position: e.position});
+  onColumnSubmit(e:{name:string; position:number; statusIds:string[]}){
+    if(this.columnModalMode()==='create') this.createListMutation.mutate({name: e.name, position: e.position, statusIds: e.statusIds});
     else if(this.editingColumn()) this.renameListMutation.mutate({listId: this.editingColumn().id, name: e.name, position: e.position});
   }
   confirmDeleteColumn(list:any){ this.deleteColumnTarget.set(list); this.openMenuListId.set(null); }
