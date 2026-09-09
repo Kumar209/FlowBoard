@@ -18,6 +18,8 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
     public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
     public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
     public DbSet<OrganizationWorkspaceRole> OrganizationWorkspaceRoles => Set<OrganizationWorkspaceRole>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -98,6 +100,29 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
             e.Property(x => x.Name).IsRequired().HasMaxLength(100);
             e.Property(x => x.Description).HasMaxLength(500);
             e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Permission - fixed catalog
+        modelBuilder.Entity<Permission>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => x.Key).IsUnique();
+            e.HasIndex(x => x.Group);
+            e.Property(x => x.Key).IsRequired().HasMaxLength(50);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Group).IsRequired().HasMaxLength(50);
+            e.Property(x => x.Description).HasMaxLength(500);
+        });
+
+        // RolePermission - join
+        modelBuilder.Entity<RolePermission>(e =>
+        {
+            e.HasKey(x => new { x.RoleId, x.PermissionId });
+            e.HasIndex(x => x.RoleId);
+            e.HasIndex(x => x.PermissionId);
+            e.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Permission).WithMany().HasForeignKey(x => x.PermissionId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // RefreshToken
