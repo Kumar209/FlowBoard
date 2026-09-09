@@ -220,8 +220,8 @@ export class BoardComponent {
   }));
 
   updateMutation = injectMutation(() => ({
-    mutationFn: (vars: { id:string; title:string; description:string; priority:string; listId:string; labelsJson?:string; assigneeId?:string; dueDate?:string; issueType?:string; epic?:string; storyPoints?:number; startDate?:string; environment?:string; parentIssueId?:string; sprintId?:string; watchersJson?:string; linkedIssuesJson?:string; timeEstimated?:number; timeSpent?:number; timeRemaining?:number; teamId?:string }) =>
-      firstValueFrom(this.projectService.updateTask(vars.id, vars.title, vars.description, vars.priority, vars.listId, vars.labelsJson, vars.assigneeId, vars.dueDate, vars.issueType, vars.epic, vars.storyPoints, vars.startDate, vars.environment, vars.parentIssueId, vars.sprintId, vars.watchersJson, vars.linkedIssuesJson, vars.timeEstimated, vars.timeSpent, vars.timeRemaining, vars.teamId)),
+    mutationFn: (vars: { id:string; title:string; description:string; priority:string; listId:string; labelsJson?:string; assigneeId?:string; dueDate?:string; issueType?:string; epic?:string; storyPoints?:number; startDate?:string; environment?:string; parentIssueId?:string; sprintId?:string; watchersJson?:string; linkedIssuesJson?:string; timeEstimated?:number; timeSpent?:number; timeRemaining?:number; teamId?:string; statusId?:string }) =>
+      firstValueFrom(this.projectService.updateTask(vars.id, vars.title, vars.description, vars.priority, vars.listId, vars.labelsJson, vars.assigneeId, vars.dueDate, vars.issueType, vars.epic, vars.storyPoints, vars.startDate, vars.environment, vars.parentIssueId, vars.sprintId, vars.watchersJson, vars.linkedIssuesJson, vars.timeEstimated, vars.timeSpent, vars.timeRemaining, vars.teamId, vars.statusId)),
     onSuccess: (_data, vars:any) => { this.queryClient.invalidateQueries({ queryKey: ['board'] }); this.queryClient.invalidateQueries({ queryKey: ['task-detail', vars.id] }); this.queryClient.invalidateQueries({ queryKey: ['activities'] }); this.detailOpen.set(false); this.toast.success('Issue updated'); },
     onError: (e:any) => this.toast.error(e.error?.error || 'Update failed'),
   }));
@@ -292,13 +292,13 @@ export class BoardComponent {
       if(!found) this.toast.error('Parent/Child not in current board view — opened anyway');
     }
   }
-  onDetailSave(e:{title:string; description:string; priority:string; listId:string; labelsJson?:string; assigneeId?:string; dueDate?:string; issueType?:string; epic?:string; storyPoints?:number; startDate?:string; environment?:string; parentIssueId?:string; sprintId?:string; watchersJson?:string; linkedIssuesJson?:string; timeEstimated?:number; timeSpent?:number; timeRemaining?:number; teamId?:string}) {
+  onDetailSave(e:{title:string; description:string; priority:string; listId:string; labelsJson?:string; assigneeId?:string; dueDate?:string; issueType?:string; epic?:string; storyPoints?:number; startDate?:string; environment?:string; parentIssueId?:string; sprintId?:string; watchersJson?:string; linkedIssuesJson?:string; timeEstimated?:number; timeSpent?:number; timeRemaining?:number; teamId?:string; statusId?:string}) {
     const t = this.selectedTask();
     if(!t) return;
     if(e.listId !== t.listId){
       this.moveMutation.mutate({ taskId: t.id, toListId: e.listId, newPosition: 0 });
     }
-    this.updateMutation.mutate({ id: t.id, title: e.title, description: e.description, priority: e.priority, listId: e.listId, labelsJson: e.labelsJson, assigneeId: e.assigneeId, dueDate: e.dueDate, issueType: e.issueType, epic: e.epic, storyPoints: e.storyPoints, startDate: e.startDate, environment: e.environment, parentIssueId: e.parentIssueId, sprintId: e.sprintId, watchersJson: e.watchersJson, linkedIssuesJson: e.linkedIssuesJson, timeEstimated: e.timeEstimated, timeSpent: e.timeSpent, timeRemaining: e.timeRemaining, teamId: e.teamId });
+    this.updateMutation.mutate({ id: t.id, title: e.title, description: e.description, priority: e.priority, listId: e.listId, labelsJson: e.labelsJson, assigneeId: e.assigneeId, dueDate: e.dueDate, issueType: e.issueType, epic: e.epic, storyPoints: e.storyPoints, startDate: e.startDate, environment: e.environment, parentIssueId: e.parentIssueId, sprintId: e.sprintId, watchersJson: e.watchersJson, linkedIssuesJson: e.linkedIssuesJson, timeEstimated: e.timeEstimated, timeSpent: e.timeSpent, timeRemaining: e.timeRemaining, teamId: e.teamId, statusId: e.statusId });
   }
   openCreateColumn(){ this.columnModalMode.set('create'); this.editingColumn.set(null); this.columnModalOpen.set(true); }
   async addSampleColumns(){

@@ -80,6 +80,20 @@ public class BoardService : IBoardService
         var list = new BoardList(projectId, name, pos, targetBoardId);
         _db.BoardLists.Add(list);
         await _db.SaveChangesAsync(ct);
+        // Jira-like: column maps to a project status with same name — create status if missing and map
+        var status = await _db.Statuses.FirstOrDefaultAsync(s => s.ProjectId == projectId && s.Name.ToLower() == name.ToLower(), ct);
+        if (status == null)
+        {
+            status = new Status(projectId, name);
+            _db.Statuses.Add(status);
+            await _db.SaveChangesAsync(ct);
+        }
+        var mappingExists = await _db.BoardColumnStatuses.AnyAsync(bcs => bcs.ColumnId == list.Id && bcs.StatusId == status.Id, ct);
+        if (!mappingExists)
+        {
+            _db.BoardColumnStatuses.Add(new BoardColumnStatus(list.Id, status.Id));
+            await _db.SaveChangesAsync(ct);
+        }
         _db.ActivityLogs.Add(new ActivityLog(projectId, null, callerId, "ListCreated", $"{{\"name\":\"{name}\"}}"));
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveAsync($"board:{projectId}");
