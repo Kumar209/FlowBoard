@@ -141,11 +141,12 @@ export class ProjectService {
   getStatusesLegacy(projectId: string) { return this.getStatuses(projectId); }
 
   createTask(projectId: string, listId: string | null, title: string, description?: string, priority = 'Medium', labelsJson?: string, assigneeId?: string, dueDate?: string, issueType: string = 'Task', epic?: string, storyPoints?: number, startDate?: string, taskEnv?: string, parentIssueId?: string, sprintId?: string, teamId?: string, statusId?: string) {
-    return this.http.post<TaskItem>(`${environment.apiUrl}/api/tasks`, { projectId, listId: listId || null, title, description, priority, labelsJson, assigneeId, dueDate, issueType, epic, storyPoints, startDate, environment: taskEnv, parentIssueId, sprintId, teamId, statusId }, { withCredentials: true });
+    return this.http.post<TaskItem>(`${environment.apiUrl}/api/tasks`, { projectId, listId: listId || null, title, description, priority, labelsJson, assigneeId: assigneeId || null, dueDate, issueType, epic, storyPoints, startDate, environment: taskEnv, parentIssueId: parentIssueId || null, sprintId: sprintId || null, teamId: teamId || null, statusId: statusId || null }, { withCredentials: true });
   }
 
   updateTask(taskId: string, title: string, description?: string, priority = 'Medium', listId?: string, labelsJson?: string, assigneeId?: string, dueDate?: string, issueType?: string, epic?: string, storyPoints?: number, startDate?: string, taskEnv?: string, parentIssueId?: string, sprintId?: string, watchersJson?: string, linkedIssuesJson?: string, timeEstimated?: number, timeSpent?: number, timeRemaining?: number, teamId?: string, statusId?: string) {
-    return this.http.put(`${environment.apiUrl}/api/tasks/${taskId}`, { title, description, priority, listId, labelsJson, assigneeId, dueDate, issueType, epic, storyPoints, startDate, environment: taskEnv, parentIssueId, sprintId, watchersJson, linkedIssuesJson, timeEstimated, timeSpent, timeRemaining, teamId, statusId }, { withCredentials: true });
+    const toGuidOrNull = (v?: string) => (!v || v.trim() === '' ? null : v);
+    return this.http.put(`${environment.apiUrl}/api/tasks/${taskId}`, { title, description, priority, listId: toGuidOrNull(listId), labelsJson, assigneeId: toGuidOrNull(assigneeId), dueDate, issueType, epic, storyPoints, startDate, environment: taskEnv, parentIssueId: toGuidOrNull(parentIssueId), sprintId: toGuidOrNull(sprintId), watchersJson, linkedIssuesJson, timeEstimated, timeSpent, timeRemaining, teamId: toGuidOrNull(teamId), status: undefined, statusId: toGuidOrNull(statusId) }, { withCredentials: true });
   }
   // Project Members (Enterprise: Project has explicit members from workspace)
   getProjectMembers(projectId: string, page=1, pageSize=20, search?: string) {

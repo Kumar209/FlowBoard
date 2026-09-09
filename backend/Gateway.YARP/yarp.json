@@ -61,6 +61,14 @@
         "ClusterId": "project-cluster",
         "Match": { "Path": "/api/environments/{**catch-all}" }
       },
+      "status-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/statuses/{**catch-all}" }
+      },
+      "status-root-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/statuses" }
+      },
       "task-route": {
         "ClusterId": "project-cluster",
         "Match": { "Path": "/api/tasks/{**catch-all}" },
