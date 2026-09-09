@@ -212,7 +212,6 @@ public class TaskService : ITaskService
         try { orgIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[OrganizationMembers] WHERE OrganizationId = {0} UNION SELECT OwnerId FROM [identity].[Organizations] WHERE Id = {0}", orgId).ToListAsync(ct); } catch { }
         try { wsIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0}", wsId).ToListAsync(ct); } catch { }
         try { projIds = await _db.ProjectMembers.Where(pm => pm.ProjectId == projectId).Select(pm => pm.UserId).ToListAsync(ct); } catch { }
-        if (!projIds.Any()) projIds = wsIds.Intersect(orgIds).ToList();
         var candidates = orgIds.Intersect(wsIds).Intersect(projIds).ToList();
         return candidates.Contains(assigneeId);
     }
