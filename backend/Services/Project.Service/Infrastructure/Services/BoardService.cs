@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
@@ -77,14 +78,19 @@ public class BoardService : IBoardService
             var maxPos = await _db.BoardLists.Where(b => b.ProjectId == projectId && b.BoardId == targetBoardId).MaxAsync(b => (int?)b.Position, ct) ?? -1;
             pos = maxPos + 1;
         }
-        var list = new BoardList(projectId, name, pos, targetBoardId);
+        var normalized = Regex.Replace(name.Trim(), @"[-_]+", " ");
+        normalized = Regex.Replace(normalized, @"\s+", " ").Trim();
+        var display = string.Join(" ", normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(p => char.ToUpper(p[0]) + p.Substring(1).ToLower()));
+        var list = new BoardList(projectId, display, pos, targetBoardId);
         _db.BoardLists.Add(list);
         await _db.SaveChangesAsync(ct);
-        // Jira-like: column maps to a project status with same name — create status if missing and map
-        var status = await _db.Statuses.FirstOrDefaultAsync(s => s.ProjectId == projectId && s.Name.ToLower() == name.ToLower(), ct);
+        // Jira-like: column maps to a project status with same normalized name — create status if missing and map
+        var normKey = normalized.ToLowerInvariant();
+        var existingStatuses = await _db.Statuses.Where(s => s.ProjectId == projectId).ToListAsync(ct);
+        var status = existingStatuses.FirstOrDefault(s => Regex.Replace(s.Name.Trim(), @"[-_]+", " ").Trim().ToLowerInvariant() == normKey);
         if (status == null)
         {
-            status = new Status(projectId, name);
+            status = new Status(projectId, display);
             _db.Statuses.Add(status);
             await _db.SaveChangesAsync(ct);
         }

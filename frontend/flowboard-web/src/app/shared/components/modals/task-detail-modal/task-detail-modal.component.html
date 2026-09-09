@@ -149,13 +149,6 @@
               <select class="select select-bordered select-sm rounded-full flex-1" disabled><option>Loading statuses...</option></select>
             }
           </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs opacity-60 shrink-0">Board Column</span>
-            <select class="select select-bordered select-xs rounded-full flex-1" [value]="listId()" (change)="listId.set($any($event.target).value)" [disabled]="readOnly()">
-              <option value="">No column (Backlog)</option>
-              @for (l of lists(); track l.id) { <option [value]="l.id">{{ l.name }}</option> }
-            </select>
-          </div>
 
           <div class="space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-1">
             <!-- Assignee picker — intersection org ∩ workspace ∩ project (never cross-org) -->
