@@ -73,8 +73,13 @@
       @if ((boardQuery.data()!.lists || []).length === 0) {
         <div class="text-center py-12 bg-base-100 rounded-2xl border border-dashed">
           <p class="font-semibold">No columns yet</p>
-          <p class="text-sm opacity-60">Create your first column (To Do, In Progress, In Review, Done) — then add tasks.</p>
-          @if (canCreateTask()) { <button class="btn btn-primary btn-sm rounded-full mt-3" (click)="openCreateColumn()">+ New Column</button> }
+          <p class="text-sm opacity-60">This board is empty. Create columns manually — each board has its own columns.</p>
+          @if (canCreateTask()) {
+            <div class="flex gap-2 justify-center mt-3">
+              <button class="btn btn-primary btn-sm rounded-full" (click)="openCreateColumn()">+ New Column</button>
+              <button class="btn btn-ghost btn-sm rounded-full border" (click)="addSampleColumns()">Add sample columns (To Do, In Progress, Done)</button>
+            </div>
+          }
           @else { <span class="badge badge-ghost badge-xs mt-2">View only — PM/OrgAdmin can create columns</span> }
         </div>
       } @else {

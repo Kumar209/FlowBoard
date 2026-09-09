@@ -52,11 +52,16 @@
                 <td class="w-[160px]"><progress class="progress progress-primary w-full h-2" [value]="s.done" [max]="s.tasks || 1"></progress></td>
                 <td>
                   <div class="flex gap-1 flex-wrap">
-                    <a [routerLink]="['../board']" [queryParams]="{sprint: s.id, view: scrumBoardId()}" class="btn btn-ghost btn-xs rounded-full">View Board</a>
+                    @if (scrumBoardId()) {
+                      <a [routerLink]="['../board']" [queryParams]="{sprint: s.id, view: scrumBoardId()}" class="btn btn-ghost btn-xs rounded-full">View Board</a>
+                    } @else {
+                      <span class="btn btn-ghost btn-xs rounded-full opacity-30 cursor-not-allowed" title="Create a Scrum board in Boards first">View Board</span>
+                    }
                     <a [routerLink]="['../backlog']" class="btn btn-ghost btn-xs rounded-full">Backlog</a>
                     <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(s)">Edit</button>
                     <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(s)">Delete</button>
                   </div>
+                  @if (!scrumBoardId()) { <div class="text-[10px] opacity-50 mt-1">Scrum board missing — <a routerLink="../boards" class="link link-primary">Go to Boards</a></div> }
                 </td>
               </tr>
             }
@@ -84,7 +89,11 @@
           </div>
           <progress class="progress progress-primary w-full mt-3 h-2" [value]="s.done" [max]="s.tasks || 1"></progress>
           <div class="mt-3 flex flex-wrap gap-1">
-            <a [routerLink]="['../board']" [queryParams]="{sprint: s.id, view: scrumBoardId()}" class="btn btn-ghost btn-xs rounded-full">View Board</a>
+            @if (scrumBoardId()) {
+              <a [routerLink]="['../board']" [queryParams]="{sprint: s.id, view: scrumBoardId()}" class="btn btn-ghost btn-xs rounded-full">View Board</a>
+            } @else {
+              <span class="btn btn-ghost btn-xs rounded-full opacity-30 cursor-not-allowed">View Board</span>
+            }
             <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(s)">Edit</button>
             <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(s)">Delete</button>
           </div>

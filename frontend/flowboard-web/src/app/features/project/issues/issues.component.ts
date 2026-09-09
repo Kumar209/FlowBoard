@@ -125,21 +125,7 @@ export class IssuesComponent {
       this.createListId.set(lists[0].id);
       this.createOpen.set(true);
     } else {
-      // Auto-create default To Do column for empty project so issue can be created (goes to Backlog)
-      try {
-        this.toast.success('Creating default To Do column...');
-        const list:any = await firstValueFrom(this.ps.createList(this.projectId(), 'To Do'));
-        await this.qc.invalidateQueries({queryKey:['board', this.projectId()]});
-        // wait a bit for refetch
-        setTimeout(async () => {
-          const refreshed:any = await firstValueFrom(this.ps.getBoard(this.projectId()));
-          const newList = refreshed.lists?.[0];
-          if(newList){ this.createListId.set(newList.id); this.createOpen.set(true); }
-          else this.toast.error('Failed to create default column — create a column in Boards first');
-        }, 800);
-      } catch (e:any) {
-        this.toast.error(e.error?.error || 'Create a column in Boards first');
-      }
+      this.toast.error('Create a board and column first — go to Boards → + New Column. No default To Do is created.');
     }
   }
   onCreateSubmit(e:any){

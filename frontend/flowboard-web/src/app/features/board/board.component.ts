@@ -301,6 +301,15 @@ export class BoardComponent {
     this.updateMutation.mutate({ id: t.id, title: e.title, description: e.description, priority: e.priority, listId: e.listId, labelsJson: e.labelsJson, assigneeId: e.assigneeId, dueDate: e.dueDate, issueType: e.issueType, epic: e.epic, storyPoints: e.storyPoints, startDate: e.startDate, environment: e.environment, parentIssueId: e.parentIssueId, sprintId: e.sprintId, watchersJson: e.watchersJson, linkedIssuesJson: e.linkedIssuesJson, timeEstimated: e.timeEstimated, timeSpent: e.timeSpent, timeRemaining: e.timeRemaining, teamId: e.teamId });
   }
   openCreateColumn(){ this.columnModalMode.set('create'); this.editingColumn.set(null); this.columnModalOpen.set(true); }
+  async addSampleColumns(){
+    if(!this.canCreateTask()) { this.toast.error('Only PM/OrgAdmin can create columns'); return; }
+    const samples = ['To Do','In Progress','Done'];
+    for(let i=0;i<samples.length;i++){
+      try { await firstValueFrom(this.projectService.createList(this.projectId(), samples[i], this.selectedBoardId() || undefined, i)); } catch {}
+    }
+    this.queryClient.invalidateQueries({ queryKey: ['board'] });
+    this.toast.success('Sample columns added');
+  }
   openEditColumn(list:any){ this.columnModalMode.set('update'); this.editingColumn.set(list); this.columnModalOpen.set(true); this.openMenuListId.set(null); }
   onColumnSubmit(e:{name:string; position:number}){
     if(this.columnModalMode()==='create') this.createListMutation.mutate({name: e.name, position: e.position});
