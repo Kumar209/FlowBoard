@@ -33,6 +33,8 @@ public class AuthService : IAuthService
         var org = new Organization(companyName, orgSlug, user.Id, companyDescription);
         _db.Organizations.Add(org);
         await _db.SaveChangesAsync(ct);
+        var orgMember = new OrganizationMember(org.Id, user.Id, 2); // OrgAdmin
+        _db.OrganizationMembers.Add(orgMember);
         var workspace = new Workspace(org.Id, "General", "general-" + Guid.NewGuid().ToString()[..4]);
         _db.Workspaces.Add(workspace);
         await _db.SaveChangesAsync(ct);

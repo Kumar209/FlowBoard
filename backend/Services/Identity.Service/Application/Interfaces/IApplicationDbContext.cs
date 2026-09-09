@@ -12,6 +12,8 @@ public interface IApplicationDbContext
     DbSet<Organization> Organizations { get; }
     DbSet<Workspace> Workspaces { get; }
     DbSet<WorkspaceMember> WorkspaceMembers { get; }
+    DbSet<OrganizationMember> OrganizationMembers { get; }
+    DbSet<OrganizationWorkspaceRole> OrganizationWorkspaceRoles { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

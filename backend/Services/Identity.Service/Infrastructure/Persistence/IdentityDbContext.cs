@@ -16,6 +16,8 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<Workspace> Workspaces => Set<Workspace>();
     public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
+    public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
+    public DbSet<OrganizationWorkspaceRole> OrganizationWorkspaceRoles => Set<OrganizationWorkspaceRole>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -60,15 +62,42 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
             e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        // WorkspaceMember - Composite PK, Role enum as int
+        // WorkspaceMember - Composite PK, Role enum as int + CustomRoleId FK
         modelBuilder.Entity<WorkspaceMember>(e =>
         {
             e.HasKey(x => new { x.WorkspaceId, x.UserId });
             e.HasIndex(x => x.UserId);
             e.HasIndex(x => x.WorkspaceId);
+            e.HasIndex(x => x.CustomRoleId);
             e.Property(x => x.Role).HasConversion<int>().IsRequired();
             e.HasOne(x => x.Workspace).WithMany().HasForeignKey(x => x.WorkspaceId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.CustomRole).WithMany().HasForeignKey(x => x.CustomRoleId).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // OrganizationMember - explicit org-level membership (Member/OrgAdmin/Client)
+        modelBuilder.Entity<OrganizationMember>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => new { x.OrganizationId, x.UserId }).IsUnique();
+            e.HasIndex(x => x.OrganizationId);
+            e.HasIndex(x => x.UserId);
+            e.Property(x => x.Role).IsRequired();
+            e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // OrganizationWorkspaceRole - custom per-org workspace roles
+        modelBuilder.Entity<OrganizationWorkspaceRole>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => new { x.OrganizationId, x.Name }).IsUnique();
+            e.HasIndex(x => x.OrganizationId);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // RefreshToken
