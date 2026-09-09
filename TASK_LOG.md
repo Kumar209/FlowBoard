@@ -23,8 +23,9 @@
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 5/5 | Completed |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
-| Phase 5: Polish & Production Deploy | 5.1 - 5.4 | 0/4 | Pending |
-| **Total** | **0.1 - 5.4** | **15/26** | **In Progress** |
+| Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
+| Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 0/5 | Pending |
+| **Total** | **0.1 - 6.5** | **15/31** | **In Progress** |
 
 ---
 
@@ -1220,6 +1221,50 @@ Completed audit trail and advanced query features — `ActivityLog` on every tas
 - Unlocks: Task 3.1 `CloudAMQP + MassTransit + Outbox` will publish `ActivityLog` + `TaskCreated/Moved` via `OutboxMessage` poller (already `OutboxMessages` table from 2.1) to Notification `5004` SignalR; Task 3.3 `CDK DragDrop` already has `4 columns` `To Do/In Progress/In Review/Done` + `+ New List` + `Create Task modal` + `Task detail modal` + `cdkDropList` `moveTask` optimistic (done in 2.4 polish, will be verified together with 2.5)
 - Depends on: Task 2.4 (Board `4 columns` + `Create List` + `Create Task modal` must exist before activity shows `TaskCreated`), Task 2.3 (Redis `board 5m` `tasks 2m` must be HIT/MISS for `search=bug` to demonstrate cache), Task 2.1 (7 tables `[project]` + `ActivityLogs` index `ProjectId+OccurredAt`)
 - Follow-up: Keep `search` client-side `ToLower().Contains` for now (SQL `LIKE %bug%`, not `FULLTEXT CONTAINS` — add `HasIndex IsFullText` in Task 4.x if needed); `board` filter `taskSearch` is client-side, `GET /tasks` filter is server-side `LIKE` + cache; Next test `2.4+2.5 together` as requested (board drag + timeline + search)
+
+---
+
+## Task 6.0: Company-Centric Org Redesign (DB Reset + Register + Sidebar) — COMPLETED 09 Sep 2026
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 09 Sep 2026 | 6 - Org | 4eeabde | 4h | Feature |
+
+### 1. Overview
+Migrated from personal-org (FullName's Org + Personal Workspace per register) to company-centric: Register collects Company Name, creates Organization(companyName) + Workspace General + OrgAdmin, no personal org, employee self-register disabled, org members via CreateEmployeeWithRoles only. DB dropped and recreated with new Initial migrations, seeded SuperAdmin only.
+
+### 2. Objectives
+- Company-centric register with CompanyName/Description
+- Drop DB + migrations, reseed SuperAdmin superadmin@flowboard.local
+- Main sidebar Activity/Members hidden for Member, project sidebar all visible, Org overview edit OrgAdmin only
+- DeleteOrganization for own-org/SuperAdmin
+
+### 3. Technical Stack
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| Backend | EF Core 10, IdentitySeeder | DB reset, SuperAdmin seed |
+
+### 4. Implementation Details
+See Appendix X in System Design.
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/.../AuthService, RegisterCommand | Modified | Company-centric |
+| frontend/register | Modified | Company fields + eye toggle |
+| layout.component | Modified | Visibility |
+
+### 6. Verification
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build | Passed | dotnet 0 Error, ng 464kB |
+| DB | Passed | 1 SuperAdmin seeded |
+
+### 7. Enterprise Relevance
+Company-centric tenant is MNC SaaS standard.
+
+### 8. Next Steps
+- Unlocks: 6.1-6.5 custom roles & permissions
 
 ---
 
