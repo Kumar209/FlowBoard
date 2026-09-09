@@ -13,7 +13,7 @@ import { CommonModule } from '@angular/common';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ConfirmDeleteComponent {
-  open = input.required<boolean>();
+  open = input<boolean>(false);
   title = input<string>('Delete?');
   message = input<string>('This cannot be undone.');
   loading = input<boolean>(false);

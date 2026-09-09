@@ -16,7 +16,7 @@ import { injectQuery } from '@tanstack/angular-query-experimental';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TaskCreateModalComponent {
-  open = input.required<boolean>();
+  open = input<boolean>(false);
   listName = input<string>('To Do');
   projectId = input<string>('');
   loading = input<boolean>(false);

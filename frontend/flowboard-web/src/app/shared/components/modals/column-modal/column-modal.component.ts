@@ -14,7 +14,7 @@ import { CommonModule } from '@angular/common';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ColumnModalComponent {
-  open = input.required<boolean>();
+  open = input<boolean>(false);
   mode = input<'create'|'update'>('create');
   initialName = input<string>('');
   initialPosition = input<number>(0);
