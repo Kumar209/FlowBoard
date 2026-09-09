@@ -112,35 +112,33 @@
                 </button>
               </label>
             </label>
-            <label class="form-control"><span class="label-text text-xs">Role (org level 5 only)</span><select class="select select-bordered rounded-xl" [value]="inviteRole()" (change)="inviteRole.set($any($event.target).value)"><option>Member</option><option>ProjectManager</option><option>OrgAdmin</option><option>Client</option><option>Viewer</option></select></label>
+            <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="inviteRole()" (change)="inviteRole.set($any($event.target).value)"><option>Member</option><option>OrgAdmin</option><option>Client</option></select></label>
             @if ((customRolesQuery.data()?.length||0)===0) {
               <div class="alert alert-warning py-2 px-3 rounded-xl text-xs">
-                <span>No custom roles created yet — <a routerLink="/roles" class="link link-primary" (click)="showInvite.set(false)">Go to Roles</a> to create (e.g., Developer, QA). You can still add employee with org-level role above.</span>
+                <span>No custom roles created yet — <a routerLink="/roles" class="link link-primary" (click)="showInvite.set(false)">Go to Roles</a> to create (e.g., Developer, QA). You can still add employee at organization level with role above; workspace assignment requires a custom role.</span>
               </div>
             }
-            <label class="form-control"><span class="label-text text-xs">Workspaces * (per-workspace role)</span>
-              <div class="border rounded-xl p-3 max-h-40 overflow-y-auto space-y-2">
+            <label class="form-control"><span class="label-text text-xs">Workspaces (per-workspace custom role — only custom roles)</span>
+              <div class="border rounded-xl p-3 max-h-40 overflow-y-auto space-y-2" [class.opacity-60]="(customRolesQuery.data()?.length||0)===0">
                 @for (ws of workspacesQuery.data() || []; track ws.id) {
                   <div class="flex items-center gap-2">
-                    <label class="flex items-center gap-2 cursor-pointer flex-1">
-                      <input type="checkbox" class="checkbox checkbox-sm" [checked]="inviteWorkspaceIds().includes(ws.id)" (change)="onInviteWorkspaceChecked(ws.id, $any($event.target).checked)" />
+                    <label class="flex items-center gap-2 cursor-pointer flex-1" [class.opacity-50]="(customRolesQuery.data()?.length||0)===0">
+                      <input type="checkbox" class="checkbox checkbox-sm" [checked]="inviteWorkspaceIds().includes(ws.id)" [disabled]="(customRolesQuery.data()?.length||0)===0" (change)="onInviteWorkspaceChecked(ws.id, $any($event.target).checked)" />
                       <span class="text-sm">{{ ws.name }}</span>
                       <span class="text-xs opacity-40 font-mono">{{ ws.slug }}</span>
                     </label>
                     @if (inviteWorkspaceIds().includes(ws.id)) {
-                      <select class="select select-bordered select-sm rounded-lg max-w-[140px]" [value]="inviteWorkspaceRoles()[ws.id] || inviteRole()" (change)="onInviteRoleChange(ws.id, $any($event.target).value)">
-                        @if ((customRolesQuery.data()?.length||0)>0) {
-                          @for (cr of customRolesQuery.data() || []; track cr.id) { <option [value]="cr.name">{{ cr.name }}</option> }
-                          <option disabled>— Fixed —</option>
-                        }
-                        <option>Member</option><option>ProjectManager</option><option>Client</option><option>Viewer</option><option>OrgAdmin</option>
+                      <select class="select select-bordered select-sm rounded-lg max-w-[140px]" [value]="inviteWorkspaceRoles()[ws.id] || ''" (change)="onInviteRoleChange(ws.id, $any($event.target).value)">
+                        @for (cr of customRolesQuery.data() || []; track cr.id) { <option [value]="cr.name">{{ cr.name }}</option> }
+                        @if ((customRolesQuery.data()?.length||0)===0) { <option disabled>No custom roles</option> }
                       </select>
                     }
                   </div>
                 }
                 @if ((workspacesQuery.data()?.length||0)===0) { <span class="text-xs opacity-40">No workspaces</span> }
+                @if ((customRolesQuery.data()?.length||0)===0) { <div class="text-[11px] opacity-60 mt-2">Workspace assignment disabled — create a custom role in <a routerLink="/roles" class="link link-primary" (click)="showInvite.set(false)">Roles</a> first. Org-level member will still be created.</div> }
               </div>
-              <span class="label-text-alt text-[10px] opacity-40">Checked workspaces get per-workspace role (populated from Roles • custom if exists). Shows names, not ids.</span>
+              <span class="label-text-alt text-[10px] opacity-40">Checked workspaces get custom role (only custom roles from Roles). Leave unchecked to add org-level member only.</span>
             </label>
           </div>
           <div class="flex justify-end gap-2 mt-6">
@@ -161,34 +159,31 @@
           <div class="mt-4 space-y-3">
             <label class="form-control"><span class="label-text text-xs">Full Name</span><input type="text" class="input input-bordered rounded-xl" [value]="editName()" (input)="editName.set($any($event.target).value)" /></label>
             <label class="form-control"><span class="label-text text-xs">Email</span><input type="email" class="input input-bordered rounded-xl" [value]="editEmail()" (input)="editEmail.set($any($event.target).value)" /></label>
-            <label class="form-control"><span class="label-text text-xs">Role (5 org roles)</span><select class="select select-bordered rounded-xl" [value]="editRole()" (change)="editRole.set($any($event.target).value)"><option>Member</option><option>ProjectManager</option><option>OrgAdmin</option><option>Client</option><option>Viewer</option></select></label>
+            <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="editRole()" (change)="editRole.set($any($event.target).value)"><option>Member</option><option>OrgAdmin</option><option>Client</option></select></label>
             @if ((customRolesQuery.data()?.length||0)===0) {
               <div class="alert alert-warning py-2 px-3 rounded-xl text-xs">
-                <span>No custom roles — <a routerLink="/roles" class="link link-primary" (click)="editTarget.set(null)">Manage Roles</a> to add Developer/QA.</span>
+                <span>No custom roles — <a routerLink="/roles" class="link link-primary" (click)="editTarget.set(null)">Manage Roles</a> to add Developer/QA. Workspace assignment disabled.</span>
               </div>
             }
-            <label class="form-control"><span class="label-text text-xs">Workspaces (per-workspace role)</span>
-              <div class="border rounded-xl p-3 max-h-40 overflow-y-auto space-y-2">
+            <label class="form-control"><span class="label-text text-xs">Workspaces (per-workspace custom role — only custom roles)</span>
+              <div class="border rounded-xl p-3 max-h-40 overflow-y-auto space-y-2" [class.opacity-60]="(customRolesQuery.data()?.length||0)===0">
                 @for (ws of workspacesQuery.data() || []; track ws.id) {
                   <div class="flex items-center gap-2">
-                    <label class="flex items-center gap-2 cursor-pointer flex-1">
-                      <input type="checkbox" class="checkbox checkbox-sm" [checked]="editWorkspaceIds().includes(ws.id)" (change)="onEditWorkspaceChecked(ws.id, $any($event.target).checked)" />
+                    <label class="flex items-center gap-2 cursor-pointer flex-1" [class.opacity-50]="(customRolesQuery.data()?.length||0)===0">
+                      <input type="checkbox" class="checkbox checkbox-sm" [checked]="editWorkspaceIds().includes(ws.id)" [disabled]="(customRolesQuery.data()?.length||0)===0" (change)="onEditWorkspaceChecked(ws.id, $any($event.target).checked)" />
                       <span class="text-sm">{{ ws.name }}</span>
                       <span class="text-xs opacity-40 font-mono">{{ ws.slug }}</span>
                     </label>
                     @if (editWorkspaceIds().includes(ws.id)) {
-                      <select class="select select-bordered select-sm rounded-lg max-w-[140px]" [value]="editWorkspaceRoles()[ws.id] || editRole()" (change)="onEditRoleChange(ws.id, $any($event.target).value)">
-                        @if ((customRolesQuery.data()?.length||0)>0) {
-                          @for (cr of customRolesQuery.data() || []; track cr.id) { <option [value]="cr.name">{{ cr.name }}</option> }
-                          <option disabled>— Fixed —</option>
-                        }
-                        <option>Member</option><option>ProjectManager</option><option>Client</option><option>Viewer</option><option>OrgAdmin</option>
+                      <select class="select select-bordered select-sm rounded-lg max-w-[140px]" [value]="editWorkspaceRoles()[ws.id] || ''" (change)="onEditRoleChange(ws.id, $any($event.target).value)">
+                        @for (cr of customRolesQuery.data() || []; track cr.id) { <option [value]="cr.name">{{ cr.name }}</option> }
+                        @if ((customRolesQuery.data()?.length||0)===0) { <option disabled>No custom roles</option> }
                       </select>
                     }
                   </div>
                 }
               </div>
-              <span class="label-text-alt text-[10px] opacity-40">Per-workspace role from Roles (custom if exists) — shows names, not ids. Unchecked removes.</span>
+              <span class="label-text-alt text-[10px] opacity-40">Per-workspace custom role (only custom). Unchecked removes. If no custom roles, only org-level save.</span>
             </label>
           </div>
           <div class="flex justify-end gap-2 mt-6">

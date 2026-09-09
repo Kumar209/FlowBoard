@@ -68,7 +68,7 @@ public class OrganizationsController : ControllerBase
         // Support both legacy single Role + WorkspaceIds and new WorkspaceRoles per workspace
         if (req.WorkspaceRoles != null && req.WorkspaceRoles.Any())
         {
-            var result2 = await _mediator.Send(new CreateEmployeeWithRolesCommand(id, req.FullName, req.Email, req.Password, req.WorkspaceRoles, userId.Value));
+            var result2 = await _mediator.Send(new CreateEmployeeWithRolesCommand(id, req.FullName, req.Email, req.Password, req.WorkspaceRoles, userId.Value, req.Role));
             if (result2.IsFailure) return result2.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result2.Error }) : BadRequest(new { error = result2.Error });
             return StatusCode(201, result2.Value);
         }
@@ -84,7 +84,7 @@ public class OrganizationsController : ControllerBase
         var callerId = GetUserId(); if (callerId == null) return Unauthorized();
         if (req.WorkspaceRoles != null && req.WorkspaceRoles.Any())
         {
-            var result2 = await _mediator.Send(new UpdateEmployeeWithRolesCommand(id, userId, req.FullName, req.Email, req.WorkspaceRoles, callerId.Value));
+            var result2 = await _mediator.Send(new UpdateEmployeeWithRolesCommand(id, userId, req.FullName, req.Email, req.WorkspaceRoles, callerId.Value, req.Role));
             if (result2.IsFailure) return result2.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result2.Error }) : result2.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result2.Error }) : BadRequest(new { error = result2.Error });
             return Ok(result2.Value);
         }
