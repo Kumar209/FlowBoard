@@ -8,7 +8,7 @@ using Identity.Service.Domain.Entities;
 
 namespace Identity.Service.Application.Commands;
 
-public record RegisterCommand(string Email, string Password, string FullName) : IRequest<Result<AuthResponse>>;
+public record RegisterCommand(string Email, string Password, string FullName, string CompanyName, string? CompanyDescription = null) : IRequest<Result<AuthResponse>>;
 
 public class RegisterCommandValidator : AbstractValidator<RegisterCommand>
 {
@@ -17,6 +17,8 @@ public class RegisterCommandValidator : AbstractValidator<RegisterCommand>
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
         RuleFor(x => x.Password).NotEmpty().MinimumLength(8).MaximumLength(100);
         RuleFor(x => x.FullName).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.CompanyName).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.CompanyDescription).MaximumLength(1000).When(x => x.CompanyDescription != null);
     }
 }
 
@@ -25,5 +27,5 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result<Au
     private readonly IAuthService _authService;
     public RegisterCommandHandler(IAuthService authService) => _authService = authService;
     public Task<Result<AuthResponse>> Handle(RegisterCommand request, CancellationToken ct)
-        => _authService.RegisterAsync(request.Email, request.Password, request.FullName, ct);
+        => _authService.RegisterAsync(request.Email, request.Password, request.FullName, request.CompanyName, request.CompanyDescription, ct);
 }

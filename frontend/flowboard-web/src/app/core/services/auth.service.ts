@@ -66,8 +66,8 @@ export class AuthService {
     // Rehydrate via HttpOnly refresh cookie on app init (Layout ngOnInit -> me()/refresh)
   }
 
-  register(email: string, password: string, fullName: string) {
-    return this.http.post<AuthResponse>(`${environment.apiUrl}/api/auth/register`, { email, password, fullName }, { withCredentials: true });
+  register(email: string, password: string, fullName: string, companyName: string, companyDescription?: string) {
+    return this.http.post<AuthResponse>(`${environment.apiUrl}/api/auth/register`, { email, password, fullName, companyName, companyDescription }, { withCredentials: true });
   }
 
   login(email: string, password: string) {

@@ -26,7 +26,7 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
-        var result = await _mediator.Send(new RegisterCommand(request.Email, request.Password, request.FullName));
+        var result = await _mediator.Send(new RegisterCommand(request.Email, request.Password, request.FullName, request.CompanyName, request.CompanyDescription));
         if (result.IsFailure) return BadRequest(new { error = result.Error });
 
         SetRefreshCookie(result.Value!.RefreshToken, result.Value.RefreshTokenExpiresAt);

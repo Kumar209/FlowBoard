@@ -21,17 +21,19 @@ public class AuthService : IAuthService
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<Result<AuthResponse>> RegisterAsync(string email, string password, string fullName, CancellationToken ct = default)
+    public async Task<Result<AuthResponse>> RegisterAsync(string email, string password, string fullName, string companyName, string? companyDescription, CancellationToken ct = default)
     {
         var exists = await _db.Users.AnyAsync(x => x.Email == email.ToLowerInvariant(), ct);
         if (exists) return Result<AuthResponse>.Failure("Email already registered");
+        if (string.IsNullOrWhiteSpace(companyName)) return Result<AuthResponse>.Failure("Company name required");
         var hash = _passwordHasher.Hash(password);
         var user = new User(email, hash, fullName);
         _db.Users.Add(user);
-        var org = new Organization($"{fullName}'s Org", $"{user.Id.ToString()[..8]}-org", user.Id);
+        var orgSlug = companyName.ToLowerInvariant().Replace(" ", "-") + "-" + Guid.NewGuid().ToString()[..6];
+        var org = new Organization(companyName, orgSlug, user.Id, companyDescription);
         _db.Organizations.Add(org);
         await _db.SaveChangesAsync(ct);
-        var workspace = new Workspace(org.Id, "Personal Workspace", "personal");
+        var workspace = new Workspace(org.Id, "General", "general-" + Guid.NewGuid().ToString()[..4]);
         _db.Workspaces.Add(workspace);
         await _db.SaveChangesAsync(ct);
         var member = new WorkspaceMember(workspace.Id, user.Id, Domain.Enums.WorkspaceRole.OrgAdmin);

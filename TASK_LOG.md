@@ -1223,6 +1223,55 @@ Completed audit trail and advanced query features — `ActivityLog` on every tas
 
 ---
 
+## Task 5.5: SuperAdmin Admin Dashboard (Separate /admin Layout) — FUTURE
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | 5 - Polish | — | 4h | Feature |
+
+### 1. Overview
+Separate SaaS-owner layout `/admin` (not inside `w/:wid/p/:pid`) for SuperAdmin (5) to manage all organizations/members globally — OrgAdmin remains own-org only. OrgAdmin can delete/update own org cascade, SuperAdmin can delete any org/member. No impersonation: SuperAdmin needing OrgAdmin access must register separate OrgAdmin account with different email (MNC SaaS separation).
+
+### 2. Objectives
+- Create `frontend/flowboard-web/src/app/features/admin` with `AdminLayoutComponent` (sidebar: Organizations, Workspaces, Users, Activity, System) guarded `RequireSuperAdmin` (role 5), not inside project layout
+- Backend `GET /api/admin/organizations` + `DELETE /api/organizations/{id}` (SuperAdmin any org) + `GET/DELETE /api/admin/users` + `GET /api/admin/workspaces` — SuperAdmin bypasses org check, OrgAdmin blocked 403
+- Enforce OrgAdmin own-org only: `PUT/DELETE /organizations/{id}` checks `Organization.OwnerId==caller OR OrgAdmin in that org` else 403 cross-org; SuperAdmin bypass
+- No impersonation: SuperAdmin `JoinProject` already verified via `BoardHub` workspace check, so SuperAdmin cannot join project without being member; must register as OrgAdmin to get tenant access
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Frontend | Angular 22 Standalone + Signals | 22 | `/admin` layout, `authGuard` + `superAdminGuard` |
+| Backend | ASP.NET Core + EF Core 10 | 10 | `OrganizationsController.Delete` already added (own-org vs SuperAdmin any), new `AdminController` for global list |
+| Auth | JWT workspace_id + Role 5 | — | `RequireSuperAdmin` policy |
+
+### 4. Implementation Details
+- Frontend: `app.routes.ts` add `path: 'admin', canActivate:[superAdminGuard], loadComponent: AdminLayout` with children `organizations, users, workspaces`; AdminLayout not inside `LayoutComponent` drawer
+- Backend: `OrganizationsController.Delete` already distinguishes `isSuper` vs `isOrgAdmin` own org; add `AdminController` with `GET admin/organizations` (`isSuper` else 403)
+- Keep `Organization` cascade: deleting org removes `Workspaces` + `WorkspaceMembers` (already in `DeleteOrganizationAsync`), projects in `[project]` remain orphaned — future will add cross-service cleanup via RabbitMQ or direct SQL
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| frontend/src/app/features/admin/* | Pending Create | Admin layout + 4 pages, superAdminGuard |
+| backend/Services/Identity.Service/Api/Controllers/AdminController.cs | Pending Create | Global org/user list/delete for SuperAdmin |
+| Documents/FlowBoard_Tasks_Plan.docx | Pending Update | Add Task 5.5 row |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Pending | — | Create task after Q2/Q3 company-centric is stable |
+
+### 7. Enterprise Relevance (MNC Value)
+SaaS-owner vs tenant-owner separation is MNC standard (e.g., Vercel SuperAdmin vs Team Owner). Dedicated `/admin` prevents OrgAdmin escalation, audit trail for deletes, clean multi-tenant.
+
+### 8. Next Steps & Dependencies
+- Depends on: Q1-Q3 company-centric (Register with companyName, single org per user, DB reseeded SuperAdmin `superadmin@flowboard.local`)
+- Unlocks: Production hardening for SaaS billing/delete-any-org
+- Follow-up: Add CloudAMQP alarm for `_error` already done, add Serilog for admin deletes
+
+---
+
 <!-- Future tasks follow same 8-section template - copy block below -->
 
 <!--

@@ -12,8 +12,8 @@ using Notification.Service.Infrastructure.Persistence;
 namespace Notification.Service.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(NotificationDbContext))]
-    [Migration("20260907142846_FixNotificationRecipient")]
-    partial class FixNotificationRecipient
+    [Migration("20260909075358_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

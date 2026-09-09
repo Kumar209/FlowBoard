@@ -14,6 +14,7 @@ public record UpdateEmployeeCommand(Guid OrganizationId, Guid UserId, string? Fu
 public record CreateEmployeeWithRolesCommand(Guid OrganizationId, string FullName, string Email, string Password, List<Identity.Service.Application.Interfaces.WorkspaceRoleAssignment> WorkspaceRoles, Guid CallerId) : IRequest<Result<OrgMemberDto>>;
 public record UpdateEmployeeWithRolesCommand(Guid OrganizationId, Guid UserId, string? FullName, string? Email, List<Identity.Service.Application.Interfaces.WorkspaceRoleAssignment>? WorkspaceRoles, Guid CallerId) : IRequest<Result<OrgMemberDto>>;
 public record DeleteEmployeeCommand(Guid OrganizationId, Guid UserId, Guid CallerId) : IRequest<Result>;
+public record DeleteOrganizationCommand(Guid OrganizationId, Guid CallerId) : IRequest<Result>;
 
 public class GetMyOrganizationsHandler : IRequestHandler<GetMyOrganizationsQuery, Result<List<OrganizationDto>>>
 {
@@ -102,6 +103,16 @@ public class DeleteEmployeeHandler : IRequestHandler<DeleteEmployeeCommand, Resu
     public async Task<Result> Handle(DeleteEmployeeCommand req, CancellationToken ct)
     {
         try { await _service.DeleteEmployeeAsync(req.OrganizationId, req.UserId, req.CallerId, ct); return Result.Success(); }
+        catch (Exception ex) { return Result.Failure(ex.Message); }
+    }
+}
+public class DeleteOrganizationHandler : IRequestHandler<DeleteOrganizationCommand, Result>
+{
+    private readonly IOrganizationService _service;
+    public DeleteOrganizationHandler(IOrganizationService service) => _service = service;
+    public async Task<Result> Handle(DeleteOrganizationCommand req, CancellationToken ct)
+    {
+        try { await _service.DeleteOrganizationAsync(req.OrganizationId, req.CallerId, ct); return Result.Success(); }
         catch (Exception ex) { return Result.Failure(ex.Message); }
     }
 }

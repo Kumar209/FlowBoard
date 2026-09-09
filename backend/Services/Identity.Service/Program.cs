@@ -99,6 +99,13 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins("http://loca
 
 var app = builder.Build();
 
+// Seed SuperAdmin (company-centric: only superadmin seeded, orgs created via Register with companyName)
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+    await IdentitySeeder.SeedSuperAdminAsync(db);
+}
+
 // 7. Swagger (Development only) - UI at /swagger (e.g., http://localhost:5001/swagger)
 if (app.Environment.IsDevelopment())
 {

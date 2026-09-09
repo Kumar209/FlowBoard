@@ -33,7 +33,9 @@ export class RegisterComponent {
     this.form = this.fb.group({
       fullName: ['', [Validators.required, Validators.maxLength(200)]],
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]]
+      password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
+      companyName: ['', [Validators.required, Validators.maxLength(200)]],
+      companyDescription: ['', [Validators.maxLength(1000)]]
     });
   }
 
@@ -57,9 +59,9 @@ export class RegisterComponent {
     this.loading.set(true);
     this.error.set(null);
 
-    const { fullName, email, password } = this.form.getRawValue();
+    const { fullName, email, password, companyName, companyDescription } = this.form.getRawValue();
 
-    this.auth.register(email!, password!, fullName!).subscribe({
+    this.auth.register(email!, password!, fullName!, companyName!, companyDescription || undefined).subscribe({
       next: (res: any) => {
         this.auth.setSession(
           {

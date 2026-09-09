@@ -617,13 +617,7 @@ namespace Project.Service.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Project.Service.Domain.Entities.TaskItem", "Task")
-                        .WithMany()
-                        .HasForeignKey("TaskId");
-
                     b.Navigation("Project");
-
-                    b.Navigation("Task");
                 });
 
             modelBuilder.Entity("Project.Service.Domain.Entities.Board", b =>

@@ -117,13 +117,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
-// Seed demo data (Task 2.1) - 1 Project + 3 Lists + 12 Tasks
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ProjectDbContext>();
-    // Ensure DB created (migration already applied, but ensure)
-    try { await ProjectSeeder.SeedAsync(db); } catch (Exception ex) { Console.WriteLine($"[Seeder] {ex.Message}"); }
-}
+// Seed disabled for company-centric V2: DB is clean, only SuperAdmin seeded via Identity.Seeder
+// Previously seeded demo project FB-3; now new orgs start empty per MNC spec.
+// using (var scope = app.Services.CreateScope())
+// {
+//     var db = scope.ServiceProvider.GetRequiredService<ProjectDbContext>();
+//     try { await ProjectSeeder.SeedAsync(db); } catch (Exception ex) { Console.WriteLine($"[Seeder] {ex.Message}"); }
+// }
 
 if (app.Environment.IsDevelopment())
 {

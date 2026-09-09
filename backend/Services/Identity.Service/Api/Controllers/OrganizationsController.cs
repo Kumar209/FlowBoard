@@ -42,6 +42,15 @@ public class OrganizationsController : ControllerBase
         return Ok(result.Value);
     }
 
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new DeleteOrganizationCommand(id, userId.Value));
+        if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(new { message = "Organization deleted", id });
+    }
+
     [HttpGet("{id}/members")]
     public async Task<IActionResult> GetOrgMembers(Guid id)
     {
