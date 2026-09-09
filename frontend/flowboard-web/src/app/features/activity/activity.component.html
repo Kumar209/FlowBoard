@@ -5,7 +5,7 @@
         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Activity — Organization</h1>
         <p class="text-sm opacity-60 mt-1">Org-wide audit trail — all projects across your workspaces. Table view</p>
       </div>
-      <span class="badge badge-ghost badge-sm rounded-full">{{ total() }} events • {{ allProjectsQuery.data()?.length || 0 }} projects</span>
+      <span class="badge badge-ghost badge-sm rounded-full">{{ total() }} events • {{ orgId().slice(0,6) || 'org' }} • {{ workspacesQuery.data()?.length || 0 }} workspaces</span>
     </div>
 
     @if (orgActivitiesQuery.isPending() || allProjectsQuery.isPending()) {

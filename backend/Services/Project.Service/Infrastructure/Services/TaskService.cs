@@ -15,6 +15,10 @@ public class TaskService : ITaskService
     public async Task<Result<TaskDto>> CreateTaskAsync(Guid projectId, Guid listId, string title, string? description, string priority, string? labelsJson, Guid? assigneeId, DateTime? dueDate, string? issueType, string? epic, int? storyPoints, DateTime? startDate, string? environment, Guid? parentIssueId, Guid? sprintId, Guid? teamId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
         if (callerRoles.Contains("Client") || callerRoles.Contains("Viewer")) return Result<TaskDto>.Failure("Forbidden - Client/Viewer cannot create tasks");
+        if (assigneeId.HasValue && assigneeId.Value != Guid.Empty)
+        {
+            if (!await IsAssigneeValidAsync(projectId, assigneeId.Value, ct)) return Result<TaskDto>.Failure("Assignee must be member of organization ∩ workspace ∩ project");
+        }
         var list = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == listId && b.ProjectId == projectId, ct);
         if (list == null) return Result<TaskDto>.Failure("List not found in project");
         var prio = Enum.TryParse<Domain.Enums.TaskPriority>(priority, true, out var p) ? p : Domain.Enums.TaskPriority.Medium;
@@ -34,7 +38,7 @@ public class TaskService : ITaskService
         }
         var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, WorkspaceId = workspaceId, ProjectKey = projectKey, ListId = task.ListId, ListName = list.Name, Title = task.Title, ActorId = callerId, ActorName = actorName, ActorRole = actorRole, RecipientUserIds = recipientIds, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
         _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskCreated", JsonSerializer.Serialize(evt)));
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(projectId, task.Id, callerId, "TaskCreated", JsonSerializer.Serialize(new { task.Title, list.Name, projectKey, actorName, actorRole })));
+        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(projectId, task.Id, callerId, "TaskCreated", JsonSerializer.Serialize(new { task.Title, list.Name, projectKey, actorName, actorRole }), workspaceId));
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveAsync($"board:{projectId}");
         await _cache.RemoveByPrefixAsync($"board:{projectId}:");
@@ -47,6 +51,10 @@ public class TaskService : ITaskService
         if (callerRoles.Contains("Client") || callerRoles.Contains("Viewer")) return Result<TaskDto>.Failure("Forbidden - Client/Viewer cannot update tasks");
         var task = await _db.Tasks.FindAsync(new object[] { taskId }, ct);
         if (task == null) return Result<TaskDto>.Failure("Task not found");
+        if (assigneeId.HasValue && assigneeId.Value != Guid.Empty && assigneeId.Value != task.AssigneeId)
+        {
+            if (!await IsAssigneeValidAsync(task.ProjectId, assigneeId.Value, ct)) return Result<TaskDto>.Failure("Assignee must be member of organization ∩ workspace ∩ project");
+        }
         var prio = Enum.TryParse<Domain.Enums.TaskPriority>(priority, true, out var p) ? p : Domain.Enums.TaskPriority.Medium;
         string? newStatus = status;
         Guid? targetListId = listId;
@@ -57,7 +65,8 @@ public class TaskService : ITaskService
             task.MoveToList(targetListId.Value, task.Position, newStatus);
         }
         task.Update(title, description, prio, labelsJson, assigneeId, dueDate, issueType, epic, storyPoints, startDate, environment, parentIssueId, sprintId, watchersJson, linkedIssuesJson, timeEstimated, timeSpent, timeRemaining, teamId, newStatus);
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, callerId, "TaskUpdated", $"{{\"title\":\"{title}\"}}"));
+        var updWs = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, callerId, "TaskUpdated", $"{{\"title\":\"{title}\"}}", updWs));
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveAsync($"board:{task.ProjectId}");
         await _cache.RemoveByPrefixAsync($"board:{task.ProjectId}:");
@@ -122,7 +131,7 @@ public class TaskService : ITaskService
         }
         var evt = new { TaskId = task.Id, ProjectId = task.ProjectId, WorkspaceId = workspaceId, FromListId = fromListId, FromListName = fromListName, ToListId = toListId, ToListName = targetList.Name, BoardName = boardName, SprintName = sprintName, TaskTitle = taskTitle, Position = newPosition, ActorId = callerId, ActorName = actorName, ActorRole = actorRole, RecipientUserIds = recipientIds, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
         _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskMoved", JsonSerializer.Serialize(evt)));
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, callerId, "TaskMoved", JsonSerializer.Serialize(new { fromListId, fromListName, toListId, toListName = targetList.Name, boardName, sprintName, taskTitle, actorName, actorRole })));
+        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, callerId, "TaskMoved", JsonSerializer.Serialize(new { fromListId, fromListName, toListId, toListName = targetList.Name, boardName, sprintName, taskTitle, actorName, actorRole }), workspaceId));
             await _db.SaveChangesAsync(ct);
             await _cache.RemoveAsync($"board:{task.ProjectId}");
             await _cache.RemoveByPrefixAsync($"board:{task.ProjectId}:");
@@ -144,8 +153,9 @@ public class TaskService : ITaskService
         var projectId = task.ProjectId;
         var taskTitle = task.Title;
         var taskIdForLog = task.Id;
+        var delWs = await _db.Projects.Where(p => p.Id == projectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
         // Audit log before delete — TaskId null for deletion event so FK does not conflict (history remains, FK SetNull)
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(projectId, null, callerId, "TaskDeleted", $"{{\"title\":\"{taskTitle}\",\"taskId\":\"{taskIdForLog}\"}}"));
+        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(projectId, null, callerId, "TaskDeleted", $"{{\"title\":\"{taskTitle}\",\"taskId\":\"{taskIdForLog}\"}}", delWs));
         _db.Tasks.Remove(task);
         await _db.SaveChangesAsync(ct);
         await _db.SaveChangesAsync(ct);
@@ -190,5 +200,22 @@ public class TaskService : ITaskService
         return new TaskDetailDto(taskDto, subs, comments);
     }
 
+    private async Task<bool> IsAssigneeValidAsync(Guid projectId, Guid assigneeId, CancellationToken ct)
+    {
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
+        if (project == null) return false;
+        var wsId = project.WorkspaceId;
+        Guid orgId = Guid.Empty;
+        try { var orgRow = await _db.Database.SqlQueryRaw<GuidRow>("SELECT OrganizationId as Value FROM [identity].[Workspaces] WHERE Id = {0}", wsId).FirstOrDefaultAsync(ct); if (orgRow != null) orgId = orgRow.Value; } catch { return false; }
+        if (orgId == Guid.Empty) return false;
+        List<Guid> orgIds = new(), wsIds = new(), projIds = new();
+        try { orgIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[OrganizationMembers] WHERE OrganizationId = {0} UNION SELECT OwnerId FROM [identity].[Organizations] WHERE Id = {0}", orgId).ToListAsync(ct); } catch { }
+        try { wsIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0}", wsId).ToListAsync(ct); } catch { }
+        try { projIds = await _db.ProjectMembers.Where(pm => pm.ProjectId == projectId).Select(pm => pm.UserId).ToListAsync(ct); } catch { }
+        if (!projIds.Any()) projIds = wsIds.Intersect(orgIds).ToList();
+        var candidates = orgIds.Intersect(wsIds).Intersect(projIds).ToList();
+        return candidates.Contains(assigneeId);
+    }
+    private class GuidRow { public Guid Value { get; set; } }
     private class UserNameRow { public Guid UserId { get; set; } public string? FullName { get; set; } public string? Email { get; set; } }
 }

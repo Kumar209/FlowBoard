@@ -21,6 +21,13 @@ public class ProjectMembersController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("api/projects/{projectId}/assignee-candidates")]
+    public async Task<IActionResult> GetAssigneeCandidates(Guid projectId)
+    {
+        var result = await _mediator.Send(new Project.Service.Application.Queries.GetAssigneeCandidatesQuery(projectId));
+        return Ok(result);
+    }
+
     [HttpPost("api/projects/{projectId}/members")]
     public async Task<IActionResult> Add(Guid projectId, [FromBody] AddProjectMemberBody body)
     {

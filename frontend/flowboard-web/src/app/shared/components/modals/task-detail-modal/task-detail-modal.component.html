@@ -146,19 +146,20 @@
           </div>
 
           <div class="space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-1">
-            <!-- Assignee picker -->
+            <!-- Assignee picker — intersection org ∩ workspace ∩ project (never cross-org) -->
             <div class="flex flex-col gap-1">
-              <span class="opacity-60 text-xs font-semibold">Assignee</span>
+              <span class="opacity-60 text-xs font-semibold">Assignee <span class="opacity-40 font-normal">— org ∩ workspace ∩ project</span></span>
               @if (projectMembersList().length || membersQuery.isPending()) {
                 @if (projectMembersList().length) {
                   <select class="select select-bordered select-sm rounded-xl w-full" [value]="assigneeId()" (change)="assigneeId.set($any($event.target).value)">
                     <option value="">Unassigned</option>
                     @for (m of projectMembersList(); track m.userId) { <option [value]="m.userId" [selected]="m.userId.toLowerCase() === assigneeId().toLowerCase()">{{ m.fullName }} ({{ m.role }}) — {{ m.email }}</option> }
                   </select>
+                  <span class="text-[10px] opacity-40">Only org ∩ workspace ∩ project members — prevents cross-org assignment.</span>
                 } @else if (membersQuery.isPending()) {
                   <select class="select select-bordered select-sm rounded-xl w-full" disabled><option>Loading members...</option></select>
                 } @else {
-                  <select class="select select-bordered select-sm rounded-xl w-full" disabled><option>No project members — add in Members</option></select>
+                  <select class="select select-bordered select-sm rounded-xl w-full" disabled><option>No assignable members — add org employee to workspace & project</option></select>
                 }
               } @else {
                 <select class="select select-bordered select-sm rounded-xl w-full" disabled><option>Loading members...</option></select>

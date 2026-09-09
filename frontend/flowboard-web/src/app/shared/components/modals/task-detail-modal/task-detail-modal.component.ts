@@ -226,18 +226,25 @@ export class TaskDetailModalComponent {
 
 
   membersQuery = injectQuery(() => ({
-    queryKey: ['project-members', this.effectiveProjectId()] as const,
+    queryKey: ['assignee-candidates', this.effectiveProjectId()] as const,
     queryFn: async () => {
       const pid = this.effectiveProjectId();
-      const res: any = await firstValueFrom(this.projectService.getProjectMembers(pid, 1, 100));
-      const items = res?.items ?? res?.Items ?? (Array.isArray(res) ? res : []);
-      return Array.isArray(items) ? items : [];
+      try {
+        const res: any = await firstValueFrom(this.projectService.getAssigneeCandidates(pid));
+        if (Array.isArray(res)) return res;
+        return res?.items ?? res?.Items ?? [];
+      } catch {
+        // fallback to project members if candidates endpoint unavailable
+        const res: any = await firstValueFrom(this.projectService.getProjectMembers(pid, 1, 100));
+        const items = res?.items ?? res?.Items ?? (Array.isArray(res) ? res : []);
+        return Array.isArray(items) ? items : [];
+      }
     },
     enabled: !!this.effectiveProjectId(),
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
   }));
-  // Normalized for template @for (handles paginated object vs array)
+  // Normalized for template @for (handles paginated object vs array) — now intersection org ∩ workspace ∩ project
   projectMembersList = computed(() => {
     const raw: any = this.membersQuery.data();
     if (!raw) return [];

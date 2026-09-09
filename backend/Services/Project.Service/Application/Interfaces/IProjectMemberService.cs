@@ -9,4 +9,6 @@ public interface IProjectMemberService
     Task<Result<ProjectMemberDto>> AddMemberAsync(Guid projectId, Guid userId, string role, Guid callerId, List<string> callerRoles, CancellationToken ct = default);
     Task<Result<bool>> RemoveMemberAsync(Guid projectId, Guid userId, Guid callerId, List<string> callerRoles, CancellationToken ct = default);
     Task<List<ProjectMemberDto>> GetMembersListAsync(Guid projectId, CancellationToken ct = default);
+    Task<List<ProjectMemberDto>> GetAssigneeCandidatesAsync(Guid projectId, CancellationToken ct = default);
+    Task<bool> IsAssigneeValidAsync(Guid projectId, Guid assigneeId, CancellationToken ct = default);
 }

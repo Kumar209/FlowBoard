@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Identity.Service.Application.Commands;
+using Identity.Service.Infrastructure.Services;
 
 namespace Identity.Service.Api.Controllers;
 
@@ -100,6 +101,24 @@ public class OrganizationsController : ControllerBase
         var result = await _mediator.Send(new DeleteEmployeeCommand(id, userId, callerId.Value));
         if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
         return Ok(new { message = "Removed" });
+    }
+
+    [HttpGet("{id}/activities")]
+    public async Task<IActionResult> GetActivities(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var svc = HttpContext.RequestServices.GetRequiredService<Identity.Service.Application.Interfaces.IOrganizationActivityService>();
+        try
+        {
+            var (items, total) = await svc.GetActivitiesAsync(id, page, pageSize, callerId.Value);
+            return Ok(new { items, total, page, pageSize });
+        }
+        catch (Exception ex)
+        {
+            if (ex is ForbiddenException) return StatusCode(403, new { error = ex.Message });
+            if (ex is NotFoundException) return NotFound(new { error = ex.Message });
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     private Guid? GetUserId()

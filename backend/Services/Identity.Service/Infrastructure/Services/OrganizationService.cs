@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
@@ -114,6 +115,8 @@ public class OrganizationService : IOrganizationService
             _db.WorkspaceMembers.Add(new WorkspaceMember(wr.WorkspaceId, user.Id, parsed));
         }
         await _db.SaveChangesAsync(ct);
+        // Org Activity audit - MemberAdded
+        try { _db.OrganizationActivities.Add(new OrganizationActivity(organizationId, callerId, "MemberAdded", JsonSerializer.Serialize(new { userId = user.Id, email = user.Email, fullName = user.FullName, workspaces = targetRoles.Select(r => r.WorkspaceId).ToArray() }))); await _db.SaveChangesAsync(ct); } catch { }
         var firstRole = targetRoles.FirstOrDefault()?.Role ?? "Member";
         var firstWid = targetRoles.FirstOrDefault()?.WorkspaceId ?? Guid.Empty;
         Enum.TryParse<WorkspaceRole>(firstRole, true, out var firstParsed);

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,7 @@ public class OrganizationRoleService : IOrganizationRoleService
         var role = new OrganizationWorkspaceRole(organizationId, name.Trim(), description?.Trim(), callerId);
         _db.OrganizationWorkspaceRoles.Add(role);
         await _db.SaveChangesAsync(ct);
+        try { _db.OrganizationActivities.Add(new OrganizationActivity(organizationId, callerId, "RoleCreated", JsonSerializer.Serialize(new { roleId = role.Id, name = role.Name }))); await _db.SaveChangesAsync(ct); } catch { }
         return new OrganizationRoleDto(role.Id, role.OrganizationId, role.Name, role.Description, role.CreatedBy, role.CreatedAt, 0, 0);
     }
 
@@ -93,6 +95,7 @@ public class OrganizationRoleService : IOrganizationRoleService
         _db.RolePermissions.RemoveRange(toRemove);
         _db.RolePermissions.AddRange(toAdd);
         await _db.SaveChangesAsync(ct);
+        try { _db.OrganizationActivities.Add(new OrganizationActivity(organizationId, callerId, "PermissionUpdated", JsonSerializer.Serialize(new { roleId, permissionIds = validIds }))); await _db.SaveChangesAsync(ct); } catch { }
         return await GetRoleWithPermissionsAsync(organizationId, roleId, callerId, ct);
     }
 

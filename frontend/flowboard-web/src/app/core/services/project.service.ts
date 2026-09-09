@@ -137,6 +137,9 @@ export class ProjectService {
     if(search) params.search = search;
     return this.http.get<{items: any[], total: number, page: number, pageSize: number}>(`${environment.apiUrl}/api/projects/${projectId}/members`, { params, withCredentials: true });
   }
+  getAssigneeCandidates(projectId: string) {
+    return this.http.get<any[]>(`${environment.apiUrl}/api/projects/${projectId}/assignee-candidates`, { withCredentials: true });
+  }
   addProjectMember(projectId: string, userId: string, role='Member') {
     return this.http.post<any>(`${environment.apiUrl}/api/projects/${projectId}/members`, { UserId: userId, Role: role }, { withCredentials: true });
   }

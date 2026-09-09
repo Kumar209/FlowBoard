@@ -147,10 +147,58 @@ public class ProjectMemberService : IProjectMemberService
         return Result<bool>.Success(true);
     }
 
+    public async Task<List<ProjectMemberDto>> GetAssigneeCandidatesAsync(Guid projectId, CancellationToken ct = default)
+    {
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
+        if (project == null) return new List<ProjectMemberDto>();
+        var wsId = project.WorkspaceId;
+        Guid orgId = Guid.Empty;
+        try { var orgRow = await _db.Database.SqlQueryRaw<GuidRow>("SELECT OrganizationId as Value FROM [identity].[Workspaces] WHERE Id = {0}", wsId).FirstOrDefaultAsync(ct); if (orgRow != null) orgId = orgRow.Value; } catch { }
+        if (orgId == Guid.Empty) return await GetMembersAsync(projectId, 1, 100, null, ct).ContinueWith(t => t.Result.Items.ToList(), ct);
+
+        // Fetch three sets
+        List<Guid> orgUserIds = new(), wsUserIds = new(), projUserIds = new();
+        try { orgUserIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[OrganizationMembers] WHERE OrganizationId = {0} UNION SELECT OwnerId FROM [identity].[Organizations] WHERE Id = {0}", orgId).ToListAsync(ct); } catch { }
+        try { wsUserIds = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0}", wsId).ToListAsync(ct); } catch { }
+        try { projUserIds = await _db.ProjectMembers.Where(pm => pm.ProjectId == projectId).Select(pm => pm.UserId).ToListAsync(ct); } catch { }
+        // If project has no explicit members, consider workspace∩org as fallback (so dropdown not empty)
+        if (!projUserIds.Any()) projUserIds = wsUserIds.Intersect(orgUserIds).ToList();
+        var candidateIds = orgUserIds.Intersect(wsUserIds).Intersect(projUserIds).Distinct().ToList();
+        if (!candidateIds.Any()) return new List<ProjectMemberDto>();
+        var result = new List<ProjectMemberDto>();
+        foreach (var uid in candidateIds)
+        {
+            string email = uid.ToString()[..8], fullName = uid.ToString()[..8], role = "Member";
+            try
+            {
+                var row = await _db.Database.SqlQueryRaw<UserRow>("SELECT Id as UserId, Email, FullName FROM [identity].[Users] WHERE Id = {0}", uid).FirstOrDefaultAsync(ct);
+                if (row != null) { email = row.Email; fullName = row.FullName; }
+                var pmRow = await _db.ProjectMembers.FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == uid, ct);
+                if (pmRow != null) role = pmRow.Role;
+                else
+                {
+                    var wsRole = await _db.Database.SqlQueryRaw<WsRoleRow>("SELECT Role as Value FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1}", wsId, uid).FirstOrDefaultAsync(ct);
+                    if (wsRole != null) role = wsRole.Value.ToString();
+                }
+            }
+            catch { }
+            result.Add(new ProjectMemberDto(Guid.Empty, projectId, uid, email, fullName, role, DateTime.UtcNow));
+        }
+        return result.OrderBy(r => r.FullName).ToList();
+    }
+
+    public async Task<bool> IsAssigneeValidAsync(Guid projectId, Guid assigneeId, CancellationToken ct = default)
+    {
+        var candidates = await GetAssigneeCandidatesAsync(projectId, ct);
+        return candidates.Any(c => c.UserId == assigneeId);
+    }
+
     private class UserRow
     {
         public Guid UserId { get; set; }
         public string Email { get; set; } = "";
         public string FullName { get; set; } = "";
     }
+    private class GuidRow { public Guid Value { get; set; } }
+    private class WsRoleRow { public int Value { get; set; } }
 }

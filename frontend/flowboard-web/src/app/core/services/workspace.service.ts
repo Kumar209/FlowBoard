@@ -48,6 +48,9 @@ export class WorkspaceService {
     // alias for consistency
     return this.http.get<any[]>(`${environment.apiUrl}/api/workspaces/${workspaceId}/members`, { withCredentials: true });
   }
+  getOrganizationActivities(organizationId: string, page=1, pageSize=20) {
+    return this.http.get<{items: any[]; total: number; page: number; pageSize: number}>(`${environment.apiUrl}/api/organizations/${organizationId}/activities`, { params: { page, pageSize } as any, withCredentials: true });
+  }
 
   createWorkspace(organizationId: string, name: string) {
     return this.http.post<WorkspaceDto>(`${environment.apiUrl}/api/workspaces`, { organizationId, name }, { withCredentials: true });

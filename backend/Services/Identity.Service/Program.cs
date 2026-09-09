@@ -27,6 +27,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IOrganizationRoleService, OrganizationRoleService>();
+builder.Services.AddScoped<IOrganizationActivityService, OrganizationActivityService>();
 builder.Services.AddHttpClient<IBrevoEmailService, BrevoEmailService>();
 
 // 4. JWT Authentication - reads Jwt:Key/Issuer/Audience from config (32+ chars, HS256, 15m)

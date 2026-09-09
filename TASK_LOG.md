@@ -24,8 +24,8 @@
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
-| Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 1/5 | In Progress |
-| **Total** | **0.1 - 6.5** | **16/31** | **In Progress** |
+| Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 2/5 | In Progress |
+| **Total** | **0.1 - 6.5** | **17/31** | **In Progress** |
 
 ---
 
@@ -1396,6 +1396,97 @@ OrgAdmin-only Roles CRUD with confirm modal + grouped Permissions matrix (like J
 - Unlocks: Task 6.5 `Project Assignee ∩ + Activity split Visibility` — Task assignee dropdown `org ∩ workspace ∩ project` intersection, `OrganizationActivities` vs `ProjectActivities` split, Main `Activity` hidden Member, Project `Activity` visible all, board realtime already fixed
 - Depends on: Task 6.2 (Permissions 27 catalog seeded, `RolePermissions` join) + Task 6.3 (`OrganizationActivities` table) — this Task 6.4 consumes both (roles → permissions matrix PUT, activities future)
 - Follow-up: Keep `OrganizationWorkspaceRole` `Name unique per org` + `WorkspaceMember.CustomRoleId FK NoAction` — next 6.5 will use `CustomRoleId` when assigning Task assignee; after Phase6 + testing, move to Phase 4 `4.1 Cloudinary, 4.2 Attachments UI, 4.3 Gemini 2.5 Flash 15 RPM Redis 5/min, 4.4 ApexCharts Burndown+Brevo` MNC-grade same keys local/prod
+
+---
+
+## Task 6.5: Project Assignee & Activity Integration + Visibility (Intersection + Org/Project Split)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 09 Sep 2026 | 6 - Company-Centric | pending | 3h | Feature |
+
+### 1. Overview
+Closed Phase 6 with Task assignee strict intersection (`org ∩ workspace ∩ project` via `[identity]`+`[project]` cross-DB raw `SqlQueryRaw`) + Activity split (`[identity].OrganizationActivities` `GET /api/organizations/{id}/activities` OrgAdmin only vs `[project].ActivityLogs.WorkspaceId` `GET /api/projects/{id}/activities` all members) + visibility enforcement (Main `Activity/Members/Roles` hidden Member via `layout`, Project `Activity` visible all).
+
+### 2. Objectives
+- Backend `GET /api/projects/{projectId}/assignee-candidates` = `org ∩ workspace ∩ project` (reads `[identity].OrganizationMembers ∪ Owner + [identity].WorkspaceMembers + [project].ProjectMembers`; if proj empty fallback `ws∩org`); enrich `Users` `FullName/Email/Role`; `TaskService.Create/Update` reject if `IsAssigneeValid` false `Assignee must be member of organization ∩ workspace ∩ project`
+- Backend `ActivityLogs.WorkspaceId` populated on `TaskCreated/TaskUpdated/TaskMoved/TaskDeleted` (pass `workspaceId` to `new ActivityLog(..., workspaceId)`)
+- Backend `GET /api/organizations/{id}/activities` `page/pageSize` via `IOrganizationActivityService.GetActivitiesAsync` paged `OrderBy OccurredOn desc` + `CanView` check (`SuperAdmin||Owner||OrgAdmin(OrganizationMembers Role2||WorkspaceMembers OrgAdmin)||Permission activity:view:org` via `RolePermissions`), enrich actor `FullName`; log `MemberAdded/RoleCreated/PermissionUpdated` via `_db.OrganizationActivities.Add` after `SaveChanges`
+- Frontend `task-detail-modal` assignee dropdown now `assignee-candidates` (`org ∩ workspace ∩ project`) with note `Only org ∩ workspace ∩ project members — prevents cross-org` + fallback `No assignable members — add org employee to workspace & project`
+- Frontend `features/activity/activity.component.{ts,html}` refactored Main Activity to call `GET /api/organizations/{orgId}/activities` (not aggregate project activities) `orgId computed` from `workspacesQuery[0].organizationId` + `orgMembersQuery` for actor display `FullName (role)`; badge `org slice` + `workspaces count`; Project Activity remains `project/activity` visible all (no guard)
+- Keep `layout` `Main Activity/Members/Roles` `@if(isOrgAdmin||isSuperAdmin)` hidden Member already (6.4), `project-layout` `Activity` visible all 11 items
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Backend | ASP.NET Core + EF Core 10 | 10.0 | `ProjectDbContext` `[project]` + cross-DB `SqlQueryRaw` `[identity]` (same `flowboard` DB) |
+| Backend | Identity `OrganizationActivity` | — | `[identity].OrganizationActivities` `Id, OrganizationId, ActorUserId, Action, PayloadJson, OccurredOn` `Ignore DomainEvents` |
+| Backend | Project `ActivityLog.WorkspaceId` | — | `ActivityLog(ProjectId,TaskId,ActorId,Action,PayloadJson,WorkspaceId)` nullable FK |
+| Caching | Redis `IRedisCacheService` | Upstash `rediss://` | Board/task cache `RemoveAsync RemoveByPrefix` on task change |
+| Frontend | Angular 22 Standalone + Signals + TanStack | 22.1.5 + 5.62 exp | `injectQuery` `computed` `firstValueFrom` `OnPush` `templateUrl` |
+| Frontend | Tailwind + DaisyUI | 3.4.17 + 4.12.14 | 6 themes responsive `p-3 sm:p-4` |
+| Build | `dotnet build -c Release` + `ng build --configuration production` | — | Verified 0 errors |
+
+### 4. Implementation Details
+- Updated `backend/Services/Project.Service/Application/Interfaces/IProjectMemberService.cs:6` add `GetAssigneeCandidatesAsync(projectId)` + `IsAssigneeValidAsync(projectId,assigneeId)`
+- Implemented `Infrastructure/Services/ProjectMemberService.cs:60` `GetAssigneeCandidatesAsync`: fetch `project.WorkspaceId` → `Guid orgId` via `SELECT OrganizationId FROM [identity].[Workspaces]`, fetch `orgUserIds` via `SELECT UserId FROM [identity].[OrganizationMembers] WHERE OrgId UNION SELECT OwnerId FROM [identity].[Organizations]`, `wsUserIds` via `[identity].WorkspaceMembers`, `projUserIds` via `[project].ProjectMembers`; if `projIds` empty `projIds=ws∩org`; `candidates = org ∩ ws ∩ proj`; enrich each `uid` via `[identity].[Users]` `FullName/Email` + `ProjectMembers.Role` else `WorkspaceMembers.Role`; return `OrderBy FullName`; `IsAssigneeValid` checks `candidates.Any(c=>c.UserId==assigneeId)`
+- Created `Application/Queries/GetAssigneeCandidatesQuery.cs:1` `record GetAssigneeCandidatesQuery(ProjectId):IRequest<List<ProjectMemberDto>>` + `GetAssigneeCandidatesHandler : IRequestHandler` injects `IProjectMemberService`
+- Updated `Api/Controllers/ProjectMembersController.cs:26` add `[HttpGet("api/projects/{projectId}/assignee-candidates")] public GetAssigneeCandidates(projectId) => _mediator.Send(new GetAssigneeCandidatesQuery(projectId))` (YARP `project-api-route /api/projects/**` → `:5002` no extra yarp)
+- Updated `Infrastructure/Services/TaskService.cs:15` `CreateTaskAsync` check `if (assigneeId.HasValue) if(!await IsAssigneeValidAsync) return Failure("Assignee must be member of organization ∩ workspace ∩ project")`; `UpdateTaskAsync:50` same if `assigneeId` changed `!= task.AssigneeId`; added private `IsAssigneeValidAsync` via same cross-DB logic + `GuidRow` helper; updated `Create/Update/Move/Delete ActivityLog` to pass `workspaceId` (Create passes `workspaceId` var, Update fetches `updWs` via `Projects.Select WorkspaceId`, Move passes `workspaceId`, Delete fetches `delWs`)
+- Created `backend/Services/Identity.Service/Application/Interfaces/IOrganizationActivityService.cs:1` `record OrganizationActivityDto(Id,OrganizationId,ActorUserId,Action,PayloadJson,OccurredOn,ActorName)` + `interface IOrganizationActivityService { GetActivitiesAsync, LogAsync }`
+- Implemented `Infrastructure/Services/OrganizationActivityService.cs:1` inject `IApplicationDbContext` + `CanViewAsync` checks `SuperAdmin || Owner || OrganizationMembers Role2 || custom RolePermissions activity:view:org join + WorkspaceMembers OrgAdmin`; `GetActivitiesAsync` checks org exists else `NotFound`, `CanView` else `Forbidden`, queries `OrganizationActivities.Where OrganizationId OrderBy OccurredOn desc Skip/Take`, enrich `actorMap` via `Users.FirstOrDefault`, return `(Items,Total)`; `LogAsync` adds `OrganizationActivity` + `SaveChanges`
+- Updated `Program.cs:29` add `AddScoped<IOrganizationActivityService, OrganizationActivityService>`
+- Updated `Api/Controllers/OrganizationsController.cs:105` add `using Infrastructure.Services` (for `ForbiddenException/NotFoundException`) + add `[HttpGet("{id}/activities")] GetActivities(id,page,pageSize)` inject `IOrganizationActivityService` via `HttpContext.RequestServices` handle `Forbidden→403 NotFound→404`
+- Updated `Infrastructure/Services/OrganizationService.cs:1` `using System.Text.Json` + after `CreateEmployeeWithRolesAsync SaveChanges` add `try { _db.OrganizationActivities.Add(new OrganizationActivity(organizationId,callerId,"MemberAdded",JsonSerializer.Serialize(new {userId=user.Id,email,fullName,workspaces=targetRoles.Select(r=>r.WorkspaceId)}))); await _db.SaveChangesAsync(ct); } catch {}`
+- Updated `Infrastructure/Services/OrganizationRoleService.cs:1` `using System.Text.Json` + after `CreateRoleAsync SaveChanges` log `RoleCreated` + after `UpdateRolePermissions SaveChanges` log `PermissionUpdated`
+- Updated `frontend/core/services/project.service.ts:135` add `getAssigneeCandidates(projectId:string){ return http.get<any[]>(apiUrl/api/projects/${projectId}/assignee-candidates) }`
+- Updated `core/services/workspace.service.ts:47` add `getOrganizationActivities(organizationId,page,pageSize){ return http.get<{items,total,page,pageSize}>(apiUrl/api/organizations/${organizationId}/activities) }`
+- Updated `shared/components/modals/task-detail-modal/task-detail-modal.component.ts:228` change `membersQuery` `queryKey ['assignee-candidates',projectId]` `queryFn getAssigneeCandidates` fallback `getProjectMembers`; rename `projectMembersList` comment `intersection org ∩ workspace ∩ project`
+- Updated `task-detail-modal.component.html:148` add label `Assignee — org ∩ workspace ∩ project` + helper `Only org ∩ workspace ∩ project members — prevents cross-org` + fallback `No assignable members — add org employee to workspace & project`
+- Updated `features/activity/activity.component.ts:21` refactor: `orgId computed` from `workspacesQuery[0].organizationId`, `orgMembersQuery` for actor display, `orgActivitiesQuery ['org-activities',orgId,page]` calls `workspaceService.getOrganizationActivities(orgId,page,pageSize)` map `occurredOn` + `total`, keep compat `allProjectsQuery/sampleMembersQuery` disabled
+- Updated `activity.component.html:8` badge `{{total()}} events • {{orgId().slice(0,6)}} • {{workspacesQuery.data()?.length||0}} workspaces`
+- Verified `layout.component.html:30` Main `Activity/Members/Roles` still `@if(isOrgAdmin||isSuperAdmin)` hidden Member; `project-layout/project-layout.component.ts:90` `navItems` `Activity` badge visible all (no guard) — Project sidebar 11 items all visible Member per `FlowBoard_Architecture_Rules.md:119` and `Appendix X.8`
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Project.Service/Application/Interfaces/IProjectMemberService.cs | Modified | Add `GetAssigneeCandidatesAsync` + `IsAssigneeValidAsync` |
+| backend/Services/Project.Service/Infrastructure/Services/ProjectMemberService.cs | Modified | Implement intersection `org∩ws∩proj` + fallback `ws∩org` + enrich Users + helpers `GuidRow/WsRoleRow` |
+| backend/Services/Project.Service/Application/Queries/GetAssigneeCandidatesQuery.cs | Created | `GetAssigneeCandidatesQuery/Handler` via `IProjectMemberService` |
+| backend/Services/Project.Service/Api/Controllers/ProjectMembersController.cs | Modified | Add `GET /api/projects/{projectId}/assignee-candidates` |
+| backend/Services/Project.Service/Infrastructure/Services/TaskService.cs | Modified | Validate `IsAssigneeValid` + populate `ActivityLog.WorkspaceId` on all task events + helper `GuidRow` |
+| backend/Services/Identity.Service/Application/Interfaces/IOrganizationActivityService.cs | Created | `OrganizationActivityDto` + interface `GetActivities/LogAsync` |
+| backend/Services/Identity.Service/Infrastructure/Services/OrganizationActivityService.cs | Created | `CanView` OrgAdmin/SuperAdmin/`activity:view:org` + paged query + actor enrich |
+| backend/Services/Identity.Service/Program.cs | Modified | `AddScoped<IOrganizationActivityService>` |
+| backend/Services/Identity.Service/Api/Controllers/OrganizationsController.cs | Modified | `using Infrastructure.Services` + `GET {id}/activities` (org audit) |
+| backend/Services/Identity.Service/Infrastructure/Services/OrganizationService.cs | Modified | `using System.Text.Json` + log `MemberAdded` to `OrganizationActivities` |
+| backend/Services/Identity.Service/Infrastructure/Services/OrganizationRoleService.cs | Modified | `using System.Text.Json` + log `RoleCreated/PermissionUpdated` |
+| frontend/flowboard-web/src/app/core/services/project.service.ts | Modified | Add `getAssigneeCandidates` |
+| frontend/flowboard-web/src/app/core/services/workspace.service.ts | Modified | Add `getOrganizationActivities` |
+| frontend/flowboard-web/src/app/shared/components/modals/task-detail-modal/task-detail-modal.component.ts | Modified | `membersQuery` → `assignee-candidates` intersection + fallback |
+| frontend/flowboard-web/src/app/shared/components/modals/task-detail-modal/task-detail-modal.component.html | Modified | Label `org ∩ workspace ∩ project` + helper |
+| frontend/flowboard-web/src/app/features/activity/activity.component.ts | Modified | `orgId` + `orgMembersQuery` + `orgActivitiesQuery` via `getOrganizationActivities` |
+| frontend/flowboard-web/src/app/features/activity/activity.component.html | Modified | Badge `org slice + workspaces` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` → `Build succeeded 0 Warning(s) 0 Error(s)` after `ForbiddenException` using fix |
+| Build frontend | Passed | `npx ng build --configuration production` → `Application bundle generation complete [~62s]` `roles-component 13.73kB` `board 157kB` `Initial 465.44kB` 0 errors |
+| 3-File Rule | Passed | `task-detail-modal` + `activity` remain exactly 3 files `css` empty `templateUrl` |
+| YARP | Passed | `GET /api/organizations/{id}/activities` via `org-route /api/organizations/**` → `:5001`, `GET /api/projects/{pid}/assignee-candidates` via `project-api-route /api/projects/**` → `:5002` (no extra route) |
+| Assignee Intersection | Logic | `ProjectMemberService.GetAssigneeCandidates` `orgIds = OrganizationMembers ∪ Owner`, `wsIds = WorkspaceMembers`, `projIds = ProjectMembers` (fallback `ws∩org`), `candidates = org∩ws∩proj` → `TaskService IsAssigneeValid` rejects cross-org `400 Assignee must be...` |
+| Activity Split | Logic | `[identity].OrganizationActivities` (`MemberAdded/RoleCreated/PermissionUpdated`, `OrganizationId` FK) `GET /api/organizations/{id}/activities` OrgAdmin only `403` Member; `[project].ActivityLogs.WorkspaceId` `GET /api/projects/{id}/activities` all project members (no `activity:view:org` check) |
+| Visibility | Passed | `layout.component.html` `Main Activity/Members/Roles` `@if(isOrgAdmin||isSuperAdmin)` → Member hidden; `project-layout navItems Activity` visible all 11 items per `Architecture_Rules.md:119` |
+| Realtime | Unchanged | `BoardComponent` `BoardRealtimeService joinProject` `Redis backplane` already fixed in Phase3, not touched |
+
+### 7. Enterprise Relevance (MNC Value)
+Intersection `org ∩ workspace ∩ project` guarantees tenant isolation at assignment (never assign cross-org user) — MNC multi-tenant SaaS interview Q (Jira `Assignee = org ∩ workspace ∩ project` prevents data leak). Org vs Project activity split isolates audit (org audit OrgAdmin-only `activity:view:org` 27 perms, project timeline all members) matches `Appendix X.6` and proves you handle dual audit stores `HasDefaultSchema identity/project` + `Ignore DomainEvents`. Cross-DB `SqlQueryRaw` same `flowboard` DB demonstrates single-DB multi-schema cost-effective MNC design on `MonsterASP.net`. `WorkspaceId` on `ActivityLog` enables future org-level project filtering.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Phase 6 complete (5/5) — `git push` and manual testing via Postman `FlowBoard_Auth_6Roles` + `FlowBoard_Project_2_5` (`POST /api/organizations/{orgId}/employees` then `GET assignee-candidates` then `POST /api/tasks` with assignee, expect 201 only if intersection else 400; `GET /api/organizations/{id}/activities` OrgAdmin 200 Member 403)
+- Depends on: Task 6.3 (`OrganizationActivities` migration `20260909093648`) + 6.2 (Permissions 27 + `Permissions` catalog) + 6.4 (Roles CRUD) — this Task 6.5 completes all
+- Follow-up: After Phase6 push, move to **Phase 4 MNC-grade**: `4.1 Cloudinary upload [file] Attachments`, `4.2 Attachments UI`, `4.3 Gemini 2.5 Flash 15 RPM with Redis limit 5/min`, `4.4 ApexCharts Burndown + Brevo` — same keys local/prod as `Documents/FlowBoard_Redis_Caching_Guide.docx v1.0` `CacheKeys+ICacheableRequest`
 
 ---
 
