@@ -9,6 +9,7 @@ export class BoardRealtimeService {
   private auth = inject(AuthService);
   private queryClient = inject(QueryClient);
   private hub: signalR.HubConnection | null = null;
+  private lastProjectId: string | null = null;
   connected = signal(false);
   lastEvent = signal<string>('');
 
@@ -45,7 +46,13 @@ export class BoardRealtimeService {
     });
     this.hub.on('connected', () => this.connected.set(true));
     this.hub.onclose(() => this.connected.set(false));
-    this.hub.onreconnected(() => this.connected.set(true));
+    this.hub.onreconnected(async () => {
+      this.connected.set(true);
+      // Rejoin last project group after silent reconnect — workspace groups are rejoined by server OnConnectedAsync via JWT claims
+      if (this.lastProjectId) {
+        try { await this.hub?.invoke('JoinProject', this.lastProjectId); } catch {}
+      }
+    });
 
     try {
       await this.hub.start();
@@ -56,6 +63,7 @@ export class BoardRealtimeService {
   }
 
   async joinProject(projectId: string): Promise<void> {
+    this.lastProjectId = projectId;
     if (!this.hub || this.hub.state !== signalR.HubConnectionState.Connected) await this.connect();
     try { await this.hub?.invoke('JoinProject', projectId); } catch {}
   }

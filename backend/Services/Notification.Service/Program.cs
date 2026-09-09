@@ -63,6 +63,10 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<TaskCreatedConsumer>();
     x.AddConsumer<TaskMovedConsumer>();
     x.AddConsumer<TaskCommentedConsumer>();
+    // DLQ observability: Fault consumers for _error queues (see FaultConsumers.cs)
+    x.AddConsumer<TaskCreatedFaultConsumer>();
+    x.AddConsumer<TaskMovedFaultConsumer>();
+    x.AddConsumer<TaskCommentedFaultConsumer>();
     x.UsingRabbitMq((context, cfg) =>
     {
         if (!string.IsNullOrWhiteSpace(rabbitHost) && !rabbitHost.Contains("PASTE_"))
@@ -94,6 +98,14 @@ builder.Services.AddMassTransit(x =>
             e.Durable = true;
             e.ConfigureConsumer<TaskCommentedConsumer>(context);
             e.UseMessageRetry(r => r.Intervals(100, 500, 1000));
+        });
+        // DLQ: consume Fault messages from _error queues for alerting (MNC-grade: CloudAMQP alarm on notification-task-*_error depth > 0)
+        cfg.ReceiveEndpoint("notification-faults", e =>
+        {
+            e.Durable = true;
+            e.ConfigureConsumer<TaskCreatedFaultConsumer>(context);
+            e.ConfigureConsumer<TaskMovedFaultConsumer>(context);
+            e.ConfigureConsumer<TaskCommentedFaultConsumer>(context);
         });
         cfg.ConfigureEndpoints(context);
     });

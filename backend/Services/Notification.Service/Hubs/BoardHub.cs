@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using Notification.Service.Application.Interfaces;
 using System.Security.Claims;
 
 namespace Notification.Service.Hubs;
@@ -12,7 +14,8 @@ namespace Notification.Service.Hubs;
 public class BoardHub : Hub
 {
     private readonly ILogger<BoardHub> _logger;
-    public BoardHub(ILogger<BoardHub> logger) => _logger = logger;
+    private readonly IApplicationDbContext _db;
+    public BoardHub(ILogger<BoardHub> logger, IApplicationDbContext db) { _logger = logger; _db = db; }
 
     public override async Task OnConnectedAsync()
     {
@@ -48,16 +51,39 @@ public class BoardHub : Hub
     {
         if (!Guid.TryParse(projectId, out var pid)) return;
         var allowedWorkspaces = Context.User?.FindAll("workspace_id").Select(c => c.Value).ToHashSet() ?? new HashSet<string>();
-        // Verify project belongs to one of user's workspaces via DB lookup (or allow if no DB check needed for demo)
-        // For MNC-grade, we check workspace membership from claims — if user has no workspace claims, deny
-        if (allowedWorkspaces.Count > 0)
+        if (allowedWorkspaces.Count == 0)
         {
-            // Optional: could query [project].Projects to get WorkspaceId and verify, but claims already prove tenant access
-            // We trust workspace claim; still deny if projectId not requested via legitimate UI flow — no extra DB for now
+            _logger.LogWarning("[BoardHub] Denied JoinProject {Pid} for {ConnId} — no workspace claims", projectId, Context.ConnectionId);
+            await Clients.Caller.SendAsync("joinDenied", new { projectId, reason = "No workspace membership" });
+            return;
+        }
+        // Verify project belongs to one of user's workspaces via [project].[Projects] lookup
+        try
+        {
+            var row = await _db.Database.SqlQueryRaw<ProjectWorkspaceRow>("SELECT WorkspaceId FROM [project].[Projects] WHERE Id = {0}", pid).FirstOrDefaultAsync();
+            if (row == null)
+            {
+                _logger.LogWarning("[BoardHub] Denied JoinProject {Pid} — project not found", projectId);
+                await Clients.Caller.SendAsync("joinDenied", new { projectId, reason = "Project not found" });
+                return;
+            }
+            if (!allowedWorkspaces.Contains(row.WorkspaceId.ToString()))
+            {
+                _logger.LogWarning("[BoardHub] Denied JoinProject {Pid} workspace {Ws} for {ConnId} — not in JWT workspaces", projectId, row.WorkspaceId, Context.ConnectionId);
+                await Clients.Caller.SendAsync("joinDenied", new { projectId, reason = "Not a member of project's workspace" });
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[BoardHub] JoinProject DB check failed for {Pid}, denying", projectId);
+            await Clients.Caller.SendAsync("joinDenied", new { projectId, reason = "Verification failed" });
+            return;
         }
         await Groups.AddToGroupAsync(Context.ConnectionId, $"project:{projectId}");
         await Clients.Caller.SendAsync("joinedProject", projectId);
     }
+    private class ProjectWorkspaceRow { public Guid WorkspaceId { get; set; } }
 
     public async Task LeaveProject(string projectId)
     {
@@ -78,9 +104,17 @@ public class BoardHub : Hub
         await Clients.Caller.SendAsync("joinedWorkspace", workspaceId);
     }
 
-    // Typing indicator (for Task 3.3 realtime)
+    // Typing indicator (for Task 3.3 realtime) — also requires project membership
     public async Task UserTyping(string projectId, string taskId)
     {
+        if (!Guid.TryParse(projectId, out var pid)) return;
+        var allowedWorkspaces = Context.User?.FindAll("workspace_id").Select(c => c.Value).ToHashSet() ?? new HashSet<string>();
+        try
+        {
+            var row = await _db.Database.SqlQueryRaw<ProjectWorkspaceRow>("SELECT WorkspaceId FROM [project].[Projects] WHERE Id = {0}", pid).FirstOrDefaultAsync();
+            if (row == null || !allowedWorkspaces.Contains(row.WorkspaceId.ToString())) return;
+        }
+        catch { return; }
         var name = Context.User?.FindFirst(ClaimTypes.Name)?.Value ?? Context.UserIdentifier ?? "Someone";
         await Clients.Group($"project:{projectId}").SendAsync("userTyping", new { projectId, taskId, user = name, connectionId = Context.ConnectionId });
     }
