@@ -366,10 +366,14 @@ export class BoardComponent {
   }
 
   tasksForList(listId: string) {
-    // Jira-like: columns are views of Status, not containers. Filter by Status == column name (1:1 for MVP) plus sprint filter. Fallback to ListId for legacy tasks.
+    // Jira-like: column shows issues whose StatusId is in column.statusIds (mapping). Fallback to Status name == column name or ListId for legacy.
     const col = (this.boardQuery.data()?.lists || []).find((l:any) => l.id === listId);
+    const colStatusIds: string[] = col?.statusIds || [];
     const colStatus = col?.name || '';
-    let tasks = (this.boardQuery.data()?.tasks || []).filter(t => t.listId === listId || (colStatus && t.status === colStatus));
+    let tasks = (this.boardQuery.data()?.tasks || []).filter(t => {
+      if (colStatusIds.length && t.statusId) return colStatusIds.includes(t.statusId);
+      return t.listId === listId || (colStatus && t.status === colStatus);
+    });
     const sel = this.selectedSprint();
     // Sprint filter: project-owned sprints - filter by SprintId
     if (sel && sel !== 'all') {
