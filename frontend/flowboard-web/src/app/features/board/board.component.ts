@@ -195,7 +195,7 @@ export class BoardComponent {
     onError: (e:any) => { this.toast.error(e?.error?.error || e?.message || 'Create column failed'); },
   }));
   renameListMutation = injectMutation(() => ({
-    mutationFn: (vars: { listId: string; name: string; position?: number }) => firstValueFrom(this.projectService.renameList(this.projectId(), vars.listId, vars.name, vars.position)),
+    mutationFn: (vars: { listId: string; name: string; position?: number; statusIds?: string[] }) => firstValueFrom(this.projectService.renameList(this.projectId(), vars.listId, vars.name, vars.position, vars.statusIds)),
     onSuccess: () => { this.queryClient.invalidateQueries({ queryKey: ['board'] }); this.columnModalOpen.set(false); this.editingColumn.set(null); this.openMenuListId.set(null); this.toast.success('Column updated'); },
     onError: (e:any) => { this.toast.error(e?.error?.error || e?.message || 'Update failed'); },
   }));
@@ -331,7 +331,7 @@ export class BoardComponent {
   openEditColumn(list:any){ this.columnModalMode.set('update'); this.editingColumn.set(list); this.columnModalOpen.set(true); this.openMenuListId.set(null); }
   onColumnSubmit(e:{name:string; position:number; statusIds:string[]}){
     if(this.columnModalMode()==='create') this.createListMutation.mutate({name: e.name, position: e.position, statusIds: e.statusIds});
-    else if(this.editingColumn()) this.renameListMutation.mutate({listId: this.editingColumn().id, name: e.name, position: e.position});
+    else if(this.editingColumn()) this.renameListMutation.mutate({listId: this.editingColumn().id, name: e.name, position: e.position, statusIds: e.statusIds});
   }
   confirmDeleteColumn(list:any){ this.deleteColumnTarget.set(list); this.openMenuListId.set(null); }
   onDeleteColumnConfirm(){ const t=this.deleteColumnTarget(); if(t) this.deleteListMutation.mutate(t.id); }

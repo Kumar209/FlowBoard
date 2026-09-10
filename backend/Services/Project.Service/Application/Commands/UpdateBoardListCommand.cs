@@ -11,7 +11,7 @@ namespace Project.Service.Application.Commands;
 /// <summary>
 /// UpdateBoardList - Rename list (Jira Kanban). Viewer/Client 403.
 /// </summary>
-public record UpdateBoardListCommand(Guid ProjectId, Guid ListId, string Name, int? Position, Guid CallerId, List<string> CallerRoles) : IRequest<Result<BoardListDto>>;
+public record UpdateBoardListCommand(Guid ProjectId, Guid ListId, string Name, int? Position, Guid CallerId, List<string> CallerRoles, List<Guid>? StatusIds = null) : IRequest<Result<BoardListDto>>;
 
 public class UpdateBoardListValidator : AbstractValidator<UpdateBoardListCommand>
 {
@@ -28,7 +28,7 @@ public class UpdateBoardListHandler : IRequestHandler<UpdateBoardListCommand, Re
     private readonly IBoardService _service;
     public UpdateBoardListHandler(IBoardService service) => _service = service;
     public Task<Result<BoardListDto>> Handle(UpdateBoardListCommand req, CancellationToken ct)
-        => _service.UpdateBoardListAsync(req.ProjectId, req.ListId, req.Name, req.Position, req.CallerId, req.CallerRoles, ct);
+        => _service.UpdateBoardListAsync(req.ProjectId, req.ListId, req.Name, req.Position, req.CallerId, req.CallerRoles, ct, req.StatusIds);
 }
 
 public record DeleteBoardListCommand(Guid ProjectId, Guid ListId, Guid CallerId, List<string> CallerRoles) : IRequest<Result<bool>>;

@@ -50,8 +50,8 @@ export class ProjectService {
   createList(projectId: string, name: string, boardId?: string, position?: number, statusIds?: string[]) {
     return this.http.post<BoardList>(`${environment.apiUrl}/api/projects/${projectId}/lists`, { Name: name, BoardId: boardId || null, Position: position ?? null, StatusIds: statusIds || null }, { withCredentials: true });
   }
-  renameList(projectId: string, listId: string, name: string, position?: number) {
-    const body:any = { Name: name };
+  renameList(projectId: string, listId: string, name: string, position?: number, statusIds?: string[]) {
+    const body:any = { Name: name, StatusIds: statusIds || null };
     if (position !== undefined && position !== null) body.Position = position;
     return this.http.put<BoardList>(`${environment.apiUrl}/api/projects/${projectId}/lists/${listId}`, body, { withCredentials: true });
   }

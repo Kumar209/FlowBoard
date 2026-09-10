@@ -33,7 +33,7 @@ public class BoardListsController : ControllerBase
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         if (string.IsNullOrWhiteSpace(body?.Name)) return BadRequest(new { error = "Name required" });
         var roles = GetRoles();
-        var result = await _mediator.Send(new UpdateBoardListCommand(projectId, listId, body.Name.Trim(), body.Position, userId.Value, roles));
+        var result = await _mediator.Send(new UpdateBoardListCommand(projectId, listId, body.Name.Trim(), body.Position, userId.Value, roles, body.StatusIds));
         if (!result.IsSuccess)
         {
             if (result.Error!.Contains("Forbidden")) return StatusCode(403, new { error = result.Error });

@@ -103,7 +103,7 @@ public class BoardService : IBoardService
         return Result<BoardListDto>.Success(new BoardListDto(list.Id, list.ProjectId, list.Name, list.Position));
     }
 
-    public async Task<Result<BoardListDto>> UpdateBoardListAsync(Guid projectId, Guid listId, string name, int? position, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
+    public async Task<Result<BoardListDto>> UpdateBoardListAsync(Guid projectId, Guid listId, string name, int? position, Guid callerId, List<string> callerRoles, CancellationToken ct = default, List<Guid>? statusIds = null)
     {
         if (callerRoles.Contains("Viewer") || callerRoles.Contains("Client")) return Result<BoardListDto>.Failure("Forbidden - Viewer/Client cannot rename lists");
         var list = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == listId && b.ProjectId == projectId, ct);
@@ -116,11 +116,24 @@ public class BoardService : IBoardService
         }
         list.Rename(name);
         await _db.SaveChangesAsync(ct);
+        // Update status mapping if provided
+        if (statusIds != null)
+        {
+            if (!statusIds.Any()) return Result<BoardListDto>.Failure("Select at least one status to map");
+            var validStatuses = await _db.Statuses.Where(s => s.ProjectId == projectId && statusIds.Contains(s.Id)).ToListAsync(ct);
+            if (validStatuses.Count != statusIds.Count) return Result<BoardListDto>.Failure("One or more statuses not found in this project");
+            var existing = await _db.BoardColumnStatuses.Where(bcs => bcs.ColumnId == listId).ToListAsync(ct);
+            _db.BoardColumnStatuses.RemoveRange(existing);
+            foreach (var sid in statusIds.Distinct())
+                _db.BoardColumnStatuses.Add(new BoardColumnStatus(listId, sid));
+            await _db.SaveChangesAsync(ct);
+        }
         _db.ActivityLogs.Add(new ActivityLog(projectId, null, callerId, "ListRenamed", $"{{\"name\":\"{name}\"}}"));
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveAsync($"board:{projectId}");
         await _cache.RemoveByPrefixAsync($"board:{projectId}:");
-        return Result<BoardListDto>.Success(new BoardListDto(list.Id, list.ProjectId, list.Name, list.Position));
+        var updatedStatusIds = statusIds ?? (await _db.BoardColumnStatuses.Where(bcs => bcs.ColumnId == listId).Select(bcs => bcs.StatusId).ToListAsync(ct));
+        return Result<BoardListDto>.Success(new BoardListDto(list.Id, list.ProjectId, list.Name, list.Position, updatedStatusIds));
     }
 
     public async Task<Result<bool>> DeleteBoardListAsync(Guid projectId, Guid listId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
