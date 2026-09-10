@@ -144,6 +144,9 @@
               <select class="select select-bordered select-sm rounded-full flex-1" [value]="statusId()" (change)="statusId.set($any($event.target).value)" [disabled]="readOnly()">
                 <option value="">Select status</option>
                 @for (s of statuses; track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+                @if (statusId() && !statuses.some(s=>s.id===statusId())) {
+                  <option [value]="statusId()" selected>{{ task()?.status || 'Current' }} (legacy)</option>
+                }
               </select>
             } @else {
               <select class="select select-bordered select-sm rounded-full flex-1" disabled><option>Loading statuses...</option></select>

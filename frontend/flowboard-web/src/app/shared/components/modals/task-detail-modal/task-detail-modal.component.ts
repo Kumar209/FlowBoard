@@ -295,14 +295,18 @@ export class TaskDetailModalComponent {
     const detailTask = (this.taskDetailQuery.data() as any)?.task;
     const t = detailTask ?? this.task();
     if (!t) return false;
-    if (this.taskDetailQuery.isPending()) return false;
+    if (this.taskDetailQuery.isPending() || this.statusesQuery.isPending()) return false;
     if (this.membersQuery.isPending() || this.teamsQuery.isPending() || this.sprintsForTaskQuery.isPending()) return false;
     const teamId = (t.teamId || '').toString().toLowerCase();
     const sprintId = (t.sprintId || '').toString().toLowerCase();
     const assigneeId = (t.assigneeId || '').toString().toLowerCase();
+    const statusId = (t.statusId || '').toString().toLowerCase();
     if (teamId && !this.teamsQuery.data()?.some((x: any) => (x.id || '').toString().toLowerCase() === teamId)) return false;
     if (sprintId && !this.sprintsForTaskQuery.data()?.some((x: any) => (x.id || '').toString().toLowerCase() === sprintId)) return false;
     if (assigneeId && !this.projectMembersList().some((m: any) => (m.userId || '').toString().toLowerCase() === assigneeId)) return false;
+    if (statusId && !this.statusesQuery.data()?.some((x: any) => (x.id || '').toString().toLowerCase() === statusId)) {
+      // Fallback: if statusId not in project statuses (old foreign status), still consider ready and show status name as fallback
+    }
     return true;
   });
   isScrumBoard = computed(() => {
