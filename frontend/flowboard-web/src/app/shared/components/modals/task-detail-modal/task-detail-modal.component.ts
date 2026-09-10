@@ -304,9 +304,7 @@ export class TaskDetailModalComponent {
     if (teamId && !this.teamsQuery.data()?.some((x: any) => (x.id || '').toString().toLowerCase() === teamId)) return false;
     if (sprintId && !this.sprintsForTaskQuery.data()?.some((x: any) => (x.id || '').toString().toLowerCase() === sprintId)) return false;
     if (assigneeId && !this.projectMembersList().some((m: any) => (m.userId || '').toString().toLowerCase() === assigneeId)) return false;
-    if (statusId && !this.statusesQuery.data()?.some((x: any) => (x.id || '').toString().toLowerCase() === statusId)) {
-      // Fallback: if statusId not in project statuses (old foreign status), still consider ready and show status name as fallback
-    }
+    if (statusId && !this.statusesQuery.data()?.some((x: any) => (x.id || '').toString().toLowerCase() === statusId)) return false;
     return true;
   });
   isScrumBoard = computed(() => {
