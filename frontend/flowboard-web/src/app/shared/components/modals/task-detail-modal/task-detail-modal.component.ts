@@ -173,6 +173,8 @@ export class TaskDetailModalComponent {
   aiBreakdownDraft = signal<string[]>([]);
   aiBreakdownSelected = signal<boolean[]>([]);
   pendingBreakdown = signal<string[]>([]);
+  editingPendingIndex = signal<number | null>(null);
+  editPendingText = signal('');
 
   // Derived
   labelsJson = computed(() => {
@@ -264,7 +266,8 @@ export class TaskDetailModalComponent {
       (this.timeEstimated() ?? null) !== (t.timeEstimated ?? null) ||
       (this.timeSpent() ?? null) !== (t.timeSpent ?? null) ||
       (this.timeRemaining() ?? null) !== (t.timeRemaining ?? null) ||
-      acJson !== taskAc
+      acJson !== taskAc ||
+      this.pendingBreakdown().length > 0
     );
   });
 
@@ -811,6 +814,22 @@ export class TaskDetailModalComponent {
   }
   removePendingBreakdown(idx: number) {
     this.pendingBreakdown.set(this.pendingBreakdown().filter((_, i) => i !== idx));
+  }
+  startEditPending(idx: number) {
+    this.editingPendingIndex.set(idx);
+    this.editPendingText.set(this.pendingBreakdown()[idx]);
+  }
+  saveEditPending() {
+    const idx = this.editingPendingIndex();
+    const v = this.editPendingText().trim();
+    if (idx === null || !v) return;
+    const arr = [...this.pendingBreakdown()];
+    arr[idx] = v;
+    this.pendingBreakdown.set(arr);
+    this.editingPendingIndex.set(null);
+  }
+  cancelEditPending() {
+    this.editingPendingIndex.set(null);
   }
   async save() {
     const pending = [...this.pendingBreakdown()];

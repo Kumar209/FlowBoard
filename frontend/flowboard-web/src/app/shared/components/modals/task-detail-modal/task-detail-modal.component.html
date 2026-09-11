@@ -162,10 +162,19 @@
                 <p class="text-xs font-semibold">Pending subtasks — will be created on Save</p>
                 <div class="space-y-1">
                   @for (p of pendingBreakdown(); track $index) {
-                    <div class="flex items-center gap-2 p-2 rounded-lg bg-base-100 border">
-                      <span class="flex-1 text-xs">{{ p }}</span>
-                      <button class="btn btn-ghost btn-xs text-error" (click)="removePendingBreakdown($index)">✕</button>
-                    </div>
+                    @if (editingPendingIndex() === $index) {
+                      <div class="flex items-center gap-2 p-2 rounded-lg bg-base-100 border">
+                        <input type="text" class="input input-bordered input-xs flex-1 rounded-full" [value]="editPendingText()" (input)="editPendingText.set($any($event.target).value)" (keydown.enter)="saveEditPending()" />
+                        <button class="btn btn-primary btn-xs rounded-full" (click)="saveEditPending()">Save</button>
+                        <button class="btn btn-ghost btn-xs rounded-full" (click)="cancelEditPending()">Cancel</button>
+                      </div>
+                    } @else {
+                      <div class="flex items-center gap-2 p-2 rounded-lg bg-base-100 border">
+                        <span class="flex-1 text-xs">{{ p }}</span>
+                        <button class="btn btn-ghost btn-xs rounded-full" (click)="startEditPending($index)" title="Edit">✎</button>
+                        <button class="btn btn-ghost btn-xs text-error rounded-full" (click)="removePendingBreakdown($index)" title="Delete">🗑</button>
+                      </div>
+                    }
                   }
                 </div>
               </div>
