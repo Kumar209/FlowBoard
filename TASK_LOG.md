@@ -25,8 +25,8 @@
 | Phase 4: Files & Charts | 4.1 - 4.3 | 2/3 | In Progress |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
 | Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
-| Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 2/7 | In Progress |
-| **Total** | **0.1 - 7.7** | **20/38** | **In Progress** |
+| Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 3/7 | In Progress |
+| **Total** | **0.1 - 7.7** | **21/38** | **In Progress** |
 
 ---
 
@@ -1748,38 +1748,65 @@ Implemented `AI Draft (A)` — `Issues` header `✨ AI Draft` → `modal prompt 
 
 ---
 
-## Task 7.3: AI Enhance Issue (B) — Inside Detail Modal
+## Task 7.3: AI Enhance Issue (B) — Description ✨ Enhance with Diff Pending until Save
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | 7 - AI | — | 2h | Feature |
+| Completed | 11 Sep 2026 | 7 - AI | 0f1569f | 2h | Feature |
 
 ### 1. Overview
-`task-detail` `Description` `✨ Enhance` → `POST /tasks/{id}/ai-enhance {model}` with `title+description` → `AI` `{title,description}` diff `Current vs AI` `Apply` checkboxes + editable `textarea` → sets `signal` pending until `Save` `PUT /tasks`.
+Implemented `AI Enhance (B)` — `task-detail-modal Description` `✨ Enhance` → `POST /api/ai/enhance {taskId,title,description,model,projectId}` → `Gemini 3.5 Flash` (`gemini-3.5-flash` env-fallback) `JSON {title,description}` → `diff Current vs AI` `Apply pending` until `Save PUT /tasks`. Human-in-the-loop, no auto-overwrite, `Groq disabled` `display:none`.
 
 ### 2. Objectives
-- Preview diff, not overwrite
+- Add `POST /api/ai/enhance` via `AiController → GenerateEnhanceCommand → IAiService operation enhance` `title required max300` `Groq disabled 400` `Redis 3/min 429 RetryAfter` `AiUsageLog enhance hash/preview`
+- Frontend `task-detail-modal` `Description` header `✨ Enhance` (hidden `readOnly View`) → `diff card Current Title/Desc vs AI Title/Desc` `Dismiss / Apply (pending)` → `Apply` sets `title()/description()` signals `isDirty true` → user must `Save` `PUT /tasks` to persist
 
 ### 3. Technical Stack
 | Layer | Technology | Version | Purpose |
 |-------|------------|---------|---------|
+| Backend | `ASP.NET Core + MediatR 12.4 + FluentValidation` | 12.4 | `GenerateEnhanceCommand(Title,Description,Model,CallerId,ProjectId,TaskId):IRequest<Result<GenerateEnhanceResponse>>` `Validator gemini only` `Handler → IAiService enhance` |
+| Backend | `AiController POST api/ai/enhance EnhanceBody` | — | `IMediator only` `GetUserId sub` `429 RetryAfter` `dedicated Option A` `yarp ai-route` |
+| Infra AI | `IAiService GenerateAsync enhance prompt Title+Description` `GeminiProvider enhance SystemPrompt {title,description}` `8s retry` `AiRateLimiter` | 2.8.16 | `Groq disabled early block` `AiUsageLog Operation enhance 22 cols` |
+| Frontend | `Angular 22 OnPush Signals inject(AiService) firstValueFrom TanStack` | 22.1.5 | `ai.service enhance(taskId,title,description,model,projectId)` `task-detail-modal enhanceLoading/enhanceError/aiEnhanceTitle/Desc/showEnhanceDiff` `Apply pending until Save` |
+| Styling | `Tailwind+DaisyUI rounded-xl border primary/5` | — | `diff grid 2 cols Current vs AI` `hidden readOnly` |
 
 ### 4. Implementation Details
-...
+- Created `Application/AI/Commands/GenerateEnhanceCommand.cs:1` `record GenerateEnhanceCommand(Title,Description,Model,CallerId,ProjectId,TaskId)` `GenerateEnhanceResponse(Title,Description,Provider,Model,RawJson)` `GenerateEnhanceValidator Title NotEmpty max300 Model gemini only` `GenerateEnhanceHandler` inject `IAiService+IApplicationDbContext` manual `Title required Groq disabled check` resolve `orgId/wsId` from `ProjectId` via `Projects + SqlQueryRaw OrganizationId` `prompt = Title: {Title}\nDescription: {Desc}\n\nEnhance for clarity…` `2000 trim` `AiGenerateRequest enhance` → `_ai.GenerateAsync` → `parse JsonDocument TryGetString title/description fallback req.Title/raw` `Success`
+- Updated `Api/Controllers/AiController.cs:1` `POST api/ai/enhance EnhanceBody(Title,Description,Model,ProjectId,TaskId)` `GetUserId` `new GenerateEnhanceCommand(body.Title.Trim, body.Description ?? "", body.Model.Trim??gemini-3.5-flash, userId, body.ProjectId, body.TaskId)` `429 RetryAfter header` `thin IMediator only` `shared ExtractRetryAfter Regex`
+- Updated `frontend/core/services/ai.service.ts:1` add `AiEnhanceResponse` `enhance(taskId,title,description,model,projectId) POST /api/ai/enhance {taskId,title,description,model,projectId} withCredentials`
+- Updated `shared/components/modals/task-detail-modal/task-detail-modal.component.ts:1` `import AiService inject AiService` `signals enhanceLoading/enhanceError/aiEnhanceTitle/aiEnhanceDesc/showEnhanceDiff` `populateForm reset enhance signals` `async enhance() Title required guard enhanceLoading true firstValueFrom aiService.enhance(task.id, title, description, gemini-3.5-flash, effectiveProjectId) aiEnhanceTitle/Desc set showEnhanceDiff true toast provider•model catch toast.error enhanceError` `applyEnhance() title.set(aiEnhanceTitle) description.set(aiEnhanceDesc) showEnhanceDiff false toast Applied AI enhance — Save to persist` `dismissEnhance() showEnhanceDiff false`
+- Updated `task-detail-modal.component.html:1` `Title+Description card` `flex Description label + @if (!readOnly) button ✨ Enhance [disabled] enhanceLoading loading` `textarea Description` `@if enhanceError alert` `@if showEnhanceDiff mt-3 border primary/20 rounded-xl p-3 bg-primary/5 grid 2 cols Current Title/Desc vs AI Title/Desc + Dismiss/Apply (pending) buttons` `hidden when readOnly View` `Apply pending until Save` `isDirty true` enables `Save` `PUT /tasks`
+- Kept `GroqProvider` code but disabled via `AiService early block if providerName==groq → Failure Groq disabled` + `GenerateEnhanceCommand validator/Handler groq check` `frontend Groq radio display:none` — `Groq` code ready for future enable
 
 ### 5. Files & Changes
 | Path | Action | Description |
 |------|--------|-------------|
+| backend/Services/Project.Service/Application/AI/Commands/GenerateEnhanceCommand.cs | Created | `GenerateEnhanceCommand+Validator+Handler → IAiService enhance title/description parse` |
+| backend/Services/Project.Service/Api/Controllers/AiController.cs | Modified | `POST api/ai/enhance EnhanceBody IMediator 429 RetryAfter dedicated` |
+| frontend/flowboard-web/src/app/core/services/ai.service.ts | Modified | `AiEnhanceResponse + enhance() POST /api/ai/enhance` |
+| frontend/flowboard-web/src/app/shared/components/modals/task-detail-modal/task-detail-modal.component.ts | Modified | `inject AiService enhanceLoading/aiEnhanceTitle/showEnhanceDiff enhance()/applyEnhance()/dismissEnhance()` |
+| frontend/flowboard-web/src/app/shared/components/modals/task-detail-modal/task-detail-modal.component.html | Modified | `Description header ✨ Enhance readOnly hidden + diff card Current vs AI Apply pending` |
 
 ### 6. Verification & Results
 | Check | Result | Evidence |
 |-------|--------|----------|
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release → Build succeeded 0 Error(s) 6W (File/Identity/Project pre-existing, GenerateEnhanceCommand null Model fixed)` |
+| Build frontend | Passed | `ng build --configuration production → Application bundle generation complete [24.1s] 483.76kB Initial task-detail 27kB` `3-File Rule` `templateUrl` `css empty` `OnPush` `0 errors` |
+| YARP | Passed | `yarp.json ai-route /api/ai/* → project-cluster :5002` `POST /api/ai/enhance` via `:5000 Bearer` `AiController [Authorize] GetUserId sub` |
+| API | Logic | `POST /api/ai/enhance {taskId,title:"Login broken",description:"mobile 320px overflow",model:"gemini-3.5-flash",projectId} Bearer` → `GenerateEnhanceHandler` `Title required Groq disabled check` `org/ws resolve` `prompt Title+Description Enhance` `IAiService enhance → GeminiProvider 8s retry` `candidates[0].parts[0].text JSON {title:"Enhanced Login...",description:"Enhanced: … Steps…"}` `AiUsageLog enhance provider gemini model gemini-3.5-flash Success DurationMs PromptHash preview` `200 {title,description,provider,model,rawJson}` `Model groq → 400 Groq disabled` `Prompt <10 →400 Title required` `4th rapid →429 RetryAfter 42` |
+| Frontend flow | Logic | `Issues → open issue TES-1 Detail → Description ✨ Enhance → click → enhanceLoading Generating… → POST /api/ai/enhance → diff card Current Title/Desc vs AI Title/Desc badge Gemini 3.5 Flash → Apply → title/description signals overwritten → isDirty true → Save disabled? now enabled → Save PUT /tasks → 200 → toast Issue updated → invalidateQueries board/task-detail/history → History shows Updated` `Dismiss keeps original` `Apply pending until Save` `readOnly (Client View) hides ✨ Enhance` |
+| Enhance mock | Passed | `GeminiProvider PASTE_ mock enhance → {title:[Enhanced] safe,description:Enhanced: safe … Steps}` `Apply → toast Applied — Save to persist` builds without real `AIza` |
+| Groq disabled | Logic | `POST /api/ai/enhance {model:llama-3.1-8b} → 400 Groq disabled — only Gemini 3.5 Flash available` `frontend Groq radio hidden display:none` `GroqProvider code kept` |
+| Distinct | Logic | `7.2 isDraft checklist separate` vs `7.3 enhance title/description diff` — not `Subtask` (`7.5`) nor `AC` (`7.4 deferred`) — `Suggested Steps` remains description-embedded, `Enhance` only touches `Title/Description` |
 
 ### 7. Enterprise Relevance (MNC Value)
-...
+`AI Enhance (B)` `diff Apply pending until Save` proves `GenAI Augmentation, not Automation` (`MNC` `human-in-the-loop` `Pave` `Jira Smart Edit` — never auto-overwrites `Title/Description`, user must `Apply` + `Save` `PUT` to persist, aligns with `Audit` `ActivityLog Updated` + `Board` `IsDirty Save disabled`). `Dedicated AiController` isolates `AI` `bounded context` (extract-ready) like `File` `ai-route` `DIP IAiService` `IApplicationDbContext` `HasDefaultSchema project`. `Gemini 3.5 Flash env-fallback` `8s retry` `Redis 3/min` `AiUsageLog hash/preview` `Groq disabled display:none` but code kept shows `feature flag` `MNC` `feature toggle` without delete. `Signals isDirty` `firstValueFrom` `TanStack` `OnPush` keeps `Angular 22` scale. `Description ✨ Enhance` hidden `readOnly` enforces `Client View+comment only` `Viewer cannot comment` (existing `auth.canComment`).
 
 ### 8. Next Steps & Dependencies
-...
+- Unlocks: Task 7.4 `AI Acceptance Criteria (C)` `Acceptance card under Description manual Add + ✨ Generate → POST /api/ai/criteria {taskId} → {criteria:string[4-6]} checkbox editable Apply pending until Save PUT acceptanceCriteriaJson nullable` — will add `Tasks.AcceptanceCriteriaJson nvarchar(1000)` `migration AddAcceptanceCriteria` `GenerateCriteriaCommand` `AiController POST api/ai/criteria` `Frontend AC card` `separate from 7.2 Suggested Steps / 7.3 Enhance`; `7.5 Breakdown (D)` `Subtasks Create Selected pending until Save PUT+POST batch`; `7.6 Org AI Usage` `Main sidebar OrgAdmin GET /api/ai/usage?orgId GROUP BY`; `7.7 Project AI Usage`
+- Depends on: Task 7.2 `AI Draft isDraft` `DONE` (`AiService ModelName gemini-3.5-flash` `yarp ai-route`) — this `7.3` reuses `IAiService/GeminiProvider/AiRateLimiter/AiUsageLogs`; `6.5 assignee ∩` `4.2 Attachments UI` stable
+- Follow-up: Test `POST http://localhost:5000/api/ai/enhance` `Gateway Bearer` `title Login broken length>10 projectId taskId` → `200 {title,description}` then `3 rapid →429 RetryAfter` `Groq →400` ; `ng serve Issues → Detail → Description ✨ Enhance → diff → Apply → Save → Board` `History` ; keep `Phase 4.3 ApexCharts` after `Phase7` then `Phase5 Polish` `Admin deferred`
+
 
 ---
 
