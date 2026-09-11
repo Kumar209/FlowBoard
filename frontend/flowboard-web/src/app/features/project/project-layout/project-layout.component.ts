@@ -109,6 +109,7 @@ export class ProjectLayoutComponent {
       { label:'Statuses', icon:'◍', path: `${base}/statuses`, badge: '' },
       { label:'Environments', icon:'⬢', path: `${base}/environments`, badge: '' },
       { label:'Activity', icon:'◷', path: `${base}/activity`, badge: '' },
+      { label:'AI Usage', icon:'✦', path: `${base}/ai-usage`, badge: '' },
       { label:'Docs', icon:'▭', path: `${base}/docs`, badge: '' },
       { label:'Settings', icon:'⚙', path: `${base}/settings`, badge: '' },
     ];

@@ -1,0 +1,58 @@
+<div class="p-3 sm:p-4 md:p-6 max-w-[1200px] mx-auto space-y-4">
+  <div class="flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-bold flex items-center gap-2">AI Usage <span class="badge badge-ghost badge-xs">Project • All members</span></h1>
+      <p class="text-xs opacity-60">Project filtered tokens / cost • {{ projectId().slice(0,6) }}</p>
+    </div>
+    <select class="select select-bordered select-sm rounded-full" [value]="modelFilter()" (change)="modelFilter.set($any($event.target).value)">
+      <option value="all">All models</option>
+      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+      <option value="llama-3.1-8b-instant">Groq llama-3.1-8b (disabled)</option>
+    </select>
+  </div>
+
+  @if (summaryQuery.isPending()) { <span class="loading loading-spinner loading-sm"></span> }
+  @else if (filteredSummary().length === 0) {
+    <div class="card bg-base-100 rounded-2xl p-6 border text-center">
+      <p class="font-semibold">No AI usage for this project</p>
+      <p class="text-sm opacity-60">Use AI Draft/Enhance/Criteria/Breakdown in this project to see logs.</p>
+    </div>
+  } @else {
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      @for (s of filteredSummary(); track s.model) {
+        <div class="card bg-base-100 rounded-2xl p-4 border shadow-sm">
+          <p class="text-xs opacity-60">{{ s.provider }} • {{ s.model }}</p>
+          <p class="text-lg font-bold">{{ s.totalRequests }} requests</p>
+          <p class="text-xs">Tokens: {{ s.totalTokens }} • Avg {{ s.avgDurationMs }}ms</p>
+          <p class="text-xs opacity-60">Cost: ${{ s.totalCost }}</p>
+        </div>
+      }
+    </div>
+  }
+
+  <div class="card bg-base-100 rounded-2xl border overflow-hidden">
+    <div class="p-3 border-b border-base-200 flex justify-between items-center">
+      <h3 class="font-semibold text-sm">Recent Logs ({{ filteredLogs().length }})</h3>
+      <span class="text-xs opacity-40">filtered by projectId</span>
+    </div>
+    @if (usageQuery.isPending()) { <div class="p-4"><span class="loading loading-spinner loading-sm"></span></div> }
+    @else {
+      <div class="overflow-x-auto max-h-[400px] overflow-y-auto">
+        <table class="table table-xs">
+          <thead><tr><th>Time</th><th>Operation</th><th>Provider/Model</th><th>Tokens</th><th>Status</th></tr></thead>
+          <tbody>
+            @for (l of filteredLogs(); track l.id) {
+              <tr>
+                <td class="text-[11px]">{{ l.createdAt | date:'short' }}</td>
+                <td><span class="badge badge-ghost badge-xs">{{ l.operation }}</span></td>
+                <td class="text-xs">{{ l.provider }} • {{ l.model }}</td>
+                <td class="text-xs">{{ l.totalTokens }} ({{ l.inputTokens }}/{{ l.outputTokens }})</td>
+                <td><span class="badge badge-xs" [ngClass]="l.status==='Success'?'badge-success': l.status==='RateLimited'?'badge-warning':'badge-error'">{{ l.status }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

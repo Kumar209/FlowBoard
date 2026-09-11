@@ -32,6 +32,7 @@ export const routes: Routes = [
           { path: 'environments', loadComponent: () => import('./features/project/environments/environments.component').then(m => m.EnvironmentsComponent) },
           { path: 'docs', loadComponent: () => import('./features/project/docs/docs.component').then(m => m.DocsComponent) },
           { path: 'settings', loadComponent: () => import('./features/project/settings/settings.component').then(m => m.SettingsComponent) },
+          { path: 'ai-usage', loadComponent: () => import('./features/project/ai-usage/ai-usage.component').then(m => m.ProjectAiUsageComponent) },
         ]
       },
       { path: 'notifications', loadComponent: () => import('./features/notifications/notification-list/notification-list.component').then(m => m.NotificationListComponent) },
@@ -40,6 +41,7 @@ export const routes: Routes = [
       { path: 'roles', canActivate: [orgAdminGuard], loadComponent: () => import('./features/roles/roles.component').then(m => m.RolesComponent) },
       { path: 'roles/:roleId/permissions', canActivate: [orgAdminGuard], loadComponent: () => import('./features/roles/role-permissions/role-permissions.component').then(m => m.RolePermissionsComponent) },
       { path: 'system', canActivate: [orgAdminGuard], loadComponent: () => import('./features/system/system.component').then(m => m.SystemComponent) },
+      { path: 'ai-usage', canActivate: [orgAdminGuard], loadComponent: () => import('./features/ai-usage/ai-usage.component').then(m => m.AiUsageComponent) },
     ]
   },
   { path: '**', redirectTo: '' }

@@ -101,11 +101,34 @@ public class AiController : ControllerBase
         return Ok(result.Value);
     }
 
+    [HttpGet("api/ai/usage")]
+    public async Task<IActionResult> GetUsage([FromQuery] Guid? orgId, [FromQuery] Guid? projectId, [FromQuery] Guid? userId)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var roles = GetRoles();
+        var query = new Project.Service.Application.AI.Queries.GetAiUsageQuery(orgId, projectId, userId, callerId.Value, roles);
+        var result = await _mediator.Send(query);
+        if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpGet("api/ai/usage/summary")]
+    public async Task<IActionResult> GetSummary([FromQuery] Guid? orgId, [FromQuery] Guid? projectId)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var roles = GetRoles();
+        var query = new Project.Service.Application.AI.Queries.GetAiUsageSummaryQuery(orgId, projectId, callerId.Value, roles);
+        var result = await _mediator.Send(query);
+        if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
     private Guid? GetUserId()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         return Guid.TryParse(sub, out var g) ? g : null;
     }
+    private List<string> GetRoles() => User.FindAll(ClaimTypes.Role).Select(c => c.Value).Concat(User.FindAll("role").Select(c => c.Value)).Distinct().ToList();
     private static int ExtractRetryAfter(string err)
     {
         var idx = err.IndexOf("Retry-After:");

@@ -53,4 +53,16 @@ export class AiService {
   breakdown(taskId: string | undefined, title: string, description: string, model: string, projectId?: string) {
     return this.http.post<AiBreakdownResponse>(`${environment.apiUrl}/api/ai/breakdown`, { taskId, title, description, model, projectId }, { withCredentials: true });
   }
+  usage(orgId?: string, projectId?: string) {
+    let params: any = {};
+    if (orgId) params.orgId = orgId;
+    if (projectId) params.projectId = projectId;
+    return this.http.get<any[]>(`${environment.apiUrl}/api/ai/usage`, { params, withCredentials: true });
+  }
+  usageSummary(orgId?: string, projectId?: string) {
+    let params: any = {};
+    if (orgId) params.orgId = orgId;
+    if (projectId) params.projectId = projectId;
+    return this.http.get<any[]>(`${environment.apiUrl}/api/ai/usage/summary`, { params, withCredentials: true });
+  }
 }
