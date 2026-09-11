@@ -37,13 +37,13 @@ export class BacklogComponent {
   });
   allCount = computed(() => this.boardQuery.data()?.tasks?.length || 0);
   updateMutation = injectMutation(() => ({
-    mutationFn: (vars: { id:string; title:string; description:string; priority:string; listId:string; labelsJson?:string; assigneeId?:string; dueDate?:string; issueType?:string; epic?:string; storyPoints?:number; startDate?:string; environment?:string; parentIssueId?:string; sprintId?:string; watchersJson?:string; linkedIssuesJson?:string; timeEstimated?:number; timeSpent?:number; timeRemaining?:number; teamId?:string }) =>
-      firstValueFrom(this.ps.updateTask(vars.id, vars.title, vars.description, vars.priority, vars.listId, vars.labelsJson, vars.assigneeId, vars.dueDate, vars.issueType, vars.epic, vars.storyPoints, vars.startDate, vars.environment, vars.parentIssueId, vars.sprintId, vars.watchersJson, vars.linkedIssuesJson, vars.timeEstimated, vars.timeSpent, vars.timeRemaining, vars.teamId)),
+    mutationFn: (vars: { id:string; title:string; description:string; priority:string; listId:string; labelsJson?:string; assigneeId?:string; dueDate?:string; issueType?:string; epic?:string; storyPoints?:number; startDate?:string; environment?:string; parentIssueId?:string; sprintId?:string; watchersJson?:string; linkedIssuesJson?:string; timeEstimated?:number; timeSpent?:number; timeRemaining?:number; teamId?:string; statusId?:string; acceptanceCriteriaJson?:string }) =>
+      firstValueFrom(this.ps.updateTask(vars.id, vars.title, vars.description, vars.priority, vars.listId, vars.labelsJson, vars.assigneeId, vars.dueDate, vars.issueType, vars.epic, vars.storyPoints, vars.startDate, vars.environment, vars.parentIssueId, vars.sprintId, vars.watchersJson, vars.linkedIssuesJson, vars.timeEstimated, vars.timeSpent, vars.timeRemaining, vars.teamId, vars.statusId, vars.acceptanceCriteriaJson)),
     onSuccess: () => { this.qc.invalidateQueries({ queryKey: ['board'] }); this.detailOpen.set(false); },
   }));
   openDetail(task:any){ this.selectedTask.set(task); this.detailOpen.set(true); }
   onDetailSave(e:any){
     const t=this.selectedTask(); if(!t) return;
-    this.updateMutation.mutate({ id:t.id, title:e.title, description:e.description, priority:e.priority, listId:e.listId, labelsJson: e.labelsJson, assigneeId: e.assigneeId, dueDate: e.dueDate, issueType: e.issueType, epic: e.epic, storyPoints: e.storyPoints, startDate: e.startDate, environment: e.environment, parentIssueId: e.parentIssueId, sprintId: e.sprintId, watchersJson: e.watchersJson, linkedIssuesJson: e.linkedIssuesJson, timeEstimated: e.timeEstimated, timeSpent: e.timeSpent, timeRemaining: e.timeRemaining, teamId: e.teamId });
+    this.updateMutation.mutate({ id:t.id, title:e.title, description:e.description, priority:e.priority, listId:e.listId, labelsJson: e.labelsJson, assigneeId: e.assigneeId, dueDate: e.dueDate, issueType: e.issueType, epic: e.epic, storyPoints: e.storyPoints, startDate: e.startDate, environment: e.environment, parentIssueId: e.parentIssueId, sprintId: e.sprintId, watchersJson: e.watchersJson, linkedIssuesJson: e.linkedIssuesJson, timeEstimated: e.timeEstimated, timeSpent: e.timeSpent, timeRemaining: e.timeRemaining, teamId: e.teamId, statusId: e.statusId, acceptanceCriteriaJson: e.acceptanceCriteriaJson });
   }
 }

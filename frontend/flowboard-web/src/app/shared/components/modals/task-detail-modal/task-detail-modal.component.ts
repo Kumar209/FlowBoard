@@ -62,6 +62,7 @@ export class TaskDetailModalComponent {
     timeRemaining?: number;
     teamId?: string;
     statusId?: string;
+    acceptanceCriteriaJson?: string;
   }>();
 
   private projectService = inject(ProjectService);
@@ -157,6 +158,13 @@ export class TaskDetailModalComponent {
   aiEnhanceTitle = signal('');
   aiEnhanceDesc = signal('');
   showEnhanceDiff = signal(false);
+  // AI Criteria 7.4 — Acceptance Criteria (optional manual + AI Generate pending until Save)
+  acceptanceCriteria = signal<string[]>([]);
+  newCriteria = signal('');
+  criteriaGenerating = signal(false);
+  criteriaError = signal<string | null>(null);
+  aiCriteriaDraft = signal<string[]>([]); // AI generated preview, checkbox
+  aiCriteriaSelected = signal<boolean[]>([]);
 
   // Derived
   labelsJson = computed(() => {
@@ -217,6 +225,15 @@ export class TaskDetailModalComponent {
         return '';
       }
     })();
+    const acJson = JSON.stringify(this.acceptanceCriteria());
+    const taskAc = (() => {
+      try {
+        const a = JSON.parse(t.acceptanceCriteriaJson || '[]');
+        return JSON.stringify(Array.isArray(a) ? a : []);
+      } catch {
+        return '[]';
+      }
+    })();
     return (
       this.title() !== t.title ||
       this.description() !== (t.description || '') ||
@@ -238,7 +255,8 @@ export class TaskDetailModalComponent {
       this.linkedIssues() !== linkedDisplay ||
       (this.timeEstimated() ?? null) !== (t.timeEstimated ?? null) ||
       (this.timeSpent() ?? null) !== (t.timeSpent ?? null) ||
-      (this.timeRemaining() ?? null) !== (t.timeRemaining ?? null)
+      (this.timeRemaining() ?? null) !== (t.timeRemaining ?? null) ||
+      acJson !== taskAc
     );
   });
 
@@ -536,6 +554,16 @@ export class TaskDetailModalComponent {
     this.timeEstimated.set(t.timeEstimated ?? null);
     this.timeSpent.set(t.timeSpent ?? null);
     this.timeRemaining.set(t.timeRemaining ?? null);
+    try {
+      const ac = JSON.parse(t.acceptanceCriteriaJson || '[]');
+      this.acceptanceCriteria.set(Array.isArray(ac) ? ac : []);
+    } catch {
+      this.acceptanceCriteria.set([]);
+    }
+    this.newCriteria.set('');
+    this.aiCriteriaDraft.set([]);
+    this.aiCriteriaSelected.set([]);
+    this.criteriaError.set(null);
     this.activeTab.set('comments');
   }
 
@@ -658,6 +686,62 @@ export class TaskDetailModalComponent {
     this.showEnhanceDiff.set(false);
     this.enhanceError.set(null);
   }
+  // Acceptance Criteria 7.4 — manual Add + AI Generate pending until Save
+  acceptanceCriteriaJson = computed(() => {
+    const arr = this.acceptanceCriteria();
+    if (!arr.length) return undefined;
+    return JSON.stringify(arr);
+  });
+  addCriteria() {
+    const v = this.newCriteria().trim();
+    if (!v) return;
+    this.acceptanceCriteria.set([...this.acceptanceCriteria(), v]);
+    this.newCriteria.set('');
+  }
+  removeCriteria(idx: number) {
+    this.acceptanceCriteria.set(this.acceptanceCriteria().filter((_, i) => i !== idx));
+  }
+  async generateCriteria() {
+    const t = this.title().trim();
+    if (!t) { this.toast.error('Title required for Criteria'); return; }
+    this.criteriaGenerating.set(true);
+    this.criteriaError.set(null);
+    try {
+      const res: any = await firstValueFrom(this.aiService.criteria(this.task()?.id, t, this.description().trim(), 'gemini-3.5-flash', this.effectiveProjectId()));
+      const criteria = (res.criteria || []) as string[];
+      this.aiCriteriaDraft.set(criteria);
+      this.aiCriteriaSelected.set(criteria.map(() => true));
+      this.toast.success(`Criteria via ${res.provider} • ${res.model}`);
+    } catch (e: any) {
+      const raw = e.error?.error || e.message || 'Criteria failed';
+      const human = raw.includes('Raw:') || raw.includes('LineNumber') || raw.includes('at System') || raw.length > 120 ? 'AI criteria failed — please try again.' : raw;
+      this.criteriaError.set(human);
+      this.toast.error(human);
+    } finally {
+      this.criteriaGenerating.set(false);
+    }
+  }
+  toggleAiCriteria(idx: number) {
+    const sel = [...this.aiCriteriaSelected()];
+    sel[idx] = !sel[idx];
+    this.aiCriteriaSelected.set(sel);
+  }
+  applyAiCriteria() {
+    const selected = this.aiCriteriaDraft().filter((_, i) => this.aiCriteriaSelected()[i]);
+    if (!selected.length) { this.toast.error('Select at least one criteria'); return; }
+    // Append selected to existing, avoid duplicates
+    const existing = new Set(this.acceptanceCriteria());
+    const toAdd = selected.filter(c => !existing.has(c));
+    this.acceptanceCriteria.set([...this.acceptanceCriteria(), ...toAdd]);
+    this.aiCriteriaDraft.set([]);
+    this.aiCriteriaSelected.set([]);
+    this.toast.success('Applied criteria — Save to persist');
+  }
+  dismissAiCriteria() {
+    this.aiCriteriaDraft.set([]);
+    this.aiCriteriaSelected.set([]);
+    this.criteriaError.set(null);
+  }
   save() {
     this.saved.emit({
       title: this.title().trim(),
@@ -681,6 +765,7 @@ export class TaskDetailModalComponent {
       timeRemaining: this.timeRemaining() ?? undefined,
       teamId: this.teamId() || undefined,
       statusId: this.statusId() || undefined,
+      acceptanceCriteriaJson: this.acceptanceCriteriaJson(),
     });
   }
   addSubtask() {

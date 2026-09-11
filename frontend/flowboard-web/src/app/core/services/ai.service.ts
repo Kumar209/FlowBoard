@@ -23,6 +23,13 @@ export interface AiEnhanceResponse {
   rawJson: string;
 }
 
+export interface AiCriteriaResponse {
+  criteria: string[];
+  provider: string;
+  model: string;
+  rawJson: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AiService {
   private http = inject(HttpClient);
@@ -32,5 +39,8 @@ export class AiService {
   }
   enhance(taskId: string | undefined, title: string, description: string, model: string, projectId?: string) {
     return this.http.post<AiEnhanceResponse>(`${environment.apiUrl}/api/ai/enhance`, { taskId, title, description, model, projectId }, { withCredentials: true });
+  }
+  criteria(taskId: string | undefined, title: string, description: string, model: string, projectId?: string) {
+    return this.http.post<AiCriteriaResponse>(`${environment.apiUrl}/api/ai/criteria`, { taskId, title, description, model, projectId }, { withCredentials: true });
   }
 }

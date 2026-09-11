@@ -59,6 +59,51 @@
             }
           </div>
 
+          <!-- Acceptance Criteria 7.4 — optional manual Add + AI Generate pending until Save -->
+          <div class="border border-base-200 rounded-2xl p-3 bg-base-100">
+            <div class="flex justify-between items-center mb-2">
+              <h4 class="font-semibold text-sm">Acceptance Criteria <span class="opacity-40 font-normal">optional</span></h4>
+              <button class="btn btn-ghost btn-xs rounded-full border" (click)="generateCriteria()" [disabled]="criteriaGenerating()" [class.loading]="criteriaGenerating()">
+                @if (criteriaGenerating()) { Generating… } @else { ✨ Generate }
+              </button>
+            </div>
+            @if (criteriaError()) { <div class="alert alert-error py-1 text-xs mb-2">{{ criteriaError() }}</div> }
+            @if (aiCriteriaDraft().length) {
+              <div class="mb-3 border border-primary/20 rounded-xl p-3 bg-primary/5 space-y-2">
+                <p class="text-xs font-semibold">AI Suggested Criteria — checkbox then Apply pending until Save</p>
+                <div class="space-y-1 max-h-[150px] overflow-y-auto">
+                  @for (c of aiCriteriaDraft(); track $index) {
+                    <label class="flex items-start gap-2 p-2 rounded-lg bg-base-100 border cursor-pointer">
+                      <input type="checkbox" class="checkbox checkbox-xs checkbox-primary mt-0.5" [checked]="aiCriteriaSelected()[$index]" (change)="toggleAiCriteria($index)" />
+                      <span class="text-xs flex-1">{{ c }}</span>
+                    </label>
+                  }
+                </div>
+                <div class="flex gap-2 justify-end">
+                  <button class="btn btn-ghost btn-xs rounded-full" (click)="dismissAiCriteria()">Dismiss</button>
+                  <button class="btn btn-primary btn-xs rounded-full" (click)="applyAiCriteria()">Apply Selected (pending)</button>
+                </div>
+              </div>
+            }
+            @if (acceptanceCriteria().length) {
+              <div class="space-y-1 max-h-[150px] overflow-y-auto">
+                @for (c of acceptanceCriteria(); track $index) {
+                  <div class="flex items-center gap-2 p-2 rounded-lg bg-base-100 border">
+                    <span class="flex-1 text-xs">{{ c }}</span>
+                    <button class="btn btn-ghost btn-xs text-error rounded-full" (click)="removeCriteria($index)">✕</button>
+                  </div>
+                }
+              </div>
+            } @else {
+              <p class="text-xs opacity-40 text-center py-2">No criteria — Add manually or ✨ Generate (4-6 Given/When/Then)</p>
+            }
+            <div class="flex gap-2 mt-3">
+              <input type="text" placeholder="Add criteria + Enter" class="input input-bordered input-sm flex-1 rounded-xl" [value]="newCriteria()" (input)="newCriteria.set($any($event.target).value)" (keydown.enter)="addCriteria()" />
+              <button class="btn btn-primary btn-sm rounded-xl" (click)="addCriteria()" [disabled]="!newCriteria().trim()">Add</button>
+            </div>
+            <p class="text-[10px] opacity-40 mt-2">Saved via Save button — pending until Save PUT acceptanceCriteriaJson</p>
+          </div>
+
           <!-- Subtasks -->
           <div class="border border-base-200 rounded-2xl p-3 bg-base-100">
             <div class="flex justify-between items-center mb-2">

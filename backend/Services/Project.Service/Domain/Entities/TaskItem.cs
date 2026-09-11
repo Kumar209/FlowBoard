@@ -34,6 +34,7 @@ public class TaskItem : BaseEntity, IAggregateRoot
     public int? TimeEstimated { get; private set; } // hours
     public int? TimeSpent { get; private set; }
     public int? TimeRemaining { get; private set; }
+    public string? AcceptanceCriteriaJson { get; private set; } // JSON array of strings — 7.4 AC optional, manual Add + AI Generate pending until Save PUT (nullable, not Subtask)
 
     public Project? Project { get; private set; }
     public BoardList? List { get; private set; }
@@ -76,7 +77,7 @@ public class TaskItem : BaseEntity, IAggregateRoot
         Touch();
     }
 
-    public void Update(string title, string? description, TaskPriority priority, string? labelsJson, Guid? assigneeId, DateTime? dueDate, string? issueType = null, string? epic = null, int? storyPoints = null, DateTime? startDate = null, string? environment = null, Guid? parentIssueId = null, Guid? sprintId = null, string? watchersJson = null, string? linkedIssuesJson = null, int? timeEstimated = null, int? timeSpent = null, int? timeRemaining = null, Guid? teamId = null, string? status = null, Guid? statusId = null)
+    public void Update(string title, string? description, TaskPriority priority, string? labelsJson, Guid? assigneeId, DateTime? dueDate, string? issueType = null, string? epic = null, int? storyPoints = null, DateTime? startDate = null, string? environment = null, Guid? parentIssueId = null, Guid? sprintId = null, string? watchersJson = null, string? linkedIssuesJson = null, int? timeEstimated = null, int? timeSpent = null, int? timeRemaining = null, Guid? teamId = null, string? status = null, Guid? statusId = null, string? acceptanceCriteriaJson = null)
     {
         Title = title;
         Description = description;
@@ -99,6 +100,7 @@ public class TaskItem : BaseEntity, IAggregateRoot
         TeamId = teamId;
         if (status != null) Status = status;
         if (statusId != null) StatusId = statusId;
+        AcceptanceCriteriaJson = acceptanceCriteriaJson;
         Touch();
     }
 

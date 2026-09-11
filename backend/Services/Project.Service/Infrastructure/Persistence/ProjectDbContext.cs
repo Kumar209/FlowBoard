@@ -138,6 +138,7 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.Property(x => x.Environment).HasMaxLength(50);
             e.Property(x => x.WatchersJson).HasMaxLength(2000);
             e.Property(x => x.LinkedIssuesJson).HasMaxLength(2000);
+            e.Property(x => x.AcceptanceCriteriaJson).HasMaxLength(2000);
             e.Property(x => x.Status).HasMaxLength(100).HasDefaultValue("To Do");
             e.HasIndex(x => new { x.ListId, x.Position });
             e.HasIndex(x => x.ProjectId);

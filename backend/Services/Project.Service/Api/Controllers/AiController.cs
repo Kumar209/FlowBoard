@@ -10,6 +10,7 @@ namespace Project.Service.Api.Controllers;
 /// AiController - dedicated AI bounded context (Option A, 7.1 separate AI folder). All AI ops via /api/ai/* → project-cluster :5002 (yarp.json ai-route). Thin DIP: IMediator only → Command/Query → IAiService → Infrastructure/AI (Gemini/Groq + Redis + AiUsageLogs). Ready to extract to microservice.
 /// 7.2 Draft (A): POST /api/ai/draft {prompt,model,projectId} → JSON {title,description,checklist,labels,priority,issueType,storyPoints} isDraft preview (no Id) → frontend Create POST /tasks.
 /// 7.3 Enhance (B): POST /api/ai/enhance {taskId,title,description,model,projectId} → Gemini {title,description} diff Current vs AI Apply pending until Save PUT.
+/// 7.4 Criteria (C): POST /api/ai/criteria {taskId,title,description,model,projectId} → Gemini {criteria:string[4-6]} checkbox editable Apply pending until Save PUT acceptanceCriteriaJson nullable.
 /// Rate limit 3/min per ai:{userId}:{model} + 5 RPM global via AiService → 429 + RetryAfter.
 /// </summary>
 [ApiController]
@@ -59,6 +60,26 @@ public class AiController : ControllerBase
         return Ok(result.Value);
     }
 
+    [HttpPost("api/ai/criteria")]
+    public async Task<IActionResult> Criteria([FromBody] CriteriaBody body)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var cmd = new GenerateCriteriaCommand(body.Title?.Trim() ?? "", body.Description ?? "", body.Model?.Trim() ?? "gemini-3.5-flash", userId.Value, body.ProjectId, body.TaskId);
+        var result = await _mediator.Send(cmd);
+        if (!result.IsSuccess)
+        {
+            var err = result.Error ?? "AI failed";
+            if (err.Contains("Too Many Requests") || err.Contains("Rate limit") || err.Contains("429"))
+            {
+                var retryAfter = ExtractRetryAfter(err);
+                Response.Headers.Append("Retry-After", retryAfter.ToString());
+                return StatusCode(429, new { error = err, retryAfter });
+            }
+            return BadRequest(new { error = err });
+        }
+        return Ok(result.Value);
+    }
+
     private Guid? GetUserId()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
@@ -90,3 +111,4 @@ public class AiController : ControllerBase
 
 public record DraftBody(string Prompt, string? Model, Guid? ProjectId);
 public record EnhanceBody(string Title, string? Description, string? Model, Guid? ProjectId, Guid? TaskId);
+public record CriteriaBody(string Title, string? Description, string? Model, Guid? ProjectId, Guid? TaskId);

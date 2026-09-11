@@ -101,7 +101,7 @@ export class IssuesComponent {
     return this.filtered().slice(start, start+this.pageSize);
   });
   updateMutation = injectMutation(() => ({
-    mutationFn: (vars: any) => firstValueFrom(this.ps.updateTask(vars.id, vars.title, vars.description, vars.priority, vars.listId, vars.labelsJson, vars.assigneeId, vars.dueDate, vars.issueType, vars.epic, vars.storyPoints, vars.startDate, vars.environment, vars.parentIssueId, vars.sprintId, vars.watchersJson, vars.linkedIssuesJson, vars.timeEstimated, vars.timeSpent, vars.timeRemaining, vars.teamId, vars.statusId)),
+    mutationFn: (vars: any) => firstValueFrom(this.ps.updateTask(vars.id, vars.title, vars.description, vars.priority, vars.listId, vars.labelsJson, vars.assigneeId, vars.dueDate, vars.issueType, vars.epic, vars.storyPoints, vars.startDate, vars.environment, vars.parentIssueId, vars.sprintId, vars.watchersJson, vars.linkedIssuesJson, vars.timeEstimated, vars.timeSpent, vars.timeRemaining, vars.teamId, vars.statusId, vars.acceptanceCriteriaJson)),
     onSuccess: () => { this.qc.invalidateQueries({queryKey: ['board']}); this.detailOpen.set(false); this.toast.success('Issue updated'); },
     onError: (e:any) => this.toast.error(e.error?.error || 'Update failed'),
   }));
@@ -162,5 +162,5 @@ export class IssuesComponent {
     this.createMutation.mutate({ listId: null, statusId: this.createStatusId(), title: e.title, description: e.description, priority: e.priority, labelsJson, dueDate: e.dueDate, issueType: e.issueType, teamId: e.teamId, sprintId: e.sprintId });
     this.createOpen.set(false);
   }
-  onSave(e:any){ const t=this.selectedTask(); if(!t) return; this.updateMutation.mutate({ id:t.id, title:e.title, description:e.description, priority:e.priority, listId:e.listId, labelsJson:e.labelsJson, assigneeId:e.assigneeId, dueDate:e.dueDate, issueType: e.issueType, epic: e.epic, storyPoints: e.storyPoints, startDate: e.startDate, environment: e.environment, parentIssueId: e.parentIssueId, sprintId: e.sprintId, watchersJson: e.watchersJson, linkedIssuesJson: e.linkedIssuesJson, timeEstimated: e.timeEstimated, timeSpent: e.timeSpent, timeRemaining: e.timeRemaining, teamId: e.teamId, statusId: e.statusId }); }
+  onSave(e:any){ const t=this.selectedTask(); if(!t) return; this.updateMutation.mutate({ id:t.id, title:e.title, description:e.description, priority:e.priority, listId:e.listId, labelsJson:e.labelsJson, assigneeId:e.assigneeId, dueDate:e.dueDate, issueType: e.issueType, epic: e.epic, storyPoints: e.storyPoints, startDate: e.startDate, environment: e.environment, parentIssueId: e.parentIssueId, sprintId: e.sprintId, watchersJson: e.watchersJson, linkedIssuesJson: e.linkedIssuesJson, timeEstimated: e.timeEstimated, timeSpent: e.timeSpent, timeRemaining: e.timeRemaining, teamId: e.teamId, statusId: e.statusId, acceptanceCriteriaJson: e.acceptanceCriteriaJson }); }
 }
