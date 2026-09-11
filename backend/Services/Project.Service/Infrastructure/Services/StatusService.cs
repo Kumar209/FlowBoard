@@ -35,9 +35,9 @@ public class StatusService : IStatusService
         {
             try
             {
-                var isSuper = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[WorkspaceMembers] WHERE UserId = {0} AND Role = 5", callerId).FirstOrDefaultAsync(ct) > 0;
+                var isSuper = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[WorkspaceMembers] WHERE UserId = {0} AND Role = {1}", callerId, Roles.SuperAdminValue).FirstOrDefaultAsync(ct) > 0;
                 if (isSuper) return true;
-                var isOrgAdmin = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1} AND Role = 2", wsId, callerId).FirstOrDefaultAsync(ct) > 0;
+                var isOrgAdmin = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1} AND Role = {2}", wsId, callerId, Roles.OrgAdminValue).FirstOrDefaultAsync(ct) > 0;
                 if (isOrgAdmin) return true;
             } catch { }
         }
@@ -60,8 +60,8 @@ public class StatusService : IStatusService
         var existing = await _db.Statuses.Where(s => s.ProjectId == projectId).ToListAsync(ct);
         if (existing.Any(s => NormalizedKey(s.Name) == key))
             return Result<StatusDto>.Failure($"Status '{display}' already exists (maybe as '{existing.First(s => NormalizedKey(s.Name)==key).Name}')");
-        var allowed = callerRoles.Any(r => new[] { "OrgAdmin", "ProjectManager", "SuperAdmin" }.Contains(r));
-        if (!allowed) return Result<StatusDto>.Failure("Forbidden - Need OrgAdmin/ProjectManager for status:create");
+        var allowed = Roles.IsPrivilegedForManage(callerRoles);
+        if (!allowed) return Result<StatusDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin for status:create");
         var status = new Status(projectId, display);
         _db.Statuses.Add(status);
         await _db.SaveChangesAsync(ct);
@@ -73,8 +73,8 @@ public class StatusService : IStatusService
         if (string.IsNullOrWhiteSpace(name)) return Result<StatusDto>.Failure("Name required");
         var status = await _db.Statuses.FirstOrDefaultAsync(s => s.Id == statusId, ct);
         if (status == null) return Result<StatusDto>.Failure("Status not found");
-        var allowed = callerRoles.Any(r => new[] { "OrgAdmin", "ProjectManager", "SuperAdmin" }.Contains(r));
-        if (!allowed) return Result<StatusDto>.Failure("Forbidden - Need OrgAdmin/ProjectManager");
+        var allowed = Roles.IsPrivilegedForManage(callerRoles);
+        if (!allowed) return Result<StatusDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin");
         var normalized = Normalize(name);
         var display = DisplayName(normalized);
         var key = NormalizedKey(name);
@@ -90,8 +90,8 @@ public class StatusService : IStatusService
     {
         var status = await _db.Statuses.FirstOrDefaultAsync(s => s.Id == statusId, ct);
         if (status == null) return Result<bool>.Failure("Status not found");
-        var allowed = callerRoles.Any(r => new[] { "OrgAdmin", "ProjectManager", "SuperAdmin" }.Contains(r));
-        if (!allowed) return Result<bool>.Failure("Forbidden - Need OrgAdmin/ProjectManager");
+        var allowed = Roles.IsPrivilegedForManage(callerRoles);
+        if (!allowed) return Result<bool>.Failure("Forbidden - Need OrgAdmin/SuperAdmin");
         var taskCount = await _db.Tasks.CountAsync(t => t.StatusId == statusId, ct);
         if (taskCount > 0) return Result<bool>.Failure($"Cannot delete status '{status.Name}' — {taskCount} issue(s) still use it. Reassign them to another status first.");
         var mappingCount = await _db.BoardColumnStatuses.CountAsync(bcs => bcs.StatusId == statusId, ct);

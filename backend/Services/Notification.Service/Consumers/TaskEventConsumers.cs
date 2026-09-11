@@ -45,7 +45,7 @@ public class TaskMovedConsumer : IConsumer<TaskMovedEvent>
     public async Task Consume(ConsumeContext<TaskMovedEvent> ctx)
     {
         var msg = ctx.Message;
-        var result = await _service.PersistTaskMovedAsync(msg.EventId, msg.ProjectId, msg.WorkspaceId, msg.TaskId, msg.FromListId, msg.FromListName ?? "", msg.ToListId, msg.ToListName ?? "", msg.BoardName ?? "", msg.SprintName ?? "", msg.TaskTitle ?? "", msg.ProjectName ?? "", msg.ActorName ?? "", msg.ActorRole ?? "", msg.Position, msg.ActorId, msg.RecipientUserIds ?? new List<Guid>(), msg.OccurredOnUtc);
+        var result = await _service.PersistTaskMovedAsync(msg.EventId, msg.ProjectId, msg.WorkspaceId, msg.TaskId, msg.FromListId ?? Guid.Empty, msg.FromListName ?? "", msg.ToListId ?? Guid.Empty, msg.ToListName ?? "", msg.BoardName ?? "", msg.SprintName ?? "", msg.TaskTitle ?? "", msg.ProjectName ?? "", msg.ActorName ?? "", msg.ActorRole ?? "", msg.Position, msg.ActorId, msg.RecipientUserIds ?? new List<Guid>(), msg.OccurredOnUtc);
         if (!result.IsSuccess) _logger.LogWarning("[Consumer] TaskMoved persist failed {EventId} {Err}", msg.EventId, result.Error);
         else _logger.LogInformation("[Consumer] TaskMoved {TaskId} {From}->{To}", msg.TaskId, msg.FromListId, msg.ToListId);
         try

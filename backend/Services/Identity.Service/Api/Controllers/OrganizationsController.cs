@@ -104,13 +104,13 @@ public class OrganizationsController : ControllerBase
     }
 
     [HttpGet("{id}/activities")]
-    public async Task<IActionResult> GetActivities(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> GetActivities(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] bool includeProjects = false)
     {
         var callerId = GetUserId(); if (callerId == null) return Unauthorized();
         var svc = HttpContext.RequestServices.GetRequiredService<Identity.Service.Application.Interfaces.IOrganizationActivityService>();
         try
         {
-            var (items, total) = await svc.GetActivitiesAsync(id, page, pageSize, callerId.Value);
+            var (items, total) = await svc.GetActivitiesAsync(id, page, pageSize, callerId.Value, includeProjects);
             return Ok(new { items, total, page, pageSize });
         }
         catch (Exception ex)

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
-using Identity.Service.Domain.Enums;
+using SharedKernel;
 
 namespace Identity.Service.Infrastructure.Persistence;
 
@@ -72,7 +72,7 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
             e.HasIndex(x => x.UserId);
             e.HasIndex(x => x.WorkspaceId);
             e.HasIndex(x => x.CustomRoleId);
-            e.Property(x => x.Role).HasConversion<int>().IsRequired();
+            e.Property(x => x.Role).IsRequired();
             e.HasOne(x => x.Workspace).WithMany().HasForeignKey(x => x.WorkspaceId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.CustomRole).WithMany().HasForeignKey(x => x.CustomRoleId).OnDelete(DeleteBehavior.NoAction);

@@ -3,7 +3,7 @@
     <div class="flex flex-wrap justify-between gap-3 items-center">
       <div>
         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Activity — Organization</h1>
-        <p class="text-sm opacity-60 mt-1">Org-wide audit trail — all projects across your workspaces. Table view</p>
+        <p class="text-sm opacity-60 mt-1">Unified audit — organization + all projects (including project activity) • 10 per page</p>
       </div>
       <span class="badge badge-ghost badge-sm rounded-full">{{ total() }} events • {{ orgId().slice(0,6) || 'org' }} • {{ workspacesQuery.data()?.length || 0 }} workspaces</span>
     </div>
@@ -17,34 +17,38 @@
     } @else if ((orgActivitiesQuery.data()?.items?.length || 0) === 0 && !orgActivitiesQuery.isPending()) {
       <div class="mt-6 card bg-base-100 rounded-2xl border border-dashed p-8 text-center">
         <p class="font-semibold">No activity yet</p>
-        <p class="text-sm opacity-60 mt-1">Org audit empty — add a member, create a role or update permissions to see events here.</p>
-        <p class="text-xs opacity-40 mt-2">Activities appear after MemberAdded / RoleCreated / PermissionUpdated</p>
+        <p class="text-sm opacity-60 mt-1">Unified audit empty — add a member, create a workspace/project, or create/move a task.</p>
       </div>
     } @else {
       <div class="mt-6 card bg-base-100 rounded-2xl shadow border border-base-200 overflow-hidden">
         <div class="overflow-x-auto">
           <table class="table table-sm">
-            <thead><tr><th>Time</th><th>Project</th><th>Action</th><th>Payload</th><th>Actor</th></tr></thead>
+            <thead><tr><th>Time</th><th>Project</th><th>Workspace</th><th>Action</th><th>Actor</th><th>Details</th></tr></thead>
             <tbody>
               @for (a of orgActivitiesQuery.data()?.items || []; track a.id) {
                 <tr class="hover:bg-base-200">
                   <td class="text-xs opacity-60 whitespace-nowrap">{{ a.occurredAt | date:'short' }}</td>
-                  <td><span class="badge badge-ghost badge-xs rounded-full">{{ a.projectKey }} {{ a.projectName | slice:0:12 }}</span></td>
-                  <td><span class="badge badge-sm rounded-full" [ngClass]="a.action==='TaskCreated'?'badge-success': a.action==='TaskMoved'?'badge-warning':'badge-ghost'">{{ a.action }}</span></td>
-                  <td class="text-xs max-w-[320px] truncate">{{ a.payloadJson | slice:0:80 }}</td>
-                  <td class="text-xs"><span class="font-medium">{{ getActorDisplay(a.actorId).split(' (')[0] }}</span> <span class="opacity-60">({{ getActorDisplay(a.actorId).split('(')[1] || '' }}</span></td>
+                  <td><span class="badge badge-ghost badge-xs rounded-full">{{ a.projectName || a.workspaceName || 'Org' }}</span><div class="text-[11px] opacity-60">{{ a.projectName ? a.projectName.slice(0,12) : '' }}</div></td>
+                  <td class="text-xs">{{ a.workspaceName || a.workspaceId?.slice(0,6) || '—' }}</td>
+                  <td><span class="badge badge-sm rounded-full" [ngClass]="a.action==='TaskCreated'?'badge-success': a.action==='TaskMoved'?'badge-warning': a.action==='MemberAdded'?'badge-info':'badge-ghost'">{{ a.action }}</span></td>
+                  <td class="text-xs">
+                    <div class="flex flex-col">
+                      <span class="font-medium">{{ a.actorName || a.callerName || getActorDisplay(a.actorUserId || a.actorId).split(' (')[0] }}</span>
+                      <span class="text-[11px] opacity-60">{{ a.customRoleName || a.callerEmail || getActorDisplay(a.actorUserId || a.actorId).split('(')[1]?.slice(0,-1) || '' }} • {{ a.callerEmail || '' }}</span>
+                    </div>
+                  </td>
+                  <td class="text-xs max-w-[320px] truncate">{{ (a.payloadJson || '') | slice:0:120 }}</td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
-        @if ((orgActivitiesQuery.data()?.items?.length||0)===0) {
-          <p class="text-sm opacity-40 text-center py-8">No org activities yet — create/move/comment a task in any project.</p>
-        }
-        <div class="flex justify-center gap-2 p-3 border-t border-base-200">
-          <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
-          <span class="self-center text-xs opacity-40">Page {{ page() }} / {{ totalPages() }}</span>
-          <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+        <div class="flex justify-between items-center p-3 border-t border-base-200">
+          <span class="text-xs opacity-40">Page {{ page() }} / {{ totalPages() }} • Total {{ total() }}</span>
+          <div class="flex gap-1">
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+          </div>
         </div>
       </div>
     }

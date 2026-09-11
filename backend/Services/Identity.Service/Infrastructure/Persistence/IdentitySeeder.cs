@@ -1,5 +1,5 @@
 using Identity.Service.Domain.Entities;
-using Identity.Service.Domain.Enums;
+using SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Identity.Service.Infrastructure.Persistence;
@@ -39,7 +39,7 @@ public static class IdentitySeeder
 
         if (!await db.WorkspaceMembers.AnyAsync(m => m.WorkspaceId == ws.Id && m.UserId == user.Id))
         {
-            var member = new WorkspaceMember(ws.Id, user.Id, WorkspaceRole.SuperAdmin);
+            var member = new WorkspaceMember(ws.Id, user.Id, Roles.SuperAdminValue);
             db.WorkspaceMembers.Add(member);
             await db.SaveChangesAsync();
         }
@@ -89,6 +89,10 @@ public static class IdentitySeeder
             ("activity:view:project", "View Project Activity", "Activity", "See project audit"),
             ("role:view", "View Roles", "Role", "See custom roles"),
             ("role:manage", "Manage Roles", "Role", "Create/update/delete roles and permissions"),
+            ("attachment:view", "View Attachment", "Attachment", "See attachments"),
+            ("attachment:create", "Create Attachment", "Attachment", "Upload attachments via Cloudinary"),
+            ("attachment:update", "Update Attachment", "Attachment", "Update attachment metadata"),
+            ("attachment:delete", "Delete Attachment", "Attachment", "Delete attachments from Cloudinary + DB"),
         };
         var existingKeys = await db.Permissions.Select(p => p.Key).ToListAsync();
         var toAdd = allKeys.Where(k => !existingKeys.Contains(k.Item1)).Select(k => new Permission(k.Item1, k.Item2, k.Item3, k.Item4)).ToList();

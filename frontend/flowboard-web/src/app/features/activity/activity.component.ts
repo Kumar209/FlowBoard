@@ -25,7 +25,7 @@ export class ActivityComponent {
 
   selectedWorkspaceId = signal<string>('');
   page = signal(1);
-  pageSize = 20;
+  pageSize = 10;
 
   workspacesQuery = injectQuery(() => ({
     queryKey: ['workspaces'] as const,
@@ -56,8 +56,16 @@ export class ActivityComponent {
       const orgId = this.orgId();
       if (!orgId) return { items: [], total: 0 };
       try {
-        const res: any = await firstValueFrom(this.workspaceService.getOrganizationActivities(orgId, this.page(), this.pageSize));
-        const items = (res.items || res.Items || []).map((a:any) => ({...a, occurredAt: a.occurredOn || a.OccurredOn || a.occurredAt, projectName: '', projectKey: ''}));
+        const res: any = await firstValueFrom(this.workspaceService.getOrganizationActivities(orgId, this.page(), this.pageSize, true));
+        const items = (res.items || res.Items || []).map((a:any) => ({
+          ...a,
+          occurredAt: a.occurredOn || a.OccurredOn || a.occurredAt || a.OccurredAt,
+          projectName: a.projectName || a.ProjectName || '',
+          workspaceName: a.workspaceName || a.WorkspaceName || '',
+          callerEmail: a.callerEmail || a.CallerEmail || '',
+          customRoleName: a.customRoleName || a.CustomRoleName || '',
+          actorName: a.actorName || a.ActorName || ''
+        }));
         return { items, total: res.total ?? res.Total ?? items.length };
       } catch {
         return { items: [], total: 0 };

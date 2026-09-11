@@ -22,7 +22,7 @@ public class CommentService : ICommentService
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == task.ProjectId, ct);
         var workspaceId = project?.WorkspaceId ?? await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
         var projectKey = project?.Key ?? "";
-        string actorName = callerId.ToString()[..8], actorRole = callerRoles.FirstOrDefault() ?? "Member";
+        string actorName = callerId.ToString()[..8], actorRole = callerRoles.FirstOrDefault() ?? Roles.Member;
         try { var ar = await _db.Database.SqlQueryRaw<UserNameRow>("SELECT Id as UserId, FullName, Email FROM [identity].[Users] WHERE Id = {0}", callerId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? actorName; } catch { }
         var recipientIds = await _db.ProjectMembers.Where(pm => pm.ProjectId == task.ProjectId).Select(pm => pm.UserId).ToListAsync(ct);
         if (!recipientIds.Any())
@@ -32,7 +32,7 @@ public class CommentService : ICommentService
         var taskTitle = task.Title ?? "";
         var evt = new { TaskId = taskId, TaskTitle = taskTitle, ProjectId = task.ProjectId, ProjectKey = projectKey, WorkspaceId = workspaceId, CommentId = comment.Id, CommentContent = content, ActorId = callerId, ActorName = actorName, ActorRole = actorRole, RecipientUserIds = recipientIds, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
         _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskCommented", JsonSerializer.Serialize(evt)));
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, taskId, callerId, "TaskCommented", JsonSerializer.Serialize(new { content })));
+        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, taskId, callerId, "TaskCommented", JsonSerializer.Serialize(new { content }), workspaceId));
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveAsync(CacheKeys.Board(task.ProjectId));
         return Result<CommentDto>.Success(new CommentDto(comment.Id, comment.TaskId, comment.AuthorId, comment.Content, comment.CreatedAt));
@@ -42,11 +42,11 @@ public class CommentService : ICommentService
     {
         var comment = await _db.Comments.FindAsync(new object[] { commentId }, ct);
         if (comment == null) return Result<CommentDto>.Failure("Comment not found");
-        var isAdmin = callerRoles.Contains("OrgAdmin") || callerRoles.Contains("SuperAdmin");
+        var isAdmin = callerRoles.Contains(Roles.OrgAdmin) || callerRoles.Contains(Roles.SuperAdmin);
         if (comment.AuthorId != callerId && !isAdmin) return Result<CommentDto>.Failure("Forbidden - only author or OrgAdmin can edit");
         comment.Edit(content);
         var task = await _db.Tasks.FindAsync(new object[] { comment.TaskId }, ct);
-        if (task != null) _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, comment.TaskId, callerId, "CommentUpdated", JsonSerializer.Serialize(new { content })));
+        if (task != null) { var wsUp = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct); _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, comment.TaskId, callerId, "CommentUpdated", JsonSerializer.Serialize(new { content }), wsUp)); }
         await _db.SaveChangesAsync(ct);
         if (task != null) await _cache.RemoveAsync(CacheKeys.Board(task.ProjectId));
         return Result<CommentDto>.Success(new CommentDto(comment.Id, comment.TaskId, comment.AuthorId, comment.Content, comment.CreatedAt));
@@ -56,11 +56,11 @@ public class CommentService : ICommentService
     {
         var comment = await _db.Comments.FindAsync(new object[] { commentId }, ct);
         if (comment == null) return Result<bool>.Failure("Comment not found");
-        var isAdmin = callerRoles.Contains("OrgAdmin") || callerRoles.Contains("SuperAdmin");
+        var isAdmin = callerRoles.Contains(Roles.OrgAdmin) || callerRoles.Contains(Roles.SuperAdmin);
         if (comment.AuthorId != callerId && !isAdmin) return Result<bool>.Failure("Forbidden - only author or OrgAdmin can delete");
         var task = await _db.Tasks.FindAsync(new object[] { comment.TaskId }, ct);
         _db.Comments.Remove(comment);
-        if (task != null) _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, comment.TaskId, callerId, "CommentDeleted", "{}"));
+        if (task != null) { var wsDel = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct); _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, comment.TaskId, callerId, "CommentDeleted", "{}", wsDel)); }
         await _db.SaveChangesAsync(ct);
         if (task != null) await _cache.RemoveAsync(CacheKeys.Board(task.ProjectId));
         return Result<bool>.Success(true);

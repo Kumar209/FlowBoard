@@ -1,0 +1,20 @@
+{
+  "name": "flowboard",
+  "version": "1.0.0",
+  "description": "> Jira/Linear clone - Multi-tenant, Real-time, Event-Driven, Microservices (Modular) on .NET 10 + Angular 22",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kumar209/FlowBoard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Kumar209/FlowBoard/issues"
+  },
+  "homepage": "https://github.com/Kumar209/FlowBoard#readme"
+}

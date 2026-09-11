@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
-using Identity.Service.Domain.Enums;
+using SharedKernel;
 
 namespace Identity.Service.Infrastructure.Services;
 
@@ -35,8 +35,8 @@ public class OrganizationService : IOrganizationService
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
         var isOwner = org.OwnerId == callerId;
-        var isSuper = await _db.WorkspaceMembers.Where(m => m.UserId == callerId && m.Role == WorkspaceRole.SuperAdmin).AnyAsync(ct);
-        var isOrgAdmin = isSuper || await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == WorkspaceRole.OrgAdmin || m.Role == WorkspaceRole.SuperAdmin, ct);
+        var isSuper = await _db.WorkspaceMembers.Where(m => m.UserId == callerId && m.Role == Roles.SuperAdminValue).AnyAsync(ct);
+        var isOrgAdmin = isSuper || await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == Roles.OrgAdminValue || m.Role == Roles.SuperAdminValue, ct);
         if (!isOwner && !isOrgAdmin && !isSuper) throw new ForbiddenException("Forbidden - Need OrgAdmin for own org or SuperAdmin");
         if (string.IsNullOrWhiteSpace(name)) throw new ValidationException("Name required");
         org.Update(name, description);
@@ -49,8 +49,8 @@ public class OrganizationService : IOrganizationService
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
         var isOwner = org.OwnerId == callerId;
-        var isSuper = await _db.WorkspaceMembers.Where(m => m.UserId == callerId && m.Role == WorkspaceRole.SuperAdmin).AnyAsync(ct);
-        var isOrgAdmin = isSuper || await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == WorkspaceRole.OrgAdmin || m.Role == WorkspaceRole.SuperAdmin, ct);
+        var isSuper = await _db.WorkspaceMembers.Where(m => m.UserId == callerId && m.Role == Roles.SuperAdminValue).AnyAsync(ct);
+        var isOrgAdmin = isSuper || await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == Roles.OrgAdminValue || m.Role == Roles.SuperAdminValue, ct);
         if (!isOwner && !isSuper && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin for own org or SuperAdmin");
         // For SuperAdmin can delete any org, for OrgAdmin only own org (already checked via isOrgAdmin/isOwner)
         var workspaceIds = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).ToListAsync(ct);
@@ -71,15 +71,20 @@ public class OrganizationService : IOrganizationService
         if (!orgExists) throw new NotFoundException("Organization not found");
         var workspaceIds = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).ToListAsync(ct);
         var workspaceMap = await _db.Workspaces.Where(w => workspaceIds.Contains(w.Id)).ToDictionaryAsync(w => w.Id, w => w.Name, ct);
+        var orgMemberMap = await _db.OrganizationMembers.Where(m => m.OrganizationId == organizationId).ToDictionaryAsync(m => m.UserId, m => m.Role, ct);
+        var customRoleMap = await _db.OrganizationWorkspaceRoles.Where(r => r.OrganizationId == organizationId).ToDictionaryAsync(r => r.Id, r => r.Name, ct);
         var members = await _db.WorkspaceMembers.Where(m => workspaceIds.Contains(m.WorkspaceId))
-            .Join(_db.Users, m => m.UserId, u => u.Id, (m,u) => new { m.WorkspaceId, m.UserId, m.Role, m.JoinedAt, u.FullName, u.Email, u.AvatarUrl })
+            .Join(_db.Users, m => m.UserId, u => u.Id, (m,u) => new { m.WorkspaceId, m.UserId, m.Role, m.CustomRoleId, m.JoinedAt, u.FullName, u.Email, u.AvatarUrl })
             .ToListAsync(ct);
-        // Group by UserId and collect all workspaces for that user
+        // Group by UserId and collect all workspaces for that user — Role is org-level from OrganizationMembers, not workspace Role
         var grouped = members.GroupBy(x => x.UserId).Select(g => {
             var first = g.First();
             var allWorkspaceIds = g.Select(x => x.WorkspaceId).Distinct().ToList();
             var allWorkspaceNames = allWorkspaceIds.Select(id => workspaceMap.TryGetValue(id, out var name) ? name : id.ToString()[..6]).ToList();
-            return new OrgMemberDto(first.UserId, first.FullName, first.Email, first.AvatarUrl, first.Role.ToString(), (int)first.Role, first.WorkspaceId, first.JoinedAt, allWorkspaceNames, allWorkspaceIds);
+            var orgRoleInt = orgMemberMap.TryGetValue(g.Key, out var r) ? r : Roles.MemberValue;
+            var roleStr = Roles.GetLabel(orgRoleInt);
+            var wsRoleMap = g.ToDictionary(x => x.WorkspaceId.ToString(), x => x.CustomRoleId.HasValue && customRoleMap.TryGetValue(x.CustomRoleId.Value, out var crn) ? crn : Roles.GetLabel(x.Role));
+            return new OrgMemberDto(first.UserId, first.FullName, first.Email, first.AvatarUrl, roleStr, orgRoleInt, first.WorkspaceId, first.JoinedAt, allWorkspaceNames, allWorkspaceIds, wsRoleMap);
         }).ToList();
         // Include org-only members (OrganizationMembers without any WorkspaceMember) - org level Member/OrgAdmin/Client
         var groupedIds = grouped.Select(g => g.UserId).ToHashSet();
@@ -88,7 +93,7 @@ public class OrganizationService : IOrganizationService
             .ToListAsync(ct);
         foreach (var om in orgOnlyMembers)
         {
-            string roleStr = om.Role == 2 ? "OrgAdmin" : om.Role == 3 ? "Client" : "Member";
+            string roleStr = Roles.GetLabel(om.Role);
             grouped.Add(new OrgMemberDto(om.UserId, om.FullName, om.Email, om.AvatarUrl, roleStr, om.Role, Guid.Empty, om.CreatedAt, new List<string>(), new List<Guid>()));
         }
         // Also include Organization Owner if not already
@@ -96,7 +101,7 @@ public class OrganizationService : IOrganizationService
         if (org != null && !grouped.Any(g => g.UserId == org.OwnerId) && !groupedIds.Contains(org.OwnerId))
         {
             var owner = await _db.Users.FirstOrDefaultAsync(u => u.Id == org.OwnerId, ct);
-            if (owner != null) grouped.Add(new OrgMemberDto(owner.Id, owner.FullName, owner.Email, owner.AvatarUrl, "OrgAdmin", 2, Guid.Empty, owner.CreatedAt, new List<string>(), new List<Guid>()));
+            if (owner != null) grouped.Add(new OrgMemberDto(owner.Id, owner.FullName, owner.Email, owner.AvatarUrl, Roles.OrgAdmin, Roles.OrgAdminValue, Guid.Empty, owner.CreatedAt, new List<string>(), new List<Guid>()));
         }
         return grouped;
     }
@@ -113,22 +118,23 @@ public class OrganizationService : IOrganizationService
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
         var isOwner = org.OwnerId == callerId;
-        var isOrgAdmin = await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == WorkspaceRole.OrgAdmin || m.Role == WorkspaceRole.SuperAdmin, ct);
+        var isOrgAdmin = await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == Roles.OrgAdminValue || m.Role == Roles.SuperAdminValue, ct);
         if (!isOwner && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(password)) throw new ValidationException("FullName, Email, Password required");
         if (await _db.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower(), ct)) throw new ValidationException("Email already exists");
         var user = new User(email.ToLowerInvariant(), BCrypt.Net.BCrypt.HashPassword(password), fullName);
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
-        // Organization-level member (3 roles: Member 0, OrgAdmin 2, Client 3)
-        int orgRoleInt = 0; // Member default
+        // Organization-level member (3 roles: Member 1, OrgAdmin 2, Client 3, SuperAdmin 0)
+        int orgRoleInt = Roles.MemberValue;
         if (!string.IsNullOrWhiteSpace(orgRole))
         {
             var nr = orgRole.Trim();
-            if (nr.Equals("OrgAdmin", StringComparison.OrdinalIgnoreCase)) orgRoleInt = 2;
-            else if (nr.Equals("Client", StringComparison.OrdinalIgnoreCase)) orgRoleInt = 3;
-            else if (nr.Equals("Member", StringComparison.OrdinalIgnoreCase)) orgRoleInt = 0;
-            else throw new ValidationException($"Invalid org role {orgRole} - allowed Member/OrgAdmin/Client");
+            if (nr.Equals(Roles.OrgAdmin, StringComparison.OrdinalIgnoreCase)) orgRoleInt = Roles.OrgAdminValue;
+            else if (nr.Equals(Roles.Client, StringComparison.OrdinalIgnoreCase)) orgRoleInt = Roles.ClientValue;
+            else if (nr.Equals(Roles.Member, StringComparison.OrdinalIgnoreCase)) orgRoleInt = Roles.MemberValue;
+            else if (nr.Equals(Roles.SuperAdmin, StringComparison.OrdinalIgnoreCase)) orgRoleInt = Roles.SuperAdminValue;
+            else throw new ValidationException($"Invalid org role {orgRole} - allowed {Roles.Member}/{Roles.OrgAdmin}/{Roles.Client}");
         }
         _db.OrganizationMembers.Add(new OrganizationMember(organizationId, user.Id, orgRoleInt));
         await _db.SaveChangesAsync(ct);
@@ -137,25 +143,15 @@ public class OrganizationService : IOrganizationService
         foreach (var wr in targetRoles.Where(x => x.WorkspaceId != Guid.Empty))
         {
             Guid? customId = wr.CustomRoleId;
-            if ((customId == null || customId == Guid.Empty) && !Enum.TryParse<WorkspaceRole>(wr.Role, true, out _))
+            if (customId == null || customId == Guid.Empty)
             {
-                // treat Role string as custom role name
                 var cwByName = await _db.OrganizationWorkspaceRoles.FirstOrDefaultAsync(r => r.OrganizationId == organizationId && r.Name.ToLower() == wr.Role.ToLower(), ct);
                 if (cwByName != null) customId = cwByName.Id;
-                else throw new ValidationException($"Custom role '{wr.Role}' not found in organization");
+                else throw new ValidationException($"Custom role '{wr.Role}' not found in organization - create it in Roles first");
             }
-            if (customId != null && customId != Guid.Empty)
-            {
-                var roleEnt = await _db.OrganizationWorkspaceRoles.FirstOrDefaultAsync(r => r.Id == customId.Value && r.OrganizationId == organizationId, ct);
-                if (roleEnt == null) throw new ValidationException($"Custom role id {customId} not found");
-                _db.WorkspaceMembers.Add(new WorkspaceMember(wr.WorkspaceId, user.Id, WorkspaceRole.Member, customId));
-            }
-            else
-            {
-                if (!Enum.TryParse<WorkspaceRole>(wr.Role, true, out var parsed)) throw new ValidationException($"Invalid role {wr.Role}");
-                if (parsed == WorkspaceRole.SuperAdmin) throw new ValidationException("SuperAdmin not allowed");
-                _db.WorkspaceMembers.Add(new WorkspaceMember(wr.WorkspaceId, user.Id, parsed));
-            }
+            var roleEnt2 = await _db.OrganizationWorkspaceRoles.FirstOrDefaultAsync(r => r.Id == customId.Value && r.OrganizationId == organizationId, ct);
+            if (roleEnt2 == null) throw new ValidationException($"Custom role id {customId} not found");
+            _db.WorkspaceMembers.Add(new WorkspaceMember(wr.WorkspaceId, user.Id, Roles.MemberValue, customId));
         }
         await _db.SaveChangesAsync(ct);
         // Org Activity audit - MemberAdded
@@ -163,12 +159,13 @@ public class OrganizationService : IOrganizationService
         var firstRole = targetRoles.FirstOrDefault()?.Role ?? (orgRole ?? "Member");
         var firstWid = targetRoles.FirstOrDefault()?.WorkspaceId ?? Guid.Empty;
         // Map org role to display if no workspace
-        string displayRole = targetRoles.Any() ? firstRole : (orgRole ?? "Member");
-        Enum.TryParse<WorkspaceRole>(displayRole, true, out var firstParsed);
-        // For custom role display, keep custom name if not enum
-        if (!Enum.TryParse<WorkspaceRole>(displayRole, true, out _)) displayRole = targetRoles.FirstOrDefault()?.Role ?? orgRole ?? "Member";
-        // Try to map custom name to display; if custom, keep as is for OrgMemberDto Role string
-        return new OrgMemberDto(user.Id, user.FullName, user.Email, user.AvatarUrl, displayRole, (int)firstParsed, firstWid, DateTime.UtcNow);
+        string displayRole = targetRoles.Any() ? firstRole : (orgRole ?? Roles.Member);
+        int firstParsedInt = Roles.MemberValue;
+        // keep custom name as display; parse org role if needed
+        if (displayRole.Equals(Roles.OrgAdmin, StringComparison.OrdinalIgnoreCase)) firstParsedInt = Roles.OrgAdminValue;
+        else if (displayRole.Equals(Roles.Client, StringComparison.OrdinalIgnoreCase)) firstParsedInt = Roles.ClientValue;
+        else firstParsedInt = Roles.MemberValue;
+        return new OrgMemberDto(user.Id, user.FullName, user.Email, user.AvatarUrl, displayRole, firstParsedInt, firstWid, DateTime.UtcNow);
     }
 
     public async Task<OrgMemberDto> UpdateEmployeeAsync(Guid organizationId, Guid userId, string? fullName, string? email, string? role, List<Guid>? workspaceIds, Guid callerId, CancellationToken ct = default)
@@ -182,7 +179,7 @@ public class OrganizationService : IOrganizationService
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
         var isOwner = org.OwnerId == callerId;
-        var isOrgAdmin = await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == WorkspaceRole.OrgAdmin || m.Role == WorkspaceRole.SuperAdmin, ct);
+        var isOrgAdmin = await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == Roles.OrgAdminValue || m.Role == Roles.SuperAdminValue, ct);
         if (!isOwner && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
         if (user == null) throw new NotFoundException("User not found");
@@ -193,15 +190,16 @@ public class OrganizationService : IOrganizationService
             user.UpdateEmail(email.ToLowerInvariant());
         }
         await _db.SaveChangesAsync(ct);
-        // Org-level role update (Member 0 / OrgAdmin 2 / Client 3)
+        // Org-level role update (Member 1 / OrgAdmin 2 / Client 3)
         if (!string.IsNullOrWhiteSpace(orgRole))
         {
-            int orgRoleInt = 0;
+            int orgRoleInt = Roles.MemberValue;
             var nr = orgRole.Trim();
-            if (nr.Equals("OrgAdmin", StringComparison.OrdinalIgnoreCase)) orgRoleInt = 2;
-            else if (nr.Equals("Client", StringComparison.OrdinalIgnoreCase)) orgRoleInt = 3;
-            else if (nr.Equals("Member", StringComparison.OrdinalIgnoreCase)) orgRoleInt = 0;
-            else throw new ValidationException($"Invalid org role {orgRole} - allowed Member/OrgAdmin/Client");
+            if (nr.Equals(Roles.OrgAdmin, StringComparison.OrdinalIgnoreCase)) orgRoleInt = Roles.OrgAdminValue;
+            else if (nr.Equals(Roles.Client, StringComparison.OrdinalIgnoreCase)) orgRoleInt = Roles.ClientValue;
+            else if (nr.Equals(Roles.Member, StringComparison.OrdinalIgnoreCase)) orgRoleInt = Roles.MemberValue;
+            else if (nr.Equals(Roles.SuperAdmin, StringComparison.OrdinalIgnoreCase)) orgRoleInt = Roles.SuperAdminValue;
+            else throw new ValidationException($"Invalid org role {orgRole} - allowed {Roles.Member}/{Roles.OrgAdmin}/{Roles.Client}");
             var orgMember = await _db.OrganizationMembers.FirstOrDefaultAsync(m => m.OrganizationId == organizationId && m.UserId == userId, ct);
             if (orgMember != null) orgMember.UpdateRole(orgRoleInt);
             else _db.OrganizationMembers.Add(new OrganizationMember(organizationId, userId, orgRoleInt));
@@ -223,23 +221,15 @@ public class OrganizationService : IOrganizationService
             foreach (var wr in toAdd)
             {
                 Guid? customId = wr.CustomRoleId;
-                if ((customId == null || customId == Guid.Empty) && !Enum.TryParse<WorkspaceRole>(wr.Role, true, out _))
+                if (customId == null || customId == Guid.Empty)
                 {
                     var cwByName = await _db.OrganizationWorkspaceRoles.FirstOrDefaultAsync(r => r.OrganizationId == organizationId && r.Name.ToLower() == wr.Role.ToLower(), ct);
                     if (cwByName != null) customId = cwByName.Id;
-                    else throw new ValidationException($"Custom role '{wr.Role}' not found");
+                    else throw new ValidationException($"Custom role '{wr.Role}' not found - create it in Roles first");
                 }
-                if (customId != null && customId != Guid.Empty)
-                {
-                    var roleEnt = await _db.OrganizationWorkspaceRoles.FirstOrDefaultAsync(r => r.Id == customId.Value && r.OrganizationId == organizationId, ct);
-                    if (roleEnt == null) throw new ValidationException($"Custom role id {customId} not found");
-                    _db.WorkspaceMembers.Add(new WorkspaceMember(wr.WorkspaceId, userId, WorkspaceRole.Member, customId));
-                }
-                else
-                {
-                    if (!Enum.TryParse<WorkspaceRole>(wr.Role, true, out var parsed)) throw new ValidationException($"Invalid role {wr.Role}");
-                    _db.WorkspaceMembers.Add(new WorkspaceMember(wr.WorkspaceId, userId, parsed));
-                }
+                var roleEntAdd = await _db.OrganizationWorkspaceRoles.FirstOrDefaultAsync(r => r.Id == customId.Value && r.OrganizationId == organizationId, ct);
+                if (roleEntAdd == null) throw new ValidationException($"Custom role id {customId} not found");
+                _db.WorkspaceMembers.Add(new WorkspaceMember(wr.WorkspaceId, userId, Roles.MemberValue, customId));
             }
             // Update roles for existing that remain (if role changed)
             foreach (var wr in validRoles)
@@ -248,18 +238,14 @@ public class OrganizationService : IOrganizationService
                 if (existing != null)
                 {
                     Guid? customId = wr.CustomRoleId;
-                    if ((customId == null || customId == Guid.Empty) && !Enum.TryParse<WorkspaceRole>(wr.Role, true, out _))
+                    if (customId == null || customId == Guid.Empty)
                     {
                         var cwByName = await _db.OrganizationWorkspaceRoles.FirstOrDefaultAsync(r => r.OrganizationId == organizationId && r.Name.ToLower() == wr.Role.ToLower(), ct);
                         if (cwByName != null) customId = cwByName.Id;
                     }
-                    if (customId != null && customId != Guid.Empty)
+                    if (customId != null && customId != Guid.Empty && existing.CustomRoleId != customId)
                     {
-                        if (existing.CustomRoleId != customId) existing.CustomRoleId = customId;
-                    }
-                    else if (Enum.TryParse<WorkspaceRole>(wr.Role, true, out var newRole) && existing.Role != newRole)
-                    {
-                        existing.Role = newRole;
+                        existing.CustomRoleId = customId;
                     }
                 }
             }
@@ -275,7 +261,7 @@ public class OrganizationService : IOrganizationService
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
         var isOwner = org.OwnerId == callerId;
-        var isOrgAdmin = await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == WorkspaceRole.OrgAdmin || m.Role == WorkspaceRole.SuperAdmin, ct);
+        var isOrgAdmin = await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == Roles.OrgAdminValue || m.Role == Roles.SuperAdminValue, ct);
         if (!isOwner && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         if (userId == org.OwnerId) throw new ValidationException("Cannot remove organization owner");
         var workspaceIds = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).ToListAsync(ct);

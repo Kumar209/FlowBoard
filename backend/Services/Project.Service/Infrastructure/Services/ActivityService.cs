@@ -15,7 +15,7 @@ public class ActivityService : IActivityService
         if (taskId != null && taskId != Guid.Empty) q = q.Where(a => a.TaskId == taskId);
         var total = await q.CountAsync(ct);
         var items = await q.OrderByDescending(a => a.OccurredAt).Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(a => new ActivityDto(a.Id, a.ProjectId, a.TaskId, a.ActorId, a.Action, a.PayloadJson, a.OccurredAt))
+            .Select(a => new ActivityDto(a.Id, a.ProjectId, a.WorkspaceId, a.TaskId, a.ActorId, a.Action, a.PayloadJson, a.OccurredAt))
             .ToListAsync(ct);
         return (items, total);
     }

@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Project.Service.Application.Commands;
+using SharedKernel;
 
 namespace Project.Service.Api.Controllers;
 
@@ -27,8 +28,6 @@ public class CommentsController : ControllerBase
     public async Task<IActionResult> Add(Guid taskId, [FromBody] AddCommentBody body)
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
-        if (User.FindAll(ClaimTypes.Role).Any(c => c.Value == "Viewer") || User.FindAll("role").Any(c => c.Value == "Viewer"))
-            return StatusCode(403, new { error = "Viewer cannot comment" });
         var roles = GetRoles();
         var result = await _mediator.Send(new AddCommentCommand(taskId, body.Content, userId.Value, roles));
         if (!result.IsSuccess) return BadRequest(new { error = result.Error });

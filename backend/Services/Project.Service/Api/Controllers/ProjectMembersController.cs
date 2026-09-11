@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Project.Service.Application.Commands;
+using SharedKernel;
 
 namespace Project.Service.Api.Controllers;
 
@@ -33,7 +34,7 @@ public class ProjectMembersController : ControllerBase
     {
         var callerId = GetUserId(); if (callerId == null) return Unauthorized();
         var roles = GetRoles();
-        var result = await _mediator.Send(new AddProjectMemberCommand(projectId, body.UserId, body.Role ?? "Member", callerId.Value, roles));
+        var result = await _mediator.Send(new AddProjectMemberCommand(projectId, body.UserId, body.Role ?? Roles.Member, callerId.Value, roles));
         if (!result.IsSuccess) return BadRequest(new { error = result.Error });
         return StatusCode(201, result.Value);
     }

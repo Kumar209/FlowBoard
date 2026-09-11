@@ -16,7 +16,7 @@ export interface SprintDto { id: string; projectId: string; boardId: string; nam
 export interface ProjectEnvironmentDto { id: string; projectId: string; name: string; url: string; description?: string; status: string; createdAt: string; }
 export interface StatusDto { id: string; projectId: string; name: string; createdAt: string; }
 export interface BoardDto { project: Project; lists: BoardList[]; tasks: TaskItem[]; }
-export interface ActivityDto { id: string; projectId: string; taskId?: string; actorId: string; action: string; payloadJson?: string; occurredAt: string; }
+export interface ActivityDto { id: string; projectId: string; workspaceId?: string | null; taskId?: string; actorId: string; action: string; payloadJson?: string; occurredAt: string; }
 export interface SubTaskDto { id: string; taskId: string; title: string; isCompleted: boolean; createdAt: string; }
 export interface CommentDto { id: string; taskId: string; authorId: string; content: string; createdAt: string; }
 export interface TaskDetailDto { task: TaskItem; subTasks: SubTaskDto[]; comments: CommentDto[]; }

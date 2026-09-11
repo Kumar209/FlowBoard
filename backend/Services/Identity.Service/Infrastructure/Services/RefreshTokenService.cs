@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
+using SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Identity.Service.Infrastructure.Services;

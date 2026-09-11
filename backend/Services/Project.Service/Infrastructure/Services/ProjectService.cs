@@ -35,7 +35,7 @@ public class ProjectService : IProjectService
         var project = new ProjectEntity(workspaceId, name, key, callerId, description);
         _db.Projects.Add(project);
         await _db.SaveChangesAsync(ct);
-        _db.ActivityLogs.Add(new ActivityLog(project.Id, null, callerId, "ProjectCreated", $"{{\"name\":\"{name}\",\"key\":\"{key}\"}}"));
+        _db.ActivityLogs.Add(new ActivityLog(project.Id, null, callerId, "ProjectCreated", $"{{\"name\":\"{name}\",\"key\":\"{key}\"}}", workspaceId));
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveByPrefixAsync($"projects:{workspaceId}:");
         return Result<ProjectDto>.Success(new ProjectDto(project.Id, project.WorkspaceId, project.Name, project.Key, project.Description, project.OwnerId, project.CreatedAt));

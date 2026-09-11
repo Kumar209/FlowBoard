@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
+using SharedKernel;
 
 namespace Identity.Service.Infrastructure.Services;
 

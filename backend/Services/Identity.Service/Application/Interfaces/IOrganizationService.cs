@@ -16,4 +16,4 @@ public interface IOrganizationService
 public record WorkspaceRoleAssignment(Guid WorkspaceId, string Role, Guid? CustomRoleId = null);
 
 public record OrganizationDto(Guid Id, string Name, string Slug, Guid OwnerId, string? Description, DateTime CreatedAt);
-public record OrgMemberDto(Guid UserId, string FullName, string Email, string? AvatarUrl, string Role, int RoleInt, Guid WorkspaceId, DateTime JoinedAt, List<string>? WorkspaceNames = null, List<Guid>? WorkspaceIds = null);
+public record OrgMemberDto(Guid UserId, string FullName, string Email, string? AvatarUrl, string Role, int RoleInt, Guid WorkspaceId, DateTime JoinedAt, List<string>? WorkspaceNames = null, List<Guid>? WorkspaceIds = null, Dictionary<string,string>? WorkspaceRoleMap = null);

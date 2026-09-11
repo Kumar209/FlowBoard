@@ -38,9 +38,9 @@ public class AuthService : IAuthService
         var workspace = new Workspace(org.Id, "General", "general-" + Guid.NewGuid().ToString()[..4]);
         _db.Workspaces.Add(workspace);
         await _db.SaveChangesAsync(ct);
-        var member = new WorkspaceMember(workspace.Id, user.Id, Domain.Enums.WorkspaceRole.OrgAdmin);
+        var member = new WorkspaceMember(workspace.Id, user.Id, Roles.OrgAdminValue);
         _db.WorkspaceMembers.Add(member);
-        var memberships = new[] { (workspace.Id, Domain.Enums.WorkspaceRole.OrgAdmin.ToString()) };
+        var memberships = new[] { (workspace.Id, Roles.GetLabel(Roles.OrgAdminValue)) };
         var (accessToken, accessExpires) = _jwt.GenerateAccessToken(user, memberships);
         var (rawRefresh, hashRefresh, refreshExpires) = _refreshService.GenerateRawToken();
         var refreshToken = new RefreshToken(user.Id, hashRefresh, refreshExpires);
@@ -54,7 +54,8 @@ public class AuthService : IAuthService
         var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == email.ToLowerInvariant(), ct);
         if (user == null || !user.IsActive) return Result<AuthResponse>.Failure("Invalid credentials");
         if (!_passwordHasher.Verify(password, user.PasswordHash)) return Result<AuthResponse>.Failure("Invalid credentials");
-        var memberships = await _db.WorkspaceMembers.Where(x => x.UserId == user.Id).Select(x => new ValueTuple<Guid, string>(x.WorkspaceId, x.Role.ToString())).ToListAsync(ct);
+        var membershipsRaw = await _db.WorkspaceMembers.Where(x => x.UserId == user.Id).Select(x => new { x.WorkspaceId, x.Role }).ToListAsync(ct);
+        var memberships = membershipsRaw.Select(x => new ValueTuple<Guid, string>(x.WorkspaceId, Roles.GetLabel(x.Role))).ToList();
         var (accessToken, accessExpires) = _jwt.GenerateAccessToken(user, memberships);
         var (rawRefresh, hashRefresh, refreshExpires) = _refreshService.GenerateRawToken();
         var refreshToken = new RefreshToken(user.Id, hashRefresh, refreshExpires);
@@ -76,7 +77,8 @@ public class AuthService : IAuthService
         var (newToken, rawNew) = await _refreshService.RotateAsync(refreshToken);
         var user = await _db.Users.FirstOrDefaultAsync(x => x.Id == newToken.UserId, ct);
         if (user == null) return Result<AuthResponse>.Failure("User not found");
-        var memberships = await _db.WorkspaceMembers.Where(x => x.UserId == user.Id).Select(x => new ValueTuple<Guid, string>(x.WorkspaceId, x.Role.ToString())).ToListAsync(ct);
+        var membershipsRaw2 = await _db.WorkspaceMembers.Where(x => x.UserId == user.Id).Select(x => new { x.WorkspaceId, x.Role }).ToListAsync(ct);
+        var memberships = membershipsRaw2.Select(x => new ValueTuple<Guid, string>(x.WorkspaceId, Roles.GetLabel(x.Role))).ToList();
         var (accessToken, accessExpires) = _jwt.GenerateAccessToken(user, memberships);
         return Result<AuthResponse>.Success(new AuthResponse(user.Id, user.Email, user.FullName, accessToken, rawNew, accessExpires, newToken.ExpiresAt));
     }
@@ -85,7 +87,8 @@ public class AuthService : IAuthService
     {
         var user = await _db.Users.FirstOrDefaultAsync(x => x.Id == userId, ct);
         if (user == null) return Result<(UserDto, List<(Guid, string)>)>.Failure("User not found");
-        var memberships = await _db.WorkspaceMembers.Where(x => x.UserId == userId).Select(x => new ValueTuple<Guid, string>(x.WorkspaceId, x.Role.ToString())).ToListAsync(ct);
+        var membershipsRaw = await _db.WorkspaceMembers.Where(x => x.UserId == userId).Select(x => new { x.WorkspaceId, x.Role }).ToListAsync(ct);
+        var memberships = membershipsRaw.Select(x => new ValueTuple<Guid, string>(x.WorkspaceId, Roles.GetLabel(x.Role))).ToList();
         var userResponse = new UserDto(user.Id, user.Email, user.FullName, user.AvatarUrl);
         return Result<(UserDto, List<(Guid, string)>)>.Success((userResponse, memberships));
     }

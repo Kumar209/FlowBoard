@@ -41,8 +41,21 @@
                     </div>
                   </td>
                   <td class="text-xs">{{ m.email }}</td>
-                  <td><span class="badge badge-sm rounded-full" [ngClass]="m.role==='OrgAdmin'?'badge-primary': m.role==='ProjectManager'?'badge-secondary': m.role==='Client'?'badge-warning':'badge-ghost'">{{ m.role }}</span></td>
-                  <td class="text-xs"><div class="flex flex-wrap gap-1">@for (wn of (m.workspaceNames || (m.workspaceName ? [m.workspaceName] : [])); track wn) { <span class="badge badge-ghost badge-xs rounded-full">{{ wn }}</span> } @if (!(m.workspaceNames || m.workspaceName) || (m.workspaceNames?.length||0)===0 && !m.workspaceName) { <span class="opacity-60">{{ m.workspaceId?.slice(0,6) || '—' }}</span> }</div></td>
+                  <td><span class="badge badge-sm rounded-full" [ngClass]="m.role==='OrgAdmin'?'badge-primary': m.role==='Client'?'badge-warning': m.role==='SuperAdmin'?'badge-error':'badge-ghost'">{{ m.role }}</span></td>
+                  <td class="text-xs">
+                    @if (m.role==='OrgAdmin' || m.role==='SuperAdmin') {
+                      <span class="badge badge-primary badge-xs rounded-full">Full access • All workspaces</span>
+                    } @else {
+                      <div class="flex flex-wrap gap-1">
+                        @for (wn of (m.workspaceNames || (m.workspaceName ? [m.workspaceName] : [])); track wn) {
+                          @let wsId = (m.workspaceIds || [])[$index] || '';
+                          @let cr = (m.workspaceRoleMap && wsId) ? m.workspaceRoleMap[wsId] || m.workspaceRoleMap[wsId.toLowerCase()] : '';
+                          <span class="badge badge-ghost badge-xs rounded-full" [title]="cr ? wn + ' — ' + cr : wn">{{ wn }}@if(cr){ <span class="opacity-60">• {{ cr }}</span> }</span>
+                        }
+                        @if (!(m.workspaceNames || m.workspaceName) || (m.workspaceNames?.length||0)===0 && !m.workspaceName) { <span class="opacity-60">{{ m.workspaceId?.slice(0,6) || '—' }}</span> }
+                      </div>
+                    }
+                  </td>
                   <td class="text-xs opacity-60">{{ m.joinedAt | date:'mediumDate' }}</td>
                   <td>
                     <div class="flex gap-1">
@@ -70,7 +83,10 @@
             <div class="flex justify-between items-start">
               <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-full bg-primary text-primary-content flex items-center justify-center text-xs font-bold">{{ m.fullName.slice(0,1) }}</div>
-                <div><p class="font-medium text-sm">{{ m.fullName }}</p><p class="text-xs opacity-60">{{ m.email }}</p><p class="text-xs flex flex-wrap gap-1"><span class="badge badge-ghost badge-xs">{{ m.role }}</span>@for (wn of (m.workspaceNames || (m.workspaceName ? [m.workspaceName] : [])); track wn) { <span class="badge badge-ghost badge-xs">{{ wn }}</span> }</p></div>
+                <div><p class="font-medium text-sm">{{ m.fullName }}</p><p class="text-xs opacity-60">{{ m.email }}</p><p class="text-xs flex flex-wrap gap-1"><span class="badge badge-sm rounded-full" [ngClass]="m.role==='OrgAdmin'?'badge-primary': m.role==='Client'?'badge-warning':'badge-ghost'">{{ m.role }}</span>
+                  @if (m.role==='OrgAdmin' || m.role==='SuperAdmin') { <span class="badge badge-primary badge-xs">Full access</span> }
+                  @else { @for (wn of (m.workspaceNames || (m.workspaceName ? [m.workspaceName] : [])); track wn) { @let wsId = (m.workspaceIds || [])[$index] || ''; @let cr = (m.workspaceRoleMap && wsId) ? m.workspaceRoleMap[wsId] || m.workspaceRoleMap[wsId.toLowerCase()] : ''; <span class="badge badge-ghost badge-xs" [title]="cr ? wn + ' — ' + cr : wn">{{ wn }}@if(cr){ <span class="opacity-60">• {{ cr }}</span> }</span> } }
+                </p></div>
               </div>
               <span class="text-xs opacity-40">{{ m.joinedAt | date:'shortDate' }}</span>
             </div>
@@ -113,11 +129,17 @@
               </label>
             </label>
             <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="inviteRole()" (change)="inviteRole.set($any($event.target).value)"><option>Member</option><option>OrgAdmin</option><option>Client</option></select></label>
-            @if ((customRolesQuery.data()?.length||0)===0) {
+            @if (inviteRole()==='OrgAdmin') {
+              <div class="alert alert-info py-2 px-3 rounded-xl text-xs">
+                <span>OrgAdmin has <b>full authority</b> over the organization — all workspaces, members, roles, projects. No workspace assignment needed.</span>
+              </div>
+            }
+            @if ((customRolesQuery.data()?.length||0)===0 && inviteRole()!=='OrgAdmin') {
               <div class="alert alert-warning py-2 px-3 rounded-xl text-xs">
                 <span>No custom roles created yet — <a routerLink="/roles" class="link link-primary" (click)="showInvite.set(false)">Go to Roles</a> to create (e.g., Developer, QA). You can still add employee at organization level with role above; workspace assignment requires a custom role.</span>
               </div>
             }
+            @if (inviteRole()!=='OrgAdmin') {
             <label class="form-control"><span class="label-text text-xs">Workspaces (per-workspace custom role — only custom roles)</span>
               <div class="border rounded-xl p-3 max-h-40 overflow-y-auto space-y-2" [class.opacity-60]="(customRolesQuery.data()?.length||0)===0">
                 @for (ws of workspacesQuery.data() || []; track ws.id) {
@@ -140,6 +162,7 @@
               </div>
               <span class="label-text-alt text-[10px] opacity-40">Checked workspaces get custom role (only custom roles from Roles). Leave unchecked to add org-level member only.</span>
             </label>
+            }
           </div>
           <div class="flex justify-end gap-2 mt-6">
             <button class="btn btn-ghost rounded-xl" (click)="showInvite.set(false)">Cancel</button>
@@ -160,11 +183,17 @@
             <label class="form-control"><span class="label-text text-xs">Full Name</span><input type="text" class="input input-bordered rounded-xl" [value]="editName()" (input)="editName.set($any($event.target).value)" /></label>
             <label class="form-control"><span class="label-text text-xs">Email</span><input type="email" class="input input-bordered rounded-xl" [value]="editEmail()" (input)="editEmail.set($any($event.target).value)" /></label>
             <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="editRole()" (change)="editRole.set($any($event.target).value)"><option>Member</option><option>OrgAdmin</option><option>Client</option></select></label>
-            @if ((customRolesQuery.data()?.length||0)===0) {
+            @if (editRole()==='OrgAdmin') {
+              <div class="alert alert-info py-2 px-3 rounded-xl text-xs">
+                <span>OrgAdmin has <b>full authority</b> — all workspaces, members, roles, projects. No workspace assignment needed.</span>
+              </div>
+            }
+            @if ((customRolesQuery.data()?.length||0)===0 && editRole()!=='OrgAdmin') {
               <div class="alert alert-warning py-2 px-3 rounded-xl text-xs">
                 <span>No custom roles — <a routerLink="/roles" class="link link-primary" (click)="editTarget.set(null)">Manage Roles</a> to add Developer/QA. Workspace assignment disabled.</span>
               </div>
             }
+            @if (editRole()!=='OrgAdmin') {
             <label class="form-control"><span class="label-text text-xs">Workspaces (per-workspace custom role — only custom roles)</span>
               <div class="border rounded-xl p-3 max-h-40 overflow-y-auto space-y-2" [class.opacity-60]="(customRolesQuery.data()?.length||0)===0">
                 @for (ws of workspacesQuery.data() || []; track ws.id) {
@@ -185,6 +214,7 @@
               </div>
               <span class="label-text-alt text-[10px] opacity-40">Per-workspace custom role (only custom). Unchecked removes. If no custom roles, only org-level save.</span>
             </label>
+            }
           </div>
           <div class="flex justify-end gap-2 mt-6">
             <button class="btn btn-ghost rounded-xl" (click)="editTarget.set(null)">Cancel</button>

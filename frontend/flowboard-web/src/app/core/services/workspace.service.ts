@@ -48,8 +48,8 @@ export class WorkspaceService {
     // alias for consistency
     return this.http.get<any[]>(`${environment.apiUrl}/api/workspaces/${workspaceId}/members`, { withCredentials: true });
   }
-  getOrganizationActivities(organizationId: string, page=1, pageSize=20) {
-    return this.http.get<{items: any[]; total: number; page: number; pageSize: number}>(`${environment.apiUrl}/api/organizations/${organizationId}/activities`, { params: { page, pageSize } as any, withCredentials: true });
+  getOrganizationActivities(organizationId: string, page=1, pageSize=10, includeProjects=true) {
+    return this.http.get<{items: any[]; total: number; page: number; pageSize: number}>(`${environment.apiUrl}/api/organizations/${organizationId}/activities`, { params: { page, pageSize, includeProjects: includeProjects ? 'true' : 'false' } as any, withCredentials: true });
   }
 
   createWorkspace(organizationId: string, name: string) {

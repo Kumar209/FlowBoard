@@ -16,7 +16,7 @@ public class ActivitiesController : ControllerBase
     public ActivitiesController(IMediator mediator) => _mediator = mediator;
 
     [HttpGet("api/projects/{projectId}/activities")]
-    public async Task<IActionResult> Get(Guid projectId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] Guid? taskId = null)
+    public async Task<IActionResult> Get(Guid projectId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? taskId = null)
     {
         var q = new GetActivitiesQuery(projectId, page, pageSize, taskId);
         var (items, total) = await _mediator.Send(q);

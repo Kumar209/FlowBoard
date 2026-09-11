@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Project.Service.Application.Commands;
+using SharedKernel;
 
 namespace Project.Service.Api.Controllers;
 
@@ -21,7 +22,7 @@ public class BoardListsController : ControllerBase
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var roles = GetRoles();
-        if (roles.Contains("Viewer") || roles.Contains("Client")) return StatusCode(403, new { error = "Viewer/Client cannot create lists" });
+        if (roles.Contains(Roles.Client)) return StatusCode(403, new { error = "Client cannot create lists" });
         var result = await _mediator.Send(new CreateBoardListCommand(projectId, body.Name, userId.Value, roles, body.BoardId, body.Position, body.StatusIds));
         if (!result.IsSuccess) return BadRequest(new { error = result.Error });
         return StatusCode(201, result.Value);

@@ -1,6 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { ROLE_VALUE_MAP as SharedRoleMap } from '../../shared/constants/roles';
 
 export interface User {
   id: string;
@@ -15,13 +16,14 @@ export interface AuthResponse {
   accessTokenExpiresAt: string;
 }
 
+// Re-export compact WorkspaceRole for compat — SuperAdmin 0, Member 1, OrgAdmin 2, Client 3 (legacy ProjectManager/Viewer → Member 1)
 export enum WorkspaceRole {
-  Member = 0,
-  ProjectManager = 1,
+  SuperAdmin = 0,
+  Member = 1,
   OrgAdmin = 2,
   Client = 3,
-  Viewer = 4,
-  SuperAdmin = 5
+  ProjectManager = 1,
+  Viewer = 1
 }
 
 export interface Membership {
@@ -90,10 +92,9 @@ export class AuthService {
         let roleNum: number = Number(raw);
         let roleName: string | undefined = typeof raw === 'string' ? raw : undefined;
         if (isNaN(roleNum) && roleName) {
-          const map: Record<string, number> = { Member: 0, ProjectManager: 1, OrgAdmin: 2, Client: 3, Viewer: 4, SuperAdmin: 5 };
-          roleNum = map[roleName] ?? 0;
+          roleNum = (SharedRoleMap as any)[roleName] ?? 1;
         }
-        return { workspaceId: (w as any).workspaceId ?? (w as any).workspaceID ?? (w as any).id, role: isNaN(roleNum) ? raw : roleNum, roleName };
+        return { workspaceId: (w as any).workspaceId ?? (w as any).workspaceID ?? (w as any).id, role: isNaN(roleNum) ? raw : roleNum, roleName: roleName ?? (typeof raw === 'string' ? raw : undefined) };
       });
       this.memberships.set(mapped);
     }

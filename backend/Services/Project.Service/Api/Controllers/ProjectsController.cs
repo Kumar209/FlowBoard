@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Project.Service.Application.Commands;
 using Project.Service.Application.Interfaces;
 using Project.Service.Application.Queries;
+using SharedKernel;
 
 namespace Project.Service.Api.Controllers;
 
@@ -26,8 +27,8 @@ public class ProjectsController : ControllerBase
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var role = GetRoleForWorkspace(workspaceId) ?? await GetRoleForWorkspaceDbAsync(workspaceId, userId.Value);
         if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
-        var allowed = new[] { "OrgAdmin", "ProjectManager", "SuperAdmin" };
-        if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/ProjectManager. Your role in this workspace: {role}" });
+        var allowed = new[] { Roles.OrgAdmin, Roles.SuperAdmin };
+        if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/SuperAdmin. Your role in this workspace: {role}" });
         var roles = GetRoles();
         var result = await _mediator.Send(new CreateProjectCommand(workspaceId, body.Name, body.Description, userId.Value, roles));
         if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
@@ -66,8 +67,8 @@ public class ProjectsController : ControllerBase
         if (board?.Project == null) return NotFound(new { error = "Project not found" });
         var role = GetRoleForWorkspace(board.Project.WorkspaceId) ?? await GetRoleForWorkspaceDbAsync(board.Project.WorkspaceId, userId.Value);
         if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
-        var allowed = new[] { "OrgAdmin", "ProjectManager", "SuperAdmin" };
-        if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/ProjectManager. Your role in this workspace: {role}" });
+        var allowed = new[] { Roles.OrgAdmin, Roles.SuperAdmin };
+        if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/SuperAdmin. Your role in this workspace: {role}" });
         var roles = GetRoles();
         var result = await _mediator.Send(new UpdateProjectCommand(projectId, body.Name, body.Description, body.Slug, userId.Value, roles));
         if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
@@ -82,7 +83,7 @@ public class ProjectsController : ControllerBase
         if (board?.Project == null) return NotFound(new { error = "Project not found" });
         var role = GetRoleForWorkspace(board.Project.WorkspaceId) ?? await GetRoleForWorkspaceDbAsync(board.Project.WorkspaceId, userId.Value);
         if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
-        var allowed = new[] { "OrgAdmin", "SuperAdmin" };
+        var allowed = new[] { Roles.OrgAdmin, Roles.SuperAdmin };
         if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/SuperAdmin to delete. Your role: {role}" });
         var roles = GetRoles();
         var result = await _mediator.Send(new DeleteProjectCommand(projectId, userId.Value, roles));
@@ -112,7 +113,7 @@ public class ProjectsController : ControllerBase
             // Project and Identity share same physical DB flowboard, different schemas. Query [identity].WorkspaceMembers directly.
             var roleInt = await _db.Database.SqlQueryRaw<int?>("SELECT Role FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = @p0 AND UserId = @p1", workspaceId, userId).FirstOrDefaultAsync();
             if (roleInt == null) return null;
-            return roleInt.Value switch { 0 => "Member", 1 => "ProjectManager", 2 => "OrgAdmin", 3 => "Client", 4 => "Viewer", 5 => "SuperAdmin", _ => null };
+            return roleInt.Value switch { 0 => Roles.Member, 2 => Roles.OrgAdmin, 3 => Roles.Client, 5 => Roles.SuperAdmin, _ => null };
         }
         catch { return null; }
     }

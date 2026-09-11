@@ -13,7 +13,7 @@ public record TeamDto(Guid Id, Guid ProjectId, string Name, string? Description,
 public record TeamMemberDto(Guid Id, Guid TeamId, Guid UserId, DateTime JoinedAt);
 public record BoardFilterDto(List<Guid>? TeamIds = null);
 public record CommentDto(Guid Id, Guid TaskId, Guid AuthorId, string Content, DateTime CreatedAt, string? AuthorName = null, string? AuthorAvatarUrl = null);
-public record ActivityDto(Guid Id, Guid ProjectId, Guid? TaskId, Guid ActorId, string Action, string PayloadJson, DateTime OccurredAt);
+public record ActivityDto(Guid Id, Guid ProjectId, Guid? WorkspaceId, Guid? TaskId, Guid ActorId, string Action, string PayloadJson, DateTime OccurredAt);
 public record SubTaskDto(Guid Id, Guid TaskId, string Title, bool IsCompleted, DateTime CreatedAt);
 public record StatusDto(Guid Id, Guid ProjectId, string Name, DateTime CreatedAt);
 public record PaginatedResult<T>(List<T> Items, int Total, int Page, int PageSize);

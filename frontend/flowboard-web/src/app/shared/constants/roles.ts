@@ -1,54 +1,65 @@
 /**
  * Shared roles - Single source of truth for frontend.
- * Org level: 5 roles (Member, ProjectManager, OrgAdmin, Client, Viewer)
- * System level: 6 roles (includes SuperAdmin)
- * Keep in sync with backend Domain/Enums/WorkspaceRole.cs
+ * Org roles: 3 fixed (Member 1, OrgAdmin 2, Client 3) — stored in [identity].OrganizationMembers
+ * Workspace roles: DYNAMIC per-org via [identity].OrganizationWorkspaceRoles (e.g., Developer, QA) — NOT hardcoded.
+ * System: SuperAdmin 0 (global, not in OrganizationMembers, Users.IsSuperAdmin)
+ * Keep in sync with backend BuildingBlocks/SharedKernel/Roles.cs (single shared file)
+ * Compact 0-3 (2026-09-10) — SuperAdmin 0, Member 1, OrgAdmin 2, Client 3 (legacy 1,4 gaps removed via DB drop)
+ * Backward compat: WorkspaceRole enum kept for existing guards/services (maps ProjectManager/Viewer to Member)
  */
 
 export enum WorkspaceRole {
-  Member = 0,
-  ProjectManager = 1,
+  SuperAdmin = 0,
+  Member = 1,
+  ProjectManager = 1, // legacy custom — now maps to custom OrganizationWorkspaceRoles, kept for compat
   OrgAdmin = 2,
   Client = 3,
-  Viewer = 4,
-  SuperAdmin = 5,
+  Viewer = 1, // legacy custom — maps to custom (Member fallback)
 }
 
-export const WORKSPACE_ROLES_5 = [
-  { value: WorkspaceRole.Member, label: 'Member' },
-  { value: WorkspaceRole.ProjectManager, label: 'ProjectManager' },
-  { value: WorkspaceRole.OrgAdmin, label: 'OrgAdmin' },
-  { value: WorkspaceRole.Client, label: 'Client' },
-  { value: WorkspaceRole.Viewer, label: 'Viewer' },
-] as const;
+export type OrgRole = 'Member' | 'OrgAdmin' | 'Client';
+export type SystemRole = OrgRole | 'SuperAdmin';
 
-export const WORKSPACE_ROLES_6 = [
-  ...WORKSPACE_ROLES_5,
-  { value: WorkspaceRole.SuperAdmin, label: 'SuperAdmin' },
-] as const;
+export const OrgRoleValues = {
+  SuperAdmin: 0,
+  Member: 1,
+  OrgAdmin: 2,
+  Client: 3,
+} as const;
+
+export const FIXED_ORG_ROLES: { value: number; label: OrgRole }[] = [
+  { value: OrgRoleValues.Member, label: 'Member' },
+  { value: OrgRoleValues.OrgAdmin, label: 'OrgAdmin' },
+  { value: OrgRoleValues.Client, label: 'Client' },
+];
+
+export const ALL_FIXED_ROLES = [...FIXED_ORG_ROLES, { value: OrgRoleValues.SuperAdmin, label: 'SuperAdmin' as const }] as const;
 
 export const ROLE_LABEL_MAP: Record<string, string> = {
-  '0': 'Member',
-  '1': 'ProjectManager',
+  '0': 'SuperAdmin',
+  '1': 'Member',
   '2': 'OrgAdmin',
   '3': 'Client',
-  '4': 'Viewer',
-  '5': 'SuperAdmin',
 };
 
-export const ROLE_VALUE_MAP: Record<string, WorkspaceRole> = {
-  'Member': WorkspaceRole.Member,
-  'ProjectManager': WorkspaceRole.ProjectManager,
-  'OrgAdmin': WorkspaceRole.OrgAdmin,
-  'Client': WorkspaceRole.Client,
-  'Viewer': WorkspaceRole.Viewer,
-  'SuperAdmin': WorkspaceRole.SuperAdmin,
+export const ROLE_VALUE_MAP: Record<string, number> = {
+  'SuperAdmin': 0,
+  'Member': 1,
+  'OrgAdmin': 2,
+  'Client': 3,
+  // legacy aliases
+  'ProjectManager': 1,
+  'Viewer': 1,
 };
 
 export function getRoleLabel(value: string | number): string {
   return ROLE_LABEL_MAP[String(value)] ?? String(value);
 }
 
-export function getRoleValue(label: string): WorkspaceRole | undefined {
+export function getRoleValue(label: string): number | undefined {
   return ROLE_VALUE_MAP[label];
+}
+
+export function isFixedOrgRole(role: string): boolean {
+  return ['Member', 'OrgAdmin', 'Client'].includes(role);
 }

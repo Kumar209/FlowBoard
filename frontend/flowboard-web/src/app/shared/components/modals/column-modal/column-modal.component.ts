@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, input, output, signal, computed, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, output, signal, computed, effect, HostListener, ElementRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 /**
@@ -32,6 +32,38 @@ export class ColumnModalComponent {
   selectedStatusIds = signal<string[]>([]);
   dropdownOpen = signal(false);
   isUpdate = computed(() => this.mode() === 'update');
+  private el = inject(ElementRef);
+  pendingMoveStatus = signal<{id:string; name:string; fromColumn:string} | null>(null);
+
+  // Map statusId -> column name for already used statuses (excluding current column)
+  usedStatusMap = computed(() => {
+    const map = new Map<string,string>();
+    const cols: any[] = (this.existingColumns() as any) || [];
+    const curId = this.currentColumnId();
+    for (const c of cols) {
+      if (c.id === curId) continue;
+      const sids: string[] = (c as any).statusIds || [];
+      for (const sid of sids) {
+        const st = this.availableStatuses().find(s=>s.id===sid);
+        map.set(sid, c.name || st?.name || sid.slice(0,4));
+      }
+    }
+    return map;
+  });
+
+  @HostListener('document:click', ['$event'])
+  onDocClick(event: MouseEvent) {
+    if (!this.dropdownOpen()) return;
+    const target = event.target as HTMLElement;
+    const host = this.el.nativeElement as HTMLElement;
+    const dropdown = host.querySelector('.status-dropdown');
+    const button = host.querySelector('.status-dropdown-button');
+    if (dropdown && !dropdown.contains(target) && button && !button.contains(target)) {
+      this.dropdownOpen.set(false);
+    }
+  }
+  @HostListener('document:keydown.escape')
+  onEsc() { this.dropdownOpen.set(false); }
 
   positionError = computed(() => {
     const p = this.position();
@@ -59,9 +91,23 @@ export class ColumnModalComponent {
   }
 
   toggleStatus(id:string, checked:boolean){
+    const usedMap = this.usedStatusMap();
+    const alreadyIn = usedMap.get(id);
+    if (checked && alreadyIn) {
+      const st = this.availableStatuses().find(s=>s.id===id);
+      this.pendingMoveStatus.set({ id, name: st?.name || id.slice(0,4), fromColumn: alreadyIn });
+      return;
+    }
     if(checked) this.selectedStatusIds.set([...this.selectedStatusIds(), id]);
     else this.selectedStatusIds.set(this.selectedStatusIds().filter(x=>x!==id));
   }
+  confirmMoveStatus(){
+    const pending = this.pendingMoveStatus();
+    if (!pending) return;
+    this.selectedStatusIds.set([...this.selectedStatusIds(), pending.id]);
+    this.pendingMoveStatus.set(null);
+  }
+  cancelMoveStatus(){ this.pendingMoveStatus.set(null); }
 
   submit() {
     if (!this.isValid()) return;

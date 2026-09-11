@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Identity.Service.Domain.Entities;
 
 namespace Identity.Service.Application.Interfaces;
@@ -18,6 +19,8 @@ public interface IApplicationDbContext
     DbSet<RolePermission> RolePermissions { get; }
     DbSet<OrganizationActivity> OrganizationActivities { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
+
+    DatabaseFacade Database { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

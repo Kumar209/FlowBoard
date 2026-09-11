@@ -1,4 +1,4 @@
-using Identity.Service.Domain.Enums;
+using SharedKernel;
 
 namespace Identity.Service.Domain.Entities;
 
@@ -9,7 +9,7 @@ public class WorkspaceMember
 {
     public Guid WorkspaceId { get; set; }
     public Guid UserId { get; set; }
-    public WorkspaceRole Role { get; set; } = WorkspaceRole.Member;
+    public int Role { get; set; } = Roles.MemberValue;
     public Guid? CustomRoleId { get; set; }
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
 
@@ -20,7 +20,7 @@ public class WorkspaceMember
 
     public WorkspaceMember() { }
 
-    public WorkspaceMember(Guid workspaceId, Guid userId, WorkspaceRole role, Guid? customRoleId = null)
+    public WorkspaceMember(Guid workspaceId, Guid userId, int role, Guid? customRoleId = null)
     {
         WorkspaceId = workspaceId;
         UserId = userId;

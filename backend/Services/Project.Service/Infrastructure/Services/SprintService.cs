@@ -12,7 +12,7 @@ public class SprintService : ISprintService
 
     public async Task<Result<SprintDto>> CreateSprintAsync(Guid projectId, Guid? boardId, string name, DateTime startDate, DateTime endDate, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (callerRoles.Contains("Viewer") || callerRoles.Contains("Client")) return Result<SprintDto>.Failure("Forbidden - Viewer/Client cannot create sprints");
+        if (Roles.CanUpload(callerRoles) == false) return Result<SprintDto>.Failure("Forbidden - Client cannot create sprints");
         if (boardId != null && boardId != Guid.Empty)
         {
             var board = await _db.Boards.FindAsync(new object[] { boardId }, ct);
@@ -22,14 +22,15 @@ public class SprintService : ISprintService
         var sprint = new Domain.Entities.Sprint(projectId, boardId, name, startDate, endDate, "Planned");
         _db.Sprints.Add(sprint);
         await _db.SaveChangesAsync(ct);
-        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(projectId, null, callerId, "SprintCreated", $"{{\"name\":\"{name}\"}}"));
+        var wsSprint = await _db.Projects.Where(p => p.Id == projectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(projectId, null, callerId, "SprintCreated", $"{{\"name\":\"{name}\"}}", wsSprint));
         await _db.SaveChangesAsync(ct);
         return Result<SprintDto>.Success(new SprintDto(sprint.Id, sprint.ProjectId, sprint.BoardId, sprint.Name, sprint.StartDate, sprint.EndDate, sprint.Status, sprint.CreatedAt));
     }
 
     public async Task<Result<SprintDto>> UpdateSprintAsync(Guid sprintId, string name, DateTime startDate, DateTime endDate, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (callerRoles.Contains("Viewer") || callerRoles.Contains("Client")) return Result<SprintDto>.Failure("Forbidden - Viewer/Client cannot update sprints");
+        if (Roles.CanUpload(callerRoles) == false) return Result<SprintDto>.Failure("Forbidden - Client cannot update sprints");
         var sprint = await _db.Sprints.FindAsync(new object[] { sprintId }, ct);
         if (sprint == null) return Result<SprintDto>.Failure("Sprint not found");
         sprint.Update(name, startDate, endDate);
@@ -39,7 +40,7 @@ public class SprintService : ISprintService
 
     public async Task<Result<bool>> DeleteSprintAsync(Guid sprintId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (callerRoles.Contains("Viewer") || callerRoles.Contains("Client")) return Result<bool>.Failure("Forbidden - Viewer/Client cannot delete sprints");
+        if (Roles.CanUpload(callerRoles) == false) return Result<bool>.Failure("Forbidden - Client cannot delete sprints");
         var sprint = await _db.Sprints.FindAsync(new object[] { sprintId }, ct);
         if (sprint == null) return Result<bool>.Failure("Sprint not found");
         _db.Sprints.Remove(sprint);
@@ -137,7 +138,7 @@ public class EnvironmentService : IEnvironmentService
 
     public async Task<Result<ProjectEnvironmentDto>> CreateEnvironmentAsync(Guid projectId, string name, string url, string? description, string status, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (callerRoles.Contains("Viewer") || callerRoles.Contains("Client")) return Result<ProjectEnvironmentDto>.Failure("Forbidden - Viewer/Client cannot create environments");
+        if (Roles.CanUpload(callerRoles) == false) return Result<ProjectEnvironmentDto>.Failure("Forbidden - Client cannot create environments");
         var exists = await _db.Environments.AnyAsync(e => e.ProjectId == projectId && e.Name == name, ct);
         if (exists) return Result<ProjectEnvironmentDto>.Failure("Environment with same name already exists");
         var env = new Domain.Entities.ProjectEnvironment(projectId, name, url, description, status ?? "Active");
@@ -148,7 +149,7 @@ public class EnvironmentService : IEnvironmentService
 
     public async Task<Result<ProjectEnvironmentDto>> UpdateEnvironmentAsync(Guid environmentId, string name, string url, string? description, string status, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (callerRoles.Contains("Viewer") || callerRoles.Contains("Client")) return Result<ProjectEnvironmentDto>.Failure("Forbidden - Viewer/Client cannot update environments");
+        if (Roles.CanUpload(callerRoles) == false) return Result<ProjectEnvironmentDto>.Failure("Forbidden - Client cannot update environments");
         var env = await _db.Environments.FindAsync(new object[] { environmentId }, ct);
         if (env == null) return Result<ProjectEnvironmentDto>.Failure("Environment not found");
         env.Update(name, url, description, status ?? "Active");
@@ -158,7 +159,7 @@ public class EnvironmentService : IEnvironmentService
 
     public async Task<Result<bool>> DeleteEnvironmentAsync(Guid environmentId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (callerRoles.Contains("Viewer") || callerRoles.Contains("Client")) return Result<bool>.Failure("Forbidden - Viewer/Client cannot delete environments");
+        if (Roles.CanUpload(callerRoles) == false) return Result<bool>.Failure("Forbidden - Client cannot delete environments");
         var env = await _db.Environments.FindAsync(new object[] { environmentId }, ct);
         if (env == null) return Result<bool>.Failure("Environment not found");
         _db.Environments.Remove(env);

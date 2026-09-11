@@ -2,7 +2,7 @@
   <div class="flex flex-wrap justify-between gap-2 items-center">
     <div>
       <h1 class="text-xl font-bold">Project Activity</h1>
-      <p class="text-xs opacity-60">Project-specific audit trail — all actions in this project. Table view</p>
+      <p class="text-xs opacity-60">Project-specific audit — 10 per page, unified columns</p>
     </div>
     <span class="badge badge-ghost badge-sm rounded-full">Total {{ total() }}</span>
   </div>
@@ -14,14 +14,21 @@
       <div class="card bg-base-100 rounded-2xl shadow border overflow-hidden">
         <div class="overflow-x-auto">
           <table class="table table-sm">
-            <thead><tr><th>Time</th><th>Action</th><th>Payload</th><th>Actor</th></tr></thead>
+            <thead><tr><th>Time</th><th>Project</th><th>Workspace</th><th>Action</th><th>Actor</th><th>Details</th></tr></thead>
             <tbody>
               @for (a of data.items; track a.id) {
                 <tr class="hover:bg-base-200">
                   <td class="text-xs opacity-60 whitespace-nowrap">{{ a.occurredAt | date:'short' }}</td>
+                  <td><span class="badge badge-ghost badge-xs rounded-full">{{ projectId().slice(0,6) || 'Project' }}</span></td>
+                  <td class="text-xs"><span class="badge badge-ghost badge-xs rounded-full">{{ a.workspaceId ? workspaceName() : workspaceName() }}</span></td>
                   <td><span class="badge badge-sm rounded-full" [ngClass]="a.action==='TaskCreated'?'badge-success': a.action==='TaskMoved'?'badge-warning': a.action==='TaskUpdated'?'badge-info': a.action==='BoardCreated'?'badge-secondary':'badge-ghost'">{{ a.action }}</span></td>
-                  <td class="text-xs max-w-[360px] truncate">{{ a.payloadJson | slice:0:100 }}</td>
-                  <td class="text-xs"><span class="font-medium">{{ getActorDisplay(a.actorId).split(' (')[0] }}</span> <span class="opacity-60">({{ getActorDisplay(a.actorId).split('(')[1] || '' }}</span></td>
+                  <td class="text-xs">
+                    <div class="flex flex-col">
+                      <span class="font-medium">{{ getActorDisplay(a.actorId).split(' (')[0] }}</span>
+                      <span class="text-[11px] opacity-60">{{ getActorDisplay(a.actorId).split('(')[1]?.slice(0,-1) || '' }}</span>
+                    </div>
+                  </td>
+                  <td class="text-xs max-w-[360px] truncate">{{ a.payloadJson | slice:0:120 }}</td>
                 </tr>
               }
             </tbody>

@@ -21,7 +21,7 @@
           @if (availableStatuses().length===0) {
             <div class="alert alert-warning py-2 text-xs">No statuses — create in Project → Statuses first. Strict manual, no auto.</div>
           } @else {
-            <button type="button" class="input input-bordered rounded-xl w-full flex justify-between items-center" (click)="dropdownOpen.set(!dropdownOpen())">
+            <button type="button" class="input input-bordered rounded-xl w-full flex justify-between items-center status-dropdown-button" (click)="dropdownOpen.set(!dropdownOpen())">
               <span class="text-sm truncate">
                 @if (selectedStatusIds().length===0) { Select statuses... }
                 @else {
@@ -33,11 +33,14 @@
               <span class="opacity-40">▼</span>
             </button>
             @if (dropdownOpen()) {
-              <div class="absolute z-20 mt-1 w-full bg-base-100 border rounded-xl shadow-xl max-h-40 overflow-y-auto p-1">
+              <div class="absolute z-20 mt-1 w-full bg-base-100 border rounded-xl shadow-xl max-h-40 overflow-y-auto p-1 status-dropdown">
                 @for (s of availableStatuses(); track s.id) {
-                  <label class="flex items-center gap-2 cursor-pointer p-2 hover:bg-base-200 rounded-lg">
+                  @let usedIn = usedStatusMap().get(s.id);
+                  <label class="flex items-center gap-2 cursor-pointer p-2 hover:bg-base-200 rounded-lg" [class.bg-warning/10]="!!usedIn && !selectedStatusIds().includes(s.id)">
                     <input type="checkbox" class="checkbox checkbox-xs" [checked]="selectedStatusIds().includes(s.id)" (change)="toggleStatus(s.id, $any($event.target).checked)" />
-                    <span class="text-sm">{{ s.name }}</span>
+                    <span class="text-sm flex-1">{{ s.name }}</span>
+                    @if (usedIn && !selectedStatusIds().includes(s.id)) { <span class="badge badge-ghost badge-xs">in {{ usedIn }} — click to move</span> }
+                    @if (selectedStatusIds().includes(s.id) && usedIn) { <span class="badge badge-warning badge-xs">will move from {{ usedIn }}</span> }
                   </label>
                 }
               </div>
@@ -46,6 +49,20 @@
             @else { <span class="text-xs opacity-40">{{ selectedStatusIds().length }} selected</span> }
           }
         </label>
+        @if (pendingMoveStatus(); as pending) {
+          <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="cancelMoveStatus()"></div>
+            <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-sm w-full p-4 relative z-10 border">
+              <h4 class="font-bold text-sm">Move status?</h4>
+              <p class="text-xs mt-2">Move <b>{{ pending.name }}</b> from <b>{{ pending.fromColumn }}</b> to this column?</p>
+              <p class="opacity-60 text-[11px] mt-1">One status can be in only one column. Tasks with this status will move to the new column.</p>
+              <div class="flex gap-2 justify-end mt-4">
+                <button class="btn btn-ghost btn-xs rounded-full" (click)="cancelMoveStatus()">Cancel</button>
+                <button class="btn btn-warning btn-xs rounded-full" (click)="confirmMoveStatus()">Move</button>
+              </div>
+            </div>
+          </div>
+        }
         @if (error()) { <div class="text-error text-xs">● {{ error() }}</div> }
       </div>
       <div class="flex justify-end gap-2 mt-6">

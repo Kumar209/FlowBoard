@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
+using SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Identity.Service.Infrastructure.Services;
@@ -12,7 +13,7 @@ public class OrganizationRoleService : IOrganizationRoleService
 
     private async Task<bool> IsOrgAdminAsync(Guid organizationId, Guid callerId, CancellationToken ct)
     {
-        if (await _db.WorkspaceMembers.AnyAsync(m => m.UserId == callerId && m.Role == Domain.Enums.WorkspaceRole.SuperAdmin, ct)) return true;
+        if (await _db.WorkspaceMembers.AnyAsync(m => m.UserId == callerId && m.Role == Roles.SuperAdminValue, ct)) return true;
         return await _db.OrganizationMembers.AnyAsync(m => m.OrganizationId == organizationId && m.UserId == callerId && m.Role == 2, ct)
             || await _db.Organizations.AnyAsync(o => o.Id == organizationId && o.OwnerId == callerId, ct);
     }
@@ -23,7 +24,7 @@ public class OrganizationRoleService : IOrganizationRoleService
         // Any member of org can view roles (role:view), but we check org membership
         var isMember = await _db.OrganizationMembers.AnyAsync(m => m.OrganizationId == organizationId && m.UserId == callerId, ct)
             || await _db.WorkspaceMembers.AnyAsync(m => m.UserId == callerId && m.Workspace!.OrganizationId == organizationId, ct);
-        var isSuper = await _db.WorkspaceMembers.AnyAsync(m => m.UserId == callerId && m.Role == Domain.Enums.WorkspaceRole.SuperAdmin, ct);
+        var isSuper = await _db.WorkspaceMembers.AnyAsync(m => m.UserId == callerId && m.Role == Roles.SuperAdminValue, ct);
         if (!isMember && !isSuper) throw new ForbiddenException("Forbidden - Not a member of organization");
         var roles = await _db.OrganizationWorkspaceRoles.Where(r => r.OrganizationId == organizationId).OrderBy(r => r.Name).ToListAsync(ct);
         var counts = await _db.WorkspaceMembers.Where(m => m.CustomRoleId != null).GroupBy(m => m.CustomRoleId).ToDictionaryAsync(g => g.Key!.Value, g => g.Count(), ct);

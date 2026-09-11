@@ -221,8 +221,8 @@ export class MembersComponent {
     this.editTarget.set(m);
     this.editName.set(m.fullName);
     this.editEmail.set(m.email);
-    // org-level editRole must be one of Member/OrgAdmin/Client - map incoming 5-role to 3-role
-    const mappedOrg = ['Member','OrgAdmin','Client'].includes(m.role) ? m.role : 'Member';
+    // org-level editRole must be one of Member/OrgAdmin/Client - map incoming to 3-role
+    const mappedOrg = ['Member','OrgAdmin','Client','SuperAdmin'].includes(m.role) ? m.role : 'Member';
     this.editRole.set(mappedOrg);
     const wids = (m as any).workspaceIds as string[] | undefined;
     const allWids = wids && wids.length ? wids : ((m as any).workspaceId ? [(m as any).workspaceId] : []);
@@ -230,8 +230,13 @@ export class MembersComponent {
     const customRoles = (this.customRolesQuery.data() as any[]) || [];
     this.editWorkspaceIds.set(customRoles.length ? ids : []);
     const map: Record<string,string> = {};
+    // Use per-workspace custom role from API if available, else fallback to custom default
+    const wsRoleMap = (m as any).workspaceRoleMap as Record<string,string> | undefined;
     const defaultCr = customRoles[0]?.name || '';
-    ids.forEach(id => map[id] = defaultCr || m.role);
+    ids.forEach(id => {
+      const perWsRole = wsRoleMap?.[id] || wsRoleMap?.[id.toLowerCase()] || '';
+      map[id] = perWsRole || defaultCr || m.role;
+    });
     if (!customRoles.length) this.editWorkspaceIds.set([]);
     this.editWorkspaceRoles.set(map);
   }

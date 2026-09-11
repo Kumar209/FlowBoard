@@ -26,7 +26,7 @@
           <a [routerLink]="['../backlog']" class="btn btn-ghost btn-xs rounded-full">Backlog</a>
           <span class="btn btn-primary btn-xs rounded-full">Board</span>
           <a class="btn btn-ghost btn-xs rounded-full opacity-40">Reports</a>
-          @if (canCreateTask()) { <button class="btn btn-primary btn-xs rounded-full" (click)="openCreateIssue()">+ Create Issue</button> }
+          @if (canCreateTask()) { <a class="btn btn-primary btn-xs rounded-full" [routerLink]="['../issues']">+ Create Issue</a> }
         </div>
       </div>
       @if (isScrum()) {
