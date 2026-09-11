@@ -33,14 +33,14 @@ public class GenerateDraftValidator : AbstractValidator<GenerateDraftCommand>
     public GenerateDraftValidator()
     {
         RuleFor(x => x.Prompt).NotEmpty().MinimumLength(10).MaximumLength(500).WithMessage("Prompt 10-500 chars required");
-        RuleFor(x => x.Model).NotEmpty().Must(m => IsAllowed(m)).WithMessage("Model must be gemini-3.5-flash or llama-3.1-8b");
+        RuleFor(x => x.Model).NotEmpty().Must(m => IsAllowed(m)).WithMessage("Model must be gemini-3.5-flash (Groq disabled)");
         RuleFor(x => x.CallerId).NotEmpty();
     }
     private static bool IsAllowed(string m)
     {
         if (string.IsNullOrWhiteSpace(m)) return false;
         var lower = m.Trim().ToLowerInvariant();
-        return lower.Contains("gemini") || lower.Contains("llama") || lower.Contains("groq");
+        return lower.Contains("gemini"); // Groq disabled for now — code kept but not selectable (backend returns 400 if groq sent)
     }
 }
 
@@ -56,6 +56,10 @@ public class GenerateDraftHandler : IRequestHandler<GenerateDraftCommand, Result
             return Result<GenerateDraftResponse>.Failure("Prompt must be 10-500 chars");
         if (string.IsNullOrWhiteSpace(req.Model))
             return Result<GenerateDraftResponse>.Failure("Model required");
+        // Groq disabled — keep code but reject if client sends groq/llama (frontend hidden via display:none)
+        var mLower = req.Model.Trim().ToLowerInvariant();
+        if (mLower.Contains("groq") || mLower.Contains("llama"))
+            return Result<GenerateDraftResponse>.Failure("Groq disabled — only Gemini 3.5 Flash available");
 
         Guid? orgId = null, wsId = null;
         if (req.ProjectId.HasValue)

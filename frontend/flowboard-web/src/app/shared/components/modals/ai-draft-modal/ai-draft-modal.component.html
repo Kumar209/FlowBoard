@@ -18,12 +18,12 @@
                 <input type="radio" class="radio radio-primary radio-sm" [checked]="model()==='gemini-3.5-flash'" (change)="model.set('gemini-3.5-flash')" />
                 <span class="text-sm">Gemini 3.5 Flash <span class="badge badge-ghost badge-xs">fixed</span></span>
               </label>
-              <label class="flex items-center gap-2 cursor-pointer">
+              <label class="flex items-center gap-2 cursor-pointer hidden" style="display:none">
                 <input type="radio" class="radio radio-primary radio-sm" [checked]="model()==='llama-3.1-8b-instant'" (change)="model.set('llama-3.1-8b-instant')" />
                 <span class="text-sm">Groq llama-3.1-8b <span class="badge badge-outline badge-xs">free</span></span>
               </label>
             </div>
-            <span class="label-text-alt text-[10px] opacity-40">Rate limit 3/min per model (5 RPM total) — 429 shows Retry-After</span>
+            <span class="label-text-alt text-[10px] opacity-40">Gemini 3.5 Flash only — Groq hidden (backend disabled, code kept)</span>
           </div>
           @if (error()) { <div class="alert alert-error py-2 text-xs">{{ error() }}</div> }
         </div>

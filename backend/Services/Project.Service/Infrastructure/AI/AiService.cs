@@ -37,6 +37,13 @@ public class AiService : IAiService
         var sw = Stopwatch.StartNew();
         var model = NormalizeModel(request.Model);
         var providerName = model == "llama-3.1-8b-instant" || model == "llama-3.1-8b" ? "groq" : "gemini";
+        // Groq disabled — keep code but reject (frontend hidden via display:none, backend hard block)
+        if (providerName == "groq")
+        {
+            var msg = "Groq disabled — only Gemini 3.5 Flash available (code kept for future)";
+            await LogAsync(request, callerUserId, providerName, model, 0, 0, 0m, "Failed", msg, false, (int)sw.ElapsedMilliseconds, request.Prompt, "{}", ct);
+            return Result<AiGenerateResult>.Failure(msg);
+        }
         // Rate limit
         var (allowed, retryAfter) = await _limiter.TryAcquireAsync(callerUserId, model, ct);
         if (!allowed)
