@@ -13,9 +13,12 @@ import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../../core/services/project.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { AttachmentService } from '../../../../core/services/attachment.service';
+import { AiService } from '../../../../core/services/ai.service';
 import { ConfirmDeleteComponent } from '../confirm-delete/confirm-delete.component';
 import { LoaderComponent } from '../../loader/loader.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 /**
  * TaskDetailModal - Jira-grade: Subtasks CRUD, Comments CRUD, Assignee picker, Priority/Labels/Due editable, History.
@@ -64,6 +67,9 @@ export class TaskDetailModalComponent {
   private projectService = inject(ProjectService);
   auth = inject(AuthService);
   private toast = inject(ToastService);
+  attachmentService = inject(AttachmentService);
+  private aiService = inject(AiService);
+  private sanitizer = inject(DomSanitizer);
   private queryClient = inject(QueryClient);
 
   // Editable fields - Must add per user request: IssueType, Sprint, Epic, StoryPoints, StartDate, Environment, Watchers, LinkedIssues, Time Tracking, ParentIssue
@@ -137,9 +143,20 @@ export class TaskDetailModalComponent {
   editCommentContent = signal('');
   editingSubtaskId = signal<string | null>(null);
   editSubtaskTitle = signal('');
-  activeTab = signal<'comments' | 'history'>('comments');
+  activeTab = signal<'comments' | 'history' | 'attachments'>('comments');
   deleteSubtaskConfirmId = signal<string | null>(null);
   deleteCommentConfirmId = signal<string | null>(null);
+  // Attachments Jira-style
+  attachmentViewMode = signal<'grid' | 'list'>('grid');
+  attachmentFilter = signal<'all' | 'image' | 'video' | 'document'>('all');
+  previewAttachment = signal<any | null>(null);
+  deleteAttachmentConfirmId = signal<string | null>(null);
+  // AI Enhance 7.3
+  enhanceLoading = signal(false);
+  enhanceError = signal<string | null>(null);
+  aiEnhanceTitle = signal('');
+  aiEnhanceDesc = signal('');
+  showEnhanceDiff = signal(false);
 
   // Derived
   labelsJson = computed(() => {
@@ -334,6 +351,64 @@ export class TaskDetailModalComponent {
       this.open() && !!this.projectId() && !!this.task()?.id && this.activeTab() === 'history',
   }));
 
+  // Attachments Jira-style
+  attachmentsQuery = injectQuery(() => ({
+    queryKey: ['attachments', this.task()?.id] as const,
+    queryFn: () => firstValueFrom(this.attachmentService.getAttachments(this.task().id)),
+    enabled: this.open() && !!this.task()?.id && this.activeTab() === 'attachments',
+    staleTime: 60 * 1000,
+  }));
+
+  filteredAttachments = computed(() => {
+    const list: any[] = (this.attachmentsQuery.data() as any) || [];
+    const f = this.attachmentFilter();
+    if (f === 'all') return list;
+    return list.filter((a: any) => {
+      const t = this.attachmentService.getPreviewType(a.contentType, a.fileName);
+      if (f === 'image') return t === 'image';
+      if (f === 'video') return t === 'video';
+      if (f === 'document') return ['pdf','office','archive','text'].includes(t);
+      return true;
+    });
+  });
+
+  uploadAttachmentMut = injectMutation(() => ({
+    mutationFn: (file: File) => firstValueFrom(this.attachmentService.upload(this.task().id, file)),
+    onError: (err: any) => {
+      const raw = err?.error?.error || err?.message || 'Upload failed';
+      let msg = raw;
+      if (raw.includes('Not a project member') || raw.includes('Not a project member')) msg = 'You are not a member of this project team';
+      else if (raw.includes('Forbidden - ')) msg = raw.replace('Forbidden - ', '');
+      else if (raw.includes('Missing permission')) msg = 'You do not have permission to upload attachments';
+      this.toast.error(msg);
+    },
+    onSuccess: () => {
+      this.toast.success('Attachment uploaded');
+      this.queryClient.invalidateQueries({ queryKey: ['attachments', this.task().id] });
+    },
+  }));
+
+  deleteAttachmentMut = injectMutation(() => ({
+    mutationFn: (id: string) => firstValueFrom(this.attachmentService.delete(id)),
+    onMutate: async (id: string) => {
+      await this.queryClient.cancelQueries({ queryKey: ['attachments', this.task().id] });
+      const prev = this.queryClient.getQueryData(['attachments', this.task().id]) as any[] | undefined;
+      this.queryClient.setQueryData(['attachments', this.task().id], (prev || []).filter((x: any) => x.id !== id));
+      return { prev };
+    },
+    onError: (err: any, _id, ctx: any) => {
+      if (ctx?.prev) this.queryClient.setQueryData(['attachments', this.task().id], ctx.prev);
+      const msg = err?.error?.error || err?.message || 'Delete failed';
+      this.toast.error(msg);
+    },
+    onSuccess: () => {
+      this.toast.success('Attachment deleted');
+      this.queryClient.invalidateQueries({ queryKey: ['attachments', this.task().id] });
+      this.deleteAttachmentConfirmId.set(null);
+      this.previewAttachment.set(null);
+    },
+  }));
+
   // Mutations - invalidate board + activities for realtime (no refresh needed)
   createSubtaskMut = injectMutation(() => ({
     mutationFn: (title: string) =>
@@ -423,6 +498,10 @@ export class TaskDetailModalComponent {
   private populateForm(t: any) {
     this.title.set(t.title || '');
     this.description.set(t.description || '');
+    this.showEnhanceDiff.set(false);
+    this.enhanceError.set(null);
+    this.aiEnhanceTitle.set('');
+    this.aiEnhanceDesc.set('');
     this.priority.set(t.priority || 'Medium');
     this.listId.set(t.listId || '');
     this.statusId.set((t.statusId || '').toString().trim());
@@ -546,6 +625,35 @@ export class TaskDetailModalComponent {
       }
     );
   }
+  async enhance() {
+    const t = this.title().trim();
+    if (!t) { this.toast.error('Title required for Enhance'); return; }
+    this.enhanceLoading.set(true);
+    this.enhanceError.set(null);
+    try {
+      const res: any = await firstValueFrom(this.aiService.enhance(this.task()?.id, this.title().trim(), this.description().trim(), 'gemini-3.5-flash', this.effectiveProjectId()));
+      this.aiEnhanceTitle.set(res.title || t);
+      this.aiEnhanceDesc.set(res.description || this.description());
+      this.showEnhanceDiff.set(true);
+      this.toast.success(`Enhanced via ${res.provider} • ${res.model}`);
+    } catch (e: any) {
+      const msg = e.error?.error || e.message || 'Enhance failed';
+      this.enhanceError.set(msg);
+      this.toast.error(msg);
+    } finally {
+      this.enhanceLoading.set(false);
+    }
+  }
+  applyEnhance() {
+    this.title.set(this.aiEnhanceTitle());
+    this.description.set(this.aiEnhanceDesc());
+    this.showEnhanceDiff.set(false);
+    this.toast.success('Applied AI enhance — Save to persist');
+  }
+  dismissEnhance() {
+    this.showEnhanceDiff.set(false);
+    this.enhanceError.set(null);
+  }
   save() {
     this.saved.emit({
       title: this.title().trim(),
@@ -618,6 +726,27 @@ export class TaskDetailModalComponent {
     if (!id) return;
     this.deleteCommentMut.mutate(id);
     this.deleteCommentConfirmId.set(null);
+  }
+  onAttachmentFileChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { this.toast.error('File too large >10MB'); input.value = ''; return; }
+    this.uploadAttachmentMut.mutate(file);
+    input.value = '';
+  }
+  confirmDeleteAttachment(id: string) { this.deleteAttachmentConfirmId.set(id); }
+  doDeleteAttachment() {
+    const id = this.deleteAttachmentConfirmId();
+    if (!id) return;
+    this.deleteAttachmentMut.mutate(id);
+  }
+  downloadAttachment(a: any) {
+    // Use fetch+blob to force download for any type (same as video View original which downloads)
+    this.attachmentService.download(a.url, a.fileName);
+  }
+  getSafeUrl(url: string): SafeResourceUrl {
+    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
   }
   getAuthorDisplay(authorId: string) {
     const members = this.projectMembersList();

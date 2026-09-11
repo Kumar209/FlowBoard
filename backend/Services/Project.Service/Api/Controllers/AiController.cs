@@ -9,6 +9,7 @@ namespace Project.Service.Api.Controllers;
 /// <summary>
 /// AiController - dedicated AI bounded context (Option A, 7.1 separate AI folder). All AI ops via /api/ai/* → project-cluster :5002 (yarp.json ai-route). Thin DIP: IMediator only → Command/Query → IAiService → Infrastructure/AI (Gemini/Groq + Redis + AiUsageLogs). Ready to extract to microservice.
 /// 7.2 Draft (A): POST /api/ai/draft {prompt,model,projectId} → JSON {title,description,checklist,labels,priority,issueType,storyPoints} isDraft preview (no Id) → frontend Create POST /tasks.
+/// 7.3 Enhance (B): POST /api/ai/enhance {taskId,title,description,model,projectId} → Gemini {title,description} diff Current vs AI Apply pending until Save PUT.
 /// Rate limit 3/min per ai:{userId}:{model} + 5 RPM global via AiService → 429 + RetryAfter.
 /// </summary>
 [ApiController]
@@ -23,6 +24,26 @@ public class AiController : ControllerBase
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var cmd = new GenerateDraftCommand(body.Prompt?.Trim() ?? "", body.Model?.Trim() ?? "gemini-3.5-flash", userId.Value, body.ProjectId);
+        var result = await _mediator.Send(cmd);
+        if (!result.IsSuccess)
+        {
+            var err = result.Error ?? "AI failed";
+            if (err.Contains("Too Many Requests") || err.Contains("Rate limit") || err.Contains("429"))
+            {
+                var retryAfter = ExtractRetryAfter(err);
+                Response.Headers.Append("Retry-After", retryAfter.ToString());
+                return StatusCode(429, new { error = err, retryAfter });
+            }
+            return BadRequest(new { error = err });
+        }
+        return Ok(result.Value);
+    }
+
+    [HttpPost("api/ai/enhance")]
+    public async Task<IActionResult> Enhance([FromBody] EnhanceBody body)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var cmd = new GenerateEnhanceCommand(body.Title?.Trim() ?? "", body.Description ?? "", body.Model?.Trim() ?? "gemini-3.5-flash", userId.Value, body.ProjectId, body.TaskId);
         var result = await _mediator.Send(cmd);
         if (!result.IsSuccess)
         {
@@ -68,3 +89,4 @@ public class AiController : ControllerBase
 }
 
 public record DraftBody(string Prompt, string? Model, Guid? ProjectId);
+public record EnhanceBody(string Title, string? Description, string? Model, Guid? ProjectId, Guid? TaskId);

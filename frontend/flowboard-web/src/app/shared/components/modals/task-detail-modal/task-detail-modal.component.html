@@ -21,10 +21,42 @@
       <div class="flex flex-col lg:flex-row flex-1 overflow-hidden">
         <!-- Left: Title + Description + Subtasks + Activity -->
         <div class="flex-1 p-3 sm:p-4 overflow-y-auto space-y-5 min-h-[300px]">
-          <!-- Title -->
+          <!-- Title + Description + AI Enhance 7.3 -->
           <div>
             <input type="text" class="input input-ghost text-lg sm:text-xl font-bold w-full p-2 rounded-xl border border-transparent focus:border-base-300 focus:bg-base-100" [value]="title()" (input)="title.set($any($event.target).value)" placeholder="Task title" />
-            <textarea class="textarea textarea-bordered w-full text-sm mt-2 rounded-xl min-h-[70px]" placeholder="Add description..." [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
+            <div class="flex justify-between items-center mt-2">
+              <span class="text-xs opacity-60">Description</span>
+              @if (!readOnly()) {
+                <button class="btn btn-ghost btn-xs rounded-full border" (click)="enhance()" [disabled]="enhanceLoading()" [class.loading]="enhanceLoading()">
+                  @if (enhanceLoading()) { Enhancing… } @else { ✨ Enhance }
+                </button>
+              }
+            </div>
+            <textarea class="textarea textarea-bordered w-full text-sm mt-1 rounded-xl min-h-[70px]" placeholder="Add description..." [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
+            @if (enhanceError()) { <div class="alert alert-error py-1 text-xs mt-2">{{ enhanceError() }}</div> }
+            @if (showEnhanceDiff()) {
+              <div class="mt-3 border border-primary/20 rounded-xl p-3 bg-primary/5 space-y-2">
+                <p class="text-xs font-semibold">AI Enhance — diff <span class="badge badge-ghost badge-xs">Gemini 3.5 Flash</span> — Apply pending until Save</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <p class="text-[11px] opacity-60">Current Title</p>
+                    <p class="text-sm p-2 rounded-lg bg-base-100 border">{{ title() }}</p>
+                    <p class="text-[11px] opacity-60 mt-2">Current Description</p>
+                    <p class="text-xs p-2 rounded-lg bg-base-100 border whitespace-pre-wrap">{{ description() || '—' }}</p>
+                  </div>
+                  <div>
+                    <p class="text-[11px] opacity-60">AI Title</p>
+                    <p class="text-sm p-2 rounded-lg bg-base-100 border">{{ aiEnhanceTitle() }}</p>
+                    <p class="text-[11px] opacity-60 mt-2">AI Description</p>
+                    <p class="text-xs p-2 rounded-lg bg-base-100 border whitespace-pre-wrap">{{ aiEnhanceDesc() }}</p>
+                  </div>
+                </div>
+                <div class="flex gap-2 justify-end">
+                  <button class="btn btn-ghost btn-xs rounded-full" (click)="dismissEnhance()">Dismiss</button>
+                  <button class="btn btn-primary btn-xs rounded-full" (click)="applyEnhance()">Apply (pending)</button>
+                </div>
+              </div>
+            }
           </div>
 
           <!-- Subtasks -->
