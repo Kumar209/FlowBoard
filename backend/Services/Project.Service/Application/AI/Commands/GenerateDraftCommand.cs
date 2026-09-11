@@ -70,8 +70,8 @@ public class GenerateDraftHandler : IRequestHandler<GenerateDraftCommand, Result
                 if (proj != null)
                 {
                     wsId = proj.WorkspaceId;
-                    var wsOrg = await _db.Database.SqlQueryRaw<Guid?>("SELECT OrganizationId FROM [identity].[Workspaces] WHERE Id = @p0", wsId.Value).FirstOrDefaultAsync(ct);
-                    orgId = wsOrg;
+                    var wsOrgRow = await _db.Database.SqlQueryRaw<OrgRow>("SELECT OrganizationId FROM [identity].[Workspaces] WHERE Id = @p0", wsId.Value).FirstOrDefaultAsync(ct);
+                    orgId = wsOrgRow?.OrganizationId;
                 }
             }
             catch { }
@@ -144,4 +144,5 @@ public class GenerateDraftHandler : IRequestHandler<GenerateDraftCommand, Result
         }
         return null;
     }
+    private class OrgRow { public Guid OrganizationId { get; set; } }
 }

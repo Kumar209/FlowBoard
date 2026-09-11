@@ -49,8 +49,8 @@ public class GenerateEnhanceHandler : IRequestHandler<GenerateEnhanceCommand, Re
                 if (proj != null)
                 {
                     wsId = proj.WorkspaceId;
-                    var org = await _db.Database.SqlQueryRaw<Guid?>("SELECT OrganizationId FROM [identity].[Workspaces] WHERE Id = @p0", wsId.Value).FirstOrDefaultAsync(ct);
-                    orgId = org;
+                    var orgRow = await _db.Database.SqlQueryRaw<OrgRow>("SELECT OrganizationId FROM [identity].[Workspaces] WHERE Id = @p0", wsId.Value).FirstOrDefaultAsync(ct);
+                    orgId = orgRow?.OrganizationId;
                 }
             }
             catch { }
@@ -90,4 +90,5 @@ public class GenerateEnhanceHandler : IRequestHandler<GenerateEnhanceCommand, Re
         foreach (var prop in root.EnumerateObject()) if (prop.Name.Equals(key, StringComparison.OrdinalIgnoreCase) && prop.Value.ValueKind == JsonValueKind.String) return prop.Value.GetString();
         return null;
     }
+    private class OrgRow { public Guid OrganizationId { get; set; } }
 }

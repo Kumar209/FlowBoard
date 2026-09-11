@@ -48,8 +48,8 @@ public class GenerateBreakdownHandler : IRequestHandler<GenerateBreakdownCommand
                 if (proj != null)
                 {
                     wsId = proj.WorkspaceId;
-                    var org = await _db.Database.SqlQueryRaw<Guid?>("SELECT OrganizationId FROM [identity].[Workspaces] WHERE Id = @p0", wsId.Value).FirstOrDefaultAsync(ct);
-                    orgId = org;
+                    var orgRow = await _db.Database.SqlQueryRaw<OrgRow>("SELECT OrganizationId FROM [identity].[Workspaces] WHERE Id = @p0", wsId.Value).FirstOrDefaultAsync(ct);
+                    orgId = orgRow?.OrganizationId;
                 }
             }
             catch { }
@@ -102,4 +102,5 @@ public class GenerateBreakdownHandler : IRequestHandler<GenerateBreakdownCommand
             return Result<GenerateBreakdownResponse>.Failure("AI breakdown failed — please try again.");
         }
     }
+    private class OrgRow { public Guid OrganizationId { get; set; } }
 }
