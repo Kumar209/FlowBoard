@@ -56,8 +56,12 @@ public class GenerateEnhanceHandler : IRequestHandler<GenerateEnhanceCommand, Re
             catch { }
         }
 
-        // Build prompt from title+description for enhance
-        var prompt = $"Title: {req.Title}\nDescription: {req.Description ?? ""}\n\nEnhance for clarity, fix grammar, add structured steps and acceptance hints. Keep original intent.";
+        // MNC Jira: description optional — if empty, generate from title only
+        string prompt;
+        if (string.IsNullOrWhiteSpace(req.Description))
+            prompt = $"Title: {req.Title}\nNo existing description. Generate clear description from title only (objective, steps, acceptance hints). Keep original intent.";
+        else
+            prompt = $"Title: {req.Title}\nDescription: {req.Description}\n\nEnhance for clarity, fix grammar, add structured steps and acceptance hints. Keep original intent.";
         if (prompt.Length > 2000) prompt = prompt[..2000];
 
         var aiReq = new AiGenerateRequest(orgId, wsId, req.ProjectId, req.TaskId, "enhance", prompt, req.Model ?? "gemini-3.5-flash");
@@ -73,9 +77,10 @@ public class GenerateEnhanceHandler : IRequestHandler<GenerateEnhanceCommand, Re
             string description = TryGetString(root, "description") ?? raw;
             return Result<GenerateEnhanceResponse>.Success(new GenerateEnhanceResponse(title, description, result.Value.Provider, result.Value.Model, raw));
         }
-        catch (Exception ex)
+        catch
         {
-            return Result<GenerateEnhanceResponse>.Failure($"AI response parse failed: {ex.Message}. Raw: {raw[..Math.Min(200, raw.Length)]}");
+            // Human Error Rule Section 10: never expose Raw/LineNumber/stack to client — log full server only
+            return Result<GenerateEnhanceResponse>.Failure("AI enhance failed — please try again.");
         }
     }
 

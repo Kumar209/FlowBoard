@@ -628,6 +628,7 @@ export class TaskDetailModalComponent {
   async enhance() {
     const t = this.title().trim();
     if (!t) { this.toast.error('Title required for Enhance'); return; }
+    // MNC Jira: description optional — allow title-only enhance (backend generates from title)
     this.enhanceLoading.set(true);
     this.enhanceError.set(null);
     try {
@@ -637,9 +638,12 @@ export class TaskDetailModalComponent {
       this.showEnhanceDiff.set(true);
       this.toast.success(`Enhanced via ${res.provider} • ${res.model}`);
     } catch (e: any) {
-      const msg = e.error?.error || e.message || 'Enhance failed';
-      this.enhanceError.set(msg);
-      this.toast.error(msg);
+      const raw = e.error?.error || e.message || 'Enhance failed';
+      // Human Error Rule Section 10: never show Raw/LineNumber/stack — keep Retry-After for 429
+      const isRateLimit = raw.includes('429') || raw.includes('Retry-After') || raw.includes('Too Many Requests');
+      const human = isRateLimit ? raw : (raw.includes('Raw:') || raw.includes('LineNumber') || raw.includes('at System') || raw.length > 120 ? 'AI enhance failed — please try again.' : raw);
+      this.enhanceError.set(human);
+      this.toast.error(human);
     } finally {
       this.enhanceLoading.set(false);
     }

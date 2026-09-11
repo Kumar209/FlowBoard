@@ -38,6 +38,7 @@ public class GroqProvider : IAiProvider
         }
 
         var system = BuildSystemPrompt(operation);
+        var maxTokens = operation == "enhance" ? 2048 : 1024;
         var body = new
         {
             model = ModelName,
@@ -47,7 +48,7 @@ public class GroqProvider : IAiProvider
                 new { role = "user", content = prompt }
             },
             temperature = 0.7,
-            max_tokens = 1024,
+            max_tokens = maxTokens,
             response_format = new { type = "json_object" }
         };
         var json = JsonSerializer.Serialize(body);

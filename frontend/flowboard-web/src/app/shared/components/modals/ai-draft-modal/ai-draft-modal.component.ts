@@ -92,9 +92,11 @@ export class AiDraftModalComponent {
       this.draft.set(res);
       this.toast.success(`Draft via ${res.provider} • ${res.model}`);
     } catch (e: any) {
-      const msg = e.error?.error || e.message || 'Generate failed';
-      this.error.set(msg);
-      this.toast.error(msg);
+      const raw = e.error?.error || e.message || 'Generate failed';
+      // Human Error Rule Section 10: never show Raw/LineNumber/stack — map to human, keep Retry-After
+      const human = raw.includes('Raw:') || raw.includes('LineNumber') || raw.includes('at System') || raw.length > 120 ? 'AI draft failed — please try again.' : raw;
+      this.error.set(human);
+      this.toast.error(human);
     } finally {
       this.isGenerating.set(false);
     }

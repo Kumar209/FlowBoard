@@ -43,10 +43,11 @@ public class GeminiProvider : IAiProvider
         var fullPrompt = $"{systemInstruction}\n\nUser prompt: {prompt}";
 
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{ModelName}:generateContent?key={apiKey}";
+        var maxTokens = operation == "enhance" ? 2048 : 1024; // 7.3 enhance needs longer (description optional title-only → avoid truncation **Ste 964 cut)
         var body = new
         {
             contents = new[] { new { role = "user", parts = new[] { new { text = fullPrompt } } } },
-            generationConfig = new { temperature = 0.7, maxOutputTokens = 1024, responseMimeType = "application/json" }
+            generationConfig = new { temperature = 0.7, maxOutputTokens = maxTokens, responseMimeType = "application/json" }
         };
         var json = JsonSerializer.Serialize(body);
         // Retry 1x on 429 with 2s backoff — create fresh StringContent each attempt (reuse after PostAsync disposes)

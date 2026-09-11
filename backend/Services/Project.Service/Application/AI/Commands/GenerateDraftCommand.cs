@@ -114,9 +114,10 @@ public class GenerateDraftHandler : IRequestHandler<GenerateDraftCommand, Result
             );
             return Result<GenerateDraftResponse>.Success(resp);
         }
-        catch (Exception ex)
+        catch
         {
-            return Result<GenerateDraftResponse>.Failure($"AI response parse failed: {ex.Message}. Raw: {raw[..Math.Min(200, raw.Length)]}");
+            // Human Error Rule Section 10: never expose Raw/LineNumber/stack — log full server only
+            return Result<GenerateDraftResponse>.Failure("AI draft failed — please try again.");
         }
     }
 

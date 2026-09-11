@@ -81,7 +81,7 @@ backend/Services/{Service}/
     Validators/             <- FluentValidation (if separate)
   Domain/
     Entities/               <- Project, Board, BoardList, TaskItem, SubTask, Comment, ActivityLog, OutboxMessage, Sprint, Team, etc. : BaseEntity, IAggregateRoot, private setters, methods Update/Move/Rename
-    Enums/                  <- TaskPriority, WorkspaceRole
+    Enums/                  <- TaskPriority (only — Roles are in SharedKernel/Roles.cs, never Domain/Enums/WorkspaceRole)
   Infrastructure/
     Persistence/            <- DbContext : IApplicationDbContext, HasDefaultSchema("project"/"identity"), Ignore(DomainEvents), Migrations
     Services/               <- Implementations of Application/Interfaces (e.g., WorkspaceService, ProjectService, JwtProvider, BrevoEmailService, RedisCacheService, CloudinaryService, GeminiService)
@@ -115,7 +115,7 @@ backend/Services/{Service}/
 - `.env.example` + `appsettings.Development.json.example` with `PASTE_` placeholders — real secrets gitignored, same keys local/prod (Upstash `rediss://`, CloudAMQP `amqps://`, Cloudinary, Brevo `xkeysib-...`, Gemini `AIza...`)
 - `YARP 2.3` `yarp.json` `Order 0` specific (`/api/workspaces/{wid}/projects/{**catch-all}`) before `Order 1` catch-all (`/api/workspaces/{**catch-all}`) — add `team-route` for `/api/teams`
 - `EF Core 10` `HasDefaultSchema("project")` single `flowboard` DB 4 schemas, `Ignore(DomainEvents)`, `MigrationsHistoryTable("__EFMigrationsHistory", schema)`, composite `WorkspaceMember` PK, `TaskItem` avoids `Task` clash
-- `Task 1.5` RBAC `PM can create projects` `IsInRole(OrgAdmin,ProjectManager,SuperAdmin)` else `403` — `Client 403 POST /tasks`, `Viewer` view only
+- **Roles — Single source `BuildingBlocks/SharedKernel/Roles.cs` + `frontend/shared/constants/roles.ts`** — Fixed org roles `Member 0 / OrgAdmin 2 / Client 3` (`OrganizationMember.Role`) + system `SuperAdmin 5` (`Users.IsSuperAdmin` + `WorkspaceMembers Role 5` for System org). Workspace roles are **dynamic custom** via `[identity].OrganizationWorkspaceRoles` + `WorkspaceMembers.CustomRoleId FK NoAction` (e.g., Developer, QA) — **never hardcoded `ProjectManager/Viewer`**. Checks use `Roles.OrgAdmin / Roles.Member / Roles.Client / Roles.SuperAdmin` constants, `RolePermissions` join for `attachment:view/create/delete` etc.; hardcoded `new[] {"OrgAdmin","ProjectManager"}` is forbidden. `Task 1.5` now `OrgAdmin/SuperAdmin` can create projects (custom `ProjectManager` via `project:create` permission), `Client 403 POST /tasks/attachments` via `Roles.Client` check, `Member` view+comment+attach.
 - `Board = view` (filter `teamIds` + `sprintId`), `Sprint = project time-box` (`ProjectId`, `BoardId?` nullable), `Issue = single source` (`Status` synced to `BoardList.Name` on `MoveToList`), `Backlog = view` `WHERE SprintId IS NULL`, `Environments` FK optional `Url`, `Team` `TeamMember` per project
 - `Future` `3.1` CloudAMQP+MassTransit+Outbox `2s` poll, `3.2` SignalR `10.0` Hub `:5004 /hubs/board` Groups, `3.3` CDK DragDrop + Redis lock + optimistic + realtime
 
@@ -165,7 +165,7 @@ backend/Services/{Service}/
   plus any extra operation-specific perms (e.g., `task:move`, `task:assign`, `activity:view:org`).
 - `view` is mandatory as the base read gate; `create/update/delete` follow REST `POST/PUT/DELETE`. Use lowercase `:` separator (`status:view` not `StatusView`).
 - Naming: `key` must be `lowercase:view/create/update/delete` (`status:view`, `sprint:view`, `file:view`), `Group` is capitalized (`Status`, `Sprint`, `Board`), `Name` is `View/Create/Update/Delete {Entity}`.
-- For this Jira-like implementation we added `status:view | status:create | status:update | status:delete` (4) → total `27 → 31` permissions (count = previous 27 + 4). Future `Phase 4` (`File`, `AI`) and any new module must do the same (e.g., `attachment:view/create/delete`, `ai:view/create`).
+- For this Jira-like implementation we added `status:view | status:create | status:update | status:delete` (4) → total `27 → 31` permissions and `attachment:view | attachment:create | attachment:update | attachment:delete` (4) → total `31 → 35` (count = previous 31 + 4). Future `Phase 4` (`AI`) and any new module must do the same (e.g., `ai:view/create`).
 - Enforcement: `IOrganizationRoleService` + `IOrganizationActivityService` check `activity:view:org` etc. via `RolePermissions` join; `SeedPermissionsAsync` is the single source of truth — no hard-coded permission string outside seeder + check.
 
 **Examples:**
@@ -181,4 +181,19 @@ backend/Services/{Service}/
 
 ---
 
-*Last updated: 2026-09-09 — Added Permissions CRUD Rule (every new feature must add view/create/update/delete per entity, example status:view/create/update/delete 27→31), Jira company-managed Statuses/Boards/Columns mapping, Statuses explicit creation, Boards as views.*
+## 10. Human Error UX Rule (Strict — Never Expose Raw/Stack) — MNC-Grade
+
+**Rule (never break, applies to ALL 4 microservices + Gateway + Frontend, present & future APIs):**
+- Never return `exception.Message` with `StackTrace`, `Raw JSON`, `LineNumber/BytePosition`, `SQL`, `PromptHash` preview >500, or `InnerException` to client. Log full `Exception + RawPreview 500 + PromptHash + DurationMs + Stack` to `ILogger`/`Serilog` server only (`Infrastructure/AI/GeminiProvider Logs Warning` + `AiService LogAsync AiUsageLog Status Failed FailureReason 500`).
+- Client receives `simple human` `400 {error:"AI draft failed — please try again."}` or `400 {error:"Title required"}` or `429 {error:"Too Many Requests — please try again after 60s", retryAfter:60, Header Retry-After}` — `no LineNumber/Raw:…/at System.Text.Json` . `Frontend` `toast.error` truncates `>120 chars` and never renders `Raw:`.
+- For `AI Enhance` `description` is `optional` (`MNC Jira` — `if empty → generate from title only` `prompt = Title: {title} + No existing description. Generate description from title` `maxOutputTokens 2048` to avoid truncation `**Ste` `Expected end… 964` `Image 1`). Never `toast "Description shouldn't be empty"` as `block` — allow `title-only` enhance, but if `Title empty → toast "Title required"` (human).
+- Enforcement: Every new `Controller → Command → Handler → Service` must `catch (Exception ex) { _logger.LogError(ex, full); return Result.Failure("AI operation failed — please try again."); }` not `return Failure($"AI response parse failed: {ex.Message}. Raw: {raw[..200]}")`. `Frontend` `ai.service catch` maps `e.error?.error` with `includes("Raw:") || includes("LineNumber") || length>120 → "AI operation failed — please try again."`. `Code review` must `grep -r "Raw:"` `grep -r "LineNumber"` return `0` hits (except logger). Applies to `Identity` `AuthService login 401`, `Project` `TaskService`, `File` `Cloudinary`, `Notification` `Brevo` — all `403/400` must be human.
+
+**Checklist before `git push`:**
+- [ ] `Backend` `catch` logs `ex` + `RawPreview` + `PromptHash` via `_logger`, returns `human` `400/429` only (keeps `Retry-After` for `429`).
+- [ ] `Frontend` `toast` never shows `Raw:`/`LineNumber`/`at System` — `>120 chars` truncated to `human` `AI operation failed — please try again.`
+- [ ] `AI Enhance` `description optional` — `if empty → prompt = Title only` `Gemini 2048 tokens` `no block`.
+
+---
+
+*Last updated: 2026-09-11 — Added Section 10 Human Error UX Rule (never expose Raw/Stack, simple human error, keep Retry-After, AI Enhance description optional title-only 2048 tokens) + Roles single-source, attachment 31→35.*
