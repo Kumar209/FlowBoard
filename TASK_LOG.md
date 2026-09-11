@@ -1677,7 +1677,7 @@ Separate `AI` folder in `Project.Service` (not new `File.Service`-like microserv
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Completed | 11 Sep 2026 | 7 - AI | pending | 2.5h | Feature |
+| Completed | 11 Sep 2026 | 7 - AI | 73d2105 | 2.5h | Feature |
 
 ### 1. Overview
 Implemented `AI Draft (A)` — `Issues` header `✨ AI Draft` → `modal prompt 10-500 + Model radio Gemini fixed / Groq selectable` → `POST /api/ai/draft {prompt,model,projectId}` → `Gemini 2.5 Flash` (`_config ModelName env-fallback`) or `Groq llama-3.1-8b-instant` `JSON {title,description,checklist,labels,priority,issueType,storyPoints}` → `preview isDraft (no Id)` editable `Title/Description/Checklist/Labels/Priority/IssueType/StoryPoints` → `Create Issue` `POST /tasks` to `Backlog`. Human-in-the-loop (no auto-create), `YARP ai-route` + `Dedicated AiController` Option A.
