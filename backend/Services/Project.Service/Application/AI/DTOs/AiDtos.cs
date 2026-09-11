@@ -45,7 +45,12 @@ public record AiUsageLogDto(
     string PromptHash,
     string? PromptPreview,
     string? ResponsePreview,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? CallerName = null,
+    string? CallerEmail = null,
+    string? CustomRoleName = null,
+    string? ProjectName = null,
+    string? WorkspaceName = null
 );
 
 public record AiUsageSummaryDto(

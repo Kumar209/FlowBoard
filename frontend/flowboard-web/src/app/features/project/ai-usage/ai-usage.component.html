@@ -4,7 +4,7 @@
       <h1 class="text-xl font-bold flex items-center gap-2">AI Usage <span class="badge badge-ghost badge-xs">Project • All members</span></h1>
       <p class="text-xs opacity-60">Project filtered tokens / cost • {{ projectId().slice(0,6) }}</p>
     </div>
-    <select class="select select-bordered select-sm rounded-full" [value]="modelFilter()" (change)="modelFilter.set($any($event.target).value)">
+    <select class="select select-bordered select-sm rounded-full" [value]="modelFilter()" (change)="modelFilter.set($any($event.target).value); page.set(1)">
       <option value="all">All models</option>
       <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
       <option value="llama-3.1-8b-instant">Groq llama-3.1-8b (disabled)</option>
@@ -32,26 +32,39 @@
 
   <div class="card bg-base-100 rounded-2xl border overflow-hidden">
     <div class="p-3 border-b border-base-200 flex justify-between items-center">
-      <h3 class="font-semibold text-sm">Recent Logs ({{ filteredLogs().length }})</h3>
+      <h3 class="font-semibold text-sm">Recent Logs ({{ filteredLogs().length }}) — Page {{ page() }}/{{ totalPages() }}</h3>
       <span class="text-xs opacity-40">filtered by projectId</span>
     </div>
     @if (usageQuery.isPending()) { <div class="p-4"><span class="loading loading-spinner loading-sm"></span></div> }
     @else {
-      <div class="overflow-x-auto max-h-[400px] overflow-y-auto">
+      <div class="overflow-x-auto">
         <table class="table table-xs">
-          <thead><tr><th>Time</th><th>Operation</th><th>Provider/Model</th><th>Tokens</th><th>Status</th></tr></thead>
+          <thead><tr><th>Time</th><th>Operation</th><th>Provider/Model</th><th>Tokens</th><th>Status</th><th>Caller</th></tr></thead>
           <tbody>
-            @for (l of filteredLogs(); track l.id) {
+            @for (l of paginatedLogs(); track l.id) {
               <tr>
                 <td class="text-[11px]">{{ l.createdAt | date:'short' }}</td>
                 <td><span class="badge badge-ghost badge-xs">{{ l.operation }}</span></td>
                 <td class="text-xs">{{ l.provider }} • {{ l.model }}</td>
                 <td class="text-xs">{{ l.totalTokens }} ({{ l.inputTokens }}/{{ l.outputTokens }})</td>
                 <td><span class="badge badge-xs" [ngClass]="l.status==='Success'?'badge-success': l.status==='RateLimited'?'badge-warning':'badge-error'">{{ l.status }}</span></td>
+                <td class="text-xs">
+                  <div class="flex flex-col">
+                    <span class="font-medium">{{ l.callerName || l.userId.slice(0,6) }}</span>
+                    <span class="text-[10px] opacity-60">{{ l.customRoleName || 'Member' }} • {{ l.callerEmail || '' }}</span>
+                  </div>
+                </td>
               </tr>
             }
           </tbody>
         </table>
+      </div>
+      <div class="flex justify-between items-center p-3 border-t border-base-200">
+        <span class="text-xs opacity-40">Page {{ page() }}/{{ totalPages() }} • Total {{ filteredLogs().length }}</span>
+        <div class="flex gap-1">
+          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
+          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+        </div>
       </div>
     }
   </div>

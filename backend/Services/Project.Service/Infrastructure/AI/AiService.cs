@@ -150,5 +150,5 @@ public class AiService : IAiService
     private static AiUsageLogDto ToDto(AiUsageLog e) => new(
         e.Id, e.OrgId, e.WorkspaceId, e.ProjectId, e.UserId, e.TaskId, e.Operation, e.Provider, e.Model,
         e.InputTokens, e.OutputTokens, e.TotalTokens, e.Cost, e.Status, e.FailureReason, e.FallbackUsed, e.DurationMs,
-        e.PromptHash, e.PromptPreview, e.ResponsePreview, e.CreatedAt);
+        e.PromptHash, e.PromptPreview, e.ResponsePreview, e.CreatedAt, null, null, null, null, null);
 }

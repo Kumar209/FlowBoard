@@ -18,6 +18,8 @@ export class AiUsageComponent {
   private wsService = inject(WorkspaceService);
 
   modelFilter = signal<string>('all');
+  page = signal(1);
+  pageSize = 10;
 
   workspacesQuery = injectQuery(() => ({
     queryKey: ['workspaces'] as const,
@@ -58,7 +60,12 @@ export class AiUsageComponent {
     const list = this.usageQuery.data() as any[] | undefined;
     if (!list) return [];
     const f = this.modelFilter();
-    if (f === 'all') return list.slice(0, 100);
-    return list.filter((x: any) => x.model === f || x.provider === f).slice(0, 100);
+    if (f === 'all') return list;
+    return list.filter((x: any) => x.model === f || x.provider === f);
+  });
+  totalPages = computed(() => Math.max(1, Math.ceil(this.filteredLogs().length / this.pageSize)));
+  paginatedLogs = computed(() => {
+    const start = (this.page() - 1) * this.pageSize;
+    return this.filteredLogs().slice(start, start + this.pageSize);
   });
 }
