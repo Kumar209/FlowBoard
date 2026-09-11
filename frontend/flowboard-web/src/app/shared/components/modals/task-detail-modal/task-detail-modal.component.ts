@@ -165,6 +165,8 @@ export class TaskDetailModalComponent {
   criteriaError = signal<string | null>(null);
   aiCriteriaDraft = signal<string[]>([]); // AI generated preview, checkbox
   aiCriteriaSelected = signal<boolean[]>([]);
+  editingCriteriaIndex = signal<number | null>(null);
+  editCriteriaText = signal('');
 
   // Derived
   labelsJson = computed(() => {
@@ -700,6 +702,22 @@ export class TaskDetailModalComponent {
   }
   removeCriteria(idx: number) {
     this.acceptanceCriteria.set(this.acceptanceCriteria().filter((_, i) => i !== idx));
+  }
+  startEditCriteria(idx: number) {
+    this.editingCriteriaIndex.set(idx);
+    this.editCriteriaText.set(this.acceptanceCriteria()[idx]);
+  }
+  saveEditCriteria() {
+    const idx = this.editingCriteriaIndex();
+    const v = this.editCriteriaText().trim();
+    if (idx === null || !v) return;
+    const arr = [...this.acceptanceCriteria()];
+    arr[idx] = v;
+    this.acceptanceCriteria.set(arr);
+    this.editingCriteriaIndex.set(null);
+  }
+  cancelEditCriteria() {
+    this.editingCriteriaIndex.set(null);
   }
   async generateCriteria() {
     const t = this.title().trim();
