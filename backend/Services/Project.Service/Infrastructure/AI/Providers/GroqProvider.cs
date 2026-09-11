@@ -51,14 +51,13 @@ public class GroqProvider : IAiProvider
             response_format = new { type = "json_object" }
         };
         var json = JsonSerializer.Serialize(body);
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        _http.DefaultRequestHeaders.Clear();
-        _http.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-
         for (int attempt = 0; attempt < 2; attempt++)
         {
             try
             {
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                _http.DefaultRequestHeaders.Clear();
+                _http.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 cts.CancelAfter(TimeSpan.FromSeconds(8));
                 var resp = await _http.PostAsync("https://api.groq.com/openai/v1/chat/completions", content, cts.Token);

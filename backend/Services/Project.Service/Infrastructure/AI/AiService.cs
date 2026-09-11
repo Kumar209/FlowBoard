@@ -61,24 +61,12 @@ public class AiService : IAiService
         catch (Exception ex)
         {
             sw.Stop();
-            _logger.LogError(ex, "[AI] Generate failed {Op} {Model}", request.Operation, model);
-            // Fallback: try other provider once
+            _logger.LogError(ex, "[AI] Generate failed {Op} {Model} provider {Provider}", request.Operation, model, providerName);
+            // Do NOT silently switch model when user explicitly selected via UI radio (Gemini fixed vs Groq).
+            // Respect user choice: log failure and return error — fallback only if explicitly allowed via config (not auto).
             string failureReason = ex.Message;
-            try
-            {
-                IAiProvider fallback = providerName == "groq" ? (IAiProvider)_gemini : _groq;
-                _logger.LogWarning("[AI] Trying fallback {Fallback}", fallback.ProviderName);
-                var fallbackResult = await fallback.GenerateAsync(request.Prompt, request.Operation, ct);
-                var cost = EstimateCost(fallbackResult.InputTokens, fallbackResult.OutputTokens, fallback.ProviderName);
-                await LogAsync(request, callerUserId, fallbackResult.Provider, fallbackResult.Model, fallbackResult.InputTokens, fallbackResult.OutputTokens, cost, "Success", null, true, (int)sw.ElapsedMilliseconds, request.Prompt, fallbackResult.RawJson, ct);
-                var final = fallbackResult with { DurationMs = (int)sw.ElapsedMilliseconds, FallbackUsed = true };
-                return Result<AiGenerateResult>.Success(final);
-            }
-            catch (Exception fex)
-            {
-                await LogAsync(request, callerUserId, providerName, model, 0, 0, 0m, "Failed", $"{failureReason} | fallback: {fex.Message}", false, (int)sw.ElapsedMilliseconds, request.Prompt, "{}", ct);
-                return Result<AiGenerateResult>.Failure($"AI generation failed: {failureReason}");
-            }
+            await LogAsync(request, callerUserId, providerName, model, 0, 0, 0m, "Failed", failureReason, false, (int)sw.ElapsedMilliseconds, request.Prompt, "{}", ct);
+            return Result<AiGenerateResult>.Failure($"AI generation failed ({providerName} {model}): {failureReason}");
         }
     }
 

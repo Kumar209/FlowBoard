@@ -49,13 +49,12 @@ public class GeminiProvider : IAiProvider
             generationConfig = new { temperature = 0.7, maxOutputTokens = 1024, responseMimeType = "application/json" }
         };
         var json = JsonSerializer.Serialize(body);
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        // Retry 1x on 429 with 2s backoff
+        // Retry 1x on 429 with 2s backoff — create fresh StringContent each attempt (reuse after PostAsync disposes)
         for (int attempt = 0; attempt < 2; attempt++)
         {
             try
             {
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 cts.CancelAfter(TimeSpan.FromSeconds(8));
                 var resp = await _http.PostAsync(url, content, cts.Token);
