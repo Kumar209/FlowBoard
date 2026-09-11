@@ -8,6 +8,6 @@ namespace Project.Service.Application.AI.Interfaces;
 public interface IAiProvider
 {
     string ProviderName { get; } // gemini | groq
-    string ModelName { get; } // gemini-2.5-flash | llama-3.1-8b-instant
+    string ModelName { get; } // gemini-3.5-flash | llama-3.1-8b-instant
     Task<AiGenerateResult> GenerateAsync(string prompt, string operation, CancellationToken ct = default);
 }

@@ -10,7 +10,7 @@ public record AiGenerateRequest(
     Guid? TaskId,
     string Operation, // draft | enhance | criteria | breakdown
     string Prompt, // 10-500 chars validated via FluentValidation in 7.2+
-    string Model // gemini-2.5-flash | llama-3.1-8b selectable via UI radio
+    string Model // gemini-3.5-flash | llama-3.1-8b selectable via UI radio
 );
 
 public record AiGenerateResult(

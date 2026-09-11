@@ -33,7 +33,7 @@ public class GenerateDraftValidator : AbstractValidator<GenerateDraftCommand>
     public GenerateDraftValidator()
     {
         RuleFor(x => x.Prompt).NotEmpty().MinimumLength(10).MaximumLength(500).WithMessage("Prompt 10-500 chars required");
-        RuleFor(x => x.Model).NotEmpty().Must(m => IsAllowed(m)).WithMessage("Model must be gemini-2.5-flash or llama-3.1-8b");
+        RuleFor(x => x.Model).NotEmpty().Must(m => IsAllowed(m)).WithMessage("Model must be gemini-3.5-flash or llama-3.1-8b");
         RuleFor(x => x.CallerId).NotEmpty();
     }
     private static bool IsAllowed(string m)

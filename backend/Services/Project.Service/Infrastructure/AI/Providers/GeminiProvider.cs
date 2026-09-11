@@ -8,7 +8,7 @@ using Project.Service.Application.AI.Interfaces;
 namespace Project.Service.Infrastructure.AI.Providers;
 
 /// <summary>
-/// GeminiProvider - calls Gemini 2.5 Flash (gemini-2.5-flash) via Google AI Studio API (15 RPM, 1M TPM, 1500 RPD, same key local/prod).
+/// GeminiProvider - calls Gemini 3.5 Flash (gemini-3.5-flash) via Google AI Studio API (15 RPM, 1M TPM, 1500 RPD, same key local/prod).
 /// HttpClient with 8s timeout, retry 1x on 429 backoff 2s (like SDD 14). Parses usageMetadata for tokens, returns RawJson for 7.2+ preview. FallbackUsed false.
 /// </summary>
 public class GeminiProvider : IAiProvider
@@ -18,7 +18,7 @@ public class GeminiProvider : IAiProvider
     private readonly ILogger<GeminiProvider> _logger;
 
     public string ProviderName => "gemini"; // identifier — never env (used for AiUsageLog.Provider grouping + fallback)
-    public string ModelName => _config["Gemini:Model"] ?? _config["Gemini__Model"] ?? "gemini-2.5-flash"; // env-fallback: ops can override via appsettings/MonsterASP.net without rebuild
+    public string ModelName => _config["Gemini:Model"] ?? _config["Gemini__Model"] ?? "gemini-3.5-flash"; // env-fallback: ops can override via appsettings/MonsterASP.net without rebuild
 
     public GeminiProvider(HttpClient http, IConfiguration config, ILogger<GeminiProvider> logger)
     {

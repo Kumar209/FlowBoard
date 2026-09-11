@@ -126,10 +126,10 @@ public class AiService : IAiService
 
     private static string NormalizeModel(string model)
     {
-        if (string.IsNullOrWhiteSpace(model)) return "gemini-2.5-flash";
+        if (string.IsNullOrWhiteSpace(model)) return "gemini-3.5-flash";
         var m = model.Trim().ToLowerInvariant();
         if (m.Contains("groq") || m.Contains("llama") || m == "llama-3.1-8b") return "llama-3.1-8b-instant";
-        if (m.Contains("gemini")) return "gemini-2.5-flash";
+        if (m.Contains("gemini")) return "gemini-3.5-flash";
         return m;
     }
 

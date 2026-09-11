@@ -17,7 +17,7 @@ public class AiUsageLog : BaseEntity
 
     public string Operation { get; private set; } = string.Empty; // draft | enhance | criteria | breakdown | usage
     public string Provider { get; private set; } = string.Empty; // gemini | groq
-    public string Model { get; private set; } = string.Empty; // gemini-2.5-flash | llama-3.1-8b-instant
+    public string Model { get; private set; } = string.Empty; // gemini-3.5-flash | llama-3.1-8b-instant
 
     public int InputTokens { get; private set; }
     public int OutputTokens { get; private set; }

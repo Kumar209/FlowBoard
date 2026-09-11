@@ -22,7 +22,7 @@ public class AiController : ControllerBase
     public async Task<IActionResult> Draft([FromBody] DraftBody body)
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
-        var cmd = new GenerateDraftCommand(body.Prompt?.Trim() ?? "", body.Model?.Trim() ?? "gemini-2.5-flash", userId.Value, body.ProjectId);
+        var cmd = new GenerateDraftCommand(body.Prompt?.Trim() ?? "", body.Model?.Trim() ?? "gemini-3.5-flash", userId.Value, body.ProjectId);
         var result = await _mediator.Send(cmd);
         if (!result.IsSuccess)
         {

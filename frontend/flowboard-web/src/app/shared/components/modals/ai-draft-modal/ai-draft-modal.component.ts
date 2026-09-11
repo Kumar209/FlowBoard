@@ -22,7 +22,7 @@ export class AiDraftModalComponent {
   private toast = inject(ToastService);
 
   prompt = signal('');
-  model = signal('gemini-2.5-flash');
+  model = signal('gemini-3.5-flash');
   isGenerating = signal(false);
   draft = signal<AiDraftResponse | null>(null);
   error = signal<string | null>(null);
@@ -52,7 +52,7 @@ export class AiDraftModalComponent {
         // reset when opened fresh if not already preview
         if (!this.draft()) {
           this.prompt.set('');
-          this.model.set('gemini-2.5-flash');
+          this.model.set('gemini-3.5-flash');
           this.error.set(null);
         }
       }
