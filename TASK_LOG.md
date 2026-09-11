@@ -25,8 +25,8 @@
 | Phase 4: Files & Charts | 4.1 - 4.3 | 2/3 | In Progress |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
 | Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
-| Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 4/7 | In Progress |
-| **Total** | **0.1 - 7.7** | **22/38** | **In Progress** |
+| Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 5/7 | In Progress |
+| **Total** | **0.1 - 7.7** | **23/38** | **In Progress** |
 
 ---
 
@@ -1896,38 +1896,61 @@ Implemented `AI Acceptance Criteria (C)` — `task-detail-modal` new `Acceptance
 
 ---
 
-## Task 7.5: AI Issue Breakdown (D) — Subtasks Save-Only on AI
+## Task 7.5: AI Issue Breakdown (D) — Subtasks ✨ Breakdown Checkbox Pending until Save Batch
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | 7 - AI | — | 2.5h | Feature |
+| Completed | 11 Sep 2026 | 7 - AI | 8c06f63 | 2.5h | Feature |
 
 ### 1. Overview
-`Subtasks` card `✨ Breakdown` → `POST /tasks/{id}/ai-breakdown {model}` → `{subtasks:[{title,description}]}` `checkbox` editable `Create Selected` pending until `Save` → `Save` does `PUT /tasks` + `POST /subtasks` batch.
+Implemented `AI Breakdown (D)` — `task-detail-modal Subtasks` card `✨ Breakdown` → `POST /api/ai/breakdown {taskId,title,description,model,projectId}` → `Gemini 3.5 Flash` `JSON {subtasks:string[3-6]}` `checkbox editable` `Apply Selected (pending)` until `Save` → `PUT /tasks` (acceptance etc.) + `POST /tasks/{id}/subtasks` batch for selected (manual `Add subtask + Enter` still immediate). `Human-in-the-loop`, `Groq disabled`, `3/min 429`.
 
 ### 2. Objectives
-- Keep manual `Add subtask + Enter` immediate, AI pending until Save to avoid orphan
+- Add `POST /api/ai/breakdown` via `AiController → GenerateBreakdownCommand → IAiService operation breakdown` `title required max300` `Groq disabled 400` `Redis 3/min 429 RetryAfter` `AiUsageLog breakdown hash/preview` `human error` `maxOutputTokens 1024`
+- Frontend `Subtasks` card `✨ Breakdown` (hidden `readOnly`) `Generate → checkbox list Apply Selected → pendingBreakdown badge pending until Save` `manual Add immediate` via `createSubtaskMut` `Save` `async save() pendingBreakdown batch POST subtasks + invalidateQueries + clear pending` `board` `pending` chip
 
 ### 3. Technical Stack
 | Layer | Technology | Version | Purpose |
 |-------|------------|---------|---------|
+| Backend AI | `GenerateBreakdownCommand(Title,Description,Model,CallerId,ProjectId,TaskId)` `Validator gemini only` `Handler → IAiService breakdown prompt Title+Generate 3-6 subtasks 2000 trim` `AiController POST api/ai/breakdown` | 12.4 | `IMediator 429 RetryAfter` `yarp ai-route` `Dedicated Option A` |
+| Infra AI | `IAiService GenerateAsync breakdown` `GeminiProvider breakdown SystemPrompt {subtasks: string[3-6]} maxOutputTokens 1024` `GroqProvider` `AiRateLimiter` | 2.8.16 | `Groq disabled early block` `AiUsageLog Operation breakdown` |
+| Frontend | `Angular 22 OnPush Signals AiService breakdown() ProjectService createSubTask` | 22.1.5 | `task-detail-modal breakdownGenerating/aiBreakdownDraft/selected/pendingBreakdown generate/toggle/apply/dismiss/removePending save async batch` `board/backlog` unchanged `manual Add immediate` |
 
 ### 4. Implementation Details
-...
+- Created `Application/AI/Commands/GenerateBreakdownCommand.cs:1` `record GenerateBreakdownCommand(Title,Description,Model,CallerId,ProjectId,TaskId)` `GenerateBreakdownResponse(Subtasks[],Provider,Model,RawJson)` `GenerateBreakdownValidator Title NotEmpty max300 Model gemini only` `GenerateBreakdownHandler` inject `IAiService+IApplicationDbContext` `if Title empty → Failure` `Groq disabled check` `resolve orgId/wsId from ProjectId via Projects+SqlQueryRaw OrganizationId` `prompt Title: + No description or Description: + Break down 3-6 subtask titles 2000 trim` `AiGenerateRequest breakdown prompt model gemini-3.5-flash` → `_ai.GenerateAsync` → `parse JsonDocument subtasks/tasks array string[] 200 trim` `fallback Deserialize<string[]>` `empty → message Breakdown generation returned empty` `if >6 truncate 6` `Success`
+- Updated `Api/Controllers/AiController.cs:1` `POST api/ai/breakdown BreakdownBody(Title,Description,Model,ProjectId,TaskId)` `GetUserId sub` `new GenerateBreakdownCommand(body.Title.Trim, body.Description??"", body.Model.Trim??gemini-3.5-flash, userId, body.ProjectId, body.TaskId)` `429 RetryAfter header` `thin IMediator only` `comment 7.5`
+- Updated `frontend/core/services/ai.service.ts:1` add `AiBreakdownResponse {subtasks,provider,model,rawJson}` `breakdown(taskId,title,description,model,projectId) POST /api/ai/breakdown {taskId,title,description,model,projectId} withCredentials`
+- Updated `shared/components/modals/task-detail-modal/task-detail-modal.component.ts:1` `signals breakdownGenerating/breakdownError/aiBreakdownDraft/selected/pendingBreakdown` `populateForm clear pending/breakdown` `async generateBreakdown() Title required guard breakdownGenerating true firstValueFrom aiService.breakdown(task.id, title, description, gemini-3.5-flash, effectiveProjectId) aiBreakdownDraft set selected true toast` `toggleBreakdown(idx) flip` `applyBreakdown() selected filter pendingBreakdown set ai draft clear toast Breakdown selected — Save to create subtasks` `dismissBreakdown clear` `removePendingBreakdown(idx) filter` `async save() const pending = [...pendingBreakdown] saved.emit({... acceptanceCriteriaJson}) if pending.length for t of pending await firstValueFrom(projectService.createSubTask(task.id,t)) pendingBreakdown clear invalidateQueries task-detail/board` `manual Add subtask still createSubtaskMut immediate`
+- Updated `task-detail-modal.component.html:1` `Subtasks 7.5 header flex Subtasks + breakdownGenerating + ✨ Breakdown hidden readOnly + pending badge` `@if breakdownError alert` `@if aiBreakdownDraft.length border primary/5 checkbox list + Dismiss/Apply Selected` `@if pendingBreakdown.length border warning/5 Pending subtasks — will be created on Save + list Remove ✕` `existing subtasksList manual Add immediate` `distinct from Suggested Steps (7.2) vs AC (7.4)`
+- Kept `GroqProvider` code but `display:none` `Groq disabled early AiService if groq → Failure Groq disabled` `validator gemini only`
 
 ### 5. Files & Changes
 | Path | Action | Description |
 |------|--------|-------------|
+| backend/Services/Project.Service/Application/AI/Commands/GenerateBreakdownCommand.cs | Created | `GenerateBreakdownCommand+Validator+Handler → IAiService breakdown 3-6 parse` |
+| backend/Services/Project.Service/Api/Controllers/AiController.cs | Modified | `POST api/ai/breakdown BreakdownBody IMediator 429` |
+| frontend/flowboard-web/src/app/core/services/ai.service.ts | Modified | `AiBreakdownResponse + breakdown() POST /api/ai/breakdown` |
+| frontend/flowboard-web/src/app/shared/components/modals/task-detail-modal/task-detail-modal.component.ts | Modified | `breakdown signals generate/toggle/apply/dismiss pending save batch` |
+| frontend/flowboard-web/src/app/shared/components/modals/task-detail-modal/task-detail-modal.component.html | Modified | `Subtasks card ✨ Breakdown checkbox pending until Save + pending list` |
 
 ### 6. Verification & Results
 | Check | Result | Evidence |
 |-------|--------|----------|
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release → Build succeeded 0 Error(s) 5W File/Identity/Project pre-existing` `Project.Service.dll` |
+| Build frontend | Passed | `ng build --configuration production → Application bundle generation complete [27.9s] 483.86kB Initial task-detail 27kB` `3-File Rule` `templateUrl` `css empty` `OnPush` `0 errors` |
+| YARP | Passed | `yarp.json ai-route /api/ai/* → project-cluster :5002` `POST /api/ai/breakdown` via `:5000 Bearer` `AiController [Authorize]` |
+| API | Logic | `POST /api/ai/breakdown {taskId,title:"Build OAuth2",description:"",model:"gemini-3.5-flash",projectId} Bearer` → `GenerateBreakdownHandler` `Title required Groq disabled` `org/ws resolve` `prompt Title+Break down 3-6` `IAiService breakdown → GeminiProvider breakdown {subtasks: string[3-6]} 1024 tokens → parse subtasks` `AiUsageLog breakdown Success` `200 {subtasks:["OAuth config",6],provider:"gemini",model:"gemini-3.5-flash"}` `Groq →400` `Title empty →400` `4th rapid →429 RetryAfter` |
+| Frontend flow | Logic | `Issues → open TES-1 Detail → Subtasks card ✨ Breakdown → Generating… → POST /api/ai/breakdown → AI Breakdown checkbox (3-6) default checked → toggle uncheck → Apply Selected → pendingBreakdown badge pending until Save (warning/5)` `manual Add subtask + Enter → immediate POST /tasks/{id}/subtasks 201` `Save → async save pendingBreakdown batch POST subtasks per title + PUT /tasks + invalidateQueries task-detail/board → subtasksList shows new AI subtasks` `Dismiss keeps original` `readOnly (Client View) hides ✨ Breakdown` |
+| Distinct | Logic | `7.2 Suggested Steps → description **Checklist:**` distinct from `7.5 Subtasks TaskItem rows` `7.4 AC JSON` `Subtasks are checklist inside issue; manual immediate vs AI pending until Save avoids orphan` |
 
 ### 7. Enterprise Relevance (MNC Value)
-...
+`Breakdown (D)` `checkbox pending until Save batch` proves `Jira Epic→Story→Subtask` `MNC` `Work Breakdown Structure` `human-in-the-loop` — `manual Add immediate` vs `AI pending until Save PUT+POST batch` avoids orphan `SubTask` rows when user cancels (`Save` is atomic gate). `Dedicated AiController POST ai/breakdown` isolates `AI` `bounded context` (extract-ready) like `File` `ai-route` `DIP IAiService` `HasDefaultSchema project`. `Gemini 3.5 Flash env-fallback` `1024 tokens` `Redis 3/min` `AiUsageLog breakdown hash/preview` `Groq disabled display:none` but code kept shows `feature flag`. `Signals pendingBreakdown async save() batch firstValueFrom createSubTask` `TanStack invalidateQueries` `OnPush` keep `Angular 22` scale. `Subtasks are checklist inside issue; Parent/Child hierarchy` distinct from `Suggested Steps`.
 
 ### 8. Next Steps & Dependencies
-...
+- Unlocks: Task 7.6 `AI Usage Org Sidebar` `Main sidebar AI Usage OrgAdmin only GET /api/ai/usage?orgId GROUP BY tokens/cost model selector` — will add `AiController GET api/ai/usage?orgId&projectId` `IAiService GetUsage/GetSummary` `Frontend Main layout AI Usage OrgAdmin` `GROUP BY provider/model`; `7.7 Project AI Usage` `Project sidebar AI Usage all members GET ?projectId filtered`; then `Phase 4.3 ApexCharts Burndown` `Phase 5 Polish` `Admin deferred`
+- Depends on: Task 7.4 `AI Criteria` `DONE` (`AiService Gemini 3.5 Flash` `yarp ai-route` `AcceptanceCriteriaJson nullable`) — this `7.5` reuses `IAiService/GeminiProvider/AiRateLimiter/AiUsageLogs` `Title required max300` pattern; `6.5 assignee ∩` `4.2 Attachments UI` stable
+- Follow-up: Test `POST http://localhost:5000/api/ai/breakdown` `Gateway Bearer` `title Build OAuth2 description 401 model gemini-3.5-flash` → `200 {subtasks 3-6}` then `3 rapid →429` `Groq →400`; `ng serve Issues → Detail → Subtasks ✨ Breakdown → checkbox → Apply Selected → Save → subtasks 6` ; keep `Phase 4.3 ApexCharts` after `Phase7` then `Phase5 Polish` `Admin deferred`
+
 
 ---
 
