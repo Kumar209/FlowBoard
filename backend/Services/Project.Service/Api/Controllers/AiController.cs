@@ -11,6 +11,7 @@ namespace Project.Service.Api.Controllers;
 /// 7.2 Draft (A): POST /api/ai/draft {prompt,model,projectId} → JSON {title,description,checklist,labels,priority,issueType,storyPoints} isDraft preview (no Id) → frontend Create POST /tasks.
 /// 7.3 Enhance (B): POST /api/ai/enhance {taskId,title,description,model,projectId} → Gemini {title,description} diff Current vs AI Apply pending until Save PUT.
 /// 7.4 Criteria (C): POST /api/ai/criteria {taskId,title,description,model,projectId} → Gemini {criteria:string[4-6]} checkbox editable Apply pending until Save PUT acceptanceCriteriaJson nullable.
+/// 7.5 Breakdown (D): POST /api/ai/breakdown {taskId,title,description,model,projectId} → Gemini {subtasks:string[3-6]} checkbox editable Create Selected pending until Save PUT+POST batch.
 /// Rate limit 3/min per ai:{userId}:{model} + 5 RPM global via AiService → 429 + RetryAfter.
 /// </summary>
 [ApiController]
@@ -80,6 +81,26 @@ public class AiController : ControllerBase
         return Ok(result.Value);
     }
 
+    [HttpPost("api/ai/breakdown")]
+    public async Task<IActionResult> Breakdown([FromBody] BreakdownBody body)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var cmd = new GenerateBreakdownCommand(body.Title?.Trim() ?? "", body.Description ?? "", body.Model?.Trim() ?? "gemini-3.5-flash", userId.Value, body.ProjectId, body.TaskId);
+        var result = await _mediator.Send(cmd);
+        if (!result.IsSuccess)
+        {
+            var err = result.Error ?? "AI failed";
+            if (err.Contains("Too Many Requests") || err.Contains("Rate limit") || err.Contains("429"))
+            {
+                var retryAfter = ExtractRetryAfter(err);
+                Response.Headers.Append("Retry-After", retryAfter.ToString());
+                return StatusCode(429, new { error = err, retryAfter });
+            }
+            return BadRequest(new { error = err });
+        }
+        return Ok(result.Value);
+    }
+
     private Guid? GetUserId()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
@@ -112,3 +133,4 @@ public class AiController : ControllerBase
 public record DraftBody(string Prompt, string? Model, Guid? ProjectId);
 public record EnhanceBody(string Title, string? Description, string? Model, Guid? ProjectId, Guid? TaskId);
 public record CriteriaBody(string Title, string? Description, string? Model, Guid? ProjectId, Guid? TaskId);
+public record BreakdownBody(string Title, string? Description, string? Model, Guid? ProjectId, Guid? TaskId);

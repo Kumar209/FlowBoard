@@ -123,14 +123,53 @@
             }
           </div>
 
-          <!-- Subtasks -->
+          <!-- Subtasks 7.5 — manual Add immediate + AI Breakdown pending until Save -->
           <div class="border border-base-200 rounded-2xl p-3 bg-base-100">
             <div class="flex justify-between items-center mb-2">
               <h4 class="font-semibold text-sm">Subtasks</h4>
-              @if (subtasksList(); as subs) {
-                <span class="text-xs opacity-60">{{ subs.filter(s=>s.isCompleted).length }} / {{ subs.length }}</span>
-              }
+              <div class="flex items-center gap-2">
+                @if (subtasksList(); as subs) {
+                  <span class="text-xs opacity-60">{{ subs.filter(s=>s.isCompleted).length }} / {{ subs.length }}</span>
+                }
+                @if (!readOnly()) {
+                  <button class="btn btn-ghost btn-xs rounded-full border" (click)="generateBreakdown()" [disabled]="breakdownGenerating()" [class.loading]="breakdownGenerating()">
+                    @if (breakdownGenerating()) { Generating… } @else { ✨ Breakdown }
+                  </button>
+                }
+                @if (pendingBreakdown().length) { <span class="badge badge-primary badge-xs">{{ pendingBreakdown().length }} pending</span> }
+              </div>
             </div>
+            @if (breakdownError()) { <div class="alert alert-error py-1 text-xs mb-2">{{ breakdownError() }}</div> }
+            @if (aiBreakdownDraft().length) {
+              <div class="mb-3 border border-primary/20 rounded-xl p-3 bg-primary/5 space-y-2">
+                <p class="text-xs font-semibold">AI Breakdown — checkbox then Apply pending until Save</p>
+                <div class="space-y-1 max-h-[150px] overflow-y-auto">
+                  @for (c of aiBreakdownDraft(); track $index) {
+                    <label class="flex items-start gap-2 p-2 rounded-lg bg-base-100 border cursor-pointer">
+                      <input type="checkbox" class="checkbox checkbox-xs checkbox-primary mt-0.5" [checked]="aiBreakdownSelected()[$index]" (change)="toggleBreakdown($index)" />
+                      <span class="text-xs flex-1">{{ c }}</span>
+                    </label>
+                  }
+                </div>
+                <div class="flex gap-2 justify-end">
+                  <button class="btn btn-ghost btn-xs rounded-full" (click)="dismissBreakdown()">Dismiss</button>
+                  <button class="btn btn-primary btn-xs rounded-full" (click)="applyBreakdown()">Apply Selected (pending)</button>
+                </div>
+              </div>
+            }
+            @if (pendingBreakdown().length) {
+              <div class="mb-3 border border-warning/20 rounded-xl p-3 bg-warning/5">
+                <p class="text-xs font-semibold">Pending subtasks — will be created on Save</p>
+                <div class="space-y-1">
+                  @for (p of pendingBreakdown(); track $index) {
+                    <div class="flex items-center gap-2 p-2 rounded-lg bg-base-100 border">
+                      <span class="flex-1 text-xs">{{ p }}</span>
+                      <button class="btn btn-ghost btn-xs text-error" (click)="removePendingBreakdown($index)">✕</button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
             @if (taskDetailQuery.isPending()) { <span class="loading loading-spinner loading-xs"></span> }
             @if (subtasksList(); as subs) {
               <div class="space-y-2 max-h-[180px] overflow-y-auto">

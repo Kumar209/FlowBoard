@@ -30,6 +30,13 @@ export interface AiCriteriaResponse {
   rawJson: string;
 }
 
+export interface AiBreakdownResponse {
+  subtasks: string[];
+  provider: string;
+  model: string;
+  rawJson: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AiService {
   private http = inject(HttpClient);
@@ -42,5 +49,8 @@ export class AiService {
   }
   criteria(taskId: string | undefined, title: string, description: string, model: string, projectId?: string) {
     return this.http.post<AiCriteriaResponse>(`${environment.apiUrl}/api/ai/criteria`, { taskId, title, description, model, projectId }, { withCredentials: true });
+  }
+  breakdown(taskId: string | undefined, title: string, description: string, model: string, projectId?: string) {
+    return this.http.post<AiBreakdownResponse>(`${environment.apiUrl}/api/ai/breakdown`, { taskId, title, description, model, projectId }, { withCredentials: true });
   }
 }

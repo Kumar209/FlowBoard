@@ -167,6 +167,12 @@ export class TaskDetailModalComponent {
   aiCriteriaSelected = signal<boolean[]>([]);
   editingCriteriaIndex = signal<number | null>(null);
   editCriteriaText = signal('');
+  // AI Breakdown 7.5 — Subtasks pending until Save (manual Add immediate, AI Generate pending)
+  breakdownGenerating = signal(false);
+  breakdownError = signal<string | null>(null);
+  aiBreakdownDraft = signal<string[]>([]);
+  aiBreakdownSelected = signal<boolean[]>([]);
+  pendingBreakdown = signal<string[]>([]);
 
   // Derived
   labelsJson = computed(() => {
@@ -566,6 +572,10 @@ export class TaskDetailModalComponent {
     this.aiCriteriaDraft.set([]);
     this.aiCriteriaSelected.set([]);
     this.criteriaError.set(null);
+    this.pendingBreakdown.set([]);
+    this.aiBreakdownDraft.set([]);
+    this.aiBreakdownSelected.set([]);
+    this.breakdownError.set(null);
     this.activeTab.set('comments');
   }
 
@@ -760,7 +770,50 @@ export class TaskDetailModalComponent {
     this.aiCriteriaSelected.set([]);
     this.criteriaError.set(null);
   }
-  save() {
+  // Breakdown 7.5
+  async generateBreakdown() {
+    const t = this.title().trim();
+    if (!t) { this.toast.error('Title required for Breakdown'); return; }
+    this.breakdownGenerating.set(true);
+    this.breakdownError.set(null);
+    try {
+      const res: any = await firstValueFrom(this.aiService.breakdown(this.task()?.id, t, this.description().trim(), 'gemini-3.5-flash', this.effectiveProjectId()));
+      const subs = (res.subtasks || []) as string[];
+      this.aiBreakdownDraft.set(subs);
+      this.aiBreakdownSelected.set(subs.map(() => true));
+      this.toast.success(`Breakdown via ${res.provider} • ${res.model}`);
+    } catch (e: any) {
+      const raw = e.error?.error || e.message || 'Breakdown failed';
+      const human = raw.includes('Raw:') || raw.includes('LineNumber') || raw.includes('at System') || raw.length > 120 ? 'AI breakdown failed — please try again.' : raw;
+      this.breakdownError.set(human);
+      this.toast.error(human);
+    } finally {
+      this.breakdownGenerating.set(false);
+    }
+  }
+  toggleBreakdown(idx: number) {
+    const sel = [...this.aiBreakdownSelected()];
+    sel[idx] = !sel[idx];
+    this.aiBreakdownSelected.set(sel);
+  }
+  applyBreakdown() {
+    const selected = this.aiBreakdownDraft().filter((_, i) => this.aiBreakdownSelected()[i]);
+    if (!selected.length) { this.toast.error('Select at least one subtask'); return; }
+    this.pendingBreakdown.set([...this.pendingBreakdown(), ...selected]);
+    this.aiBreakdownDraft.set([]);
+    this.aiBreakdownSelected.set([]);
+    this.toast.success('Breakdown selected — Save to create subtasks');
+  }
+  dismissBreakdown() {
+    this.aiBreakdownDraft.set([]);
+    this.aiBreakdownSelected.set([]);
+    this.breakdownError.set(null);
+  }
+  removePendingBreakdown(idx: number) {
+    this.pendingBreakdown.set(this.pendingBreakdown().filter((_, i) => i !== idx));
+  }
+  async save() {
+    const pending = [...this.pendingBreakdown()];
     this.saved.emit({
       title: this.title().trim(),
       description: this.description().trim(),
@@ -785,6 +838,15 @@ export class TaskDetailModalComponent {
       statusId: this.statusId() || undefined,
       acceptanceCriteriaJson: this.acceptanceCriteriaJson(),
     });
+    if (pending.length) {
+      for (const t of pending) {
+        try { await firstValueFrom(this.projectService.createSubTask(this.task().id, t)); } catch {}
+      }
+      this.pendingBreakdown.set([]);
+      this.queryClient.invalidateQueries({ queryKey: ['task-detail', this.task().id] });
+      this.queryClient.invalidateQueries({ queryKey: ['board', this.projectId()] });
+      this.queryClient.invalidateQueries({ queryKey: ['board', this.effectiveProjectId()] });
+    }
   }
   addSubtask() {
     const v = this.newSubtask().trim();
