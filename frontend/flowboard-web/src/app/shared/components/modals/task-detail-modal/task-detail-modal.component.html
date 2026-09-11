@@ -1,6 +1,6 @@
 @if (open() && task()) {
   <div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="closed.emit()"></div>
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="uploadAttachmentMut.isPending() ? null : closed.emit()"></div>
     <div class="card bg-base-100 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden relative z-10 border flex flex-col">
       <!-- Header -->
       <div class="flex justify-between items-center p-3 sm:p-4 border-b border-base-200 shrink-0">
@@ -8,8 +8,9 @@
           <span class="opacity-60">{{ task().key || task().id.slice(0,6) }}</span>
           <span class="badge badge-sm" [ngClass]="task().priority==='High'?'badge-warning': task().priority==='Urgent'?'badge-error': task().priority==='Low'?'badge-ghost':'badge-info'">{{ priority() || task().priority }}</span>
           @if (subtasksList(); as subs) { <span class="badge badge-ghost badge-xs">{{ subs.filter(s=>s.isCompleted).length }}/{{ subs.length }} subtasks</span> }
+          @if (uploadAttachmentMut.isPending()) { <span class="badge badge-info badge-xs animate-pulse">Uploading…</span> }
         </div>
-        <button class="btn btn-ghost btn-sm btn-circle" (click)="closed.emit()">✕</button>
+        <button class="btn btn-ghost btn-sm btn-circle" (click)="closed.emit()" [disabled]="uploadAttachmentMut.isPending()" [attr.aria-disabled]="uploadAttachmentMut.isPending()">✕</button>
       </div>
 
       @if (!isDetailReady()) {
@@ -67,6 +68,7 @@
               <h4 class="font-semibold text-sm">Activity</h4>
               <div class="tabs tabs-boxed tabs-xs">
                 <a class="tab" [class.tab-active]="activeTab()==='comments'" (click)="activeTab.set('comments')">Comments</a>
+                <a class="tab" [class.tab-active]="activeTab()==='attachments'" (click)="activeTab.set('attachments')">Attachments @if(attachmentsQuery.data(); as att){<span class="badge badge-ghost badge-xs ml-1">{{ att.length }}</span>}</a>
                 <a class="tab" [class.tab-active]="activeTab()==='history'" (click)="activeTab.set('history')">History</a>
               </div>
             </div>
@@ -117,7 +119,122 @@
                 <button class="btn btn-primary btn-sm rounded-xl" (click)="addComment()" [disabled]="!newComment().trim() || !auth.canComment()" [class.loading]="createCommentMut.isPending()">Comment</button>
               </div>
               @if (!auth.canComment()) { <p class="text-xs text-error mt-1">Viewer cannot comment</p> }
-            } @else {
+              } @else if (activeTab()==='attachments') {
+              <!-- Attachments Jira-style -->
+              <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-semibold">Attachments</span>
+                    @if (attachmentsQuery.data(); as att) { <span class="badge badge-ghost badge-xs">{{ att.length }}</span> }
+                  </div>
+                  @if (!readOnly()) {
+                  <label class="btn btn-primary btn-xs rounded-full">
+                    + Add
+                    <input type="file" class="hidden" (change)="onAttachmentFileChange($event)" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" />
+                  </label>
+                  }
+                </div>
+                @if (uploadAttachmentMut.isPending()) { <progress class="progress progress-primary w-full h-1"></progress> }
+                <!-- Filter -->
+                <div class="flex justify-between items-center">
+                  <div class="tabs tabs-boxed tabs-xs">
+                    <a class="tab" [class.tab-active]="attachmentFilter()==='all'" (click)="attachmentFilter.set('all')">All</a>
+                    <a class="tab" [class.tab-active]="attachmentFilter()==='image'" (click)="attachmentFilter.set('image')">Images</a>
+                    <a class="tab" [class.tab-active]="attachmentFilter()==='video'" (click)="attachmentFilter.set('video')">Videos</a>
+                    <a class="tab" [class.tab-active]="attachmentFilter()==='document'" (click)="attachmentFilter.set('document')">Documents</a>
+                  </div>
+                  <div class="join">
+                    <button class="btn btn-ghost btn-xs join-item" [class.btn-active]="attachmentViewMode()==='grid'" (click)="attachmentViewMode.set('grid')">Grid</button>
+                    <button class="btn btn-ghost btn-xs join-item" [class.btn-active]="attachmentViewMode()==='list'" (click)="attachmentViewMode.set('list')">List</button>
+                  </div>
+                </div>
+                @if (attachmentsQuery.isPending()) {
+                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    @for (i of [1,2,3]; track i) { <div class="skeleton h-32 rounded-xl"></div> }
+                  </div>
+                } @else if (filteredAttachments(); as list) {
+                  @if (list.length===0) {
+                    <div class="text-center py-8 border border-dashed rounded-xl bg-base-200/30">
+                      <p class="text-sm opacity-40">No attachments — click + Add to upload (image/video/pdf/doc/zip, 10MB max)</p>
+                      @if (attachmentFilter()!=='all') { <button class="btn btn-ghost btn-xs mt-2" (click)="attachmentFilter.set('all')">Clear filter</button> }
+                    </div>
+                  } @else {
+                    @if (attachmentViewMode()==='grid') {
+                      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        @for (a of list; track a.id) {
+                          <div class="card bg-base-200/40 border border-base-200 rounded-xl overflow-hidden group" [class.opacity-60]="a._optimistic">
+                            <div class="aspect-[4/3] bg-base-200 relative overflow-hidden flex items-center justify-center cursor-pointer" (click)="previewAttachment.set(a)">
+                              @if (attachmentService.getPreviewType(a.contentType, a.fileName)==='image') {
+                                <img [src]="attachmentService.getThumbUrl(a.url, 300)" [alt]="a.fileName" class="w-full h-full object-cover" loading="lazy" />
+                              } @else if (attachmentService.getPreviewType(a.contentType, a.fileName)==='video') {
+                                <div class="w-full h-full bg-black/10 flex items-center justify-center relative">
+                                  <span class="text-3xl">▶</span>
+                                  <span class="absolute bottom-1 right-1 badge badge-xs">VIDEO</span>
+                                </div>
+                              } @else if (attachmentService.getPreviewType(a.contentType, a.fileName)==='pdf') {
+                                <div class="flex flex-col items-center justify-center gap-1 text-3xl">📄 <span class="text-xs opacity-60">PDF</span></div>
+                              } @else {
+                                <div class="flex flex-col items-center justify-center gap-1 text-2xl">
+                                  @if (attachmentService.getPreviewType(a.contentType, a.fileName)==='archive') { <span>🗜</span> }
+                                  @else if (attachmentService.getPreviewType(a.contentType, a.fileName)==='office') { <span>📘</span> }
+                                  @else { <span>📄</span> }
+                                  <span class="text-[10px] opacity-60">{{ attachmentService.getPreviewType(a.contentType, a.fileName) }}</span>
+                                </div>
+                              }
+                            </div>
+                            <div class="p-2 space-y-1">
+                              <p class="text-xs font-medium truncate" [title]="a.fileName">{{ a.fileName }}</p>
+                              <p class="text-[10px] opacity-60">{{ attachmentService.formatSize(a.sizeBytes) }} • {{ a.createdAt | date:'shortDate' }}</p>
+                              <div class="flex gap-1 justify-center pt-1">
+                                <button class="btn btn-ghost btn-xs" (click)="previewAttachment.set(a)" title="Preview">👁</button>
+                                <button class="btn btn-ghost btn-xs" (click)="downloadAttachment(a)" title="Download">↓</button>
+                                @if (!readOnly()) { <button class="btn btn-ghost btn-xs text-error" (click)="confirmDeleteAttachment(a.id)" title="Delete">🗑</button> }
+                              </div>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    } @else {
+                      <div class="overflow-x-auto">
+                        <table class="table table-xs">
+                          <thead><tr><th>File</th><th>Type</th><th>Size</th><th>Actions</th></tr></thead>
+                          <tbody>
+                            @for (a of list; track a.id) {
+                              <tr [class.opacity-60]="a._optimistic">
+                                <td class="max-w-[180px] truncate">
+                                  <div class="flex items-center gap-2">
+                                    <span>
+                                      @if (attachmentService.getPreviewType(a.contentType, a.fileName)==='image') { 📷 }
+                                      @else if (attachmentService.getPreviewType(a.contentType, a.fileName)==='video') { 🎥 }
+                                      @else if (attachmentService.getPreviewType(a.contentType, a.fileName)==='pdf') { 📄 }
+                                      @else { 📘 }
+                                    </span>
+                                    <span class="truncate text-xs font-medium">{{ a.fileName }}</span>
+                                  </div>
+                                </td>
+                                <td class="text-xs capitalize">{{ attachmentService.getPreviewType(a.contentType, a.fileName) }}</td>
+                                <td class="text-xs">{{ attachmentService.formatSize(a.sizeBytes) }}</td>
+                                <td>
+                                  <div class="flex gap-1">
+                                    <button class="btn btn-ghost btn-xs" (click)="previewAttachment.set(a)">👁</button>
+                                    <button class="btn btn-ghost btn-xs" (click)="downloadAttachment(a)">↓</button>
+                                    @if (!readOnly()) { <button class="btn btn-ghost btn-xs text-error" (click)="confirmDeleteAttachment(a.id)">🗑</button> }
+                                  </div>
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    }
+                  }
+                } @else if (attachmentsQuery.isError()) {
+                  <p class="text-xs text-error">Failed to load attachments — try again</p>
+                  <button class="btn btn-ghost btn-xs" (click)="attachmentsQuery.refetch()">Retry</button>
+                }
+                <app-confirm-delete [open]="!!deleteAttachmentConfirmId()" title="Delete attachment?" [message]="'Delete this file permanently?'" [loading]="deleteAttachmentMut.isPending()" (cancelled)="deleteAttachmentConfirmId.set(null)" (confirmed)="doDeleteAttachment()" />
+              </div>
+              } @else {
               <!-- History -->
               @if (historyQuery.data(); as h) {
                 <div class="space-y-2 max-h-[220px] overflow-y-auto">
@@ -158,7 +275,7 @@
                 @if (projectMembersList().length) {
                   <select class="select select-bordered select-sm rounded-xl w-full" [value]="assigneeId()" (change)="assigneeId.set($any($event.target).value)">
                     <option value="">Unassigned</option>
-                    @for (m of projectMembersList(); track m.userId) { <option [value]="m.userId" [selected]="m.userId.toLowerCase() === assigneeId().toLowerCase()">{{ m.fullName }} ({{ m.role }}) — {{ m.email }}</option> }
+                    @for (m of projectMembersList(); track m.userId) { <option [value]="m.userId" [selected]="m.userId.toLowerCase() === assigneeId().toLowerCase()">{{ m.fullName }} - {{ m.workspaceRole || m.orgRole || m.role }} - {{ m.email }}</option> }
                   </select>
                   <span class="text-[10px] opacity-40">Only org ∩ workspace ∩ project members — prevents cross-org assignment.</span>
                 } @else if (membersQuery.isPending()) {
@@ -212,7 +329,9 @@
             <div class="grid grid-cols-2 gap-2">
               <div class="flex flex-col gap-1">
                 <span class="opacity-60 text-xs font-semibold">Story Points</span>
-                <input type="number" min="0" max="100" placeholder="5" class="input input-bordered input-sm rounded-xl" [value]="storyPoints() ?? ''" (input)="storyPoints.set($any($event.target).value ? +$any($event.target).value : null)" />
+                <select class="select select-bordered select-sm rounded-xl" [value]="storyPoints() ?? ''" (change)="storyPoints.set($any($event.target).value ? +$any($event.target).value : null)">
+                  <option value="">—</option><option [value]="1">1</option><option [value]="2">2</option><option [value]="3">3</option><option [value]="5">5</option><option [value]="8">8</option><option [value]="13">13</option><option [value]="21">21</option>
+                </select>
               </div>
               <div class="flex flex-col gap-1">
                 <span class="opacity-60 text-xs font-semibold">Epic</span>
@@ -344,18 +463,62 @@
           </div>
 
           <div class="flex gap-2 pt-2">
-            <button class="btn btn-ghost btn-sm rounded-xl flex-1" (click)="closed.emit()">{{ readOnly() ? 'Close' : 'Cancel' }}</button>
+            <button class="btn btn-ghost btn-sm rounded-xl flex-1" (click)="closed.emit()" [disabled]="uploadAttachmentMut.isPending()">Close</button>
             @if (!readOnly()) {
-              <button class="btn btn-primary btn-sm rounded-xl flex-1" (click)="save()" [disabled]="!title().trim() || !isDirty()" [class.loading]="loading()">
+              <button class="btn btn-primary btn-sm rounded-xl flex-1" (click)="save()" [disabled]="!title().trim() || !isDirty() || uploadAttachmentMut.isPending()" [class.loading]="loading()">
                 Save
               </button>
             }
           </div>
-          @if (!readOnly() && !isDirty()) { <p class="text-[10px] opacity-40 text-center">No changes • Save disabled until you edit</p> }
+          @if (uploadAttachmentMut.isPending()) { <p class="text-xs text-info text-center animate-pulse">Uploading attachment… please wait</p> }
+          @else if (!readOnly() && !isDirty()) { <p class="text-[10px] opacity-40 text-center">No changes • Save disabled until you edit</p> }
           <p class="text-[10px] opacity-40 text-center">Changes save priority/labels/due/assignee/status via PUT /tasks • lists via PUT/DELETE /lists</p>
         </div>
       </div>
       }
     </div>
+    <!-- Preview Modal -->
+    @if (previewAttachment(); as preview) {
+      <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" (click)="previewAttachment.set(null)"></div>
+        <div class="card bg-base-100 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden relative z-10 flex flex-col">
+          <div class="flex justify-between items-center p-3 border-b border-base-200 shrink-0">
+            <div class="min-w-0">
+              <p class="font-semibold text-sm truncate">{{ preview.fileName }}</p>
+              <p class="text-xs opacity-60">{{ attachmentService.formatSize(preview.sizeBytes) }} • {{ attachmentService.getPreviewType(preview.contentType, preview.fileName) }}</p>
+            </div>
+            <button class="btn btn-ghost btn-sm btn-circle" (click)="previewAttachment.set(null)">✕</button>
+          </div>
+          <div class="flex-1 overflow-auto p-4 flex items-center justify-center bg-base-200/30">
+            @if (attachmentService.getPreviewType(preview.contentType, preview.fileName)==='image') {
+              <img [src]="attachmentService.getThumbUrl(preview.url, 600)" [alt]="preview.fileName" class="max-w-full max-h-[65vh] rounded-lg object-contain" />
+            } @else if (attachmentService.getPreviewType(preview.contentType, preview.fileName)==='video') {
+              <video controls [src]="getSafeUrl(preview.url)" class="w-full max-h-[65vh] rounded-lg"></video>
+            } @else if (attachmentService.getPreviewType(preview.contentType, preview.fileName)==='pdf') {
+              <div class="text-center py-12">
+                <div class="text-5xl mb-4">📄</div>
+                <p class="font-semibold">PDF Preview</p>
+                <p class="text-sm opacity-60 mt-1">Preview not available in browser — download to view</p>
+                <button class="btn btn-primary btn-sm rounded-full mt-4" (click)="downloadAttachment(preview)">Download PDF</button>
+              </div>
+            } @else {
+              <div class="text-center py-12">
+                <div class="text-5xl mb-2">
+                  @if (attachmentService.getPreviewType(preview.contentType, preview.fileName)==='archive') { 🗜 }
+                  @else if (attachmentService.getPreviewType(preview.contentType, preview.fileName)==='office') { 📘 }
+                  @else { 📄 }
+                </div>
+                <p class="text-sm opacity-60">No preview available for this file type</p>
+                <p class="text-xs opacity-40 mt-1">{{ preview.fileName }}</p>
+              </div>
+            }
+          </div>
+          <div class="flex gap-2 justify-center p-3 border-t border-base-200 shrink-0">
+            <button class="btn btn-primary btn-sm rounded-full" (click)="downloadAttachment(preview)">Download</button>
+            <button class="btn btn-ghost btn-sm rounded-full" (click)="previewAttachment.set(null)">Close</button>
+          </div>
+        </div>
+      </div>
+    }
   </div>
 }

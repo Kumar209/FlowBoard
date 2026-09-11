@@ -148,12 +148,13 @@ export class IssuesComponent {
     this.aiDraftOpen.set(true);
   }
   onAiDraftCreated(e:any){
-    // e: {title,description,checklist,labels,priority,issueType,storyPoints}
+    // e: {title,description,checklist(Suggested Steps),labels,priority,issueType,storyPoints,dueDate}
     const statuses = this.statusesQuery.data() || [];
     const statusId = statuses[0]?.id || '';
+    // Suggested Steps → appended as **Checklist:** block in description (not subtask, not AC 7.4)
     const desc = e.checklist?.length ? `${e.description}\n\n**Checklist:**\n${e.checklist.map((c:string)=>`- ${c}`).join('\n')}` : e.description;
     const labelsJson = e.labels?.length ? JSON.stringify(e.labels) : undefined;
-    this.createMutation.mutate({ listId: null, statusId, title: e.title, description: desc, priority: e.priority, labelsJson, issueType: e.issueType, storyPoints: e.storyPoints });
+    this.createMutation.mutate({ listId: null, statusId, title: e.title, description: desc, priority: e.priority, labelsJson, issueType: e.issueType, storyPoints: e.storyPoints, dueDate: e.dueDate });
     this.aiDraftOpen.set(false);
   }
   onCreateSubmit(e:any){

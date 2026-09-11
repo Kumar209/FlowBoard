@@ -16,7 +16,7 @@ export class AiDraftModalComponent {
   open = input<boolean>(false);
   projectId = input<string>('');
   closed = output<void>();
-  created = output<{ title: string; description: string; checklist: string[]; labels: string[]; priority: string; issueType: string; storyPoints?: number }>();
+  created = output<{ title: string; description: string; checklist: string[]; labels: string[]; priority: string; issueType: string; storyPoints?: number; dueDate?: string }>();
 
   private ai = inject(AiService);
   private toast = inject(ToastService);
@@ -30,11 +30,12 @@ export class AiDraftModalComponent {
   // Editable preview fields (bind after draft loaded)
   title = signal('');
   description = signal('');
-  checklist = signal(''); // comma or newline separated for edit
+  checklist = signal(''); // Suggested Steps — one per line, appended to description on Create
   labels = signal('');
   priority = signal('Medium');
   issueType = signal('Task');
   storyPoints = signal<number | null>(null);
+  dueDate = signal(''); // optional — null unless user provides, AI never hallucinates date
 
   promptValid = computed(() => {
     const p = this.prompt().trim();
@@ -67,6 +68,7 @@ export class AiDraftModalComponent {
         this.priority.set(this.normalizePriority(d.priority));
         this.issueType.set(d.issueType || 'Task');
         this.storyPoints.set(d.storyPoints ?? null);
+        this.dueDate.set(''); // AI never sets due date — null unless user picks
       }
     }, { allowSignalWrites: true });
   }
@@ -122,7 +124,8 @@ export class AiDraftModalComponent {
       labels: labelsArr,
       priority: this.priority(),
       issueType: this.issueType(),
-      storyPoints: this.storyPoints() ?? undefined
+      storyPoints: this.storyPoints() ?? undefined,
+      dueDate: this.dueDate() || undefined
     });
     this.draft.set(null);
   }

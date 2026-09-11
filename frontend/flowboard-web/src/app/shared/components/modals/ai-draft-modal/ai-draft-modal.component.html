@@ -4,7 +4,7 @@
     <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative z-10 border max-h-[90vh] overflow-y-auto">
       @if (!isPreview()) {
         <h3 class="font-bold text-lg flex items-center gap-2">✨ AI Draft</h3>
-        <p class="text-xs opacity-60">Describe the issue (10-500 chars). AI will draft title, description, checklist, labels — human-in-the-loop preview before create.</p>
+        <p class="text-xs opacity-60">Describe the issue (10-500 chars). AI will draft title, description, suggested steps, labels — human-in-the-loop preview before create.</p>
         <div class="mt-4 space-y-3">
           <label class="form-control">
             <span class="label-text text-xs">Prompt * <span class="opacity-40">{{ promptCount() }}/500</span></span>
@@ -61,9 +61,9 @@
           </div>
           <div class="grid grid-cols-2 gap-3">
             <label class="form-control">
-              <span class="label-text text-xs">Story Points</span>
+              <span class="label-text text-xs">Story Points (Fibonacci)</span>
               <select class="select select-bordered rounded-xl" [value]="storyPoints() ?? ''" (change)="storyPoints.set($any($event.target).value ? +$any($event.target).value : null)">
-                <option value="">—</option><option [value]="1">1</option><option [value]="2">2</option><option [value]="3">3</option><option [value]="5">5</option><option [value]="8">8</option>
+                <option value="">—</option><option [value]="1">1</option><option [value]="2">2</option><option [value]="3">3</option><option [value]="5">5</option><option [value]="8">8</option><option [value]="13">13</option><option [value]="21">21</option>
               </select>
             </label>
             <label class="form-control">
@@ -72,8 +72,14 @@
             </label>
           </div>
           <label class="form-control">
-            <span class="label-text text-xs">Checklist (one per line)</span>
-            <textarea class="textarea textarea-bordered rounded-xl h-20" placeholder="Analyze mobile breakpoint&#10;Fix responsive layout" [value]="checklist()" (input)="checklist.set($any($event.target).value)"></textarea>
+            <span class="label-text text-xs">Suggested Steps <span class="opacity-40">(one per line — appended to Description as Checklist)</span></span>
+            <textarea class="textarea textarea-bordered rounded-xl h-20" placeholder="Analyze mobile breakpoint&#10;Fix responsive layout&#10;Test on 320/768" [value]="checklist()" (input)="checklist.set($any($event.target).value)"></textarea>
+            <span class="label-text-alt text-[10px] opacity-40">Not Subtask (7.5) nor Acceptance Criteria (7.4) — steps become **Checklist:** block in description</span>
+          </label>
+          <label class="form-control">
+            <span class="label-text text-xs">Due date (optional)</span>
+            <input type="date" class="input input-bordered rounded-xl" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
+            <span class="label-text-alt text-[10px] opacity-40">AI never sets date — null unless you pick</span>
           </label>
           @if (error()) { <div class="alert alert-error py-2 text-xs">{{ error() }}</div> }
         </div>
