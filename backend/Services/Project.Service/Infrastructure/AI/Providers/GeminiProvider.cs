@@ -17,8 +17,8 @@ public class GeminiProvider : IAiProvider
     private readonly IConfiguration _config;
     private readonly ILogger<GeminiProvider> _logger;
 
-    public string ProviderName => "gemini";
-    public string ModelName => "gemini-2.5-flash";
+    public string ProviderName => "gemini"; // identifier — never env (used for AiUsageLog.Provider grouping + fallback)
+    public string ModelName => _config["Gemini:Model"] ?? _config["Gemini__Model"] ?? "gemini-2.5-flash"; // env-fallback: ops can override via appsettings/MonsterASP.net without rebuild
 
     public GeminiProvider(HttpClient http, IConfiguration config, ILogger<GeminiProvider> logger)
     {

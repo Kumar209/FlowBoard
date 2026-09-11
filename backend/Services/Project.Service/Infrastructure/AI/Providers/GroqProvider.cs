@@ -15,8 +15,8 @@ public class GroqProvider : IAiProvider
     private readonly IConfiguration _config;
     private readonly ILogger<GroqProvider> _logger;
 
-    public string ProviderName => "groq";
-    public string ModelName => "llama-3.1-8b-instant";
+    public string ProviderName => "groq"; // identifier — never env
+    public string ModelName => _config["Groq:Model"] ?? _config["Groq__Model"] ?? "llama-3.1-8b-instant"; // env-fallback: ops can override without rebuild
 
     public GroqProvider(HttpClient http, IConfiguration config, ILogger<GroqProvider> logger)
     {
