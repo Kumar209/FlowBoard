@@ -3,8 +3,11 @@ using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Project.Service.Application.AI.Interfaces;
 using Project.Service.Application.Behaviors;
 using Project.Service.Application.Interfaces;
+using Project.Service.Infrastructure.AI;
+using Project.Service.Infrastructure.AI.Providers;
 using Project.Service.Infrastructure.Caching;
 using Project.Service.Infrastructure.Messaging;
 using Project.Service.Infrastructure.Persistence;
@@ -37,6 +40,12 @@ builder.Services.AddScoped<ISubTaskService, Project.Service.Infrastructure.Servi
 builder.Services.AddScoped<IActivityService, Project.Service.Infrastructure.Services.ActivityService>();
 builder.Services.AddScoped<IProjectMemberService, Project.Service.Infrastructure.Services.ProjectMemberService>();
 builder.Services.AddScoped<IStatusService, Project.Service.Infrastructure.Services.StatusService>();
+
+// 7.1 AI Infrastructure - separate AI folder DIP (Gemini 2.5 Flash fixed + Groq llama-3.1-8b selectable, Redis 3/min per ai:{userId}:{model}, 5 RPM global, AiUsageLogs hash/preview only)
+builder.Services.AddSingleton<IAiRateLimiter, AiRateLimiter>();
+builder.Services.AddHttpClient<GeminiProvider>(c => c.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddHttpClient<GroqProvider>(c => c.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddScoped<IAiService, AiService>();
 
 // MassTransit 8.3 + CloudAMQP (same amqps:// key local/prod, 2s Outbox poll, durable quorum, retry 3x + _error)
 var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? builder.Configuration["RabbitMQ__Host"] ?? "";

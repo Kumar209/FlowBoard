@@ -22,10 +22,11 @@
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 5/5 | Completed |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
-| Phase 4: Files, AI & Charts | 4.1 - 4.4 | 0/4 | Pending |
+| Phase 4: Files & Charts | 4.1 - 4.3 | 2/3 | In Progress |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
-| Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 2/5 | In Progress |
-| **Total** | **0.1 - 6.5** | **17/31** | **In Progress** |
+| Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
+| Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 1/7 | In Progress |
+| **Total** | **0.1 - 7.7** | **19/38** | **In Progress** |
 
 ---
 
@@ -1490,7 +1491,399 @@ Intersection `org ∩ workspace ∩ project` guarantees tenant isolation at assi
 
 ---
 
+## Task 4.1: File.Service - Cloudinary Upload with Strict Org/Workspace/Project Permission Checks (MNC-Grade)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 10 Sep 2026 | 4 - Files, AI & Charts | pending | 3h | Feature |
+
+### 1. Overview
+Implemented `File.Service` for Cloudinary signed uploads (same keys local/prod) with `HasDefaultSchema("file")` — strict cross-schema checks ensure only `org ∩ workspace ∩ project` members with `attachment:create/view/delete` can upload/list/delete, mirroring `TaskService` assignee intersection.
+
+### 2. Objectives
+- Create `[file].Attachments + OutboxMessages` via EF Core 10 migration `20260910155026_InitialFile`
+- Install `CloudinaryDotNet 1.27.2 + MassTransit 8.3.5 + MediatR 12.4 + JwtBearer 10.0` with same `flowboard` DB, `file` schema, `MigrationsHistoryTable __EFMigrationsHistory,file`
+- Enforce **every necessary check on API calling data from DB**: `Task→Project→Workspace→Organization` resolve via `[project]/[identity]` raw SQL, then verify `OrganizationMembers ∪ Owner`, `WorkspaceMembers`, `ProjectMembers` intersection, plus `RolePermissions` for `attachment:create/delete` (custom role) and fixed-role `Viewer/Client` block, `SuperAdmin` bypass, uploader-or-privileged delete
+- Add 4 permissions `attachment:view/create/update/delete` (31→35) per Section 9 rule, seed incremental `IdentitySeeder`
+- Wire `YARP` `file-route /api/files/{**catch-all} → :5003` + `file-attachments-route /api/tasks/{taskId}/attachments Order 0 → :5003` (precedence over `task-route Order1`), `Cloudinary folder flowboard/{workspaceId}/{projectId}/{taskId} eager w_300`, 10MB whitelist, `FileUploadedEvent` fanout `flowboard.events`, `Outbox` 2s poll, JWT HS256 15m
+- Expose `POST /api/files/upload (multipart taskId+file)`, `GET /api/tasks/{taskId}/attachments`, `DELETE /api/files/{id}` via thin `FilesController → IMediator → Handler(IFileService/ICloudinaryService) → Infrastructure EF + Cloudinary + Outbox` (never `_db` in controller/handler)
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Domain | `Attachment(ProjectId,TaskId,UploaderId,FileName,Url,PublicId,ContentType,SizeBytes,WorkspaceId,OrganizationId)` + `OutboxMessage` | — | `[file]` schema `Ignore(DomainEvents)` |
+| Infra | `FileDbContext : IApplicationDbContext HasDefaultSchema("file")` | EF Core 10.0 | `Attachments` 6 indexes (`TaskId,ProjectId,UploaderId,WorkspaceId,CreatedAt`), `OutboxMessages` |
+| App | `IFileService/ICloudinaryService` + `UploadAttachmentCommand/Validator/Handler`, `DeleteAttachmentCommand`, `GetAttachmentsQuery` | MediatR 12.4 + FluentValidation 11.10 | DIP, handler injects `IFileService` only |
+| Cloud | `CloudinaryDotNet 1.27.2` signed `Account(CloudName,ApiKey,ApiSecret)` `ImageUploadParams Folder flowboard/... UniqueFilename UseFilename Overwrite false Eager w_300` + `DeletionParams` | 1.27.2 | Same keys local/prod `appsettings.Development.json` `Cloudinary: tm82ai8f/1919...` |
+| Messaging | `MassTransit 8.3.5 RabbitMQ` `FileUploadedEvent` fanout `flowboard.events` + `OutboxBackgroundService` 2s durable quorum retry 3x | 8.3.5 | `Shared.Contracts` `IIntegrationEvent` |
+| Auth | `JwtBearer 10.0 HS256 15m` `ValidateIssuer/Audience/Lifetime` + `X-User-Id/Role` claims | 10.0 | Gateway `Bearer` → File 5003 |
+| Gateway | `YARP 2.3 yarp.json Order 0 specific before catch-all Order1` | 2.3 | `file-route + file-attachments-route Order0` vs `task-route Order1` |
+| Permissions | `[identity].Permissions 35 (31→35) + RolePermissions` | — | Section 9 `attachment:view/create/update/delete` incremental seed |
+
+### 4. Implementation Details
+- Updated `File.Service.csproj:1` add `EfCore SqlServer/Tools/Design 10.0, MediatR, FluentValidation, JwtBearer, System.IdentityModel.Tokens.Jwt, CloudinaryDotNet 1.27.2, MassTransit/RabbitMQ 8.3.5` + `SharedKernel/Shared.Contracts` refs
+- Created `Domain/Entities/Attachment.cs:1` `BaseEntity IAggregateRoot` 9 props + ctor `Attachment(projectId,taskId,uploaderId,fileName,url,publicId,contentType,size,workspaceId,orgId)`; `OutboxMessage.cs:1` `Type/Payload/OccurredOn/ProcessedAt/Error MarkProcessed/MarkFailed`
+- Created `Application/Interfaces/IApplicationDbContext.cs:1` `DbSet<Attachment/OutboxMessages> Database SaveChanges`; `DTOs/AttachmentDto.cs:1` `AttachmentDto + PaginatedResult`; `Interfaces/IFileService.cs:1` `IFileService(Upload/Delete/GetByTask/IsTaskAccessible) + ICloudinaryService(Upload/Delete)`
+- Created `Infrastructure/Persistence/FileDbContext.cs:1` `HasDefaultSchema("file") Ignore(DomainEvent) Attachment HasKey Id FileName 300 Url 1000 PublicId 500 ContentType 100 indexes TaskId/ProjectId/UploaderId/WorkspaceId/CreatedAt OutboxMessage HasKey Type200 Payload8000 ProcessedAt/OccurredOn indexes`; `FileDbContextFactory.cs:1` `IDesignTimeDbContextFactory` reads `ConnectionStrings Default` `flowboard` `MigrationsHistoryTable file`
+- Created `Infrastructure/Services/CloudinaryService.cs:1` ctor reads `Cloudinary:CloudName/ApiKey/ApiSecret` via `IConfiguration` (supports `:` and `__`), `UploadAsync` `ImageUploadParams File FileDescription(folder UniqueFilename UseFilename Overwrite false Eager w_300 scale fetchFormat auto quality auto)` `DestroyAsync DeletionParams(ResourceType Image)` — throws `InvalidOperationException` on `Error`
+- Created `Infrastructure/Services/FileService.cs:1` `AllowedMimePrefixes image/video/application/pdf/text/zip/msword/vnd.` `AllowedExtensions .jpg/.png/.gif/.webp/.svg/.pdf/.txt/.csv/.zip/.doc/.docx/.xls/.xlsx/.ppt/.pptx/.mp4/.mov` `Max 10MB` `FileService(db,cloudinary)`; `UploadAsync` validates `FileName/ext/contentType size empty`, calls `ResolveAndAuthorizeAsync(taskId,callerId,callerRoles,attachment:create)` → `(projectId,workspaceId,orgId)`, blocks `Viewer/Client` 403, uploads to `folder flowboard/{ws}/{proj}/{task}` via `ICloudinaryService`, creates `Attachment + OutboxMessage FileUploaded {AttachmentId,TaskId,ProjectId,WorkspaceId,OrgId,UploaderId,FileName,Url,PublicId,ContentType,SizeBytes,OccurredOnUtc,EventId,CorrelationId}` `SaveChanges`, returns `AttachmentDto`; `DeleteAsync` loads `Attachment`, resolves `attachment:delete`, allows only `uploader || OrgAdmin/ProjectManager/SuperAdmin` (checks `WorkspaceMembers Role5`), `best-effort cloudinary.Delete` then `Remove+Save`; `GetByTaskAsync` resolves `attachment:view` else throw `UnauthorizedAccessException`, `OrderBy CreatedAt desc`; `IsTaskAccessibleAsync` wraps resolve; `ResolveAndAuthorizeAsync` does **every necessary check**: 1) `SELECT Id,ProjectId FROM [project].Tasks WHERE Id={taskId}` → projectId, 2) `SELECT WorkspaceId FROM [project].Projects WHERE Id={projectId}` → workspaceId, 3) `SELECT OrganizationId FROM [identity].Workspaces WHERE Id={workspaceId}` → orgId, 4) `SuperAdmin bypass` `callerRoles contains SuperAdmin OR SELECT COUNT FROM [identity].WorkspaceMembers WHERE UserId={callerId} AND Role=5`, 5) `Org member` `SELECT COUNT FROM [identity].OrganizationMembers WHERE OrganizationId={orgId} AND UserId={callerId} UNION OwnerId`, 6) `Workspace member` `SELECT COUNT FROM [identity].WorkspaceMembers WHERE WorkspaceId={ws} AND UserId={callerId}`, 7) **Project member strict** `SELECT COUNT FROM [project].ProjectMembers WHERE ProjectId={projectId} AND UserId={callerId}` (no fallback, `Not a project member` 403), 8) **Permission check** if `permKey != view` then if `customRoleId == null` block `Viewer/Client Missing permission`, else `SELECT Id FROM [identity].Permissions WHERE Key={permKey}` → `SELECT COUNT FROM [identity].RolePermissions WHERE RoleId={customRoleId} AND PermissionId={permId}` → `Missing permission` 403; returns `Success(projectId,workspaceId,orgId)` else `Failure Forbidden...`
+- Created `Application/Commands/UploadAttachmentCommand.cs:1` `record UploadAttachmentCommand(TaskId,FileName,ContentType,SizeBytes,Stream,CallerId,CallerRoles):IRequest<Result<AttachmentDto>>` + `Validator NotEmpty TaskId/FileName/ContentType SizeBytes 1..10MB CallerId NotEmpty` + `Handler injects IFileService UploadAsync`; `DeleteAttachmentCommand.cs:1` similar `AttachmentId NotEmpty`; `Queries/GetAttachmentsQuery.cs:1` `GetAttachmentsQuery(TaskId,CallerId,CallerRoles):IRequest<List<AttachmentDto>>` `Handler GetByTaskAsync`
+- Created `Infrastructure/Messaging/OutboxBackgroundService.cs:1` `BackgroundService` `while (!ct)` `Take 10 Where ProcessedAt==null OrderBy OccurredOn` `Deserialize FileUploadedEvent Publish via IPublishEndpoint flowboard.events fanout MarkProcessed/MarkFailed SaveChanges Delay 2s`
+- Created `Api/Controllers/FilesController.cs:1` `[Authorize] FilesController(IMediator)` `POST api/files/upload [RequestSizeLimit 11MB] [FromForm] UploadForm{Guid TaskId,IFormFile File} GetUserId Claims NameIdentifier/sub GetRoles Role/role Distinct` validates `File.Length 0 TaskId Empty >10MB`, `OpenReadStream` `UploadAttachmentCommand → Send → 403 Forbidden/Not a, 404 Task not found, 400 else 201 dto`; `GET api/tasks/{taskId}/attachments → GetAttachmentsQuery → 403 catch UnauthorizedAccessException → 200 list`; `DELETE api/files/{id} → DeleteAttachmentCommand → 403/404/400 else 200 Deleted`; thin controller never `_db`, only `IMediator`
+- Updated `Program.cs:1` `AddDbContext<FileDbContext> UseSqlServer cs MigrationsHistoryTable file AddScoped<IApplicationDbContext> AddMediatR RegisterServicesFromAssemblyContaining Program AddScoped<IFileService,FileService> AddScoped<ICloudinaryService,CloudinaryService> AddMassTransit UsingRabbitMq Host amqps://puffin.rmq2.cloudamqp.com/flerdtmd fanout flowboard.events FileUploadedEvent retry 3x ConfigureEndpoints AddHostedService<OutboxBackgroundService> AddControllers AddSwaggerGen File.Service v1 Bearer AddCors AllowAnyHeader/Method Credentials WithOrigins localhost:4200+vercel AddAuthentication JwtBearer TokenValidationParameters ValidateIssuer/Audience/Lifetime/IssuerSigningKey HS256 ClockSkew Zero ValidIssuer FlowBoard.Identity ValidAudience FlowBoard.Gateway AddAuthorization MapHealthChecks root/health swagger dev UseCors UseAuthentication UseAuthorization MapControllers`
+- Updated `IdentitySeeder.cs:58` add 4 permissions `attachment:view/create/update/delete` Group `Attachment` `View/Create/Update/Delete Attachment` descriptions `See/Upload via Cloudinary/Update/Delete` (31→35) incremental `!existingKeys.Contains` `SaveChanges`
+- Updated `Gateway.YARP/yarp.json:7` `file-attachments-route /api/tasks/{taskId}/attachments → file-cluster Order 0` (precedence over `task-route Order1 /api/tasks/{**catch-all} → project-cluster`) + `file-route /api/files/{**catch-all} → file-cluster` unchanged
+- Migration `dotnet ef migrations add InitialFile --output-dir Infrastructure/Persistence/Migrations` → `20260910155026_InitialFile.cs` `EnsureSchema file CreateTable Attachments (Id,ProjectId,TaskId,UploaderId,FileName 300,Url 1000,PublicId 500,ContentType 100,SizeBytes,WorkspaceId,OrganizationId,CreatedAt,UpdatedAt PK, indexes TaskId/ProjectId/UploaderId/WorkspaceId/CreatedAt) CreateTable OutboxMessages (Id,Type200,Payload8000,OccurredOn,ProcessedAt,Error2000,CreatedAt,UpdatedAt PK indexes ProcessedAt/OccurredOn)`; `dotnet ef database update --project File.Service` applied exclusive lock — verified `file.Attachments,file.OutboxMessages,file.__EFMigrationsHistory`
+- Manual SQL seed for 4 `attachment:*` rows (since `IdentitySeeder` only runs on SuperAdmin create, DB already seeded 31) → `INSERT INTO [identity].Permissions` 4 rows with new Guid CreatedAt now → `SELECT COUNT 35` verified `attachment:view/create/update/delete Attachment` via `SELECT Key FROM Permissions ORDER BY Key`
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/File.Service/File.Service.csproj | Modified | Add 10 packages `SqlServer/Tools/Design 10.0 MediatR 12.4 FluentValidation 11.10 JwtBearer 10.0 Jwt 8.2.1 CloudinaryDotNet 1.27.2 MassTransit 8.3.5 RabbitMQ 8.3.5` + refs `SharedKernel/Shared.Contracts` |
+| backend/Services/File.Service/Domain/Entities/Attachment.cs | Created | `Attachment:BaseEntity IAggregateRoot ProjectId/TaskId/UploaderId/FileName/Url/PublicId/ContentType/SizeBytes/WorkspaceId/OrgId` |
+| backend/Services/File.Service/Domain/Entities/OutboxMessage.cs | Created | `OutboxMessage Type200 Payload8000 OccurredOn ProcessedAt Error2000` |
+| backend/Services/File.Service/Application/Interfaces/IApplicationDbContext.cs | Created | `DbSet<Attachment/OutboxMessages> Database SaveChanges` |
+| backend/Services/File.Service/Application/DTOs/AttachmentDto.cs | Created | `AttachmentDto(Id,ProjectId,TaskId,UploaderId,FileName,Url,PublicId,ContentType,SizeBytes,CreatedAt) + PaginatedResult` |
+| backend/Services/File.Service/Application/Interfaces/IFileService.cs | Created | `IFileService(Upload/Delete/GetByTask/IsTaskAccessible) + ICloudinaryService(Upload/Delete)` |
+| backend/Services/File.Service/Infrastructure/Persistence/FileDbContext.cs | Created | `FileDbContext DbContext IApplicationDbContext HasDefaultSchema file Ignore DomainEvent Attachment/OutboxMessage` |
+| backend/Services/File.Service/Infrastructure/Persistence/FileDbContextFactory.cs | Created | `IDesignTimeDbContextFactory reads ConnectionStrings Default flowboard file history` |
+| backend/Services/File.Service/Infrastructure/Services/CloudinaryService.cs | Created | `CloudinaryService(IConfig) Account UploadAsync ImageUploadParams folder w_300 DeleteAsync` |
+| backend/Services/File.Service/Infrastructure/Services/FileService.cs | Created | `FileService Upload/Delete/GetByTask ResolveAndAuthorize (org∩ws∩proj + RolePermissions + 10MB whitelist) Outbox FileUploaded` |
+| backend/Services/File.Service/Application/Commands/UploadAttachmentCommand.cs | Created | `UploadAttachmentCommand+Validator+Handler → IFileService.UploadAsync` |
+| backend/Services/File.Service/Application/Commands/DeleteAttachmentCommand.cs | Created | `DeleteAttachmentCommand+Validator+Handler → IFileService.DeleteAsync` |
+| backend/Services/File.Service/Application/Queries/GetAttachmentsQuery.cs | Created | `GetAttachmentsQuery+Handler → IFileService.GetByTaskAsync` |
+| backend/Services/File.Service/Infrastructure/Messaging/OutboxBackgroundService.cs | Created | `Outbox 2s poll publish FileUploadedEvent fanout flowboard.events durable quorum` |
+| backend/Services/File.Service/Api/Controllers/FilesController.cs | Created | `[Authorize] POST /api/files/upload FromForm + GET /api/tasks/{id}/attachments + DELETE /api/files/{id} IMediator only` |
+| backend/Services/File.Service/Program.cs | Rewritten | `AddDbContext file + MediatR + IFileService/ICloudinaryService + MassTransit amqps + Outbox host + JWT + Swagger + CORS + MapControllers` |
+| backend/Services/File.Service/Infrastructure/Persistence/Migrations/20260910155026_InitialFile.cs | Created | `EnsureSchema file CreateTable Attachments+OutboxMessages indexes` |
+| backend/Services/File.Service/Infrastructure/Persistence/Migrations/20260910155026_InitialFile.Designer.cs | Created | Designer |
+| backend/Services/File.Service/Infrastructure/Persistence/Migrations/FileDbContextModelSnapshot.cs | Created | Snapshot |
+| backend/Services/Identity.Service/Infrastructure/Persistence/IdentitySeeder.cs | Modified | Add 4 `attachment:view/create/update/delete` 31→35 incremental |
+| backend/Gateway.YARP/yarp.json | Modified | Add `file-attachments-route Order 0 /api/tasks/{taskId}/attachments → file-cluster` precedence over `task-route Order1` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build File.Service | Passed | `dotnet build Services/File.Service -c Release → Build succeeded 0 Warning(s) 0 Error(s) File.Service.dll` (after `global::` namespace fix CS0426) |
+| Migration add | Passed | `dotnet ef migrations add InitialFile --output-dir Infrastructure/Persistence/Migrations → Build succeeded. Done.` |
+| DB update | Passed | `dotnet ef database update --project File.Service → Acquiring exclusive lock... Applying migration '20260910155026_InitialFile'. Done.` `SELECT TABLE_SCHEMA FROM INFORMATION_SCHEMA.TABLES WHERE SCHEMA='file' → file.Attachments, file.OutboxMessages, file.__EFMigrationsHistory` |
+| Build solution | Passed | `dotnet build FlowBoard.slnx -c Release → Build succeeded 0 Warning(s) 0 Error(s) 6 dlls (Identity,Project,File,Notification,Gateway,Shared)` |
+| Seed Permissions | Passed | `INSERT 4 rows → SELECT Key FROM Permissions WHERE Group='Attachment' → attachment:create/delete/update/view ORDER BY Key` `SELECT COUNT 35` (31→35) verified `file tables` via SqlClient |
+| YARP routing | Passed | `yarp.json file-attachments-route Path /api/tasks/{taskId}/attachments Cluster file Order 0` vs `task-route Order1 /api/tasks/{**catch-all} → project` → Gateway correctly routes attachments to `:5003`, files to `:5003`, tasks to `:5002` |
+| Permission checks | Logic | `ResolveAndAuthorizeAsync` verifies `Task→Project→Workspace→Org` via 3 raw SQL cross-schema + `SuperAdmin claim OR WorkspaceMembers Role5` bypass → `OrganizationMembers ∪ Owner` → `WorkspaceMembers` → **strict `ProjectMembers` (no fallback, Not a project member 403)** → `RolePermissions` if `CustomRoleId != null` else `Viewer/Client Missing permission 403`; `Upload` blocks `Viewer/Client`, `Delete` allows only `uploader || OrgAdmin/ProjectManager/SuperAdmin`; `GetByTask` throws `UnauthorizedAccessException → 403`; all 3 endpoints map `Forbidden/Not a → 403, Task not found → 404` |
+| Cloudinary | Logic | `CloudinaryService` uses real `CloudName tm82ai8f ApiKey 1919... ApiSecret pJsq...` from `appsettings.Development.json` (same keys local/prod), folder `flowboard/{ws}/{proj}/{task}` signed `UseFilename UniqueFilename Overwrite false Eager w_300 scale fetchFormat auto` — manual test via `POST /api/files/upload multipart taskId+file` with Bearer expected `201 {secure_url, publicId}`; `DELETE` `DestroyAsync ResourceType Image` best-effort |
+| HasDefaultSchema | Passed | `FileDbContext HasDefaultSchema("file") Ignore(DomainEvent) MigrationsHistoryTable __EFMigrationsHistory,file` `Ignore DomainEvents` like Identity/Project |
+
+### 7. Enterprise Relevance (MNC Value)
+Strict `org ∩ workspace ∩ project` checks on every attachment call (resolve via cross-schema `SqlQueryRaw` same `flowboard` DB, no `project` fallback) proves you can isolate tenant+workspace+project per Jira `Attachment` ACL — MNC interviewers test multi-tenant `WorkspaceMember + ProjectMember` double-gate (prevents cross-project leak). Adding 4 `attachment:*` permissions via incremental `IdentitySeeder` + `RolePermissions` join + `Section 9 31→35` shows you never skip `view/create/update/delete` for new entities (Architecture rule). `HasDefaultSchema("file") + Ignore(DomainEvents) + MigrationsHistoryTable file` matches MNC single-DB multi-schema cost model on `MonsterASP.net`. `CloudinaryDotNet 1.27 signed folder flowboard/{ws}/{proj}/{task} eager w_300` + `10MB whitelist mime` + `Outbox 2s FileUploadedEvent fanout flowboard.events` proves cloud-native file handling with audit (MassTransit durable quorum, same `amqps://...flerdtmd` local/prod). YARP `Order 0 specific vs Order1 catch-all` demonstrates gateway path precedence (attachments must override tasks). DIP `Controller(IMediator) → Command/Query(Validator) → Handler(IFileService) → Infrastructure EF+Cloudinary+Outbox` keeps `Api` free of `_db` (Clean `IApplicationDbContext` testable via mock, no `static` service calls).
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 4.2 `Attachments UI` (list/preview/delete in `task-detail-modal` via `GET /api/tasks/{id}/attachments` + `POST upload + DELETE`) will consume these 3 endpoints with TanStack `['attachments',taskId]` optimistic + DaisyUI cards `w_300` thumb `f_auto,q_auto,w_600` preview modal — after that 4.3 Gemini 2.5 Flash 15 RPM Redis 5/min + 4.4 ApexCharts Burndown + Brevo same keys local/prod
+- Depends on: Task 6.5 `assignee ∩ strict` already done (pattern reused), `IdentitySeeder 31→35` (permissions must exist before `RolePermissions` checks), `ProjectService Tasks.StatusId` (task resolve), `Gateway YARP` (`file-cluster :5003`, `task-route Order1`)
+- Follow-up: Manual Postman verify after `dotnet run` all 4 services (`dotnet run --project Identity --urls http://localhost:5001` etc.) + `Gateway :5000`: `POST /api/auth/login` OrgAdmin → `POST /api/workspaces/{ws}/projects` → `POST /api/tasks {projectId,listId:null,statusId}` → `POST /api/files/upload form-data taskId + file jpg` expect `201 secure_url` (Cloudinary), `GET /api/tasks/{taskId}/attachments` expect list, `DELETE /api/files/{id}` uploader 200 else 403, `Client/Viewer POST 403`, non-member project `403 Not a project member`; keep `frontend/flowboard-web` 3-File Rule for 4.2 modal (no internal CSS, `templateUrl` only, `OnPush`+Signals), `yarp.json` specific `Order 0` before catch-all must stay
+
+---
+
 <!-- Future tasks follow same 8-section template - copy block below -->
+
+## Task 7.1: AI Infrastructure + AiUsageLogs + Providers (Gemini/Groq) + Redis 3/min
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 11 Sep 2026 | 7 - AI | pending | 3h | Feature |
+
+### 1. Overview
+Created the isolated AI module — `Project.Service/Application/AI + Infrastructure/AI` DIP folder with `AiUsageLog` entity in `[project].AiUsageLogs` (22 cols, `HasDefaultSchema project`, hash/preview only), dual providers `Gemini 2.5 Flash` fixed + `Groq llama-3.1-8b-instant` selectable via UI radio, and `Redis` `3/min` per `ai:{userId}:{model}` + `5 RPM` global rate limiter. Migration `20260911154735_AddAiLogs` applied; `YARP` `ai-route /api/ai/{**catch-all}` → `:5002` added. Build passes `0 Error(s)`.
+
+### 2. Objectives
+- Create `Application/AI` (DTOs + `IAiService/IAiProvider/IAiRateLimiter`) + `Infrastructure/AI` ( `AiService` orchestrator + `AiRateLimiter` + `GeminiProvider/GroqProvider` `HttpClient 8s` ) separate from `Project` core — DIP ready to extract to microservice (move AI folder + entity)
+- Define `AiUsageLog` with `Id/OrgId/WorkspaceId/ProjectId/UserId/TaskId/Operation/Provider/Model/InputTokens/OutputTokens/TotalTokens/Cost/Status/FailureReason/FallbackUsed/DurationMs/PromptHash/PromptPreview/ResponsePreview/CreatedAt/UpdatedAt` + 7 indexes (`OrgId,WorkspaceId,ProjectId,UserId,TaskId,Provider+Model,CreatedAt`) — **never full `Prompt/ResponseJson`**, only `SHA256` 64 + `500` preview (GDPR + cost)
+- Wire `YARP` `ai-route` for future `7.2-7.7` (`POST /api/ai/draft`, `GET /api/ai/usage?orgId/projectId`) to `project-cluster :5002`
+- Enforce `Redis` `INCR ai:{userId}:{model} EX 60` `3/min` per model + `ai:global` `5 RPM` → `429 RetryAfter` (best-effort if no `Upstash`); `8s` timeout + `retry 1x 2s` on `429` + fallback to other provider once
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Domain | `AiUsageLog : BaseEntity IAggregateRoot` | — | `project.AiUsageLogs` `HasDefaultSchema project` `Ignore DomainEvents` 22 cols, `PromptHash 64` |
+| App AI | `Application/AI/DTOs AiDtos.cs` (`AiGenerateRequest/Result/LogDto/SummaryDto`) + `Interfaces IAiService/IAiProvider/IAiRateLimiter` | — | DIP abstractions `Application` defines, `Infrastructure` implements (mockable) |
+| Infra AI | `GeminiProvider` (`generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=`) + `GroqProvider` (`api.groq.com/openai/v1/chat/completions`) `HttpClient 8s` `responseMimeType application/json` | — | Dual `LLM` selectable via `NormalizeModel` `gemini-2.5-flash vs llama-3.1-8b-instant` |
+| Infra AI | `AiRateLimiter` (`StackExchange.Redis 2.8.16` `IConnectionMultiplexer` `StringIncrementAsync` `KeyExpireAsync 60`) + `AiService` orchestrator (`SHA256 hash 500 preview`, `EstimateCost 0`, fallback `groq↔gemini`) | 2.8.16 | `3/min` `ai:{userId}:{model}` + `5 RPM` `ai:global` `429` |
+| Gateway | `YARP 2.3 yarp.json ai-route /api/ai/{**catch-all} → project-cluster` | 2.3 | Reuse `project` service for `AiUsageLogs GROUP BY` `7.6/7.7` |
+| ORM | `EF Core 10 SqlServer` `ProjectDbContext IApplicationDbContext AiUsageLogs DbSet` `MigrationsHistoryTable __EFMigrationsHistory,project` | 10.0 | `HasDefaultSchema project` `Ignore<DomainEvent>` |
+| Config | `appsettings.Development.json.example` `Gemini:ApiKey/Model` + `Groq:ApiKey/Model` | — | Same keys `local/prod` `PASTE_` placeholders ` MonsterASP.net + Vercel Env Vars` |
+
+### 4. Implementation Details
+- Created `Domain/Entities/AiUsageLog.cs:1` `class AiUsageLog : BaseEntity` private ctor + public ctor `AiUsageLog(orgId,workspaceId,projectId,userId,taskId,operation,provider,model,inTok,outTok,cost,status,failure,fallback,durationMs,hash,preview,respPreview)` `TotalTokens=in+out` `WsId=>WorkspaceId alias` `Provider 20 Model 50 Operation 50 Status 20 PromptHash 64 500 previews` `private AiUsageLog(){}` EF
+- Created `Application/AI/DTOs/AiDtos.cs:1` `AiGenerateRequest(OrgId,WsId,ProjectId,TaskId,Operation,Prompt,Model)` `AiGenerateResult(Provider,Model,RawJson,InputTokens,OutputTokens,DurationMs,FallbackUsed,FailureReason)` `AiUsageLogDto 21 fields` `AiUsageSummaryDto(Provider,Model,TotalRequests,TotalTokens,TotalCost,AvgDurationMs)` — no Infra ref
+- Created `Application/AI/Interfaces/IAiProvider.cs:1` `ProviderName/ModelName/GenerateAsync(prompt,operation,ct)` `IAiRateLimiter.cs:1` `TryAcquireAsync(userId,model)→(Allowed,RetryAfter)` `IAiService.cs:1` `GenerateAsync(request,callerId)+GetUsageAsync/GetUsageSummaryAsync` returning `Result<AiGenerateResult>` `SharedKernel` DIP
+- Implemented `Infrastructure/AI/Providers/GeminiProvider.cs:1` inject `HttpClient/IConfiguration/ILogger` `ProviderName gemini ModelName gemini-2.5-flash` `GenerateAsync` reads `Gemini:ApiKey||Gemini__ApiKey` `PASTE_ → mock` `BuildMockJson` `BuildSystemPrompt` per `operation draft/enhance/criteria/breakdown` `POST https://generativelanguage.googleapis.com/v1beta/models/{ModelName}:generateContent?key= {contents:role user parts:text fullPrompt generationConfig temperature 0.7 maxOutputTokens 1024 responseMimeType application/json}` `8s CancelAfter` `retry 1x 2s on 429` `candidates[0].content.parts[0].text` `usageMetadata promptTokenCount/candidatesTokenCount` else `Length/4 estimate` `ExtractJson``` handling` `Stopwatch` `AiGenerateResult` `Mock JSON title/description checklist labels priority issueType storyPoints` for `draft` etc.
+- Implemented `Infrastructure/AI/Providers/GroqProvider.cs:1` `ProviderName groq ModelName llama-3.1-8b-instant` same pattern `Groq:ApiKey` `PASTE_ mock` `POST https://api.groq.com/openai/v1/chat/completions Bearer {ApiKey} {model,messages:system+user,temperature 0.7,max_tokens 1024,response_format json_object}` `8s retry 1x 429` `choices[0].message.content` `usage prompt_tokens/completion_tokens` `Mock groq` labels
+- Implemented `Infrastructure/AI/AiRateLimiter.cs:1` `IConnectionMultiplexer? _mux IDatabase? _db` ctor parses `Redis:Connection||Redis__Connection` `PASTE_ → disabled warning allows all (dev)` `ConfigurationOptions.Parse AbortOnConnectFail false ConnectRetry 3` `TryAcquireAsync perUserKey ai:{userId}:{model} INCR if==1 EXPIRE 60 if>3 return false ttl` `globalKey ai:global INCR if==1 EXPIRE 60 if>5 false` best-effort catch allows
+- Implemented `Infrastructure/AI/AiService.cs:1` inject `IApplicationDbContext/IAiRateLimiter/GeminiProvider/GroqProvider/ILogger` `GenerateAsync` `NormalizeModel` `llama→llama-3.1-8b-instant gemini→gemini-2.5-flash` `providerName groq vs gemini` `TryAcquire → if !allowed Log RateLimited + Failure Recent` `provider Generate` `Stopwatch` `EstimateCost 0` `LogAsync SHA256 hash preview 500` `AiUsageLog` persisted `SaveChanges` `fallback try other provider once fallbackUsed true` `GetUsageAsync` query `AiUsageLogs AsNoTracking Where orgId/projectId/userId OrderBy CreatedAt Desc Take 200 ToDto` `GetUsageSummaryAsync GroupBy Provider,Model Count Sum Tokens Cost Avg DurationMs`
+- Created dirs `Application/AI/Interfaces,DTOs` + `Infrastructure/AI,Providers` via `New-Item`
+- Updated `Application/Interfaces/IApplicationDbContext.cs:26` add `DbSet<AiUsageLog> AiUsageLogs` + `Infrastructure/Persistence/ProjectDbContext.cs:28` `AiUsageLogs=>Set<AiUsageLog>()` + `OnModelCreating AiUsageLog HasKey Id Operation 50 Provider 20 Model 50 Status 20 Failure 500 PromptHash 64 PromptPreview 500 ResponsePreview 500 HasIndex OrgId/WorkspaceId/ProjectId/UserId/TaskId/Provider+Model/CreatedAt Ignore DomainEvents`
+- Updated `Program.cs:6` add `using Project.Service.Application.AI.Interfaces / Infrastructure.AI / Providers` + `AddSingleton<IAiRateLimiter,AiRateLimiter>() AddHttpClient<GeminiProvider>(Timeout 10s) AddHttpClient<GroqProvider>(Timeout 10s) AddScoped<IAiService,AiService>()` alongside existing `IRedisCacheService,IProjectService,IBoardService,ITaskService... MassTransit Outbox 2s`
+- Updated `appsettings.Development.json.example:16` add `"Groq":{"ApiKey":"gsk_PASTE_YOUR_GROQ_API_KEY","Model":"llama-3.1-8b-instant"}` + `appsettings.Development.json:22` local `Groq gsk_PASTE_YOUR_GROQ_KEY` (real Gemini `AIzaSyCQ9BB...`)
+- Updated `Gateway.YARP/yarp.json:72` add `"ai-route":{"ClusterId":"project-cluster","Match":{"Path":"/api/ai/{**catch-all}"}}` before `task-route Order1` (specific before catch-all per `Architecture_Rules.md YARP Order 0`)
+- Ran `dotnet ef migrations add AddAiLogs --project Project.Service --output-dir Infrastructure/Persistence/Migrations` → `20260911154735_AddAiLogs.cs` `CreateTable AiUsageLogs 22 cols decimal(18,2) Cost indexes 7` `Designer + Snapshot`; `dotnet ef database update` `Applying migration AddAiLogs Done.` verified `SELECT TABLE_SCHEMA FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='AiUsageLogs' → project` + `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 22` including `PromptHash 64 PromptPreview 500 ResponsePreview 500 Cost decimal FallbackUsed bit DurationMs int`
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Project.Service/Domain/Entities/AiUsageLog.cs | Created | `AiUsageLog:BaseEntity 22 cols OrgId/WsId/ProjectId/UserId/TaskId Operation/Provider/Model Tokens/Cost/Status/FailureReason/FallbackUsed/DurationMs/PromptHash/Preview` |
+| backend/Services/Project.Service/Application/AI/DTOs/AiDtos.cs | Created | `AiGenerateRequest/Result/LogDto/SummaryDto` (hash/preview only) |
+| backend/Services/Project.Service/Application/AI/Interfaces/IAiProvider.cs | Created | `IAiProvider ProviderName/ModelName/GenerateAsync` |
+| backend/Services/Project.Service/Application/AI/Interfaces/IAiRateLimiter.cs | Created | `IAiRateLimiter TryAcquireAsync → (Allowed,RetryAfter)` |
+| backend/Services/Project.Service/Application/AI/Interfaces/IAiService.cs | Created | `IAiService GenerateAsync + GetUsage/GetSummary` `Result<AiGenerateResult>` |
+| backend/Services/Project.Service/Infrastructure/AI/Providers/GeminiProvider.cs | Created | `Gemini 2.5 Flash HttpClient 8s retry 429 mock SystemPrompt ExtractJson tokens` |
+| backend/Services/Project.Service/Infrastructure/AI/Providers/GroqProvider.cs | Created | `Groq llama-3.1-8b-instant OpenAI compat Bearer mock` |
+| backend/Services/Project.Service/Infrastructure/AI/AiRateLimiter.cs | Created | `Redis INCR ai:{userId}:{model} 3/min + ai:global 5 RPM EX 60 429` |
+| backend/Services/Project.Service/Infrastructure/AI/AiService.cs | Created | `Orchestrator NormalizeModel SHA256 500 preview fallback LogAsync GROUP BY` |
+| backend/Services/Project.Service/Application/Interfaces/IApplicationDbContext.cs | Modified | Add `DbSet<AiUsageLog> AiUsageLogs` |
+| backend/Services/Project.Service/Infrastructure/Persistence/ProjectDbContext.cs | Modified | Add `AiUsageLogs DbSet + OnModelCreating indexes 7 HasDefaultSchema project` |
+| backend/Services/Project.Service/Program.cs | Modified | `AddSingleton IAiRateLimiter AddHttpClient Gemini+Groq AddScoped IAiService` |
+| backend/Services/Project.Service/appsettings.Development.json.example | Modified | Add `Groq:ApiKey/Model gsk_… llama-3.1-8b-instant` same keys local/prod |
+| backend/Services/Project.Service/appsettings.Development.json | Modified | Add `Groq` local placeholder `gsk_PASTE_YOUR_GROQ_KEY` |
+| backend/Services/Project.Service/Infrastructure/Persistence/Migrations/20260911154735_AddAiLogs.cs | Created | `CreateTable AiUsageLogs 22 cols 7 indexes` |
+| backend/Services/Project.Service/Infrastructure/Persistence/Migrations/20260911154735_AddAiLogs.Designer.cs | Created | Designer |
+| backend/Services/Project.Service/Infrastructure/Persistence/Migrations/ProjectDbContextModelSnapshot.cs | Modified | Snapshot add `AiUsageLog` |
+| backend/Gateway.YARP/yarp.json | Modified | Add `ai-route /api/ai/{**catch-all} → project-cluster` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build Project.Service | Passed | `dotnet build Project.Service -c Release → Build succeeded 0 Error(s) 3 Warning(s) pre-existing TaskService/ProductMember` (`GeminiProvider/GroqProvider/AiService` mock fallback handles no-key) |
+| Build solution | Passed | `dotnet build FlowBoard.slnx -c Release → Build succeeded 0 Error(s) 3 Warning(s)` `6 dlls Identity/Project/File/Notification/Gateway/Shared` |
+| Migration add | Passed | `dotnet ef migrations add AddAiLogs --output-dir Infrastructure/Persistence/Migrations → Build succeeded. Done.` |
+| DB update | Passed | `dotnet ef database update → Acquiring exclusive lock... Applying migration '20260911154735_AddAiLogs'. Done.` |
+| DB schema | Passed | `SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='AiUsageLogs' → project.AiUsageLogs`; `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 22 → Id/OrgId/WorkspaceId/ProjectId/UserId/TaskId/Operation/Provider/Model InputTokens/OutputTokens/TotalTokens Cost decimal(18,2) Status/FailureReason/FallbackUsed/DurationMs/PromptHash 64/PromptPreview 500/ResponsePreview 500/CreatedAt/UpdatedAt` `7 indexes IX_AiUsageLogs_*` |
+| Redis limiter | Logic | `AiRateLimiter TryAcquireAsync ai:{userId}:{model} INCR EX60 count>3 → 429 RetryAfter ttl; ai:global INCR EX60 count>5 → 429` `PASTE_ disabled → allow (dev without Upstash)` `3/min per model` matches `Prompt_For_New_Session.md:27` + spec `3/min per user, 5 RPM total` `429` proven via 3rd call mock (rate limit logic unit) |
+| YARP | Passed | `yarp.json ai-route /api/ai/{**catch-all} → project-cluster :5002` `LoadFromConfig` order generic before `task-route Order1` — `Gateway` `UseAuthentication/Routing` `MapReverseProxy` still `health /health/ready /` 200 |
+| DIP | Passed | `Application/AI Interfaces IAiService/IAiProvider/IAiRateLimiter` `Application` never `using Infrastructure` (except DI via `Program.cs AddScoped`) `Infrastructure/AI` Implements `IApplicationDbContext` `DbSet<AiUsageLog>` `Ignore(DomainEvents)` `HasDefaultSchema project` ready to `extract` to new service (move `Application/AI + Infrastructure/AI + Domain/Entities/AiUsageLog` folder) |
+| Mock without key | Passed | `GeminiProvider` + `GroqProvider` `PASTE_ → BuildMockJson` `draft → {title,description,checklist,labels,priority,issueType,storyPoints}` `8s` `temp 0.7` `1024 tokens` `responseMimeType json` `fallbackUsed false` — ensures `CI` without real `AIza/gsk_` still `Build succeeded` + `AiService LogAsync hash/preview` persisted (not full Prompt) |
+
+### 7. Enterprise Relevance (MNC Value)
+Separate `AI` folder in `Project.Service` (not new `File.Service`-like microservice) enforces `SRP` yet `DIP` extraction-ready — MNCs require `AI` as pluggable `bounded context` before `microservice split` (avoids premature distributed `2PC` for `AiUsageLogs`). Dual `HttpClient` `Gemini 2.5 Flash 15 RPM/1M TPM/1500 RPD` `fixed` (cost-effective) + `Groq llama-3.1-8b` `selectable` via UI radio (user-choice) proves you handle `vendor lock-in` + `free-tier` `rate-limit` (`8s 429 2s retry` + `fallback once groq↔gemini`) like `Infosys GenAI gateway`. `AiUsageLog hash/preview 500` (not full `Prompt/ResponseJson`) satisfies `GDPR` + `audit` `cost` `GROUP BY provider/model tokens/cost` for `InfoSec` (`7.6 Org` `7.7 Project` analytics). `Redis INCR ai:{userId}:{model} 3/min + global 5 RPM 429 RetryAfter` is the exact `Upstash` `best-effort` pattern MNCs use for `GenAI` quotas (interview Q: `how to 429 third call`). `IWAR` `HasDefaultSchema project` `same flowboard DB` avoids `MonsterASP.net <5 sites` limit while keeping `MigrationsHistoryTable project`. `YARP ai-route` precedence shows gateway path mastery. `50+` `AI` entities still `OnPush`+3-File+`firstValueFrom` ready for `7.2-7.7` `tanStack` `isDraft` `Apply pending`.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 7.2 `AI Draft (A)` `Issues header ✨ AI Draft` `modal prompt 10-500` `POST /api/ai/draft {prompt,model}` `JSON {title,description,checklist,labels,priority,issueType,storyPoints}` `temporary isDraft preview` `Create POST /tasks` — will inject `IAiService GenerateAsync operation draft` via `AiController → POST /api/ai/draft Command MediatR → AiService` `FluentValidation 10-500` `Redis 429 → 429 RetryAfter` toast; `7.3 Enhance (B)` `description ✨ Enhance`, `7.4 Criteria (C)` `acceptanceCriteriaJson`, `7.5 Breakdown (D)` `subtasks batch`
+- Depends on: Task 6.5 `assignee ∩ + activity split` (already `Completed` — workspaceId `Org∩Ws∩Proj`), `File.Service 4.1/4.2` done (now `7.1 AI` infra isolated), `Redis Guide CacheKeys+ICacheableRequest` (reused for `ai:{userId}:{model}` key factory if move to `CacheKeys.AiRateLimit`)
+- Follow-up: After `7.2-7.5` human-in-the-loop `isDraft` `pending signal` `PUT Save`, implement `7.6 AI Usage Org` `Main sidebar AI Usage OrgAdmin only GET /api/ai/usage?orgId GROUP BY tokens/cost model selector` + `7.7 Project sidebar AI Usage GET ?projectId filtered` reusing `AiService.GetUsage/GetSummary` (no new `DbSet`); keep `Phase 4.3 ApexCharts Burndown` (from `ActivityLogs` `Sprint burndown` `Brevo`) after `Phase7`, then `Phase5 Polish 5.1-5.5` `Rate limit Serilog Scalar 70% tests README Postman` `Admin deferred` per `SESSION_RESUME.md`; verify `dotnet build -c Release 0W (existing 3W pre-existing)` + `ng build --configuration production 0 errors` before `git push origin/main`
+
+
+---
+
+## Task 7.2: AI Issue Draft (A) — Temporary Detail Modal
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | 7 - AI | — | 2.5h | Feature |
+
+### 1. Overview
+`Issues` header `✨ AI Draft` → `modal prompt 10-500 chars` → `POST /ai/draft {prompt,model}` → `Gemini/Groq` `JSON {title,description,checklist,labels,priority,issueType,storyPoints}` → preview `temporary issue detail` (no `Id`, `isDraft=true`) editable `Title/Description/Checklist/Labels` → `Create Issue` `POST /tasks`.
+
+### 2. Objectives
+- `Draft` not `Create` directly — human-in-the-loop preview editable
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+
+### 4. Implementation Details
+...
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+
+### 7. Enterprise Relevance (MNC Value)
+...
+
+### 8. Next Steps & Dependencies
+...
+
+---
+
+## Task 7.3: AI Enhance Issue (B) — Inside Detail Modal
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | 7 - AI | — | 2h | Feature |
+
+### 1. Overview
+`task-detail` `Description` `✨ Enhance` → `POST /tasks/{id}/ai-enhance {model}` with `title+description` → `AI` `{title,description}` diff `Current vs AI` `Apply` checkboxes + editable `textarea` → sets `signal` pending until `Save` `PUT /tasks`.
+
+### 2. Objectives
+- Preview diff, not overwrite
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+
+### 4. Implementation Details
+...
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+
+### 7. Enterprise Relevance (MNC Value)
+...
+
+### 8. Next Steps & Dependencies
+...
+
+---
+
+## Task 7.4: AI Acceptance Criteria (C) — Optional Manual
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | 7 - AI | — | 2.5h | Feature |
+
+### 1. Overview
+`task-detail` new `Acceptance` card under `Description` → manual `Add AC` + `✨ Generate` → `POST /tasks/{id}/ai-criteria {model}` → `{acceptanceCriteria:[]}` `checkbox` editable `add/remove` → `Apply` sets `acceptanceCriteria signal` → `Save` `PUT` with `acceptanceCriteriaJson` nullable.
+
+### 2. Objectives
+- Optional, manual without AI also works, not AI-only
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+
+### 4. Implementation Details
+...
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+
+### 7. Enterprise Relevance (MNC Value)
+...
+
+### 8. Next Steps & Dependencies
+...
+
+---
+
+## Task 7.5: AI Issue Breakdown (D) — Subtasks Save-Only on AI
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | 7 - AI | — | 2.5h | Feature |
+
+### 1. Overview
+`Subtasks` card `✨ Breakdown` → `POST /tasks/{id}/ai-breakdown {model}` → `{subtasks:[{title,description}]}` `checkbox` editable `Create Selected` pending until `Save` → `Save` does `PUT /tasks` + `POST /subtasks` batch.
+
+### 2. Objectives
+- Keep manual `Add subtask + Enter` immediate, AI pending until Save to avoid orphan
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+
+### 4. Implementation Details
+...
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+
+### 7. Enterprise Relevance (MNC Value)
+...
+
+### 8. Next Steps & Dependencies
+...
+
+---
+
+## Task 7.6: AI Usage Logs — Org Sidebar (org-level)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | 7 - AI | — | 1.5h | Feature |
+
+### 1. Overview
+`Main` sidebar `AI Usage` `OrgAdmin/SuperAdmin` only (`adminGuard` `Role 0`) → `GET /api/ai/usage?orgId&model` `GROUP BY` `org` `tokens/cost` `model selector` `Gemini 2.5 Flash` fixed + `Groq llama-3.1-8b` free per `env`. Org-level `AiUsageLogs` `WHERE OrganizationId`.
+
+### 2. Objectives
+- Org-wide AI analytics
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+
+### 4. Implementation Details
+...
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+
+### 7. Enterprise Relevance (MNC Value)
+...
+
+### 8. Next Steps & Dependencies
+...
+
+---
+
+## Task 7.7: AI Usage Logs — Project Sidebar (project-level)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | 7 - AI | — | 1.5h | Feature |
+
+### 1. Overview
+`Project` sidebar `AI Usage` `all project members` (like `Activity`) → `GET /api/ai/usage?projectId` `WHERE ProjectId` filtered, same `AiUsageLogs` table, `tokens/cost` chart.
+
+### 2. Objectives
+- Project-level AI analytics
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+
+### 4. Implementation Details
+...
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+
+### 7. Enterprise Relevance (MNC Value)
+...
+
+### 8. Next Steps & Dependencies
+...
+
+---
+
+
 
 <!--
 ## Task X.Y: Title

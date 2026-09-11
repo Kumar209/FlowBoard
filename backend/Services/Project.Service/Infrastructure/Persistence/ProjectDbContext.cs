@@ -25,6 +25,7 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
     public DbSet<BoardColumnStatus> BoardColumnStatuses => Set<BoardColumnStatus>();
     public DbSet<ProjectEnvironment> Environments => Set<ProjectEnvironment>();
     public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
+    public DbSet<AiUsageLog> AiUsageLogs => Set<AiUsageLog>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -226,6 +227,28 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.HasIndex(x => x.UserId);
             e.Ignore(x => x.DomainEvents);
             e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // AiUsageLog - AI analytics (7.1), separate AI folder DIP ready to extract, [project].AiUsageLogs, hash/preview only (no full Prompt/ResponseJson)
+        b.Entity<AiUsageLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Operation).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Provider).HasMaxLength(20).IsRequired();
+            e.Property(x => x.Model).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            e.Property(x => x.FailureReason).HasMaxLength(500);
+            e.Property(x => x.PromptHash).HasMaxLength(64).IsRequired();
+            e.Property(x => x.PromptPreview).HasMaxLength(500);
+            e.Property(x => x.ResponsePreview).HasMaxLength(500);
+            e.HasIndex(x => x.OrgId);
+            e.HasIndex(x => x.WorkspaceId);
+            e.HasIndex(x => x.ProjectId);
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.TaskId);
+            e.HasIndex(x => new { x.Provider, x.Model });
+            e.HasIndex(x => x.CreatedAt);
+            e.Ignore(x => x.DomainEvents);
         });
     }
 }

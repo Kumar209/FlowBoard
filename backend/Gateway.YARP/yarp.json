@@ -69,6 +69,10 @@
         "ClusterId": "project-cluster",
         "Match": { "Path": "/api/statuses" }
       },
+      "ai-route": {
+        "ClusterId": "project-cluster",
+        "Match": { "Path": "/api/ai/{**catch-all}" }
+      },
       "task-route": {
         "ClusterId": "project-cluster",
         "Match": { "Path": "/api/tasks/{**catch-all}" },
@@ -80,7 +84,8 @@
       },
       "file-attachments-route": {
         "ClusterId": "file-cluster",
-        "Match": { "Path": "/api/tasks/{taskId}/attachments" }
+        "Match": { "Path": "/api/tasks/{taskId}/attachments" },
+        "Order": 0
       },
       "notification-route": {
         "ClusterId": "notification-cluster",

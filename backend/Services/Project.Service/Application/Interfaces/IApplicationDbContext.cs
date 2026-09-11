@@ -23,6 +23,7 @@ public interface IApplicationDbContext
     DbSet<BoardColumnStatus> BoardColumnStatuses { get; }
     DbSet<ProjectEnvironment> Environments { get; }
     DbSet<ProjectMember> ProjectMembers { get; }
+    DbSet<AiUsageLog> AiUsageLogs { get; }
 
     DatabaseFacade Database { get; }
 
