@@ -6,12 +6,13 @@ import { ProjectService } from '../../../core/services/project.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { TaskDetailModalComponent } from '../../../shared/components/modals/task-detail-modal/task-detail-modal.component';
 import { TaskCreateModalComponent } from '../../../shared/components/modals/task-create-modal/task-create-modal.component';
+import { AiDraftModalComponent } from '../../../shared/components/modals/ai-draft-modal/ai-draft-modal.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
   selector: 'app-issues',
   standalone: true,
-  imports: [CommonModule, TaskDetailModalComponent, TaskCreateModalComponent],
+  imports: [CommonModule, TaskDetailModalComponent, TaskCreateModalComponent, AiDraftModalComponent],
   templateUrl: './issues.component.html',
   styleUrls: ['./issues.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -60,6 +61,7 @@ export class IssuesComponent {
   createListId = signal('');
   createStatusId = signal('');
   deleteTarget = signal<any>(null);
+  aiDraftOpen = signal(false);
   boardQuery = injectQuery(() => ({
     queryKey: ['board', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.ps.getBoard(this.projectId())),
@@ -136,6 +138,23 @@ export class IssuesComponent {
     this.createListId.set(''); // no column
     this.createStatusId.set(statuses[0].id);
     this.createOpen.set(true);
+  }
+  openAiDraft(){
+    const statuses = this.statusesQuery.data() || [];
+    if(statuses.length===0) {
+      this.toast.error('Create a Status first — go to Project → Statuses → + New Status.');
+      return;
+    }
+    this.aiDraftOpen.set(true);
+  }
+  onAiDraftCreated(e:any){
+    // e: {title,description,checklist,labels,priority,issueType,storyPoints}
+    const statuses = this.statusesQuery.data() || [];
+    const statusId = statuses[0]?.id || '';
+    const desc = e.checklist?.length ? `${e.description}\n\n**Checklist:**\n${e.checklist.map((c:string)=>`- ${c}`).join('\n')}` : e.description;
+    const labelsJson = e.labels?.length ? JSON.stringify(e.labels) : undefined;
+    this.createMutation.mutate({ listId: null, statusId, title: e.title, description: desc, priority: e.priority, labelsJson, issueType: e.issueType, storyPoints: e.storyPoints });
+    this.aiDraftOpen.set(false);
   }
   onCreateSubmit(e:any){
     const labelsJson = e.labels ? JSON.stringify(e.labels.split(',').map((s:string)=>s.trim()).filter(Boolean)) : undefined;

@@ -1,0 +1,90 @@
+@if (open()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="close()"></div>
+    <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative z-10 border max-h-[90vh] overflow-y-auto">
+      @if (!isPreview()) {
+        <h3 class="font-bold text-lg flex items-center gap-2">✨ AI Draft</h3>
+        <p class="text-xs opacity-60">Describe the issue (10-500 chars). AI will draft title, description, checklist, labels — human-in-the-loop preview before create.</p>
+        <div class="mt-4 space-y-3">
+          <label class="form-control">
+            <span class="label-text text-xs">Prompt * <span class="opacity-40">{{ promptCount() }}/500</span></span>
+            <textarea class="textarea textarea-bordered rounded-xl h-28" placeholder="e.g., Users cannot login on mobile 320px — login form overflows, footer hidden..." [value]="prompt()" (input)="prompt.set($any($event.target).value)"></textarea>
+            @if (prompt().trim().length > 0 && !promptValid()) { <span class="label-text-alt text-error text-xs">10-500 chars required (now {{ promptCount() }})</span> }
+          </label>
+          <div class="form-control">
+            <span class="label-text text-xs">Model *</span>
+            <div class="flex gap-4 mt-1">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" class="radio radio-primary radio-sm" [checked]="model()==='gemini-2.5-flash'" (change)="model.set('gemini-2.5-flash')" />
+                <span class="text-sm">Gemini 2.5 Flash <span class="badge badge-ghost badge-xs">fixed</span></span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" class="radio radio-primary radio-sm" [checked]="model()==='llama-3.1-8b-instant'" (change)="model.set('llama-3.1-8b-instant')" />
+                <span class="text-sm">Groq llama-3.1-8b <span class="badge badge-outline badge-xs">free</span></span>
+              </label>
+            </div>
+            <span class="label-text-alt text-[10px] opacity-40">Rate limit 3/min per model (5 RPM total) — 429 shows Retry-After</span>
+          </div>
+          @if (error()) { <div class="alert alert-error py-2 text-xs">{{ error() }}</div> }
+        </div>
+        <div class="flex justify-end gap-2 mt-6">
+          <button class="btn btn-ghost rounded-xl" (click)="close()">Cancel</button>
+          <button class="btn btn-primary rounded-xl" (click)="generate()" [disabled]="!canGenerate()" [class.loading]="isGenerating()">
+            @if (isGenerating()) { Generating… } @else { ✨ Generate Draft }
+          </button>
+        </div>
+      } @else {
+        <h3 class="font-bold text-lg">Preview — isDraft <span class="badge badge-ghost badge-sm">no Id yet</span></h3>
+        <p class="text-xs opacity-60">Edit below — <span class="badge badge-outline badge-xs">{{ draft()?.provider }} • {{ draft()?.model }}</span> — Create will POST /tasks to Backlog.</p>
+        <div class="mt-4 space-y-3">
+          <label class="form-control">
+            <span class="label-text text-xs">Title *</span>
+            <input type="text" class="input input-bordered rounded-xl" [value]="title()" (input)="title.set($any($event.target).value)" />
+          </label>
+          <label class="form-control">
+            <span class="label-text text-xs">Description</span>
+            <textarea class="textarea textarea-bordered rounded-xl h-24" [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
+          </label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="form-control">
+              <span class="label-text text-xs">Issue Type</span>
+              <select class="select select-bordered rounded-xl" [value]="issueType()" (change)="issueType.set($any($event.target).value)">
+                <option>Task</option><option>Bug</option><option>Story</option><option>Feature</option>
+              </select>
+            </label>
+            <label class="form-control">
+              <span class="label-text text-xs">Priority</span>
+              <select class="select select-bordered rounded-xl" [value]="priority()" (change)="priority.set($any($event.target).value)">
+                <option>Low</option><option>Medium</option><option>High</option><option>Urgent</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="form-control">
+              <span class="label-text text-xs">Story Points</span>
+              <select class="select select-bordered rounded-xl" [value]="storyPoints() ?? ''" (change)="storyPoints.set($any($event.target).value ? +$any($event.target).value : null)">
+                <option value="">—</option><option [value]="1">1</option><option [value]="2">2</option><option [value]="3">3</option><option [value]="5">5</option><option [value]="8">8</option>
+              </select>
+            </label>
+            <label class="form-control">
+              <span class="label-text text-xs">Labels (comma)</span>
+              <input type="text" class="input input-bordered rounded-xl" placeholder="bug, mobile" [value]="labels()" (input)="labels.set($any($event.target).value)" />
+            </label>
+          </div>
+          <label class="form-control">
+            <span class="label-text text-xs">Checklist (one per line)</span>
+            <textarea class="textarea textarea-bordered rounded-xl h-20" placeholder="Analyze mobile breakpoint&#10;Fix responsive layout" [value]="checklist()" (input)="checklist.set($any($event.target).value)"></textarea>
+          </label>
+          @if (error()) { <div class="alert alert-error py-2 text-xs">{{ error() }}</div> }
+        </div>
+        <div class="flex justify-between gap-2 mt-6">
+          <button class="btn btn-ghost rounded-xl" (click)="backToPrompt()">← Back to prompt</button>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost rounded-xl" (click)="close()">Cancel</button>
+            <button class="btn btn-primary rounded-xl" (click)="submitCreate()" [disabled]="!title().trim()">Create Issue</button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}

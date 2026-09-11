@@ -4,7 +4,10 @@
       <h1 class="text-xl font-bold">Issues</h1>
       <p class="text-xs opacity-60">Project issues = all TaskItems. Boards group same issues. New issues go to Backlog (Sprint None) until assigned to Sprint.</p>
     </div>
-    <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ Create Issue</button>
+    <div class="flex gap-2">
+      <button class="btn btn-ghost btn-sm rounded-full border" (click)="openAiDraft()">✨ AI Draft</button>
+      <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ Create Issue</button>
+    </div>
   </div>
 
   <div class="flex flex-col sm:flex-row gap-2">
@@ -88,6 +91,7 @@
     }
     <app-task-detail-modal [open]="detailOpen()" [task]="selectedTask()" [lists]="b.lists" [projectId]="projectId()" [workspaceId]="workspaceId()" [loading]="updateMutation.isPending()" [readOnly]="detailReadOnly()" (closed)="detailOpen.set(false)" (saved)="onSave($event)" />
     <app-task-create-modal [open]="createOpen()" [listName]="boardQuery.data()?.lists?.[0]?.name || 'To Do'" [projectId]="projectId()" [loading]="createMutation.isPending()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
+    <app-ai-draft-modal [open]="aiDraftOpen()" [projectId]="projectId()" (closed)="aiDraftOpen.set(false)" (created)="onAiDraftCreated($event)" />
 
     @if (deleteTarget()) {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4">

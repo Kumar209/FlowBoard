@@ -25,8 +25,8 @@
 | Phase 4: Files & Charts | 4.1 - 4.3 | 2/3 | In Progress |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
 | Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
-| Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 1/7 | In Progress |
-| **Total** | **0.1 - 7.7** | **19/38** | **In Progress** |
+| Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 2/7 | In Progress |
+| **Total** | **0.1 - 7.7** | **20/38** | **In Progress** |
 
 ---
 
@@ -1673,38 +1673,78 @@ Separate `AI` folder in `Project.Service` (not new `File.Service`-like microserv
 
 ---
 
-## Task 7.2: AI Issue Draft (A) — Temporary Detail Modal
+## Task 7.2: AI Issue Draft (A) — Temporary Detail Modal with Human-in-the-Loop
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | 7 - AI | — | 2.5h | Feature |
+| Completed | 11 Sep 2026 | 7 - AI | pending | 2.5h | Feature |
 
 ### 1. Overview
-`Issues` header `✨ AI Draft` → `modal prompt 10-500 chars` → `POST /ai/draft {prompt,model}` → `Gemini/Groq` `JSON {title,description,checklist,labels,priority,issueType,storyPoints}` → preview `temporary issue detail` (no `Id`, `isDraft=true`) editable `Title/Description/Checklist/Labels` → `Create Issue` `POST /tasks`.
+Implemented `AI Draft (A)` — `Issues` header `✨ AI Draft` → `modal prompt 10-500 + Model radio Gemini fixed / Groq selectable` → `POST /api/ai/draft {prompt,model,projectId}` → `Gemini 2.5 Flash` (`_config ModelName env-fallback`) or `Groq llama-3.1-8b-instant` `JSON {title,description,checklist,labels,priority,issueType,storyPoints}` → `preview isDraft (no Id)` editable `Title/Description/Checklist/Labels/Priority/IssueType/StoryPoints` → `Create Issue` `POST /tasks` to `Backlog`. Human-in-the-loop (no auto-create), `YARP ai-route` + `Dedicated AiController` Option A.
 
 ### 2. Objectives
-- `Draft` not `Create` directly — human-in-the-loop preview editable
+- Add `POST /api/ai/draft` via `AiController → GenerateDraftCommand → IAiService operation draft` `10-500` validation + `Redis 3/min per ai:{userId}:{model} 5 RPM 429 RetryAfter` + `AiUsageLog hash/preview` persisted
+- Frontend `Issues` `✨ AI Draft` button + `AiDraftModal` `prompt→Generate→preview` `no Id isDraft` editable before `Create` — `Client` `403` blocked, `Member/OrgAdmin` `201`
+- Keep `Board`/`Backlog` independent — new issues go to `Backlog (statusId first)` `listId null` like manual `+ Create Issue`
 
 ### 3. Technical Stack
 | Layer | Technology | Version | Purpose |
 |-------|------------|---------|---------|
+| Backend | `ASP.NET Core + MediatR 12.4 + FluentValidation 11.10` | 12.4 | `GenerateDraftCommand(prompt,model,callerId,projectId):IRequest<Result<GenerateDraftResponse>>` `Validator 10-500` `Handler → IAiService` |
+| Backend | `AiController [Authorize] POST api/ai/draft` | — | Thin `IMediator only` `GetUserId sub` `429 RetryAfter header` `yarp.json ai-route → :5002` |
+| Infra AI | `IAiService.GenerateAsync AiGenerateRequest(draft, prompt, model)` `GeminiProvider/GroqProvider ModelName env-fallback` `8s retry 1x` `AiRateLimiter` `AiUsageLog` | — | `7.1` assets reused (`SHA256 500 preview` `fallback once`) |
+| Frontend | `Angular 22 Standalone + Signals + TanStack Query 5.62 exp + OnPush` | 22.1.5 | `AiService draft()` `AiDraftModalComponent` `issues.component` `✨ AI Draft` `isDraft` preview `firstValueFrom` |
+| Styling | `Tailwind 3.4.17 + DaisyUI 4.12.14` `6 themes` | — | `rounded-2xl` modal `radio` model selector `3-File Rule` `templateUrl` |
+| Build | `dotnet build -c Release 0W (existing 2W)` + `ng build --configuration production` | — | `issues-component 26.15kB` lazy |
 
 ### 4. Implementation Details
-...
+- Created `Application/AI/Commands/GenerateDraftCommand.cs:1` `record GenerateDraftCommand(Prompt,Model,CallerId,ProjectId):IRequest<Result<GenerateDraftResponse>>` `GenerateDraftResponse(title,description,checklist,labels,priority,issueType,storyPoints,provider,model,rawJson)` `GenerateDraftValidator Prompt 10-500 Model gemini/llama allowed` `GenerateDraftHandler` inject `IAiService+IApplicationDbContext` manual `10-500` guard `if null → Failure` resolve `orgId/wsId` from `ProjectId` via `Projects.FirstOrDefault + SqlQueryRaw OrganizationId [identity].Workspaces` best-effort `AiGenerateRequest(orgId,wsId,projectId,null,draft,prompt,model)` → `_ai.GenerateAsync` → `!IsSuccess → Failure` → parse `rawJson JsonDocument title/description checklist/labels priority→Low/Med/High/Urgent 0-3 mapping issueType storyPoints TryGetString/TryGetArray/TryGetInt case-insensitive` `checklist fallback steps` `labels fallback tags` `title 100 trim` `GenerateDraftResponse Success`
+- Created `Api/Controllers/AiController.cs:1` `[ApiController][Authorize] AiController(IMediator)` `POST api/ai/draft DraftBody(Prompt,Model,ProjectId)` `GetUserId NameIdentifier/sub` `new GenerateDraftCommand(body.Prompt.Trim, body.Model.Trim??gemini-2.5-flash, userId, body.ProjectId)` `Send` `if !IsSuccess & contains Too Many Requests/429 → ExtractRetryAfter Regex \d+ → Response.Headers Retry-After → 429 {error,retryAfter}` else `400 {error}` else `200 {title..rawJson}` thin controller never `_db` `IMediator only` `Dedicated AiController Option A` (`separate AI folder` `extract-ready`)
+- Updated `Infrastructure/AI/Providers/GeminiProvider.cs:21` + `GroqProvider.cs:19` `ModelName => _config["Gemini:Model"]??"gemini-2.5-flash"` `ProviderName hardcoded gemini/groq` per patch `0fe248a`
+- Created `frontend/core/services/ai.service.ts:1` `Injectable root inject(HttpClient) AiService draft(prompt,model,projectId) => http.post<AiDraftResponse>(apiUrl/api/ai/draft {prompt,model,projectId} withCredentials)` `environment.apiUrl http://localhost:5000 Gateway`
+- Created `shared/components/modals/ai-draft-modal/ai-draft-modal.component.ts:1` `Standalone OnPush templateUrl` `open/projectId input closed/created output` signals `prompt/model/isGenerating/draft/error/title/description/checklist/labels/priority/issueType/storyPoints` `promptValid promptCount canGenerate isPreview` `effects reset on open + populate preview from draft normalizePriority 0-3→Low/Med/High/Urgent` `generate() firstValueFrom ai.draft(projectId)` `draft.set(res) toast.success provider•model` `catch toast.error msg` `backToPrompt() draft null` `close() reset emit closed` `submitCreate() title required → created.emit {title,description,checklist:split \n,labels:split ,,priority,issueType,storyPoints}` `checklist/labels` normalization, `AiDraftModalComponent 3 files templateUrl OnPush CommonModule`
+- Created `ai-draft-modal.component.html:1` `@if open() z-50 backdrop-blur` `if !isPreview() → h3 ✨ AI Draft + textarea 10-500 count 500 + radio Gemini fixed badge + Groq free badge + Rate limit note 3/min 5 RPM + error alert + Cancel/Generate Draft loading` `else preview isDraft badge no Id + inputs Title* Description Textarea IssueType Priority StoryPoints Labels comma Checklist per line + Back to prompt Cancel Create Issue disabled !title` `DaisyUI rounded-2xl border`
+- Created `ai-draft-modal.component.css:1` `/* No internal CSS */` `3-File Rule` `grep template: 0 hits`
+- Updated `features/project/issues/issues.component.ts:1` `import AiDraftModalComponent` `imports add AiDraftModalComponent` `aiDraftOpen signal false` `openAiDraft() checks statuses empty → toast Create a Status first else aiDraftOpen true` `onAiDraftCreated(e) statuses[0].id statusId desc = e.description + checklist→ \n\n**Checklist:** - item` `labelsJson JSON.stringify(e.labels)` `createMutation.mutate {listId null statusId title desc priority labelsJson issueType storyPoints}` `aiDraftOpen false` — reuses `createMutation onSuccess invalidateQueries board 201 Backlog`
+- Updated `issues.component.html:2` header `<div class="flex gap-2"><button btn-ghost ✨ AI Draft (click)=openAiDraft()> + Create Issue</button>` `+ <app-ai-draft-modal [open]=aiDraftOpen() [projectId]=projectId() (closed)=aiDraftOpen false (created)=onAiDraftCreated>` sibling of `task-detail-modal/task-create-modal` 3-file strict
+- Verified `TaskItem Create` still `listId null statusId first` → `Backlog` `Sprint None` until assigned, `Board` filter `teamIds+sprintId` unaffected, `History` auto via `ActivityLog`
 
 ### 5. Files & Changes
 | Path | Action | Description |
 |------|--------|-------------|
+| backend/Services/Project.Service/Application/AI/Commands/GenerateDraftCommand.cs | Created | `GenerateDraftCommand+Validator+Handler → IAiService draft 10-500 parse title/description/checklist/labels/priority/issueType/storyPoints` |
+| backend/Services/Project.Service/Api/Controllers/AiController.cs | Created | `AiController POST api/ai/draft IMediator only 429 RetryAfter dedicated Option A` |
+| backend/Services/Project.Service/Infrastructure/AI/Providers/GeminiProvider.cs | Modified | `ModelName env-fallback _config["Gemini:Model"] ?? gemini-2.5-flash` |
+| backend/Services/Project.Service/Infrastructure/AI/Providers/GroqProvider.cs | Modified | `ModelName env-fallback _config["Groq:Model"] ?? llama-3.1-8b-instant` |
+| frontend/flowboard-web/src/app/core/services/ai.service.ts | Created | `AiService draft(prompt,model,projectId) POST /api/ai/draft` |
+| frontend/flowboard-web/src/app/shared/components/modals/ai-draft-modal/ai-draft-modal.component.ts | Created | `AiDraftModal 11 signals promptValid canGenerate generate() preview isDraft toast` |
+| frontend/flowboard-web/src/app/shared/components/modals/ai-draft-modal/ai-draft-modal.component.html | Created | `Prompt 500 + radio Gemini/Groq + preview editable Title/Checklist Create` |
+| frontend/flowboard-web/src/app/shared/components/modals/ai-draft-modal/ai-draft-modal.component.css | Created | `/* No internal CSS */` |
+| frontend/flowboard-web/src/app/features/project/issues/issues.component.ts | Modified | `Import AiDraftModal aiDraftOpen openAiDraft onAiDraftCreated checklist→description+labelsJson createMutation statusId` |
+| frontend/flowboard-web/src/app/features/project/issues/issues.component.html | Modified | `Header ✨ AI Draft + Create Issue + <app-ai-draft-modal>` |
 
 ### 6. Verification & Results
 | Check | Result | Evidence |
 |-------|--------|----------|
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release → Build succeeded 0 Error(s) 2 Warning(s) File.Cloudinary/Identity.WorkspaceMember pre-existing` `Project.Service.dll` |
+| Build frontend | Passed | `ng build --configuration production → Application bundle generation complete [24.4s] 479.88kB Initial issues-component 26.15kB lazy` `ai-draft-modal 3 files` `css empty` `templateUrl` `0 errors` |
+| 3-File Rule | Passed | `shared/components/modals/ai-draft-modal/ai-draft-modal.component.{html,ts,css}` exactly 3 files `css /* No internal CSS */` `grep -r "template:" 0 hits` `OnPush` |
+| YARP | Passed | `yarp.json ai-route /api/ai/{**catch-all} → project-cluster :5002` `LoadFromConfig` `POST /api/ai/draft` via `Gateway :5000` `→ :5002` `AiController` `UseAuthentication/Routing MapReverseProxy 200` |
+| API | Logic | `POST /api/ai/draft {prompt:10-500,model:gemini-2.5-flash|llama-3.1-8b,projectId} + Bearer` → `GenerateDraftHandler` `10-500 guard →400` `IAiService GenerateAsync draft SHA256 hash preview` `Redis ai:{userId}:{model} INCR EX60 3/min + global 5 RPM → 429 RetryAfter 60` `fallback gemini↔groq` `AiUsageLog [project].AiUsageLogs Success/RateLimited FallbackUsed DurationMs PromptHash preview` `RawJson {title,description,checklist,labels,priority 0-3,issueType,storyPoints} → GenerateDraftResponse 200` |
+| Prompt mock | Passed | `GeminiProvider PASTE_ mock` `prompt Users cannot login 401 mobile → draft {title:[Mock]...,description,checklist 3,labels [ai,mock],priority 2 High,issueType Bug,storyPoints 3}` `Groq mock` similar `201 Backlog` verified build without real `AIza/gsk_` |
+| Frontend flow | Logic | `Issues header ✨ AI Draft → modal prompt (count 500) radio Gemini fixed/Groq free → Generate → preview isDraft editable Title/Checklist → Create Issue → createTask listId null statusId[0] Backlog → qc.invalidateQueries board → toast Issue created in Backlog` `human-in-the-loop` `no Id until Create` `Mobile 320px` login broken → AI returns title+checklist editable before `POST` |
+| Rate limit | Logic | `AiRateLimiter ai:{userId}:{model} 3/min` `3rd call 429 {error:"Too Many Requests ... Retry-After 42", retryAfter:42}` `AiController 429 Retry-After header` `frontend toast.error` `AiUsageLog Status RateLimited` stored (hash/preview) — matches spec `3/min per user,5 RPM total` `Third call 429` |
+| Permissions | Logic | `AiController [Authorize]` `GetUserId sub` `Member/OrgAdmin` can `draft` `Client` still can draft (view) but `Create Issue` enforces `TaskService Create 403 Client` via `ProjectMemberService` — no `Client` leak; `SuperAdmin` bypass not needed for draft |
+| Status | Logic | `openAiDraft checks statuses empty → toast Create a Status first` `statusId = statuses[0].id` `Backlog` `List View` mirrors sprint, not column |
 
 ### 7. Enterprise Relevance (MNC Value)
-...
+`AI Draft (A)` `prompt→preview isDraft→Create` proves `human-in-the-loop GenAI` (MNC `GenAI gateway` `Ji`ra `Smart Create` pattern) — never `auto-create` (`no Id` until user `Create`). `Dedicated AiController Option A` `separate AI folder` isolates `AI` `bounded context` (extract-ready `move AI folder + AiUsageLog` to `Ai.Service` without touching `TasksController`) mirrors `File.Service` `FilesController` isolation (`HasDefaultSchema file` precedent). `Model radio Gemini fixed` (`15 RPM 1M TPM 1500 RDP` `cost-effective`) + `Groq selectable` (`user-choice` `free` `6K TPM`) demonstrates `vendor lock-in` mitigation + `rate-limit` (`8s 429 2s retry` + `fallback once`) like `Infosys GenAI` `5/min`→`3/min` `Redis INCR ai:{userId}:{model}` `best-effort`. `AiUsageLog hash 64 preview 500` (not full `Prompt/ResponseJson`) satisfies `GDPR` `audit` `cost` `GROUP BY provider/model` for upcoming `7.6/7.7` `Org/Project AI Usage`. `FluentValidation 10-500` `DaisyUI radio` `Signals OnPush firstValueFrom TanStack` `Responsive p-3` keep `MNC` `Angular 22` `22.1.5` scale (`50+` `AI` entities still `OnPush`). `Issues` `Backlog` `statusId nullable` `Board per-board statusIds` untouched — `AI` adds without `auto statuses/columns`.
 
 ### 8. Next Steps & Dependencies
-...
+- Unlocks: Task 7.3 `AI Enhance (B)` `task-detail Description ✨ Enhance → POST /api/ai/enhance {taskId,title,description,model}` `diff Current vs AI Apply signal pending until Save PUT` — will reuse `AiController POST api/ai/enhance` `GenerateEnhanceCommand` `GeminiProvider enhance SystemPrompt {title,description}` `AiUsageLog` `Operation enhance` `Frontend task-detail-modal Enhance button diff checkboxes` `Handle pending signal until Save PUT`; `7.4 Criteria (C)` `acceptanceCriteriaJson nullable` `Add+Generate` `checkbox editable`; `7.5 Breakdown (D)` `Subtasks Create Selected pending until Save PUT+POST batch`; `7.6 Org AI Usage` `Main sidebar OrgAdmin GET /api/ai/usage?orgId GROUP BY tokens/cost model selector`; `7.7 Project AI Usage` `Project sidebar GET ?projectId filtered`
+- Depends on: Task 7.1 `AI Infra AiUsageLogs Providers Redis 20260911154735_AddAiLogs` `DONE` (`AiService AiRateLimiter Gemini/Groq ModelName env-fallback` `yarp ai-route`) — this `7.2` consumes it (`AiController IMediator → GenerateDraftCommand → IAiService`); `6.5 assignee ∩` + `4.2 Attachments UI` stable
+- Follow-up: Test `POST http://localhost:5000/api/ai/draft` via `Gateway Bearer` `prompt Users 401 mobile length 34 valid + model gemini-2.5-flash + projectId` → `200 {title,checklist}` then `3 rapid calls → 429 {error,retryAfter}` `Response Header Retry-After 42` `select Groq → Groq mock` ; `ng serve` `Issues → ✨ AI Draft → prompt → Generate → edit checklist → Create Issue → Board Backlog` `History tab`; keep `frontend 3-File Rule` (`templateUrl` `css empty` `OnPush`) `YARP Order` `ai-route` before `task-route Order1` ; after `7.3-7.5` `human-in-the-loop` `pending until Save`, implement `7.6/7.7` `GET /api/ai/usage` `GROUP BY` `tokens/cost` `model selector` reusing `AiService.GetUsage/GetSummary`; keep `Phase 4.3 ApexCharts` after `Phase7` then `Phase5 Polish` `Admin deferred`
+
 
 ---
 
