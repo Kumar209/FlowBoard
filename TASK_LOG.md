@@ -25,8 +25,8 @@
 | Phase 4: Files & Charts | 4.1 - 4.3 | 2/3 | In Progress |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
 | Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
-| Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 5/7 | In Progress |
-| **Total** | **0.1 - 7.7** | **23/38** | **In Progress** |
+| Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
+| **Total** | **0.1 - 7.7** | **25/38** | **In Progress** |
 
 ---
 
@@ -1958,34 +1958,102 @@ Implemented `AI Breakdown (D)` — `task-detail-modal Subtasks` card `✨ Breakd
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | 7 - AI | — | 1.5h | Feature |
+| Completed | 11 Sep 2026 | 7 - AI | 4bb3b3e | 1.5h | Feature |
 
 ### 1. Overview
-`Main` sidebar `AI Usage` `OrgAdmin/SuperAdmin` only (`adminGuard` `Role 0`) → `GET /api/ai/usage?orgId&model` `GROUP BY` `org` `tokens/cost` `model selector` `Gemini 2.5 Flash` fixed + `Groq llama-3.1-8b` free per `env`. Org-level `AiUsageLogs` `WHERE OrganizationId`.
+`Main` sidebar `AI Usage` `OrgAdmin/SuperAdmin` only (`orgAdminGuard Role 2`) → `GET /api/ai/usage?orgId&model` `GROUP BY` `org` `tokens/cost` `model selector` `Gemini 3.5 Flash` (Groq hidden). Org-level `AiUsageLogs` `WHERE OrganizationId`.
 
 ### 2. Objectives
-- Org-wide AI analytics
+- Org-wide AI analytics GROUP BY provider/model
 
 ### 3. Technical Stack
 | Layer | Technology | Version | Purpose |
 |-------|------------|---------|---------|
+| Backend | `ASP.NET Core + MediatR + IAiService` `GetAiUsageQuery/SummaryQuery` `Handler RBAC Roles.IsPrivilegedForManage` | 12.4 | `GET api/ai/usage?orgId` `GET api/ai/usage/summary?orgId` `yarp ai-route → :5002` |
+| Infra AI | `IAiService GetUsageAsync/GetSummaryAsync GROUP BY` `AiUsageLog 22 cols` | — | `hash 64 preview 500` `OrgAdmin` |
+| Frontend | `Angular 22 OnPush Signals TanStack AiService usage()` | 22.1.5 | `org AiUsageComponent /ai-usage` `modelFilter` |
 
 ### 4. Implementation Details
-...
+- Created `Application/AI/Queries/GetAiUsageQuery.cs:1` `GetAiUsageQuery/SummaryQuery` `Handler RBAC OrgAdmin` `SqlQueryRaw OrganizationMembers Role 2` `→ IAiService`
+- Updated `Api/Controllers/AiController.cs:1` `GET api/ai/usage + summary GetRoles orgId/projectId` `yarp ai-route` `dedicated Option A`
+- Created `frontend/core/services/ai.service.ts:1` `usage()/usageSummary() GET /api/ai/usage` `withCredentials`
+- Created `features/ai-usage/ai-usage.component.ts:1` `orgId from workspaces modelFilter summary/logs` `3-File Rule`
+- Updated `app.routes.ts:12` `Add /ai-usage OrgAdmin` `features/project/ai-usage` `layout Main AI Usage ✦ OrgAdmin` `project-layout AI Usage ✦`
 
 ### 5. Files & Changes
 | Path | Action | Description |
 |------|--------|-------------|
+| backend/Services/Project.Service/Application/AI/Queries/GetAiUsageQuery.cs | Created | `GetAiUsageQuery/SummaryQuery Handler RBAC` |
+| backend/Services/Project.Service/Api/Controllers/AiController.cs | Modified | `GET api/ai/usage + summary` |
+| frontend/flowboard-web/src/app/core/services/ai.service.ts | Modified | `usage()/usageSummary()` |
+| frontend/flowboard-web/src/app/features/ai-usage/ai-usage.component.* | Created | `Org AI Usage` |
+| frontend/flowboard-web/src/app/features/project/ai-usage/ai-usage.component.* | Created | `Project AI Usage` |
+| frontend/flowboard-web/src/app/app.routes.ts | Modified | `Add /ai-usage + /w/:wid/p/:pid/ai-usage` |
+| frontend/flowboard-web/src/app/shared/components/layout/layout.component.html | Modified | `Main AI Usage ✦` |
+| frontend/flowboard-web/src/app/features/project/project-layout/project-layout.component.ts | Modified | `navItems AI Usage` |
 
 ### 6. Verification & Results
 | Check | Result | Evidence |
 |-------|--------|----------|
+| Build backend | Passed | `dotnet build 0 Error(s)` `Project.Service.dll` |
+| Build frontend | Passed | `ng build 0 errors` `484.19kB Initial` |
+| YARP | Passed | `yarp ai-route GET /api/ai/usage?orgId → 200` `summary GROUP BY` |
+| RBAC | Logic | `OrgAdmin 200 Member 403` `Project all members 200` |
+| Frontend flow | Logic | `Main AI Usage orgId summary cards + logs` `Project AI Usage filtered` |
 
 ### 7. Enterprise Relevance (MNC Value)
-...
+`AI Usage Org + Project` `GROUP BY provider/model` `OrgAdmin` vs `all members` proves `GenAI observability` `FinOps`.
 
 ### 8. Next Steps & Dependencies
-...
+- Unlocks: `Phase 7 7/7 Completed` → `Phase 4.3 ApexCharts` `Phase 5 Polish` `Admin deferred`
+- Depends on: `Task 7.5 DONE` `AiService` `yarp ai-route`
+- Follow-up: `Phase 4.3 ApexCharts Burndown` `Phase 5 Polish` `Admin deferred`
+
+---
+
+## Task 7.7: AI Usage Logs — Project Sidebar (project-level)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 11 Sep 2026 | 7 - AI | 4bb3b3e | 1.5h | Feature |
+
+### 1. Overview
+`Project` sidebar `AI Usage` `all project members` (like `Activity`) → `GET /api/ai/usage?projectId` `WHERE ProjectId` filtered, same `AiUsageLogs` table, `tokens/cost` chart.
+
+### 2. Objectives
+- Project-level AI analytics
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Backend | `ASP.NET Core + MediatR IAiService` | 12.4 | `GET api/ai/usage?projectId` `yarp ai-route` |
+| Frontend | `Angular 22 OnPush` `AiService` | 22.1.5 | `Project AI Usage` |
+
+### 4. Implementation Details
+- Created `features/project/ai-usage/ai-usage.component.*` `projectId param` `usage/summary filtered` `modelFilter`
+- Updated `app.routes.ts:12` `Add /w/:wid/p/:pid/ai-usage` `project-layout AI Usage`
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Project.Service/Application/AI/Queries/GetAiUsageQuery.cs | Created | `GetAiUsageQuery projectId filtered` |
+| frontend/flowboard-web/src/app/features/project/ai-usage/ai-usage.component.* | Created | `Project AI Usage` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build 0 Error(s)` |
+| Build frontend | Passed | `ng build 0 errors` |
+| Frontend flow | Logic | `Project AI Usage filtered by projectId` |
+
+### 7. Enterprise Relevance (MNC Value)
+`Project AI Usage` `all members` vs `Org AI Usage` `OrgAdmin` `same table` `hash/preview`.
+
+### 8. Next Steps & Dependencies
+- Unlocks: `Phase 7 7/7 Completed` → `Phase 4.3 ApexCharts` `Phase 5 Polish`
+- Depends on: `Task 7.6 DONE`
+- Follow-up: `Phase 4.3 ApexCharts` `Phase 5 Polish`
+
 
 ---
 
