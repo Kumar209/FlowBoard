@@ -1590,7 +1590,7 @@ Strict `org ∩ workspace ∩ project` checks on every attachment call (resolve 
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Completed | 11 Sep 2026 | 7 - AI | pending | 3h | Feature |
+| Completed | 11 Sep 2026 | 7 - AI | 439ea01 | 3h | Feature |
 
 ### 1. Overview
 Created the isolated AI module — `Project.Service/Application/AI + Infrastructure/AI` DIP folder with `AiUsageLog` entity in `[project].AiUsageLogs` (22 cols, `HasDefaultSchema project`, hash/preview only), dual providers `Gemini 2.5 Flash` fixed + `Groq llama-3.1-8b-instant` selectable via UI radio, and `Redis` `3/min` per `ai:{userId}:{model}` + `5 RPM` global rate limiter. Migration `20260911154735_AddAiLogs` applied; `YARP` `ai-route /api/ai/{**catch-all}` → `:5002` added. Build passes `0 Error(s)`.
