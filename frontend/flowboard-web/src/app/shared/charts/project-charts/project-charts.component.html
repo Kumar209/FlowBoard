@@ -1,0 +1,56 @@
+<div class="grid gap-3 lg:grid-cols-2">
+  <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+    <h3 class="text-sm font-bold">Issues by Status</h3>
+    <p class="text-xs opacity-50">Workflow distribution</p>
+    <div class="mt-3">
+      @if (chartData(); as d) {
+        @if (d.issuesByStatus.length) { <apx-chart [series]="statusDonut().series!" [chart]="statusDonut().chart!" [labels]="statusDonut().labels!" [colors]="statusDonut().colors!" [legend]="statusDonut().legend!" [dataLabels]="statusDonut().dataLabels!" [plotOptions]="statusDonut().plotOptions!"></apx-chart> }
+        @else { <p class="text-xs opacity-40 text-center py-10">No issues yet</p> }
+      } @else { <div class="h-[300px] animate-pulse bg-base-200 rounded-xl"></div> }
+    </div>
+  </div>
+
+  <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+    <h3 class="text-sm font-bold">Issues by Type</h3>
+    <p class="text-xs opacity-50">Bug / Story / Task</p>
+    <div class="mt-3">
+      @if (chartData(); as d) {
+        @if (d.issuesByType.length) { <apx-chart [series]="typeDonut().series!" [chart]="typeDonut().chart!" [labels]="typeDonut().labels!" [colors]="typeDonut().colors!" [legend]="typeDonut().legend!" [dataLabels]="typeDonut().dataLabels!" [plotOptions]="typeDonut().plotOptions!"></apx-chart> }
+        @else { <p class="text-xs opacity-40 text-center py-10">No issues yet</p> }
+      } @else { <div class="h-[300px] animate-pulse bg-base-200 rounded-xl"></div> }
+    </div>
+  </div>
+
+  <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+    <h3 class="text-sm font-bold">Priority Distribution</h3>
+    <p class="text-xs opacity-50">Low / Medium / High / Urgent</p>
+    <div class="mt-3">
+      @if (chartData(); as d) {
+        @if (d.issuesByPriority.length) { <apx-chart [series]="priorityBar().series!" [chart]="priorityBar().chart!" [xaxis]="priorityBar().xaxis!" [colors]="priorityBar().colors!" [plotOptions]="priorityBar().plotOptions!" [dataLabels]="priorityBar().dataLabels!"></apx-chart> }
+        @else { <p class="text-xs opacity-40 text-center py-10">No issues yet</p> }
+      } @else { <div class="h-[300px] animate-pulse bg-base-200 rounded-xl"></div> }
+    </div>
+  </div>
+
+  <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+    <h3 class="text-sm font-bold">Assignee Workload</h3>
+    <p class="text-xs opacity-50">Issues per assignee</p>
+    <div class="mt-3">
+      @if (chartData(); as d) {
+        @if (d.assigneeWorkload.length) { <apx-chart [series]="assigneeBar().series!" [chart]="assigneeBar().chart!" [xaxis]="assigneeBar().xaxis!" [colors]="assigneeBar().colors!" [plotOptions]="assigneeBar().plotOptions!" [dataLabels]="assigneeBar().dataLabels!"></apx-chart> }
+        @else { <p class="text-xs opacity-40 text-center py-10">No assignees yet</p> }
+      } @else { <div class="h-[300px] animate-pulse bg-base-200 rounded-xl"></div> }
+    </div>
+  </div>
+
+  <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm lg:col-span-2">
+    <h3 class="text-sm font-bold">Sprint Velocity</h3>
+    <p class="text-xs opacity-50">Story points per sprint - total vs completed</p>
+    <div class="mt-3">
+      @if (chartData(); as d) {
+        @if (d.sprintVelocity.length) { <apx-chart [series]="velocityBar().series!" [chart]="velocityBar().chart!" [xaxis]="velocityBar().xaxis!" [colors]="velocityBar().colors!" [plotOptions]="velocityBar().plotOptions!" [dataLabels]="velocityBar().dataLabels!" [legend]="velocityBar().legend!"></apx-chart> }
+        @else { <p class="text-xs opacity-40 text-center py-10">No sprints yet</p> }
+      } @else { <div class="h-[300px] animate-pulse bg-base-200 rounded-xl"></div> }
+    </div>
+  </div>
+</div>

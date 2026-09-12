@@ -91,6 +91,75 @@
       <p class="text-sm font-semibold">Multiple boards = views, not copies</p>
       <p class="text-xs opacity-70 mt-1">Tasks live in one Project. Boards in <code class="bg-base-100 px-1 rounded">/boards</code> only change filter/grouping (sprint, assignee, priority). No duplicate issues.</p>
     </div>
+
+    <!-- Project Health KPIs + Charts (Task 4.4) — keep existing above, only add below -->
+    <section class="mt-6">
+      <div class="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <h2 class="text-base font-bold tracking-tight sm:text-lg">Project Health</h2>
+          <p class="text-xs opacity-50">Live KPIs — cached 2m — 5 metrics + burndown + 5 charts</p>
+        </div>
+        <span class="badge badge-ghost badge-sm rounded-full">{{ b.project.key }}</span>
+      </div>
+
+      @if (projectStatsQuery.data(); as s) {
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+            <p class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Issues</p>
+            <p class="text-2xl font-bold mt-1">{{ s.totalIssues }}</p>
+            <p class="text-xs opacity-40">Total tasks</p>
+          </div>
+          <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+            <p class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Completed</p>
+            <p class="text-2xl font-bold mt-1 text-success">{{ s.completedIssues }}</p>
+            <p class="text-xs opacity-40">Done</p>
+          </div>
+          <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+            <p class="text-[10px] font-semibold uppercase tracking-wide opacity-45">In Progress</p>
+            <p class="text-2xl font-bold mt-1 text-warning">{{ s.inProgressIssues }}</p>
+            <p class="text-xs opacity-40">Active work</p>
+          </div>
+          <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+            <p class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Story Points</p>
+            <p class="text-2xl font-bold mt-1 text-primary">{{ s.totalStoryPoints }}</p>
+            <p class="text-xs opacity-40">Total SP</p>
+          </div>
+          <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+            <p class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Active Sprint</p>
+            <p class="text-lg font-bold mt-1 truncate">{{ s.activeSprintName || '—' }}</p>
+            <p class="text-xs opacity-40">{{ s.activeSprints }} active</p>
+          </div>
+        </div>
+      } @else if (projectStatsQuery.isPending()) {
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          @for (i of [1,2,3,4,5]; track i) { <div class="card bg-base-100 rounded-2xl p-4 h-24 animate-pulse border"></div> }
+        </div>
+      } @else if (projectStatsQuery.isError()) {
+        <div class="alert alert-error rounded-xl text-sm">Failed to load project stats — {{ $any(projectStatsQuery.error)?.error?.error || 'please try again' }}</div>
+      }
+
+      <div class="mt-4">
+        @if (burndownQuery.isPending()) {
+          <div class="card bg-base-100 rounded-2xl p-4 h-[340px] animate-pulse border"></div>
+        } @else if (burndownQuery.isError()) {
+          <div class="alert alert-warning rounded-xl text-sm">Burndown unavailable — {{ $any(burndownQuery.error)?.error?.error || 'create a sprint first' }}</div>
+        } @else {
+          <app-burndown [data]="burndownQuery.data() ?? null"></app-burndown>
+        }
+      </div>
+
+      <div class="mt-4">
+        @if (projectChartQuery.isPending()) {
+          <div class="grid gap-3 lg:grid-cols-2">
+            @for (i of [1,2,3,4,5]; track i) { <div class="card bg-base-100 rounded-2xl p-4 h-[340px] animate-pulse border"></div> }
+          </div>
+        } @else if (projectChartQuery.isError()) {
+          <div class="alert alert-error rounded-xl text-sm">Failed to load charts — {{ $any(projectChartQuery.error)?.error?.error || 'please try again' }}</div>
+        } @else {
+          <app-project-charts [chartData]="projectChartQuery.data() ?? null"></app-project-charts>
+        }
+      </div>
+    </section>
   } @else if (boardQuery.isPending()) {
     <div class="grid grid-cols-4 gap-3">
       @for (i of [1,2,3,4]; track i) { <div class="card bg-base-100 rounded-2xl p-4 h-24 animate-pulse border"></div> }

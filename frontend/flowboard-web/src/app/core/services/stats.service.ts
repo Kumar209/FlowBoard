@@ -13,6 +13,16 @@ export interface OrgChartData {
   activityTrend: DailyCount[];
   aiUsage: AiDaily[];
 }
+export interface ProjectStats { totalIssues: number; completedIssues: number; inProgressIssues: number; totalStoryPoints: number; activeSprints: number; activeSprintName: string | null; }
+export interface ProjectChartData {
+  issuesByStatus: ChartBucket[];
+  issuesByType: ChartBucket[];
+  issuesByPriority: ChartBucket[];
+  assigneeWorkload: { assigneeName: string; issueCount: number }[];
+  sprintVelocity: { sprintName: string; storyPoints: number; completedPoints: number }[];
+}
+export interface BurndownPoint { date: string; total: number; remaining: number; ideal: number; }
+export interface BurndownData { sprintId: string; sprintName: string; startDate: string; endDate: string; points: BurndownPoint[]; }
 
 @Injectable({ providedIn: 'root' })
 export class StatsService {
@@ -22,5 +32,16 @@ export class StatsService {
   }
   getOrgChartData(orgId: string) {
     return this.http.get<OrgChartData>(`${environment.apiUrl}/api/organizations/${orgId}/chart-data`, { withCredentials: true });
+  }
+  getProjectStats(projectId: string) {
+    return this.http.get<ProjectStats>(`${environment.apiUrl}/api/projects/${projectId}/stats`, { withCredentials: true });
+  }
+  getProjectChartData(projectId: string) {
+    return this.http.get<ProjectChartData>(`${environment.apiUrl}/api/projects/${projectId}/chart-data`, { withCredentials: true });
+  }
+  getBurndown(projectId: string, sprintId?: string) {
+    let params: any = {};
+    if (sprintId) params.sprintId = sprintId;
+    return this.http.get<BurndownData>(`${environment.apiUrl}/api/projects/${projectId}/burndown`, { params, withCredentials: true });
   }
 }

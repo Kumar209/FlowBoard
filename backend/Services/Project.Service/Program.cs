@@ -28,7 +28,9 @@ builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssemblyContaining<Program>();
     cfg.AddBehavior(typeof(MediatR.IPipelineBehavior<,>), typeof(CachingBehavior<,>));
 });
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
+builder.Services.AddScoped<IProjectStatsService, Project.Service.Infrastructure.Services.ProjectStatsService>();
 builder.Services.AddScoped<IProjectService, Project.Service.Infrastructure.Services.ProjectService>();
 builder.Services.AddScoped<IBoardService, Project.Service.Infrastructure.Services.BoardService>();
 builder.Services.AddScoped<ITaskService, Project.Service.Infrastructure.Services.TaskService>();

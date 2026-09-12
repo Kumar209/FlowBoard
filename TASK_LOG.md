@@ -22,11 +22,11 @@
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 5/5 | Completed |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
-| Phase 4: Files & Charts & Analytics | 4.1 - 4.5 | 3/5 | In Progress |
+| Phase 4: Files & Charts & Analytics | 4.1 - 4.5 | 4/5 | In Progress |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
 | Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
 | Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
-| **Total** | **0.1 - 7.7 + 4.3-4.5 expanded** | **26/40** | **In Progress** |
+| **Total** | **0.1 - 7.7 + 4.3-4.5 expanded** | **27/40** | **In Progress** |
 
 ---
 
@@ -2130,59 +2130,74 @@ Proves executive `Organization Health` analytics across multi-tenant hierarchy (
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | 4 - Charts & Analytics | — | 5h | Feature |
+| Completed | 12 Sep 2026 | 4 - Charts & Analytics | pending | 5h | Feature |
 
 ### 1. Overview
-Enhance Project Overview dashboard (keep existing) with 5 KPI cards + 6 charts for single project health. Includes Sprint Burndown as primary chart.
+Extended Project Overview (`overview.component` inside `features/project/overview`) keeping existing project description + live counts + status breakdown + activity, adding below a Project Health section: 5 KPI cards + shared Burndown Area + 5 project charts (Status/Type/Priority/Assignee/Velocity) with 2m `IMemoryCache`.
 
 ### 2. Objectives
-- KPIs: Total Issues, Completed, In Progress, Story Points, Active Sprint (5 cards)
-- Charts: Sprint Burndown Line/Area (remaining work), Issues by Status Donut, Issues by Type Donut/Bar (Bug/Story/Task), Priority Distribution Bar, Assignee Workload Bar, Sprint Velocity Bar (story points per sprint)
+- Keep existing overview unchanged, append below: 5 KPI cards `Issues/Completed/In Progress/Story Points/Active Sprint` (`grid-cols-2 sm:grid-cols-3 lg:grid-cols-5`)
+- Sprint Burndown primary chart (shared `burndown.component` reusable in 4.5) - `Total vs Remaining vs Ideal` area over sprint dates, `Remaining = Total - Completed (Status=Done && UpdatedAt<=day)`, `Ideal` linear.
+- 5 charts via `project-charts.component`: Issues by Status Donut, Issues by Type Donut (Bug/Story/Task), Priority Bar, Assignee Workload Bar (with `Unassigned` bucket, names via `[identity].[Users]`), Sprint Velocity Bar (total vs completed story points per sprint).
 
 ### 3. Technical Stack
 | Layer | Technology | Version | Purpose |
 |-------|------------|---------|---------|
-| Backend | ASP.NET Core + IProjectStatsService + IActivityService + ISprintService | 10.0 | `ProjectId` filtered aggregations, burndown calc from `ActivityLogs` + `Sprints` dates, velocity `GROUP BY sprintId` |
-| Frontend | Angular 22 OnPush + Ng-ApexCharts 1.8 + TanStack Query | 22.1.5 | KPI + chart grid, shared `burndown` component |
-| Cache | Redis | Upstash | `project-stats:{projectId}` |
+| Backend | ASP.NET Core 10 + EF Core 10 + `IProjectStatsService` (DIP) + `IMemoryCache` 2m | 10.0 | Filtered `ProjectId` aggregations, burndown from `Tasks.UpdatedAt` + `Sprints` dates, velocity `GROUP BY SprintId` SUM `StoryPoints` |
+| Frontend | Angular 22.1.5 Standalone OnPush + `ng-apexcharts` 1.8 + `apexcharts` 3.49 + `TanStack Query` 5.62 + Signals | 22.1.5 | 5 KPIs + burndown + 5 charts, `DaisyUI card/border`, `firstValueFrom` |
+| DB | `flowboard` `[project]` + cross-schema `[identity].Users` for assignee names | SQL Server | Same DB, `HasDefaultSchema project`, no new tables |
+| Gateway | YARP 2.3 | 2.3 | `GET /api/projects/{projectId}/stats` + `/chart-data` + `/burndown?sprintId=` → `Project.Service :5002` |
 
 ### 4. Implementation Details
-- Backend: `GET /api/projects/{projectId}/stats` + `GET /api/projects/{projectId}/chart-data` + `GET /api/projects/{projectId}/burndown?sprintId=` (via `IProjectStatsService`)
-- Frontend: extend `features/project/overview/overview.component.*` (or `project-layout` overview) keep existing, add below: KPI row `5` + burndown large `ApexCharts area` + grid `2x2` for donuts/bars + velocity bar at bottom
-- Todos:
-  - [ ] Backend project stats service (KPIs + chart datasets + burndown calc)
-  - [ ] Frontend project KPI cards (5)
-  - [ ] Chart Sprint Burndown Line/Area (shared component)
-  - [ ] Chart Issues by Status Donut
-  - [ ] Chart Issues by Type Donut/Bar
-  - [ ] Chart Priority Distribution Bar
-  - [ ] Chart Assignee Workload Bar
-  - [ ] Chart Sprint Velocity Bar
+- Created `Application/Interfaces/IProjectStatsService.cs:1-22` with `ProjectStatsDto(TotalIssues,Completed,InProgress,TotalSP,ActiveSprints,ActiveSprintName)`, `ProjectChartBucketDto`, `ProjectVelocityDto`, `AssigneeWorkloadDto`, `ProjectChartDataDto`, `BurndownPointDto(Date,Total,Remaining,Ideal)`, `BurndownDto` + `IProjectStatsService(GetProjectStatsAsync, GetProjectChartDataAsync, GetBurndownAsync)`.
+- Created `Application/Queries/GetProjectStatsQuery.cs:1-35` with `GetProjectStatsQuery`, `GetProjectChartDataQuery`, `GetBurndownQuery(sprintId?)` + handlers `IProjectStatsService` via `IMediator` returning `Result<T>` (Human Error Rule: `catch→Failure` no stack).
+- Created `Infrastructure/Services/ProjectStatsService.cs:1-194` DIP: `CanViewAsync` checks `Project.WorkspaceId` via `[identity].WorkspaceMembers`/`OrganizationMembers` + `OwnerId` (allows any workspace member, `Forbidden` otherwise, `NotFound` if project missing). `GetProjectStatsAsync` cached `project:stats:{id}` 2m: `CountAsync` total/completed (`Status=Done`)/inProgress (`!=Done && !=To Do`)/`Sum StoryPoints`, `ActiveSprints` `Status=Active` + `ActiveSprintName`. `GetProjectChartDataAsync` cached `project:chart:{id}` 2m: status `GROUP BY Status`, type `GROUP BY IssueType`, priority `GROUP BY Priority` mapped `0 Low/1 Medium/2 High/3 Urgent`, assignee `GROUP BY AssigneeId` + names via `SqlQueryRaw<UserRow> SELECT Id,FullName FROM [identity].[Users] WHERE Id IN (...)` + `Unassigned` count, velocity per `Sprints` ordered `StartDate` summing `StoryPoints` total vs completed `Status=Done`. `GetBurndownAsync` cached `burndown:{projectId}:{sprintId}`: resolves `sprintId ?? Active else last` throws `NotFound` if none, loads `Tasks WHERE ProjectId && SprintId`, `days = (End-Start).Days+1` capped `1..30`, loops days `remaining = total - completed where UpdatedAt.Date<=day`, `ideal = total - round(total*(i+1)/days)`, returns `BurndownDto` with `points`. `ILogger` for server only, `IMemoryCache` 2m.
+- Updated `Program.cs:30-35` to `AddMemoryCache()` + `AddScoped<IProjectStatsService, ProjectStatsService>()` keep DIP.
+- Updated `Api/Controllers/ProjectsController.cs:44-68` with `GET /api/projects/{projectId}/stats` + `/chart-data` + `/burndown?sprintId=` via `_mediator.Send` returning `Ok` or `NotFound/403/BadRequest` human.
+- Extended `core/services/stats.service.ts:16-31` with `getProjectStats`, `getProjectChartData`, `getBurndown(projectId, sprintId?)` via `HttpClient` `environment.apiUrl` + `withCredentials`.
+- Created `shared/charts/burndown/burndown.component.ts:1-38` standalone `CommonModule+NgApexchartsModule` OnPush `data = input.required<BurndownData|null>()` + `computed<ApexOptions>` area 320 `series Remaining/Ideal` (solid vs dash `6`), colors `#6366f1/#94a3b8`, gradient fill, `legend top`. HTML `burndown.component.html:1-18` card with header `SprintName • Start→End • Total` + `<apx-chart>` or `animate-pulse` + `Select a sprint` fallback. CSS empty.
+- Created `shared/charts/project-charts/project-charts.component.ts:1-66` standalone OnPush `chartData = input.required<ProjectChartData|null>()` + 5 `computed<ApexOptions>`: `statusDonut`/`typeDonut` (donut 300, colors), `priorityBar` (`#f59e0b`), `assigneeBar` (`#06b6d4`), `velocityBar` (stacked bar `Total SP` `#6366f1` + `Completed SP` `#10b981`). HTML `project-charts.component.html:1-56` `lg:grid-cols-2` with 4 cards + velocity `lg:col-span-2`, `apx-chart` bindings, `No issues yet` empties, skeletons. CSS empty.
+- Modified `features/project/overview/overview.component.ts:1-45` to `imports: [CommonModule,RouterLink,BurndownComponent,ProjectChartsComponent]`, inject `StatsService`, add `constructor` paramMap sync for `projectId/workspaceId` (snapshot alone misses reuse), add `projectStatsQuery = injectQuery(['project-stats',projectId]→stats.getProjectStats)` + `projectChartQuery` + `burndownQuery` enabled when `projectId` truthy, keep existing `boardQuery/boardsQuery/sprintsQuery/membersQuery/activitiesQuery`.
+- Modified `features/project/overview/overview.component.html:90-150` keeping existing `Overview` header + `Description` + 4 cards `Tasks/Boards/Sprints/Members` + 3 status `ToDo/InReview/Done` + `Statuses` + `Recent activity` + gradient note, appended below `mt-6 Project Health` section with header `Live KPIs — cached 2m`, KPI grid 5 cards, states `isPending→pulse`, `isError→alert-error`, burndown block `isPending→pulse`/`isError→alert-warning` else `<app-burndown>`, chart block `isPending→pulse`/`isError→alert-error` else `<app-project-charts>`.
 
 ### 5. Files & Changes
 | Path | Action | Description |
 |------|--------|-------------|
-| backend/Services/Project.Service/Application/Interfaces/IProjectStatsService.cs | Created | `GetProjectStatsAsync` + `GetBurndownAsync` |
-| backend/Services/Project.Service/Infrastructure/Services/ProjectStatsService.cs | Created | Burndown + velocity + breakdown queries |
-| backend/Services/Project.Service/Api/Controllers/ProjectsController.cs + Stats | Modified | `GET /stats` `GET /burndown` |
-| frontend/flowboard-web/src/app/features/project/overview/overview.component.* | Modified | Project Overview KPIs + charts |
-| frontend/flowboard-web/src/app/shared/components/charts/burndown.component.* | Created | Shared burndown (3-file, reused in Sprints) |
-| frontend/flowboard-web/src/app/shared/components/charts/project-charts.component.* | Created | Status/Type/Priority/Assignee/Velocity charts |
+| backend/Services/Project.Service/Application/Interfaces/IProjectStatsService.cs | Created | `ProjectStatsDto` + `ProjectChartDataDto` + `BurndownDto` + `IProjectStatsService` |
+| backend/Services/Project.Service/Application/Queries/GetProjectStatsQuery.cs | Created | `GetProjectStatsQuery` + `GetProjectChartDataQuery` + `GetBurndownQuery` + handlers |
+| backend/Services/Project.Service/Infrastructure/Services/ProjectStatsService.cs | Created | `CanViewAsync` workspace check + `GetProjectStatsAsync` 5 KPIs + `GetProjectChartDataAsync` 5 datasets (status/type/priority/assignee+Unassigned/velocity per sprint) + `GetBurndownAsync` `Total/Ideal/Remaining` per day `1..30` capped, `IMemoryCache` 2m, `ILogger` |
+| backend/Services/Project.Service/Program.cs | Modified | `AddMemoryCache()` + `AddScoped<IProjectStatsService>` |
+| backend/Services/Project.Service/Api/Controllers/ProjectsController.cs | Modified | `GET /stats` + `/chart-data` + `/burndown?sprintId=` via `IMediator` human errors |
+| frontend/flowboard-web/src/app/core/services/stats.service.ts | Modified | Add `getProjectStats` + `getProjectChartData` + `getBurndown` via `HttpClient` Gateway `:5000→:5002` |
+| frontend/flowboard-web/src/app/shared/charts/burndown/burndown.component.ts | Created | Standalone OnPush `input.required<BurndownData>` + `computed` area 320 Remaining/Ideal dashed Ideal |
+| frontend/flowboard-web/src/app/shared/charts/burndown/burndown.component.html | Created | Card header + `<apx-chart>` or pulse + `Select sprint` fallback |
+| frontend/flowboard-web/src/app/shared/charts/burndown/burndown.component.css | Created | Empty `/* No internal CSS */` |
+| frontend/flowboard-web/src/app/shared/charts/project-charts/project-charts.component.ts | Created | Standalone OnPush `input.required<ProjectChartData>` + 5 `computed` donuts/bars/velocity stacked |
+| frontend/flowboard-web/src/app/shared/charts/project-charts/project-charts.component.html | Created | `lg:grid-cols-2` 5 cards + velocity `lg:col-span-2`, `apx-chart` bindings, skeletons |
+| frontend/flowboard-web/src/app/shared/charts/project-charts/project-charts.component.css | Created | Empty |
+| frontend/flowboard-web/src/app/features/project/overview/overview.component.ts | Modified | Imports `Burndown`+`ProjectCharts`, inject `StatsService`, paramMap sync, add 3 `injectQuery` for stats/chart/burndown keep existing queries |
+| frontend/flowboard-web/src/app/features/project/overview/overview.component.html | Modified | Keep existing 99 lines Overview header + 4 counts + 3 status + lists+activity, append `mt-6 Project Health` 5 KPI cards + burndown + project-charts |
 
 ### 6. Verification & Results
 | Check | Result | Evidence |
 |-------|--------|----------|
-| Burndown | Pending | Remaining work line matches sprint dates |
-| Charts | Pending | 6 charts render responsive |
-| KPIs | Pending | 5 cards correct |
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` → `Build succeeded 0 Error(s)` `Project.Service` `EF1002` warnings only (sanitized Guid) |
+| Build frontend | Passed | `ng build --configuration production` → `overview-component 20kB` + `burndown` shared, `Application bundle generation complete` only `apexcharts is not ESM` warning |
+| 3-File Rule | Passed | `burndown` + `project-charts` folders exactly 3 files `html+ts+css` (css empty), `overview.component.*` kept 3, `grep template: 0` |
+| KPIs | Passed | 5 cards `Issues/Completed/InProgress/SP/Active Sprint` show `{{s.totalIssues}}` etc from `GET /api/projects/{id}/stats` 200, `isError` shows `Failed to load — please try again` no Raw |
+| Burndown | Passed | Area chart `Remaining` `#6366f1` solid vs `Ideal` `#94a3b8` dashed, x `MM-DD` days `sprint.Start→End`, y `0..Total`, `Total` at day0 = total issues in sprint, `Remaining` decreases when issue `UpdatedAt` with `Done`, `Ideal` linear. Selecting no sprint shows `Burndown unavailable — create a sprint first` warning. Reused component for 4.5. |
+| Charts | Passed | 5 charts render `donut status/type` + `bar priority/assignee` + `stacked bar velocity` in `grid gap-3 lg:grid-cols-2` + `p-3 sm:p-6` responsive, skeletons while `isPending`, `No issues yet` when empty |
+| Authz | Passed | `CanViewAsync` allows only workspace member/OrgMember/Owner/SuperAdmin else `403 Forbidden - Not a member of this project workspace` for `stats/chart-data/burndown` |
+| Cache 2m | Passed | `IMemoryCache` keys `project:stats:{id}` `project:chart:{id}` `burndown:{pid}:{sid}` `TimeSpan.FromMinutes(2)` |
+| Keep existing | Passed | Overview original `Description`+4 counts+3 status+lists+activity+gradient note unchanged above new `mt-6 Project Health` |
 
 ### 7. Enterprise Relevance (MNC Value)
-Single project health with Burndown + Velocity proves Scrum mastery (Jira `Project Insights`). Reusable `burndown` component shows DRY + `ApexCharts` expertise.
+Proves Scrum `Project Health` analytics with reusable `Burndown` (Total/Ideal/Remaining) + `Velocity` (SP per sprint total vs completed) + `Assignee Workload` with cross-schema user join, `Type/Priority/Status` breakdowns, `IMemoryCache` 2m + `GROUP BY` + `CanViewAsync` workspace gate (Jira `Project Insights`). Frontend shows `ApexCharts` mastery (donut+bar+stacked+area) with `Signals+TanStack` `queryKey ['project-stats',projectId]` + `OnPush` + `input.required` + 3-File Rule, and `keep existing overview only add below` discipline.
 
 ### 8. Next Steps & Dependencies
-- Unlocks: Task 4.5 Sprints Detailed
-- Depends on: Task 4.3 (shared burndown pattern)
-- Follow-up: UI placement `features/project/overview/*` + `shared/components/charts/burndown` reused
+- Unlocks: Task 4.5 Sprints Detailed - reuse `burndown.component` with `sprintId` selector + stats row `[Issues][SP][Completed][Remaining]` on `sprints.component`
+- Depends on: Task 4.3 (shared pattern, `stats.service` + `IMemoryCache`), `Sprints` and `StoryPoints` data
+- Follow-up: After 4.5 + testing, Phase 4 Completed (5/5) → Phase 5 Polish 5.1-5.5 (Rate limit + Serilog + Scalar). Keep `shared/charts/burndown` reused.
 
 ---
 

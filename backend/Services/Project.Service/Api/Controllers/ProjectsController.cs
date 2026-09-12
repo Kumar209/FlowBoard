@@ -75,6 +75,33 @@ public class ProjectsController : ControllerBase
         return Ok(result.Value);
     }
 
+    [HttpGet("api/projects/{projectId}/stats")]
+    public async Task<IActionResult> GetStats(Guid projectId)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new GetProjectStatsQuery(projectId, userId.Value));
+        if (!result.IsSuccess) return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpGet("api/projects/{projectId}/chart-data")]
+    public async Task<IActionResult> GetChartData(Guid projectId)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new GetProjectChartDataQuery(projectId, userId.Value));
+        if (!result.IsSuccess) return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpGet("api/projects/{projectId}/burndown")]
+    public async Task<IActionResult> GetBurndown(Guid projectId, [FromQuery] Guid? sprintId)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new GetBurndownQuery(projectId, sprintId, userId.Value));
+        if (!result.IsSuccess) return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
     [HttpDelete("api/projects/{projectId}")]
     public async Task<IActionResult> Delete(Guid projectId)
     {

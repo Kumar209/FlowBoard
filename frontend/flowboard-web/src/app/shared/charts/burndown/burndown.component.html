@@ -1,0 +1,17 @@
+<div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+  @if (data(); as d) {
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h3 class="text-sm font-bold">Sprint Burndown</h3>
+        <p class="text-xs opacity-50">{{ d.sprintName }} • {{ d.startDate }} → {{ d.endDate }} • Total {{ d.points[0]?.total ?? 0 }}</p>
+      </div>
+      <span class="badge badge-primary badge-sm rounded-full">{{ d.points.length }} days</span>
+    </div>
+    <div class="mt-3">
+      <apx-chart [series]="options().series!" [chart]="options().chart!" [xaxis]="options().xaxis!" [yaxis]="options().yaxis!" [stroke]="options().stroke!" [colors]="options().colors!" [fill]="options().fill!" [dataLabels]="options().dataLabels!" [legend]="options().legend!" [grid]="options().grid!"></apx-chart>
+    </div>
+  } @else {
+    <div class="h-[320px] animate-pulse bg-base-200 rounded-xl"></div>
+    <p class="text-xs opacity-40 text-center mt-2">Select a sprint to view burndown</p>
+  }
+</div>
