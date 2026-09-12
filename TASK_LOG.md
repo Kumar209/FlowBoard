@@ -2327,6 +2327,284 @@ Proves MNC `Sliding Window Counter` not naive Fixed Window - handles boundary bu
 ---
 
 
+
+> **SuperAdmin Module Location (MNC-GRADE — SINGLE MODULE, NOT DISTRIBUTED):** Backend single module in `Identity.Service` - `Domain/Entities/SubscriptionPlan.cs` + `Application/SuperAdmin/` + `Infrastructure/SuperAdmin/` + `Api/Controllers/SuperAdminController.cs` (`/api/superadmin/*`) with `[identity].SubscriptionPlans` table. Frontend single folder `features/superadmin/` with `superadmin-layout/superadmin-layout.component.*` sidebar + 10 subfolders each 3-file. Not a separate microservice, not scattered across Project/File/Notification. Ready to extract to `Services/SuperAdmin.Service` later.
+
+## Task SA.1: SuperAdmin Dashboard - Platform KPIs (Global)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 4h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/dashboard via ISuperAdminService
+  - [ ] Frontend features/superadmin/dashboard/* 3-file
+  - [ ] Health badges per service
+  - [ ] Growth charts
+
+---
+
+## Task SA.2: SuperAdmin Organizations - Lightweight Tenant Directory
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 4h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/organizations with Plan includes Free type
+  - [ ] Frontend table 8 cols Plan badge Free vs Pro
+  - [ ] Details drawer 4 tabs
+  - [ ] Actions Suspend/Activate
+
+---
+
+## Task SA.3: SuperAdmin Users - Global Accounts Directory
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 3h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/users
+  - [ ] Frontend table
+  - [ ] Actions Suspend/Reactivate
+
+---
+
+## Task SA.4: SuperAdmin Subscriptions & Billing - Simplified Mock
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 5h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend mock GET /api/superadmin/subscriptions with Free plan in table
+  - [ ] Frontend overview cards + Revenue chart + table 6 cols with Free badge
+  - [ ] Plans config cards
+  - [ ] Ensure Free type appears in at least one row
+
+---
+
+## Task SA.5: SuperAdmin Platform Activity / Audit Logs
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 3h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/activities
+  - [ ] Frontend table + filters
+
+---
+
+## Task SA.6: SuperAdmin System / Infrastructure
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 3h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/system
+  - [ ] Frontend 8 service cards
+
+---
+
+## Task SA.7: SuperAdmin Support / Impersonation - Mock
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 3h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Frontend mock tickets
+  - [ ] Impersonation modal with reason + audit
+
+---
+
+## Task SA.8: SuperAdmin Feature Flags
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 2h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend FeatureFlags table + GET /api/superadmin/flags
+  - [ ] Frontend toggle + override
+
+---
+
+## Task SA.9: SuperAdmin AI Platform Usage - Aggregate
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 3h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend reuse AiUsageLogs aggregate
+  - [ ] Frontend charts + per-org table
+
+---
+
+## Task SA.10: SuperAdmin Settings - Platform Config
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 2h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/settings mock
+  - [ ] Frontend forms, never show raw API keys
+
+---
+
+
+## Task SA.1: SuperAdmin Dashboard - Platform KPIs (Global)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 4h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/dashboard via ISuperAdminService
+  - [ ] Frontend features/superadmin/dashboard/* 3-file
+  - [ ] Health badges per service
+  - [ ] Growth charts
+
+---
+
+## Task SA.2: SuperAdmin Organizations - Lightweight Tenant Directory
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 4h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/organizations with Plan includes Free type
+  - [ ] Frontend table 8 cols Plan badge Free vs Pro
+  - [ ] Details drawer 4 tabs
+  - [ ] Actions Suspend/Activate
+
+---
+
+## Task SA.3: SuperAdmin Users - Global Accounts Directory
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 3h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/users
+  - [ ] Frontend table
+  - [ ] Actions Suspend/Reactivate
+
+---
+
+## Task SA.4: SuperAdmin Subscriptions & Billing - Simplified Mock
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 5h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend mock GET /api/superadmin/subscriptions with Free plan in table
+  - [ ] Frontend overview cards + Revenue chart + table 6 cols with Free badge
+  - [ ] Plans config cards
+  - [ ] Ensure Free type appears in at least one row
+
+---
+
+## Task SA.5: SuperAdmin Platform Activity / Audit Logs
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 3h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/activities
+  - [ ] Frontend table + filters
+
+---
+
+## Task SA.6: SuperAdmin System / Infrastructure
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 3h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/system
+  - [ ] Frontend 8 service cards
+
+---
+
+## Task SA.7: SuperAdmin Support / Impersonation - Mock
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 3h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Frontend mock tickets
+  - [ ] Impersonation modal with reason + audit
+
+---
+
+## Task SA.8: SuperAdmin Feature Flags
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 2h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend FeatureFlags table + GET /api/superadmin/flags
+  - [ ] Frontend toggle + override
+
+---
+
+## Task SA.9: SuperAdmin AI Platform Usage - Aggregate
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 3h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend reuse AiUsageLogs aggregate
+  - [ ] Frontend charts + per-org table
+
+---
+
+## Task SA.10: SuperAdmin Settings - Platform Config
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | SuperAdmin | — | 2h | Feature |
+
+### 4. Implementation Details
+- Todos:
+  - [ ] Backend GET /api/superadmin/settings mock
+  - [ ] Frontend forms, never show raw API keys
+
+---
+
 <!--
 ## Task X.Y: Title
 
