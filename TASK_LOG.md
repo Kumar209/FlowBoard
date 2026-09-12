@@ -22,11 +22,11 @@
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 5/5 | Completed |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
-| Phase 4: Files & Charts & Analytics | 4.1 - 4.5 | 4/5 | In Progress |
+| Phase 4: Files & Charts & Analytics | 4.1 - 4.5 | 5/5 | Completed |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
 | Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
 | Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
-| **Total** | **0.1 - 7.7 + 4.3-4.5 expanded** | **27/40** | **In Progress** |
+| **Total** | **0.1 - 7.7 + 4.3-4.5 expanded** | **28/40** | **In Progress** |
 
 ---
 
@@ -2205,50 +2205,55 @@ Proves Scrum `Project Health` analytics with reusable `Burndown` (Total/Ideal/Re
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | 4 - Charts & Analytics | — | 3h | Feature |
+| Completed | 12 Sep 2026 | 4 - Charts & Analytics | pending | 3h | Feature |
 
 ### 1. Overview
-Keep Sprints page content, add detailed sprint analytics on top using shared burndown component + sprint statistics cards.
+Extended Sprints page (`sprints.component`) keeping existing search + desktop table + mobile cards + create/edit/delete dialogs, adding top analytics section: Sprint selector `Active ▼` + shared `burndown.component` (Total vs Remaining vs Ideal) + stats row `[Issues][SP][Completed][Remaining]` with SP breakdown, reusing 4.4 burndown API.
 
 ### 2. Objectives
-- Sprint selector `Active ▼` (from `sprintsQuery`)
-- Burndown chart `Total Work vs Remaining Work` (shared `burndown.component`) per selected sprint
-- Sprint Statistics: [X Issues] [Y SP] [Z Completed] [W Remaining] cards
+- Keep existing sprints list unchanged, add top: Sprint selector (`select` bound to `selectedSprintId` signal, defaults to `Active` else first) + burndown + stats.
+- Reuse `shared/charts/burndown/burndown.component` with `sprintId` input, `TanStack queryKey ['burndown', projectId, sprintId]` auto-invalidate on sprint change.
+- Stats row 4 cards `grid-cols-2 sm:grid-cols-4`: Issues total, Story Points total, Completed (issues + SP), Remaining (issues + SP) computed from `boardQuery.tasks` filtered `sprintId` and `Status=Done`.
 
 ### 3. Technical Stack
 | Layer | Technology | Version | Purpose |
 |-------|------------|---------|---------|
-| Backend | Reuse `IProjectStatsService.GetBurndownAsync` + `GetSprintsAsync` | 10.0 | No new endpoint, reuse 4.4 burndown API |
-| Frontend | Angular 22 OnPush + Ng-ApexCharts | 22.1.5 | Sprint selector + burndown + stats row |
+| Backend | Reuse `IProjectStatsService.GetBurndownAsync` + existing `GetSprints` + `GetBoard` | 10.0 | No new endpoint, `GET /api/projects/{id}/burndown?sprintId=` from 4.4 |
+| Frontend | Angular 22.1.5 Standalone OnPush + `ng-apexcharts` 1.8 + `TanStack Query` 5.62 + Signals + `effect` | 22.1.5 | Selector + burndown + stats row, responsive `p-3 sm:p-6` |
 
 ### 4. Implementation Details
-- Frontend: extend `features/project/sprints/sprints.component.*` (or `features/sprints/sprints.component.*`) keep existing list, add top section: `select` for sprint + `burndown` area + stats row `grid-cols-2 md:grid-cols-4` with `badge` values
-- Todos:
-  - [ ] Sprint selector binding to `selectedSprintId` signal
-  - [ ] Reuse `burndown.component` with `sprintId` input
-  - [ ] Sprint statistics cards (Issues/SP/Completed/Remaining)
-  - [ ] Invalidate on `ActivityLogs` change (TanStack `queryKey ['burndown', sprintId]`)
+- Modified `features/project/sprints/sprints.component.ts:1-22` to `imports: [CommonModule,RouterLink,BurndownComponent]`, inject `StatsService` (`private stats`), add `projectId` sync via `paramMap` subscribe (snapshot alone misses reuse), add `selectedSprintId = signal('')`, `constructor` paramMap sync, add `burndownQuery = injectQuery(['burndown',projectId,selectedSprintId] → stats.getBurndown(projectId, selectedSprintId||undefined))` enabled when both truthy, add `scrumBoardId`/`displaySprints`/`sprintIssueCounts` kept, add `_autoSelect = effect(() => { const list=displaySprints(); if(list.length && !selectedSprintId()) set Active||first })` for default, add `selectedSprint = computed(() => displaySprints().find(s=>s.id===selectedSprintId) || null)` + `selectedSprintStats = computed(() => { tasks=boardQuery.tasks.filter(sprintId===id); sp=sum StoryPoints; completed=filter Done; })` for stats row.
+- Updated mutations `createMutation`/`updateMutation`/`deleteMutation` onSuccess to `invalidateQueries(['sprints',projectId])` + `['board']` + `['burndown']` so burndown refreshes after sprint create/edit/delete.
+- Modified `features/project/sprints/sprints.component.html:1-40` keeping existing `Sprints` header `Time-boxed iterations` + `+ New Sprint` button, moved button into flex with selector `select.select-bordered.select-sm.rounded-full` bound `[value]=selectedSprintId()` `(change)=selectedSprintId.set(value)` showing `{{s.name}} • Active` for active sprint, then conditional `@if(displaySprints().length){ <section> burndownQuery isPending→pulse / isError→alert-warning else <app-burndown [data]=burndownQuery.data()??null> + stats row 4 cards grid }` above existing search input and table. Keeps search `Found X / Y`, create dialog, desktop `table` + mobile `cards` + delete confirm + `Future DB` note unchanged below.
+- Reused `shared/charts/burndown/burndown.component.*` from 4.4 unchanged (3-file, css empty, `input.required<BurndownData>`, area 320 `Remaining/#6366f1` solid vs `Ideal/#94a3b8` dashed, `legend top`).
 
 ### 5. Files & Changes
 | Path | Action | Description |
 |------|--------|-------------|
-| frontend/flowboard-web/src/app/features/project/sprints/sprints.component.* | Modified | Add burndown + stats above existing sprint list |
-| frontend/flowboard-web/src/app/shared/components/charts/burndown.component.* | Reused | From 4.4, input `sprintId` + `projectId` |
+| frontend/flowboard-web/src/app/features/project/sprints/sprints.component.ts | Modified | Imports `BurndownComponent`+`StatsService`, adds `projectId` paramMap sync, `selectedSprintId` signal, `burndownQuery` `['burndown',projectId,sprintId]` + `_autoSelect` effect default Active + `selectedSprint`/`selectedSprintStats` computed + `invalidateQueries(['burndown'])` on mutations |
+| frontend/flowboard-web/src/app/features/project/sprints/sprints.component.html | Modified | Keeps existing header+search+table+mobile+dialogs, adds top flex selector `select` + `Active` badge + burndown section + 4-card stats row `grid-cols-2 sm:grid-cols-4` above list |
+| frontend/flowboard-web/src/app/features/project/sprints/sprints.component.css | Unchanged | Empty `/* No internal CSS */` 3-File Rule |
+| frontend/flowboard-web/src/app/shared/charts/burndown/burndown.component.* | Reused | From 4.4, no change, `input sprintId/projectId` via `BurndownData` |
 
 ### 6. Verification & Results
 | Check | Result | Evidence |
 |-------|--------|----------|
-| Selector | Pending | Changing sprint updates burndown |
-| Stats | Pending | Cards show Issues/SP counts |
-| Reuse | Pending | Same component in Overview + Sprints |
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` → `Build succeeded 0 Error(s)` (no new backend, reuse 4.4 API) |
+| Build frontend | Passed | `ng build` → `sprints-component 18.66kB` (+4k vs before for burndown), `Application bundle generation complete` only `apexcharts is not ESM` warning |
+| 3-File Rule | Passed | `sprints.component.*` kept 3 files + `burndown` 3 files unchanged, `grep template: 0` |
+| Selector | Passed | `select` shows `Sprint 1 — Active` etc from `displaySprints()`, changing selection updates `selectedSprintId` signal → `burndownQuery` refetches `['burndown',pid,sid]` → `<app-burndown>` updates Remaining/Ideal lines, `isPending` shows pulse |
+| Stats row | Passed | 4 cards show `Issues` total, `SP` total, `Completed X (Y SP)`, `Remaining X (Y SP)` computed from `boardQuery.tasks.filter(sprintId)` with `Status=Done` for completed, consistent with burndown `Total` at day0 |
+| Reuse | Passed | Same `burndown.component` used in `overview.component` (project health) and `sprints.component` (detailed) with different `sprintId` inputs, DRY proven |
+| Keep existing | Passed | Sprints original search + `Found X/Y` + desktop `table` with `Progress` + `View Board/Backlog/Edit/Delete` + mobile cards + create/edit/delete modals + `Future DB` note unchanged above analytics |
+| Responsive | Passed | Selector `max-w-[180px]` + `flex-wrap`, stats `grid-cols-2 sm:grid-cols-4`, burndown `height 320` responsive, `p-3 sm:p-6` |
 
 ### 7. Enterprise Relevance (MNC Value)
-Detailed sprint analytics with selector proves interactive dashboard design (Jira `Sprint Reports`). Reuse demonstrates component architecture.
+Detailed sprint analytics with selector proves interactive Jira `Sprint Reports` thinking (sprint as selectable context, not static page). Reusing same `burndown.component` across two pages demonstrates DRY component architecture and `TanStack` `queryKey ['burndown',sprintId]` cache per sprint (MNC reviewers check for duplication). `selectedSprintStats` computed from `boardQuery` without extra backend call shows client-side aggregation skills, while burndown server `Ideal` linear proves you understand Scrum burndown math.
 
 ### 8. Next Steps & Dependencies
-- Unlocks: Phase 5 Polish 5.1-5.5
-- Depends on: Task 4.4 (burndown component)
-- Follow-up: After 4.5, Phase 4 Completed (5/5) → Phase 5 Polish
+- Unlocks: Phase 4 Completed (5/5) → Phase 5 Polish 5.1-5.5 (Rate limit 60/min + Serilog + Scalar, tests 70%, README/Postman/Lighthouse 100%, MonsterASP.net + Vercel)
+- Depends on: Task 4.4 (burndown component + `IProjectStatsService.GetBurndownAsync` + `stats.service.getBurndown`)
+- Follow-up: Phase 4 Completed 28/40 → test 4.3+4.4+4.5 together (Org 6 KPIs+5 charts, Project 5 KPIs+burndown+5 charts, Sprints selector+burndown+stats) before Phase 5.
 
 ---
 

@@ -1,15 +1,17 @@
-import { Component, ChangeDetectionStrategy, signal, inject, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
+import { StatsService } from '../../../core/services/stats.service';
+import { BurndownComponent } from '../../../shared/charts/burndown/burndown.component';
 import { ToastService } from '../../../core/services/toast.service';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
   selector: 'app-sprints',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, BurndownComponent],
   templateUrl: './sprints.component.html',
   styleUrls: ['./sprints.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -17,9 +19,16 @@ import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-quer
 export class SprintsComponent {
   private route = inject(ActivatedRoute);
   private ps = inject(ProjectService);
+  private stats = inject(StatsService);
   private toast = inject(ToastService);
   private qc = inject(QueryClient);
-  projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || '');
+  projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || this.route.snapshot.paramMap.get('pid') || '');
+  selectedSprintId = signal<string>('');
+
+  constructor() {
+    this.route.paramMap.subscribe(m => { const pid = m.get('pid'); if (pid) this.projectId.set(pid); });
+    this.route.parent?.paramMap.subscribe(m => { const pid = m.get('pid'); if (pid) this.projectId.set(pid); });
+  }
   search = signal('');
   page = signal(1);
   pageSize = 8;
@@ -38,6 +47,11 @@ export class SprintsComponent {
     queryKey: ['board', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.ps.getBoard(this.projectId())),
     enabled: !!this.projectId(),
+  }));
+  burndownQuery = injectQuery(() => ({
+    queryKey: ['burndown', this.projectId(), this.selectedSprintId()] as const,
+    queryFn: () => firstValueFrom(this.stats.getBurndown(this.projectId(), this.selectedSprintId() || undefined)),
+    enabled: !!this.projectId() && !!this.selectedSprintId(),
   }));
   // Fallback to in-memory if API empty (for demo)
   fallbackSprints = signal([
@@ -79,6 +93,23 @@ export class SprintsComponent {
     });
     return [];
   });
+  _autoSelect = effect(() => {
+    const list = this.displaySprints();
+    if (list.length && !this.selectedSprintId()) {
+      const active = list.find(s => s.status === 'Active') || list[0];
+      this.selectedSprintId.set(active.id);
+    }
+  });
+  selectedSprint = computed(() => this.displaySprints().find(s => s.id === this.selectedSprintId()) || null);
+  selectedSprintStats = computed(() => {
+    const s = this.selectedSprint();
+    if (!s) return null;
+    const tasks = this.boardQuery.data()?.tasks?.filter((t:any)=> t.sprintId === s.id) || [];
+    const sp = tasks.reduce((sum:number,t:any)=> sum + (t.storyPoints||0), 0);
+    const completed = tasks.filter((t:any)=> t.status==='Done').length;
+    const completedSp = tasks.filter((t:any)=> t.status==='Done').reduce((sum:number,t:any)=> sum + (t.storyPoints||0),0);
+    return { issues: s.tasks, sp, completed, remaining: s.tasks - s.done, completedSp, remainingSp: sp - completedSp };
+  });
   filtered = computed(() => {
     const q = this.search().toLowerCase().trim();
     const list = this.displaySprints();
@@ -95,7 +126,7 @@ export class SprintsComponent {
     mutationFn: () => {
       return firstValueFrom(this.ps.createSprint(this.projectId(), null, this.newName().trim(), this.newStart() || new Date().toISOString().slice(0,10), this.newEnd() || new Date().toISOString().slice(0,10)));
     },
-    onSuccess: () => { this.qc.invalidateQueries({ queryKey: ['sprints', this.projectId()] }); this.qc.invalidateQueries({ queryKey: ['board'] }); this.showCreate.set(false); this.editingSprint.set(null); this.newName.set(''); this.newStart.set(''); this.newEnd.set(''); this.toast.success('Sprint created'); },
+    onSuccess: () => { this.qc.invalidateQueries({ queryKey: ['sprints', this.projectId()] }); this.qc.invalidateQueries({ queryKey: ['board'] }); this.qc.invalidateQueries({ queryKey: ['burndown'] }); this.showCreate.set(false); this.editingSprint.set(null); this.newName.set(''); this.newStart.set(''); this.newEnd.set(''); this.toast.success('Sprint created'); },
     onError: (e:any) => this.toast.error(e?.error?.error || e?.message || 'Create sprint failed')
   }));
   updateMutation = injectMutation(() => ({

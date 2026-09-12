@@ -4,8 +4,53 @@
       <h1 class="text-xl font-bold">Sprints</h1>
       <p class="text-xs opacity-60">Time-boxed iterations — assign Backlog tasks to Sprint. Boards filter by Sprint (view, not copy).</p>
     </div>
-    <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ New Sprint</button>
+    <div class="flex items-center gap-2">
+      @if (displaySprints().length) {
+        <select class="select select-bordered select-sm rounded-full max-w-[180px]" [value]="selectedSprintId()" (change)="selectedSprintId.set($any($event.target).value)">
+          @for (s of displaySprints(); track s.id) {
+            <option [value]="s.id">{{ s.name }} {{ s.status==='Active' ? '• Active' : '' }}</option>
+          }
+        </select>
+      }
+      <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ New Sprint</button>
+    </div>
   </div>
+
+  @if (displaySprints().length) {
+    <section class="space-y-3">
+      @if (burndownQuery.isPending()) {
+        <div class="card bg-base-100 rounded-2xl p-4 h-[340px] animate-pulse border"></div>
+      } @else if (burndownQuery.isError()) {
+        <div class="alert alert-warning rounded-xl text-sm">Burndown unavailable — {{ $any(burndownQuery.error)?.error?.error || 'create a sprint first' }}</div>
+      } @else {
+        <app-burndown [data]="burndownQuery.data() ?? null"></app-burndown>
+      }
+      @if (selectedSprintStats(); as st) {
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div class="card bg-base-100 rounded-2xl border p-3 text-center shadow-sm">
+            <p class="text-[10px] font-semibold uppercase opacity-45">Issues</p>
+            <p class="text-xl font-bold">{{ st.issues }}</p>
+            <p class="text-xs opacity-40">Total</p>
+          </div>
+          <div class="card bg-base-100 rounded-2xl border p-3 text-center shadow-sm">
+            <p class="text-[10px] font-semibold uppercase opacity-45">Story Points</p>
+            <p class="text-xl font-bold text-primary">{{ st.sp }}</p>
+            <p class="text-xs opacity-40">Total SP</p>
+          </div>
+          <div class="card bg-base-100 rounded-2xl border p-3 text-center shadow-sm">
+            <p class="text-[10px] font-semibold uppercase opacity-45">Completed</p>
+            <p class="text-xl font-bold text-success">{{ st.completed }} <span class="text-xs font-normal opacity-60">({{ st.completedSp }} SP)</span></p>
+            <p class="text-xs opacity-40">{{ st.remaining }} remaining</p>
+          </div>
+          <div class="card bg-base-100 rounded-2xl border p-3 text-center shadow-sm">
+            <p class="text-[10px] font-semibold uppercase opacity-45">Remaining</p>
+            <p class="text-xl font-bold text-warning">{{ st.remaining }} <span class="text-xs font-normal opacity-60">({{ st.remainingSp }} SP)</span></p>
+            <p class="text-xs opacity-40">Issues / SP</p>
+          </div>
+        </div>
+      }
+    </section>
+  }
 
   <div class="flex flex-col sm:flex-row gap-2">
     <input type="text" placeholder="Search sprints..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
