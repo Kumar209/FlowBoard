@@ -3,23 +3,30 @@ using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using Serilog.Context;
 using Identity.Service.Application.Interfaces;
 using Identity.Service.Infrastructure.Services;
 using Identity.Service.Infrastructure.Persistence;
 
-var builder = WebApplication.CreateBuilder(args);
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+    .WriteTo.File(new Serilog.Formatting.Json.JsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30, fileSizeLimitBytes: 10_000_000, rollOnFileSizeLimit: true)
+    .CreateLogger();
 
-// 1. DbContext - Single DB flowboard with schema [identity], Server=localhost (from appsettings.Development.json)
+var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog();
+
+// 1. DbContext
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? "Server=localhost;Database=flowboard;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 builder.Services.AddDbContext<IdentityDbContext>(options =>
     options.UseSqlServer(connectionString, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "identity")));
 builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<IdentityDbContext>());
 
-// 2. MediatR - CQRS handlers for Register/Login/Refresh (FluentValidation validators are auto-discovered but not required for build)
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
 
-// 3. Application services - DIP interfaces (enterprise) - Infrastructure implementations
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
@@ -32,7 +39,6 @@ builder.Services.AddScoped<IOrganizationActivityService, OrganizationActivitySer
 builder.Services.AddScoped<IOrganizationStatsService, OrganizationStatsService>();
 builder.Services.AddHttpClient<IBrevoEmailService, BrevoEmailService>();
 
-// 4. JWT Authentication - reads Jwt:Key/Issuer/Audience from config (32+ chars, HS256, 15m)
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key missing - set in appsettings.Development.json");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "FlowBoard.Identity";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "FlowBoard.Gateway";
@@ -52,7 +58,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
             ClockSkew = TimeSpan.Zero
         };
-        // SignalR Hub will use query ?access_token=xxx - also allow header Authorization: Bearer xxx
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
@@ -68,7 +73,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// 5. Authorization - 6 roles (SuperAdmin, OrgAdmin, ProjectManager, Member, Client, Viewer) + Tenant isolation via WorkspaceId
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("RequireOrgAdmin", policy => policy.RequireRole("OrgAdmin", "SuperAdmin"));
@@ -76,7 +80,6 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("RequireMember", policy => policy.RequireRole("Member", "ProjectManager", "OrgAdmin", "SuperAdmin", "Client", "Viewer"));
 });
 
-// 6. Controllers + CORS + Health + Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(o =>
@@ -103,19 +106,58 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins("http://loca
 
 var app = builder.Build();
 
-// Seed SuperAdmin (company-centric: only superadmin seeded, orgs created via Register with companyName)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
     await IdentitySeeder.SeedSuperAdminAsync(db);
 }
 
-// 7. Swagger (Development only) - UI at /swagger (e.g., http://localhost:5001/swagger)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Identity.Service v1"));
 }
+
+app.UseSerilogRequestLogging(opts =>
+{
+    opts.EnrichDiagnosticContext = (diag, http) =>
+    {
+        diag.Set("CorrelationId", http.Items["X-Correlation-Id"]?.ToString() ?? "");
+        diag.Set("UserId", http.User.FindFirst("sub")?.Value ?? http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "");
+    };
+});
+
+// Security headers
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';";
+    ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+if (!app.Environment.IsDevelopment()) app.UseHsts();
+
+// CorrelationId enrichment from header or generate, without DB lookup
+app.Use(async (ctx, next) =>
+{
+    var cid = ctx.Request.Headers["X-Correlation-Id"].FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(cid)) cid = Guid.NewGuid().ToString();
+    ctx.Items["X-Correlation-Id"] = cid;
+    ctx.Response.OnStarting(() => { ctx.Response.Headers["X-Correlation-Id"] = cid!; return Task.CompletedTask; });
+    var userId = ctx.User.FindFirst("sub")?.Value ?? ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+    var workspaceId = ctx.Request.RouteValues["workspaceId"]?.ToString() ?? ctx.Request.RouteValues["wid"]?.ToString() ?? ctx.User.FindFirst("workspace_id")?.Value ?? "";
+    var projectId = ctx.Request.RouteValues["projectId"]?.ToString() ?? ctx.Request.RouteValues["pid"]?.ToString() ?? "";
+    var orgId = ctx.User.FindFirst("org_id")?.Value ?? ctx.User.FindFirst("OrganizationId")?.Value ?? "";
+    using (LogContext.PushProperty("CorrelationId", cid!))
+    using (LogContext.PushProperty("UserId", userId))
+    using (LogContext.PushProperty("OrganizationId", orgId))
+    using (LogContext.PushProperty("WorkspaceId", workspaceId))
+    using (LogContext.PushProperty("ProjectId", projectId))
+    {
+        await next();
+    }
+});
 
 app.UseCors();
 app.UseAuthentication();
@@ -129,5 +171,4 @@ app.MapControllers();
 
 app.Run();
 
-// For integration tests (WebApplicationFactory)
 public partial class Program { }

@@ -3,6 +3,8 @@ using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using Serilog.Context;
 using Project.Service.Application.AI.Interfaces;
 using Project.Service.Application.Behaviors;
 using Project.Service.Application.Interfaces;
@@ -13,16 +15,18 @@ using Project.Service.Infrastructure.Messaging;
 using Project.Service.Infrastructure.Persistence;
 using Shared.Contracts.Events;
 
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+    .WriteTo.File(new Serilog.Formatting.Json.JsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30, fileSizeLimitBytes: 10_000_000, rollOnFileSizeLimit: true)
+    .CreateLogger();
+
 var builder = WebApplication.CreateBuilder(args);
-// DbContext - Same DB flowboard with schema [project] (Task 2.1) - DIP with IApplicationDbContext (like Identity Task 1.2.1)
+builder.Host.UseSerilog();
 var cs = builder.Configuration.GetConnectionString("Default") ?? "Server=localhost;Database=flowboard;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 builder.Services.AddDbContext<ProjectDbContext>(o => o.UseSqlServer(cs, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "project")));
 builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ProjectDbContext>());
 
-// MNC-GRADE MediatR PIPELINE - Register all handlers from this assembly + add CachingBehavior as IPipelineBehavior
-// What this line does: For EVERY MediatR Send(request), MediatR will first create CachingBehavior<TRequest,TResponse> (if TRequest is ICacheableRequest) and call its Handle() before the actual Handler.
-// Why used: Keeps Api thin (controller just Send(query)), caching is auto for any ICacheableRequest (GetBoard, GetTasks) via pipeline, reuse across all services (File, Notification, Gemini). Without this, each controller would repeat GetAsync/SetAsync manually (duplication, missed invalidation). Boilerplate is intentional for MNC prod-grade.
-// Concrete class CachingBehavior implements interface IPipelineBehavior<,> (MediatR's abstraction) - we always write concrete class, MediatR calls it via interface.
 builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssemblyContaining<Program>();
@@ -43,13 +47,11 @@ builder.Services.AddScoped<IActivityService, Project.Service.Infrastructure.Serv
 builder.Services.AddScoped<IProjectMemberService, Project.Service.Infrastructure.Services.ProjectMemberService>();
 builder.Services.AddScoped<IStatusService, Project.Service.Infrastructure.Services.StatusService>();
 
-// 7.1 AI Infrastructure - separate AI folder DIP (Gemini 2.5 Flash fixed + Groq llama-3.1-8b selectable, Redis 3/min per ai:{userId}:{model}, 5 RPM global, AiUsageLogs hash/preview only)
 builder.Services.AddSingleton<IAiRateLimiter, AiRateLimiter>();
 builder.Services.AddHttpClient<GeminiProvider>(c => c.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient<GroqProvider>(c => c.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddScoped<IAiService, AiService>();
 
-// MassTransit 8.3 + CloudAMQP (same amqps:// key local/prod, 2s Outbox poll, durable quorum, retry 3x + _error)
 var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? builder.Configuration["RabbitMQ__Host"] ?? "";
 builder.Services.AddMassTransit(x =>
 {
@@ -61,10 +63,8 @@ builder.Services.AddMassTransit(x =>
         }
         else
         {
-            // Fallback to in-memory for local dev without CloudAMQP (best-effort, Outbox still persists)
             cfg.Host("rabbitmq://localhost");
         }
-        // Contracts -> durable fanout exchange flowboard.events (quorum, same key local/prod)
         cfg.Message<TaskCreatedEvent>(c => c.SetEntityName("flowboard.events"));
         cfg.Message<TaskMovedEvent>(c => c.SetEntityName("flowboard.events"));
         cfg.Message<TaskCommentedEvent>(c => c.SetEntityName("flowboard.events"));
@@ -97,7 +97,6 @@ builder.Services.AddSwaggerGen(o =>
 builder.Services.AddHealthChecks();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins("http://localhost:4200","https://flowboard.vercel.app").AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
-// JWT auth - same key as Identity.Service (HS256, 15m) 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "FlowBoard.Identity";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "FlowBoard.Gateway";
@@ -129,22 +128,53 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
-// Seed disabled for company-centric V2: DB is clean, only SuperAdmin seeded via Identity.Seeder
-// Previously seeded demo project FB-3; now new orgs start empty per MNC spec.
-// using (var scope = app.Services.CreateScope())
-// {
-//     var db = scope.ServiceProvider.GetRequiredService<ProjectDbContext>();
-//     try { await ProjectSeeder.SeedAsync(db); } catch (Exception ex) { Console.WriteLine($"[Seeder] {ex.Message}"); }
-// }
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Project.Service v1"));
 }
+app.UseSerilogRequestLogging(opts =>
+{
+    opts.EnrichDiagnosticContext = (diag, http) =>
+    {
+        diag.Set("CorrelationId", http.Items["X-Correlation-Id"]?.ToString() ?? "");
+        diag.Set("UserId", http.User.FindFirst("sub")?.Value ?? http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "");
+    };
+});
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';";
+    ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+if (!app.Environment.IsDevelopment()) app.UseHsts();
+app.Use(async (ctx, next) =>
+{
+    var cid = ctx.Request.Headers["X-Correlation-Id"].FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(cid)) cid = Guid.NewGuid().ToString();
+    ctx.Items["X-Correlation-Id"] = cid;
+    ctx.Response.OnStarting(() => { ctx.Response.Headers["X-Correlation-Id"] = cid!; return Task.CompletedTask; });
+    var userId = ctx.User.FindFirst("sub")?.Value ?? ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+    var workspaceId = ctx.Request.RouteValues["workspaceId"]?.ToString() ?? ctx.Request.RouteValues["wid"]?.ToString() ?? ctx.User.FindFirst("workspace_id")?.Value ?? "";
+    var projectId = ctx.Request.RouteValues["projectId"]?.ToString() ?? ctx.Request.RouteValues["pid"]?.ToString() ?? "";
+    var orgId = ctx.User.FindFirst("org_id")?.Value ?? "";
+    using (Serilog.Context.LogContext.PushProperty("CorrelationId", cid!))
+    using (Serilog.Context.LogContext.PushProperty("UserId", userId))
+    using (Serilog.Context.LogContext.PushProperty("OrganizationId", orgId))
+    using (Serilog.Context.LogContext.PushProperty("WorkspaceId", workspaceId))
+    using (Serilog.Context.LogContext.PushProperty("ProjectId", projectId))
+    {
+        await next();
+    }
+});
+
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapHealthChecks("/health");
 app.MapGet("/", () => Results.Ok(new { service = "FlowBoard Project.Service", version = "v1.2", dotnet = "10.0", status = "Running", swagger = "/swagger" }));
 app.MapGet("/health/ready", () => Results.Ok(new { service = "Project.Service", status = "Ready", timestamp = DateTime.UtcNow }));

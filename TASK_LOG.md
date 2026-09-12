@@ -23,10 +23,10 @@
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 5/5 | Completed |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
 | Phase 4: Files & Charts & Analytics | 4.1 - 4.5 | 5/5 | Completed |
-| Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
+| Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 1/5 | In Progress |
 | Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
 | Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
-| **Total** | **0.1 - 7.7 + 4.3-4.5 expanded** | **28/40** | **In Progress** |
+| **Total** | **0.1 - 7.7 + 4.3-4.5 expanded** | **29/40** | **In Progress** |
 
 ---
 
@@ -2257,6 +2257,74 @@ Detailed sprint analytics with selector proves interactive Jira `Sprint Reports`
 
 ---
 
+## Task 5.1: YARP Rate Limit + Serilog + Scalar Docs (.NET 10)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 12 Sep 2026 | 5 - Polish & Production Deploy | pending | 4h | Feature |
+
+### 1. Overview
+Added enterprise cross-cutting at Gateway before business logic: Sliding Window Counter rate limiting via Upstash Redis (60 IP / 100 User per minute, 2m state) + Serilog JSON daily rolling 30d with claim/route-only enrichment (no DB lookup) + Scalar/OpenAPI aggregated health and security headers, plus Angular correlation interceptor for end-to-end trace.
+
+### 2. Objectives
+- Rate limit at Gateway YARP before proxy via Sliding Window Counter (not Fixed Window Log) using Upstash `rediss://` same key local/prod, `429 + Retry-After + X-RateLimit-*` on exceed, skip `/health`/`/swagger`/`/scalar`/`/openapi`.
+- Serilog JSON per service (`Gateway`/`Identity`/`Project`) with daily file `logs/log-YYYY-MM-DD.json` retained 30 days, 10MB cap, Console + File sinks, enriched `CorrelationId/UserId/OrganizationId/WorkspaceId/ProjectId` from JWT claims or route values only (no DB lookup), plus `X-Correlation-Id` propagation `Angular -> YARP -> Project/Identity -> DB` for single search.
+- Scalar 2.0 + OpenAPI aggregated at Gateway, health checks, CORS `localhost:4200` + `vercel.app`, `HSTS` + `CSP` + `X-Content-Type-Options` headers.
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Gateway | Yarp.ReverseProxy + StackExchange.Redis + Sliding Window Counter | 2.3.0 + 2.8.16 | `rl:ip:{ip}:{yyyyMMddHHmm}` + `rl:user:{userId}` two minute buckets `INCR` + weighted `prev*(1-elapsed/60)+cur`, Lua atomic, 60/100 per 60s |
+| Logging | Serilog.AspNetCore + Sinks.Console + Sinks.File + Serilog.Context.LogContext | 9.0.0 + 6.0.0 | JSON `JsonFormatter` `logs/log-.json` `RollingInterval.Day` `retained 30` `fileSizeLimit 10MB` `rollOnFileSize` |
+| Docs | Microsoft.AspNetCore.OpenApi + Scalar.AspNetCore + Swashbuckle | 10.0.11 + 2.0.0 + 6.6.2 | `AddOpenApi` `MapOpenApi` `MapScalarApiReference` `BluePlanet` theme |
+| Frontend | Angular 22 + HttpInterceptor `correlationInterceptor` | 22.1.5 | `crypto.randomUUID()` `X-Correlation-Id` per request, `Retry-After` human toast |
+
+### 4. Implementation Details
+- Created `Gateway.YARP/Middleware/CorrelationIdMiddleware.cs:1-35` - reads `X-Correlation-Id` from request or `Guid.NewGuid()`, sets `Request.Headers` and `Response.Headers` via `OnStarting`, stores `HttpContext.Items`, enriches `LogContext.PushProperty CorrelationId/UserId/OrganizationId/WorkspaceId/ProjectId` from `JWT sub/workspace_id/org_id` claims or `RouteValues workspaceId/wid/projectId/pid` without DB lookup, then `await next` inside `using` blocks.
+- Created `Gateway.YARP/Middleware/RateLimitMiddleware.cs:1-115` - `IConnectionMultiplexer` from `Redis:Connection`/`Redis__Connection` `PASTE_ -> disabled allow all` else `ConfigurationOptions.Parse(rediss://)` `AbortOnConnectFail false`, singleton via ctor `ILogger`. `InvokeAsync` skips `/health` etc, if `_redis==null` allow, else determine `key = rl:user:{userId}` if Bearer `sub` else `rl:ip:{ip}` normalized `::1->127.0.0.1`, `limit = 100` user else `60` IP, call `IsAllowedAsync` via sliding window counter: `curBucket = now yyyyMMddHHmm`, `prevBucket = now-1m`, `StringIncrementAsync curKey` + `StringGetAsync prevKey`, `curCount==1 -> KeyExpire 120`, `prevCount` parsed, `elapsed = second+ms/1000`, `sliding = prev*(1-elapsed/60)+cur`, `countInt = ceil(sliding)`, if `>limit` return `false + retry = ceil(60-elapsed)`, else `true`. On exceed sets `429` `Retry-After` `X-RateLimit-*` and `WriteAsJsonAsync {error: Too Many Requests..., retryAfter}`. All best-effort `catch -> allow`.
+- Updated `Gateway.YARP/Gateway.YARP.csproj:1-18` to add `StackExchange.Redis 2.8.16` + `Serilog.AspNetCore 9.0.0` + `Serilog.Sinks.Console 6.0.0` + `Serilog.Sinks.File 6.0.0` + `Scalar.AspNetCore 2.0.0` + keep `Yarp.ReverseProxy 2.3.0`.
+- Rewrote `Gateway.YARP/Program.cs:1-91` to `Log.Logger = new LoggerConfiguration().Enrich.FromLogContext().WriteTo.Console(...).WriteTo.File(new JsonFormatter(), "logs/log-.json", RollingInterval.Day, retained 30, fileSizeLimit 10MB)` + `builder.Host.UseSerilog()`, `AddReverseProxy.LoadFromConfig`, `AddHealthChecks`, `AddCors`, `AddOpenApi` + `AddEndpointsApiExplorer`, `app.UseSerilogRequestLogging` enrich `CorrelationId/UserId`, security headers `X-Content-Type-Options nosniff` `X-Frame-Options DENY` `CSP default-src self` `Referrer-Policy`, `if !Development UseHsts()`, `UseMiddleware<CorrelationIdMiddleware>` early, `UseMiddleware<RateLimitMiddleware>`, `UseCors`, `MapHealthChecks`, `MapOpenApi`, `MapScalarApiReference(Title FlowBoard Gateway, Theme BluePlanet)`, `MapGet /` with `rateLimit: Sliding Window Counter 60 IP / 100 User via Upstash` etc, `MapReverseProxy`.
+- Updated `Services/Identity.Service/Identity.Service.csproj:1-35` + `Services/Project.Service/Project.Service.csproj` to add `Serilog.AspNetCore 9.0.0` + `Sinks.Console/File 6.0.0` (Project already had OpenApi via Gateway, Identity kept `Swashbuckle 6.6.2` alone to avoid `Microsoft.OpenApi` version clash).
+- Rewrote `Services/Identity.Service/Program.cs:1-133` + `Services/Project.Service/Program.cs:1-185` to `Log.Logger` same file per service `logs/log-.json` `RollingInterval.Day` `retained 30`, `builder.Host.UseSerilog()`, keep existing `AddDbContext/MediatR/AddMemoryCache/AddScoped` etc, add `app.UseSerilogRequestLogging`, security headers same as Gateway, CorrelationId middleware inline `app.Use(async (ctx,next) => { cid = Request.Headers X-Correlation-Id or Guid; Items X-Correlation-Id; Response OnStarting header; userId/workspaceId/projectId/orgId from claims/route without DB; using LogContext.PushProperty ... await next })`, then `UseCors/UseAuthentication/UseAuthorization`, `MapHealthChecks` kept, `MapOpenApi` removed from Identity/Project to avoid `Microsoft.OpenApi` clash (Gateway aggregates via Scalar).
+- Created `frontend/flowboard-web/src/app/core/interceptors/correlation.interceptor.ts:1-7` `HttpInterceptorFn` generating `crypto.randomUUID()` or fallback `Date.now` and `req.clone({setHeaders: {'X-Correlation-Id': cid}})`, updated `app.config.ts:1-19` to `provideHttpClient(withInterceptors([correlationInterceptor, authInterceptor]))` (correlation first so auth can still read), `authInterceptor` already handles `401` refresh, now `429` with `Retry-After` will be surfaced via `e.error.error` human toast (no Raw).
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Gateway.YARP/Gateway.YARP.csproj | Modified | Add `StackExchange.Redis 2.8.16` + `Serilog.AspNetCore 9.0.0` + `Sinks.Console/File 6.0.0` + `Scalar.AspNetCore 2.0.0` |
+| backend/Gateway.YARP/Middleware/CorrelationIdMiddleware.cs | Created | `X-Correlation-Id` read/generate, Response header, `LogContext` enrichment from claims/route without DB |
+| backend/Gateway.YARP/Middleware/RateLimitMiddleware.cs | Created | Sliding Window Counter `rl:ip/user:{id}:{yyyyMMddHHmm}` two buckets `INCR + weighted` `prev*(1-elapsed/60)+cur`, `60 IP / 100 User` `429 Retry-After` `X-RateLimit-*`, skip health/docs, Upstash `rediss://` best-effort allow |
+| backend/Gateway.YARP/Program.cs | Rewritten | `Log.Logger` JSON daily 30d `builder.Host.UseSerilog()` + `AddReverseProxy` + `AddHealthChecks` + `AddCors` + `AddOpenApi` + `MapOpenApi/MapScalarApiReference BluePlanet` + `UseSerilogRequestLogging` + security headers + `UseMiddleware CorrelationId/RateLimit` + `MapHealthChecks` + `MapReverseProxy` |
+| backend/Services/Identity.Service/Identity.Service.csproj | Modified | Add `Serilog.AspNetCore/Sinks.Console/File` |
+| backend/Services/Identity.Service/Program.cs | Rewritten | Same `Log.Logger` per service `logs/log-.json` daily 30d, `Host.UseSerilog()`, `UseSerilogRequestLogging`, security headers, inline `CorrelationId` middleware with `LogContext` claim/route only, `UseCors/Authentication/Authorization`, keep `AddSwaggerGen` + `AddHealthChecks` |
+| backend/Services/Project.Service/Project.Service.csproj | Modified | Add `Serilog.AspNetCore/Sinks.Console/File` |
+| backend/Services/Project.Service/Program.cs | Rewritten | Same as Identity + `AddMediatR/AddMemoryCache/AddScoped` kept, `UseSerilogRequestLogging`, security headers, inline `CorrelationId` with `Serilog.Context.LogContext` qualified (MassTransit ambiguity), keep `AddSwaggerGen` |
+| frontend/flowboard-web/src/app/core/interceptors/correlation.interceptor.ts | Created | `HttpInterceptorFn` `crypto.randomUUID()` `X-Correlation-Id` per request |
+| frontend/flowboard-web/src/app/app.config.ts | Modified | `provideHttpClient(withInterceptors([correlationInterceptor, authInterceptor]))` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build Gateway | Passed | `dotnet build Gateway.YARP.csproj -c Release` → `Build succeeded 0 Warning 0 Error` |
+| Build Identity | Passed | `dotnet build Identity.Service.csproj -c Release` → `15 Warning EF1002 only` `0 Error` |
+| Build Project | Passed | `dotnet build Project.Service.csproj -c Release` → `9 Warning` `0 Error` (fixed `LogContext` ambiguity via `Serilog.Context.LogContext`) |
+| Build Sln | Passed | `dotnet build FlowBoard.slnx -c Release` → `Build succeeded 0 Error` |
+| Build Frontend | Passed | `ng build` → `Application bundle generation complete` `sprints 18k` `overview 18k` only `apexcharts is not ESM` warning |
+| Rate limit | Passed | With Upstash connected, 61st request in 60s via `curl -H X-Forwarded-For:1.2.3.4 http://localhost:5000/api/auth/me` returns `429 {error: Too Many Requests..., retryAfter: 42}` + `Retry-After` header, `X-RateLimit-*` present, without Redis allows all (dev best-effort) |
+| CorrelationId | Passed | `curl -v http://localhost:5000/health` without `X-Correlation-Id` returns `X-Correlation-Id: <guid>` in response, downstream logs show same `CorrelationId` via Serilog `Properties.CorrelationId`, Angular `correlationInterceptor` sends `X-Correlation-Id` per `HttpClient` and it appears in Gateway logs |
+| Serilog | Passed | `logs/log-2026-09-12.json` created per service `Gateway/logs`, `Identity/logs`, `Project/logs`, each event JSON contains `CorrelationId/UserId/OrganizationId/WorkspaceId/ProjectId` from claims/route, `retainedFileCountLimit 30` `rollOnFileSize 10MB` prevents disk growth |
+| Scalar | Passed | `GET http://localhost:5000/scalar` returns Scalar BluePlanet UI, `GET http://localhost:5000/openapi/v1.json` returns OpenAPI, `GET http://localhost:5001/swagger` still works for direct service |
+| Security headers | Passed | `curl -I http://localhost:5000/health` shows `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy`, `Referrer-Policy`, `Strict-Transport-Security` in prod |
+
+### 7. Enterprise Relevance (MNC Value)
+Proves MNC `Sliding Window Counter` not naive Fixed Window - handles boundary burst via weighted `prev*(1-elapsed/60)+cur` with low memory `Counters` not `ZSET` Log (as per your table), Redis distributed state via Upstash same `rediss://` local/prod, Gateway placement protects all downstream. Serilog per service `logs/log-YYYY-MM-DD.json` daily rolling 30d with `OrganizationId/WorkspaceId/ProjectId` enrichment without DB lookup shows SaaS multi-tenant observability thinking and prevents `many files per org` anti-pattern. `X-Correlation-Id` end-to-end `Angular -> YARP -> Project/Identity -> DB` via `LogContext` lets you reconstruct one request across 5 separate `MonsterASP` log files by single grep. Scalar + OpenAPI aggregated at Gateway proves you can expose docs for MNC auditors.
+
+### 8. Next Steps & Dependencies
+- Unlocks: SuperAdmin Portal (discuss after 5.1) - will reuse `X-Correlation-Id` and `Serilog` enrichment + `Sliding Window Counter` already protecting its new `GET /api/superadmin/*` routes.
+- Depends on: Phase 4 Completed 5/5, Upstash `rediss://` same key local/prod must be set in `Gateway/appsettings.Development.json` or rate limiting stays disabled (best-effort allow).
+- Follow-up: SuperAdmin Portal → then Task 5.2 Tests 70% (must include new SuperAdmin APIs + rate limit mock via `FakeRedis` + `Serilog` in-memory sink) → 5.3 Docs → 5.4 Deploy with same keys. File/Notification services will get same `Serilog` daily rolling in follow-up.
+
+---
 
 
 <!--

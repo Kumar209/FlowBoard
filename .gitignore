@@ -11,6 +11,8 @@ obj/
 *.log
 
 # Angular 22 / Node
+logs/
+**/logs/
 frontend/flowboard-web/node_modules/
 frontend/flowboard-web/dist/
 frontend/flowboard-web/.angular/
