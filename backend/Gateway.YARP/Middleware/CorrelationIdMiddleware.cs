@@ -11,23 +11,22 @@ public class CorrelationIdMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var cid = context.Request.Headers[HeaderName].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(cid))
+        if (string.IsNullOrWhiteSpace(cid) || cid.Length > 100)
         {
-            cid = Guid.NewGuid().ToString();
-            context.Request.Headers[HeaderName] = cid;
+            cid = Guid.NewGuid().ToString("N");
         }
+        context.Request.Headers[HeaderName] = cid;
         context.Response.OnStarting(() =>
         {
             context.Response.Headers[HeaderName] = cid!;
             return Task.CompletedTask;
         });
         context.Items[HeaderName] = cid!;
-        // Enrich Serilog context - from JWT claims and route values without DB lookup
+        // Enrichment from JWT claims and route values without DB lookup, standardized claim names
         var userId = context.User.FindFirst("sub")?.Value ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
-        var workspaceId = context.Request.RouteValues["workspaceId"]?.ToString() ?? context.Request.RouteValues["wid"]?.ToString() ?? context.User.FindFirst("workspace_id")?.Value ?? "";
+        var workspaceId = context.Request.RouteValues["workspaceId"]?.ToString() ?? context.Request.RouteValues["wid"]?.ToString() ?? context.User.FindFirst("workspace_id")?.Value ?? context.User.FindFirst("workspaceId")?.Value ?? "";
         var projectId = context.Request.RouteValues["projectId"]?.ToString() ?? context.Request.RouteValues["pid"]?.ToString() ?? "";
-        // OrganizationId from JWT if present, else skip DB lookup
-        var orgId = context.User.FindFirst("org_id")?.Value ?? context.User.FindFirst("OrganizationId")?.Value ?? "";
+        var orgId = context.User.FindFirst("organization_id")?.Value ?? context.User.FindFirst("org_id")?.Value ?? context.User.FindFirst("OrganizationId")?.Value ?? "";
 
         using (LogContext.PushProperty("CorrelationId", cid!))
         using (LogContext.PushProperty("UserId", userId))

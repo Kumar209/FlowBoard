@@ -118,15 +118,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Identity.Service v1"));
 }
 
-app.UseSerilogRequestLogging(opts =>
-{
-    opts.EnrichDiagnosticContext = (diag, http) =>
-    {
-        diag.Set("CorrelationId", http.Items["X-Correlation-Id"]?.ToString() ?? "");
-        diag.Set("UserId", http.User.FindFirst("sub")?.Value ?? http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "");
-    };
-});
-
 // Security headers
 app.Use(async (ctx, next) =>
 {
@@ -138,26 +129,28 @@ app.Use(async (ctx, next) =>
 });
 if (!app.Environment.IsDevelopment()) app.UseHsts();
 
-// CorrelationId enrichment from header or generate, without DB lookup
+// CorrelationId first, before Serilog logging
 app.Use(async (ctx, next) =>
 {
     var cid = ctx.Request.Headers["X-Correlation-Id"].FirstOrDefault();
-    if (string.IsNullOrWhiteSpace(cid)) cid = Guid.NewGuid().ToString();
+    if (string.IsNullOrWhiteSpace(cid) || cid.Length > 100) cid = Guid.NewGuid().ToString("N");
     ctx.Items["X-Correlation-Id"] = cid;
     ctx.Response.OnStarting(() => { ctx.Response.Headers["X-Correlation-Id"] = cid!; return Task.CompletedTask; });
     var userId = ctx.User.FindFirst("sub")?.Value ?? ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
-    var workspaceId = ctx.Request.RouteValues["workspaceId"]?.ToString() ?? ctx.Request.RouteValues["wid"]?.ToString() ?? ctx.User.FindFirst("workspace_id")?.Value ?? "";
+    var workspaceId = ctx.Request.RouteValues["workspaceId"]?.ToString() ?? ctx.Request.RouteValues["wid"]?.ToString() ?? ctx.User.FindFirst("workspace_id")?.Value ?? ctx.User.FindFirst("workspaceId")?.Value ?? "";
     var projectId = ctx.Request.RouteValues["projectId"]?.ToString() ?? ctx.Request.RouteValues["pid"]?.ToString() ?? "";
-    var orgId = ctx.User.FindFirst("org_id")?.Value ?? ctx.User.FindFirst("OrganizationId")?.Value ?? "";
-    using (LogContext.PushProperty("CorrelationId", cid!))
-    using (LogContext.PushProperty("UserId", userId))
-    using (LogContext.PushProperty("OrganizationId", orgId))
-    using (LogContext.PushProperty("WorkspaceId", workspaceId))
-    using (LogContext.PushProperty("ProjectId", projectId))
+    var orgId = ctx.User.FindFirst("organization_id")?.Value ?? ctx.User.FindFirst("org_id")?.Value ?? ctx.User.FindFirst("OrganizationId")?.Value ?? "";
+    using (Serilog.Context.LogContext.PushProperty("CorrelationId", cid!))
+    using (Serilog.Context.LogContext.PushProperty("UserId", userId))
+    using (Serilog.Context.LogContext.PushProperty("OrganizationId", orgId))
+    using (Serilog.Context.LogContext.PushProperty("WorkspaceId", workspaceId))
+    using (Serilog.Context.LogContext.PushProperty("ProjectId", projectId))
     {
         await next();
     }
 });
+
+app.UseSerilogRequestLogging();
 
 app.UseCors();
 app.UseAuthentication();
