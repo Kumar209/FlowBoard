@@ -240,5 +240,71 @@
       <span class="badge badge-ghost badge-sm">Clean Architecture</span>
       <span class="badge badge-ghost badge-sm">Cloud Native</span>
     </div>
+
+    <!-- Org Health KPIs + Charts (Task 4.3) — keep existing above, only add below -->
+    @if (orgId()) {
+      <section class="mt-6">
+        <div class="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold tracking-tight sm:text-lg">Organization Health</h2>
+            <p class="text-xs opacity-50">Live KPIs — cached 2m — 6 metrics + 5 ApexCharts</p>
+          </div>
+          <span class="badge badge-ghost badge-sm rounded-full">{{ org()?.name || 'Org' }}</span>
+        </div>
+
+        @if (orgStatsQuery.data(); as s) {
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+              <p class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Workspaces</p>
+              <p class="text-2xl font-bold mt-1">{{ s.totalWorkspaces }}</p>
+              <p class="text-xs opacity-40">In organization</p>
+            </div>
+            <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+              <p class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Projects</p>
+              <p class="text-2xl font-bold mt-1">{{ s.totalProjects }}</p>
+              <p class="text-xs opacity-40">Across workspaces</p>
+            </div>
+            <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+              <p class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Members</p>
+              <p class="text-2xl font-bold mt-1">{{ s.totalMembers }}</p>
+              <p class="text-xs opacity-40">Distinct users</p>
+            </div>
+            <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+              <p class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Issues</p>
+              <p class="text-2xl font-bold mt-1">{{ s.totalIssues }}</p>
+              <p class="text-xs opacity-40">Total tasks</p>
+            </div>
+            <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+              <p class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Active Sprints</p>
+              <p class="text-2xl font-bold mt-1 text-success">{{ s.activeSprints }}</p>
+              <p class="text-xs opacity-40">Running now</p>
+            </div>
+            <div class="card bg-base-100 rounded-2xl border p-4 shadow-sm">
+              <p class="text-[10px] font-semibold uppercase tracking-wide opacity-45">Completed</p>
+              <p class="text-2xl font-bold mt-1 text-primary">{{ s.completedIssues }}</p>
+              <p class="text-xs opacity-40">Done issues</p>
+            </div>
+          </div>
+        } @else if (orgStatsQuery.isPending()) {
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            @for (i of [1,2,3,4,5,6]; track i) { <div class="card bg-base-100 rounded-2xl p-4 h-24 animate-pulse border"></div> }
+          </div>
+        } @else if (orgStatsQuery.isError()) {
+          <div class="alert alert-error rounded-xl text-sm">Failed to load organization stats — {{ $any(orgStatsQuery.error)?.error?.error || 'please try again' }}</div>
+        }
+
+        <div class="mt-4">
+          @if (orgChartQuery.isPending()) {
+            <div class="grid gap-3 lg:grid-cols-2">
+              @for (i of [1,2,3,4,5]; track i) { <div class="card bg-base-100 rounded-2xl p-4 h-[340px] animate-pulse border"></div> }
+            </div>
+          } @else if (orgChartQuery.isError()) {
+            <div class="alert alert-error rounded-xl text-sm">Failed to load charts — {{ $any(orgChartQuery.error)?.error?.error || 'please try again' }}</div>
+          } @else {
+            <app-org-charts [chartData]="orgChartQuery.data() ?? null"></app-org-charts>
+          }
+        </div>
+      </section>
+    }
   </div>
 </div>

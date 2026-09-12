@@ -3,7 +3,9 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
+import { StatsService } from '../../core/services/stats.service';
 import { ToastService } from '../../core/services/toast.service';
+import { OrgChartsComponent } from '../../shared/charts/org-charts/org-charts.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 
@@ -15,7 +17,7 @@ import { firstValueFrom } from 'rxjs';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, OrgChartsComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -23,6 +25,7 @@ import { firstValueFrom } from 'rxjs';
 export class DashboardComponent implements OnInit {
   auth = inject(AuthService);
   private wsService = inject(WorkspaceService);
+  private stats = inject(StatsService);
   private toast = inject(ToastService);
   private qc = inject(QueryClient);
   workspaceId = signal<string>('11111111-1111-1111-1111-111111111111');
@@ -35,8 +38,21 @@ export class DashboardComponent implements OnInit {
     queryFn: () => firstValueFrom(this.wsService.getMyOrganizations()),
   }));
   org = computed(() => this.orgsQuery.data()?.[0] as any);
+  orgId = computed(() => this.org()?.id as string | undefined);
 
   isOrgAdmin = computed(() => this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
+
+  orgStatsQuery = injectQuery(() => ({
+    queryKey: ['org-stats', this.orgId()] as const,
+    queryFn: () => firstValueFrom(this.stats.getOrgStats(this.orgId()!)),
+    enabled: !!this.orgId(),
+  }));
+
+  orgChartQuery = injectQuery(() => ({
+    queryKey: ['org-chart', this.orgId()] as const,
+    queryFn: () => firstValueFrom(this.stats.getOrgChartData(this.orgId()!)),
+    enabled: !!this.orgId(),
+  }));
 
   updateOrgMutation = injectMutation(() => ({
     mutationFn: () => firstValueFrom(this.wsService.updateOrganization(this.org()!.id, this.orgName().trim(), this.orgDesc().trim() || undefined)),

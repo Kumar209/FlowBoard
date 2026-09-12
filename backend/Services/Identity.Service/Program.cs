@@ -20,6 +20,7 @@ builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<Id
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
 
 // 3. Application services - DIP interfaces (enterprise) - Infrastructure implementations
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
@@ -28,6 +29,7 @@ builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IOrganizationRoleService, OrganizationRoleService>();
 builder.Services.AddScoped<IOrganizationActivityService, OrganizationActivityService>();
+builder.Services.AddScoped<IOrganizationStatsService, OrganizationStatsService>();
 builder.Services.AddHttpClient<IBrevoEmailService, BrevoEmailService>();
 
 // 4. JWT Authentication - reads Jwt:Key/Issuer/Audience from config (32+ chars, HS256, 15m)

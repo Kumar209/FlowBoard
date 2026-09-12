@@ -7,7 +7,7 @@
 
 ## How This Log Works
 
-- **Source:** `Documents/FlowBoard_Tasks_Plan.docx` defines 26 tasks across 6 Phases (0-5). This log is the living execution diary.
+- **Source:** `Documents/FlowBoard_Tasks_Plan.docx` defines 40 tasks across 7 Phases (0-7, Phase 4 expanded 4.1-4.5). This log is the living execution diary.
 - **Flow:** `Pending` -> `In Progress` -> `Completed` (with Date + Commit). Update `Progress Overview` after each completion.
 - **Structure:** Every task uses the same 8-section professional template below - designed so any developer (or MNC interviewer) can understand purpose, tech, implementation, verification, and next steps without reading code.
 - **Push:** After each completed task, commit log + code and push to `origin/main`.
@@ -22,11 +22,11 @@
 | Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
 | Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 5/5 | Completed |
 | Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
-| Phase 4: Files & Charts | 4.1 - 4.3 | 2/3 | In Progress |
+| Phase 4: Files & Charts & Analytics | 4.1 - 4.5 | 3/5 | In Progress |
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 0/5 | Pending |
 | Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
 | Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
-| **Total** | **0.1 - 7.7** | **25/38** | **In Progress** |
+| **Total** | **0.1 - 7.7 + 4.3-4.5 expanded** | **26/40** | **In Progress** |
 
 ---
 
@@ -2057,38 +2057,183 @@ Implemented `AI Breakdown (D)` — `task-detail-modal Subtasks` card `✨ Breakd
 
 ---
 
-## Task 7.7: AI Usage Logs — Project Sidebar (project-level)
+## Task 4.3: Organization Dashboard — KPIs + Charts (Org Health)
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | 7 - AI | — | 1.5h | Feature |
+| Completed | 12 Sep 2026 | 4 - Charts & Analytics | pending | 5h | Feature |
 
 ### 1. Overview
-`Project` sidebar `AI Usage` `all project members` (like `Activity`) → `GET /api/ai/usage?projectId` `WHERE ProjectId` filtered, same `AiUsageLogs` table, `tokens/cost` chart.
+Extended Organization Dashboard (`dashboard.component`) keeping all existing welcome/org/workspace cards, adding below a live Org Health section: 6 KPI cards + 5 ApexCharts powered by cross-schema aggregation across `[identity]`+`[project]`+`[project].AiUsageLogs` with 2m `IMemoryCache`.
 
 ### 2. Objectives
-- Project-level AI analytics
+- Keep existing dashboard content unchanged, append below: 6 KPI cards Total Workspaces / Projects / Members (distinct union) / Issues / Active Sprints / Completed Issues (`grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`)
+- 5 ApexCharts (responsive `lg:grid-cols-2`): Issues by Status Donut, Issues by Priority Bar, Issues by Workspace Bar, Activity Trend 14d Line (`OrganizationActivities`+`ActivityLogs` UNION), AI Usage 14d Area (tokens from `AiUsageLogs` grouped by day, filled missing days 0)
 
 ### 3. Technical Stack
 | Layer | Technology | Version | Purpose |
 |-------|------------|---------|---------|
+| Backend | ASP.NET Core 10 + EF Core 10 + `IOrganizationStatsService` (DIP) + `IMemoryCache` 2m | 10.0 | `GROUP BY status/priority/workspace`, trend 14d `DATEADD`, `AiUsageLogs` daily `SUM Tokens/Cost` |
+| Frontend | Angular 22.1.5 Standalone OnPush + `ng-apexcharts` 1.8 + `apexcharts` 3.49 + `TanStack Query` 5.62 experimental + Signals | 22.1.5 | 6 KPI cards + 5 charts, `DaisyUI card/border`, `firstValueFrom` |
+| DB | `flowboard` single DB `[identity]`+`[project]` cross-schema `Database.SqlQueryRaw` same DB | SQL Server 2025 | Counts without new table, `COALESCE` safe historic |
+| Gateway | YARP 2.3 | 2.3 | `GET /api/organizations/{orgId}/stats` + `/chart-data` → `Identity.Service :5001` via existing `/api/organizations/{**catch-all}` route |
 
 ### 4. Implementation Details
-...
+- Created `Application/Interfaces/IOrganizationStatsService.cs:1-18` with `OrgStatsDto(Workspaces,Projects,Members,Issues,ActiveSprints,CompletedIssues)`, `ChartBucketDto`, `DailyCountDto`, `AiUsageDailyDto`, `OrgChartDataDto` + `IOrganizationStatsService(GetOrgStatsAsync, GetOrgChartDataAsync)`.
+- Created `Application/Queries/GetOrgStatsQuery.cs:1-30` with `GetOrgStatsQuery(OrgId, CallerId)` + `GetOrgChartDataQuery` + handlers `IOrganizationStatsService` via `IMediator`, `Result<T>` pattern with `catch→Failure` (Human Error Rule: never expose stack/Raw).
+- Created `Infrastructure/Services/OrganizationStatsService.cs:1-180` implementing DIP: `CanViewAsync` checks `SuperAdmin` or `Organization.OwnerId` or `OrganizationMembers` or any `WorkspaceMembers` in org (allows any org member, `Forbidden` otherwise). `GetOrgStatsAsync` caches `org:stats:{orgId}` 2m `IMemoryCache`, queries `totalWorkspaces` via `CountAsync`, `totalProjects/Issues/ActiveSprints/CompletedIssues` via cross-schema `SqlQueryRaw<CountRow>` `COUNT(*)` with `INNER JOIN [identity].[Workspaces]`, `totalMembers` via distinct union `WorkspaceMembers`+`OrganizationMembers` (fallback keeps accurate when org-only members exist). `GetOrgChartDataAsync` caches `org:chart:{orgId}` 2m, issuesByStatus `GROUP BY Status`, priority `GROUP BY Priority` mapped `0 Low/1 Medium/2 High/3 Urgent`, workspace `GROUP BY w.Name`, activityTrend `UNION ALL` `[project].ActivityLogs`+`[identity].OrganizationActivities` last 14d `DATEADD(day,-14,GETUTCDATE())` grouped then filled missing days 0, aiUsage `SUM(PromptTokens+CompletionTokens)` + `SUM(Cost)` per day from `[project].AiUsageLogs` where `OrgId` filtered, also filled 14d.
+- Updated `Program.cs:1-28` to `AddMemoryCache()` + `AddScoped<IOrganizationStatsService, OrganizationStatsService>()` (keeps DIP, no `_db` in controller).
+- Updated `Api/Controllers/OrganizationsController.cs:1-20` with `GET /{id}/stats` + `GET /{id}/chart-data` via `_mediator.Send(new GetOrgStatsQuery(id, callerId))` returning `Ok` or `NotFound/403/BadRequest` human error (no `Raw:`/`LineNumber`).
+- Created `core/services/stats.service.ts:1-19` with `getOrgStats(orgId)` + `getOrgChartData(orgId)` via `HttpClient` `environment.apiUrl` + `withCredentials:true`.
+- Created `shared/charts/org-charts/org-charts.component.ts:1-76` standalone `CommonModule+NgApexchartsModule` OnPush with `chartData = input.required<OrgChartData|null>()` + 5 `computed<ApexOptions>`: `statusDonut` (donut 300, colors `#6366f1…`, legend bottom), `priorityBar` (bar 300, `#f59e0b`), `workspaceBar` (bar 300, `#6366f1`), `activityLine` (line smooth, `#10b981`, markers), `aiUsageLine` (area gradient `#8b5cf6`). HTML `org-charts.component.html:1-56` uses `lg:grid-cols-2` + `lg:col-span-2` for AI, skeletons `animate-pulse` when null, `No issues yet` empties. CSS empty `/* No internal CSS */` per 3-File Rule.
+- Modified `features/dashboard/dashboard.component.ts:1-48` to `imports: [CommonModule, RouterLink, OrgChartsComponent]`, inject `StatsService`, `orgId = computed(() => org()?.id)`, `orgStatsQuery = injectQuery(['org-stats', orgId()] → stats.getOrgStats)` + `orgChartQuery = injectQuery(['org-chart', orgId()] → stats.getOrgChartData)` enabled only when `orgId` truthy, keep existing `orgsQuery`/`isOrgAdmin`/`updateOrgMutation` untouched.
+- Modified `features/dashboard/dashboard.component.html:235-310` keeping all existing `Welcome back`+`Organization —`+`grid-cols-2` role cards+`Workspace` 3 cards+`Architecture`+badges, appended below `mt-6 Organization Health` section with header `Live KPIs — cached 2m`, KPI grid 6 cards (title `text-[10px] uppercase`, value `text-2xl font-bold`, subtitle), states `isPending→pulse`, `isError→alert-error` human, chart block with `isPending→5 pulse cards` else `<app-org-charts [chartData]="orgChartQuery.data()??null">`.
 
 ### 5. Files & Changes
 | Path | Action | Description |
 |------|--------|-------------|
+| backend/Services/Identity.Service/Application/Interfaces/IOrganizationStatsService.cs | Created | `OrgStatsDto` + `ChartBucketDto` + `DailyCountDto` + `AiUsageDailyDto` + `OrgChartDataDto` + `IOrganizationStatsService` |
+| backend/Services/Identity.Service/Application/Queries/GetOrgStatsQuery.cs | Created | `GetOrgStatsQuery` + `GetOrgChartDataQuery` + handlers via `IOrganizationStatsService` |
+| backend/Services/Identity.Service/Infrastructure/Services/OrganizationStatsService.cs | Created | `CanViewAsync` + `GetOrgStatsAsync` cached 2m cross-schema counts (workspaces/projects/members union/issues/active sprints/completed Done) + `GetOrgChartDataAsync` 5 datasets (status/priority/workspace/14d activity UNION/14d AI tokens) with fill 0, `SqlQueryRaw` same DB, `IMemoryCache`, `ILogger` human error |
+| backend/Services/Identity.Service/Program.cs | Modified | `AddMemoryCache()` + `AddScoped<IOrganizationStatsService, OrganizationStatsService>()` |
+| backend/Services/Identity.Service/Api/Controllers/OrganizationsController.cs | Modified | `GET /{id}/stats` + `GET /{id}/chart-data` via `IMediator` + human `NotFound/403` no Raw |
+| frontend/flowboard-web/src/app/core/services/stats.service.ts | Created | `getOrgStats` + `getOrgChartData` via `HttpClient` Gateway `:5000→:5001`, `withCredentials:true` |
+| frontend/flowboard-web/src/app/shared/charts/org-charts/org-charts.component.ts | Created | Standalone OnPush `input.required<OrgChartData>` + 5 `computed<ApexOptions>` donut/bar/line/area |
+| frontend/flowboard-web/src/app/shared/charts/org-charts/org-charts.component.html | Created | `lg:grid-cols-2` 5 cards donut/priority/workspace/activity/ai(lg:col-span-2), `apx-chart` bindings, skeletons, `No data` fallback |
+| frontend/flowboard-web/src/app/shared/charts/org-charts/org-charts.component.css | Created | Empty `/* No internal CSS */` 3-File Rule |
+| frontend/flowboard-web/src/app/features/dashboard/dashboard.component.ts | Modified | Imports `OrgChartsComponent` + `StatsService`, adds `orgId` + `orgStatsQuery` + `orgChartQuery` (TanStack `queryKey ['org-stats',orgId]`) keep existing `orgsQuery` |
+| frontend/flowboard-web/src/app/features/dashboard/dashboard.component.html | Modified | Keep existing 243 lines Welcome/Org edit/role stats/Workspace 3 cards, append `mt-6 Organization Health` with 6 KPI cards + chart states + `<app-org-charts>` |
 
 ### 6. Verification & Results
 | Check | Result | Evidence |
 |-------|--------|----------|
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` → `Build succeeded 0 Error(s)` (Identity `EF1002` warnings only for `SqlQueryRaw` Guid sanitized) |
+| Build frontend | Passed | `ng build` → `Application bundle generation complete` `Initial 485.19 kB`, `dashboard-component 555 kB` (includes `ng-apexcharts`), `▲ apexcharts is not ESM` warning only |
+| 3-File Rule | Passed | `org-charts` folder exactly 3 files `html+ts+css` (css empty), `dashboard.component.*` kept 3, no `template:` string `grep template: 0` |
+| KPIs human | Passed | 6 cards `Workspaces/Projects/Members/Issues/Active Sprints/Completed` show `{{s.totalX}}` from `GET /api/organizations/{id}/stats` 200, `isError` shows `Failed to load — please try again` no Raw |
+| Charts responsive | Passed | 5 charts render `donut+bar+bar+line+area` in `grid-cols-2 gap-3` + `p-3 sm:p-5 lg:px-7`, `300` height, colors, skeletons while `isPending`, `No issues yet` when empty, mobile 320 stacked |
+| Authz | Passed | `CanViewAsync` allows `SuperAdmin`+`Owner`+`OrganizationMembers`+any `WorkspaceMembers` in org else `403 Forbidden - Need organization membership` for `GET /stats`/`/chart-data` |
+| Cache 2m | Passed | `IMemoryCache` key `org:stats:{id}` + `org:chart:{id}` `TimeSpan.FromMinutes(2)` invalidate on next call after expiry |
+| Keep existing | Passed | Dashboard original `Welcome back`+`Organization —`+`Role/Realtime/Security/Platform`+`Workspace 3 cards` remain unchanged above new section `mt-6` |
 
 ### 7. Enterprise Relevance (MNC Value)
-...
+Proves executive `Organization Health` analytics across multi-tenant hierarchy (`Workspaces→Projects→Tasks→Sprints→AiUsageLogs`) with single-DB cross-schema `SqlQueryRaw` + `IMemoryCache` 2m (cost-effective on MonsterASP.net) + `GROUP BY` aggregation + 14d trend fill-zero (FinOps). Frontend shows `ApexCharts` mastery (donut/bar/line/area) with `Signals+TanStack` `queryKey ['org-stats',orgId]` + `OnPush` + `input.required` + 3-File Rule, and `keep existing dashboards only add below` discipline (Jira-like incremental analytics, not rewrite).
 
 ### 8. Next Steps & Dependencies
-...
+- Unlocks: Task 4.4 Project Overview KPIs + Charts (5 KPIs + 6 ApexCharts + shared Burndown) reuses same `stats.service` pattern + `IMemoryCache` + 3-File charts
+- Depends on: Task 4.2 + 7.7 (ActivityLogs, AiUsageLogs existing for trend/AI), `Task 7.*` AiUsage backfill
+- Follow-up: After Task 4.4+4.5 + testing, move to Phase 5 Polish 5.1-5.5 (Rate limit 60/min + Serilog + Scalar, tests 70%, README/Postman/Lighthouse). Keep `shared/charts` prefix for 4.4 `burndown.component` + `project-charts.component` (3-file each).
+
+---
+
+## Task 4.4: Project Overview — KPIs + Charts (Project Health)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | 4 - Charts & Analytics | — | 5h | Feature |
+
+### 1. Overview
+Enhance Project Overview dashboard (keep existing) with 5 KPI cards + 6 charts for single project health. Includes Sprint Burndown as primary chart.
+
+### 2. Objectives
+- KPIs: Total Issues, Completed, In Progress, Story Points, Active Sprint (5 cards)
+- Charts: Sprint Burndown Line/Area (remaining work), Issues by Status Donut, Issues by Type Donut/Bar (Bug/Story/Task), Priority Distribution Bar, Assignee Workload Bar, Sprint Velocity Bar (story points per sprint)
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Backend | ASP.NET Core + IProjectStatsService + IActivityService + ISprintService | 10.0 | `ProjectId` filtered aggregations, burndown calc from `ActivityLogs` + `Sprints` dates, velocity `GROUP BY sprintId` |
+| Frontend | Angular 22 OnPush + Ng-ApexCharts 1.8 + TanStack Query | 22.1.5 | KPI + chart grid, shared `burndown` component |
+| Cache | Redis | Upstash | `project-stats:{projectId}` |
+
+### 4. Implementation Details
+- Backend: `GET /api/projects/{projectId}/stats` + `GET /api/projects/{projectId}/chart-data` + `GET /api/projects/{projectId}/burndown?sprintId=` (via `IProjectStatsService`)
+- Frontend: extend `features/project/overview/overview.component.*` (or `project-layout` overview) keep existing, add below: KPI row `5` + burndown large `ApexCharts area` + grid `2x2` for donuts/bars + velocity bar at bottom
+- Todos:
+  - [ ] Backend project stats service (KPIs + chart datasets + burndown calc)
+  - [ ] Frontend project KPI cards (5)
+  - [ ] Chart Sprint Burndown Line/Area (shared component)
+  - [ ] Chart Issues by Status Donut
+  - [ ] Chart Issues by Type Donut/Bar
+  - [ ] Chart Priority Distribution Bar
+  - [ ] Chart Assignee Workload Bar
+  - [ ] Chart Sprint Velocity Bar
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Project.Service/Application/Interfaces/IProjectStatsService.cs | Created | `GetProjectStatsAsync` + `GetBurndownAsync` |
+| backend/Services/Project.Service/Infrastructure/Services/ProjectStatsService.cs | Created | Burndown + velocity + breakdown queries |
+| backend/Services/Project.Service/Api/Controllers/ProjectsController.cs + Stats | Modified | `GET /stats` `GET /burndown` |
+| frontend/flowboard-web/src/app/features/project/overview/overview.component.* | Modified | Project Overview KPIs + charts |
+| frontend/flowboard-web/src/app/shared/components/charts/burndown.component.* | Created | Shared burndown (3-file, reused in Sprints) |
+| frontend/flowboard-web/src/app/shared/components/charts/project-charts.component.* | Created | Status/Type/Priority/Assignee/Velocity charts |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Burndown | Pending | Remaining work line matches sprint dates |
+| Charts | Pending | 6 charts render responsive |
+| KPIs | Pending | 5 cards correct |
+
+### 7. Enterprise Relevance (MNC Value)
+Single project health with Burndown + Velocity proves Scrum mastery (Jira `Project Insights`). Reusable `burndown` component shows DRY + `ApexCharts` expertise.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 4.5 Sprints Detailed
+- Depends on: Task 4.3 (shared burndown pattern)
+- Follow-up: UI placement `features/project/overview/*` + `shared/components/charts/burndown` reused
+
+---
+
+## Task 4.5: Sprints Page — Detailed Sprint Analytics (Burndown Reuse)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | — | 4 - Charts & Analytics | — | 3h | Feature |
+
+### 1. Overview
+Keep Sprints page content, add detailed sprint analytics on top using shared burndown component + sprint statistics cards.
+
+### 2. Objectives
+- Sprint selector `Active ▼` (from `sprintsQuery`)
+- Burndown chart `Total Work vs Remaining Work` (shared `burndown.component`) per selected sprint
+- Sprint Statistics: [X Issues] [Y SP] [Z Completed] [W Remaining] cards
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Backend | Reuse `IProjectStatsService.GetBurndownAsync` + `GetSprintsAsync` | 10.0 | No new endpoint, reuse 4.4 burndown API |
+| Frontend | Angular 22 OnPush + Ng-ApexCharts | 22.1.5 | Sprint selector + burndown + stats row |
+
+### 4. Implementation Details
+- Frontend: extend `features/project/sprints/sprints.component.*` (or `features/sprints/sprints.component.*`) keep existing list, add top section: `select` for sprint + `burndown` area + stats row `grid-cols-2 md:grid-cols-4` with `badge` values
+- Todos:
+  - [ ] Sprint selector binding to `selectedSprintId` signal
+  - [ ] Reuse `burndown.component` with `sprintId` input
+  - [ ] Sprint statistics cards (Issues/SP/Completed/Remaining)
+  - [ ] Invalidate on `ActivityLogs` change (TanStack `queryKey ['burndown', sprintId]`)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| frontend/flowboard-web/src/app/features/project/sprints/sprints.component.* | Modified | Add burndown + stats above existing sprint list |
+| frontend/flowboard-web/src/app/shared/components/charts/burndown.component.* | Reused | From 4.4, input `sprintId` + `projectId` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Selector | Pending | Changing sprint updates burndown |
+| Stats | Pending | Cards show Issues/SP counts |
+| Reuse | Pending | Same component in Overview + Sprints |
+
+### 7. Enterprise Relevance (MNC Value)
+Detailed sprint analytics with selector proves interactive dashboard design (Jira `Sprint Reports`). Reuse demonstrates component architecture.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Phase 5 Polish 5.1-5.5
+- Depends on: Task 4.4 (burndown component)
+- Follow-up: After 4.5, Phase 4 Completed (5/5) → Phase 5 Polish
 
 ---
 

@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Identity.Service.Application.Commands;
+using Identity.Service.Application.Queries;
 using Identity.Service.Infrastructure.Services;
 
 namespace Identity.Service.Api.Controllers;
@@ -101,6 +102,24 @@ public class OrganizationsController : ControllerBase
         var result = await _mediator.Send(new DeleteEmployeeCommand(id, userId, callerId.Value));
         if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
         return Ok(new { message = "Removed" });
+    }
+
+    [HttpGet("{id}/stats")]
+    public async Task<IActionResult> GetStats(Guid id)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new GetOrgStatsQuery(id, userId.Value));
+        if (result.IsFailure) return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpGet("{id}/chart-data")]
+    public async Task<IActionResult> GetChartData(Guid id)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new GetOrgChartDataQuery(id, userId.Value));
+        if (result.IsFailure) return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
     }
 
     [HttpGet("{id}/activities")]
