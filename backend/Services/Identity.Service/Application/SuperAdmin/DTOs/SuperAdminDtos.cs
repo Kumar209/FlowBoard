@@ -263,3 +263,88 @@ public record AiPlatformUsageResponse(
     List<AiOperationUsageDto> Operations,
     List<AiFailureDto> Failures
 );
+
+public record GeneralSettingsDto(
+    string PlatformName,
+    string LogoUrl,
+    string SupportEmail,
+    string Language,
+    string Timezone
+);
+
+public record SecuritySettingsDto(
+    bool MfaEnabled,
+    string SessionTimeout,
+    string PasswordPolicy,
+    int MaxLoginAttempts,
+    int LockoutMinutes
+);
+
+public record AuthSettingsDto(
+    bool EmailVerificationRequired,
+    bool GoogleEnabled,
+    bool MicrosoftEnabled,
+    bool PasswordEnabled
+);
+
+public record EmailSettingsDto(
+    string Provider,
+    string SenderEmail,
+    string SenderName,
+    bool VerificationEnabled,
+    bool ResetEnabled
+);
+
+public record AiProviderConfigDto(
+    string Provider,
+    bool Enabled,
+    bool IsDefault,
+    bool IsFallback,
+    string[] Models,
+    int TimeoutMs,
+    int MaxRetries
+);
+
+public record AiSettingsDto(
+    List<AiProviderConfigDto> Providers
+);
+
+public record StorageSettingsDto(
+    string Provider,
+    int MaxFileSizeMb,
+    string[] AllowedTypes
+);
+
+public record NotificationSettingsDto(
+    bool EmailEnabled,
+    bool InAppEnabled,
+    string SignalRHub,
+    string RabbitMqStatus
+);
+
+public record RateLimitsSettingsDto(
+    int AuthRequestsPerMinute,
+    int ApiRequestsPerMinute,
+    int AiRequestsPerMinute,
+    int FileRequestsPerMinute,
+    int NotificationRequestsPerMinute,
+    string EnforcedVia
+);
+
+public record MaintenanceSettingsDto(
+    bool MaintenanceMode,
+    string? ScheduledAt,
+    string? Announcement
+);
+
+public record PlatformSettingsResponse(
+    GeneralSettingsDto General,
+    SecuritySettingsDto Security,
+    AuthSettingsDto Authentication,
+    EmailSettingsDto Email,
+    AiSettingsDto Ai,
+    StorageSettingsDto Storage,
+    NotificationSettingsDto Notifications,
+    RateLimitsSettingsDto RateLimits,
+    MaintenanceSettingsDto Maintenance
+);

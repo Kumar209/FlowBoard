@@ -170,6 +170,17 @@ export interface AiPlatformUsage {
   operations: AiOperationUsage[];
   failures: AiFailure[];
 }
+export interface PlatformSettings {
+  general: { platformName: string; logoUrl: string; supportEmail: string; language: string; timezone: string };
+  security: { mfaEnabled: boolean; sessionTimeout: string; passwordPolicy: string; maxLoginAttempts: number; lockoutMinutes: number };
+  authentication: { emailVerificationRequired: boolean; googleEnabled: boolean; microsoftEnabled: boolean; passwordEnabled: boolean };
+  email: { provider: string; senderEmail: string; senderName: string; verificationEnabled: boolean; resetEnabled: boolean };
+  ai: { providers: { provider: string; enabled: boolean; isDefault: boolean; isFallback: boolean; models: string[]; timeoutMs: number; maxRetries: number }[] };
+  storage: { provider: string; maxFileSizeMb: number; allowedTypes: string[] };
+  notifications: { emailEnabled: boolean; inAppEnabled: boolean; signalRHub: string; rabbitMqStatus: string };
+  rateLimits: { authRequestsPerMinute: number; apiRequestsPerMinute: number; aiRequestsPerMinute: number; fileRequestsPerMinute: number; notificationRequestsPerMinute: number; enforcedVia: string };
+  maintenance: { maintenanceMode: boolean; scheduledAt?: string | null; announcement?: string | null };
+}
 
 @Injectable({ providedIn: 'root' })
 export class SuperAdminService {
@@ -268,5 +279,8 @@ export class SuperAdminService {
   }
   getAiUsage() {
     return this.http.get<AiPlatformUsage>(`${environment.apiUrl}/api/superadmin/ai-usage`, { withCredentials: true });
+  }
+  getSettings() {
+    return this.http.get<PlatformSettings>(`${environment.apiUrl}/api/superadmin/settings`, { withCredentials: true });
   }
 }

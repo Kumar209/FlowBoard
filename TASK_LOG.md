@@ -26,8 +26,8 @@
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 1/5 | In Progress |
 | Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
 | Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
-| SuperAdmin | SA.1 - SA.10 | 9/10 | In Progress |
-| **Total** | **0.1 - 7.7 + SA.1-SA.10 (50)** | **37/50** | **In Progress** |
+| SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 (50)** | **38/50** | **In Progress** |
 
 ---
 
@@ -2742,12 +2742,64 @@ Proves MNC `least-privilege` AI platform analytics — SuperAdmin never sees `Pr
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 2h | Feature |
+| Completed | 13 Sep 2026 | SuperAdmin | pending | 2h | Feature |
+
+### 1. Overview
+Platform-wide settings for SuperAdmin — 9 sections (General/Security/Authentication/Email/AI Providers/Storage/Notifications/Rate Limits/Maintenance) via `GET /api/superadmin/settings` mock (never raw keys), completing 10/10 SuperAdmin sidebar (`Dashboard` → `Settings`).
+
+### 2. Objectives
+- Expose `GET /api/superadmin/settings` via `ISuperAdminService.GetSettingsAsync` + `GetSuperAdminSettingsQuery` (SuperAdmin check) returning `PlatformSettingsResponse{General{PlatformName/Logo/SupportEmail/Lang/Timezone} Security{MFA/Session/PasswordPolicy/LoginAttempts/Lockout} Authentication{EmailVerification/Google/Microsoft/Password} Email{Provider/Sender/Templates/Verification/Reset} Ai{Providers[]{Provider/Enabled/Default/Fallback/Models/Timeout/Retry}} Storage{Provider/MaxSize/AllowedTypes} Notifications{Email/InApp/SignalR/RabbitMQ} RateLimits{Auth/API/AI/File/Notifications/EnforcedVia Redis} Maintenance{Mode/Scheduled/Announcement}}` — never raw `Gemini/Groq/Brevo/Cloudinary/JWT/Redis` keys
+- Mock values align to actual `appsettings.Development.json` + YARP `200 IP / 300 User` Lua `60s` sliding window, with masked `•• •• never raw` UI badge
+- Frontend `features/superadmin/settings` 3-file with TanStack Query `['superadmin-settings']`, 9 cards responsive `p-3 sm:p-4`, Section 10 human error
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Identity | `ISuperAdminService.GetSettingsAsync` + `SuperAdminService` + `GetSuperAdminSettingsQuery` + `SuperAdminController GET settings` | — | Mock `Task.FromResult`, `Roles.IsSuperAdmin`, no DB, no raw keys |
+| Frontend | Angular 22 Standalone + TanStack Query 5.62 | 22 | `settings.component` 3-file `OnPush templateUrl firstValueFrom` |
+| Gateway | YARP 2.3 `superadmin-route /api/superadmin/{**catch-all}` → identity-cluster | 2.3 | Reuses existing route |
 
 ### 4. Implementation Details
-- Todos:
-  - [ ] Backend GET /api/superadmin/settings mock
-  - [ ] Frontend forms, never show raw API keys
+- Extended `Application/SuperAdmin/DTOs/SuperAdminDtos.cs:266` add 10 records `GeneralSettingsDto(PlatformName/LogoUrl/SupportEmail/Language/Timezone)`, `SecuritySettingsDto(MfaEnabled/SessionTimeout/PasswordPolicy/MaxLoginAttempts/LockoutMinutes)`, `AuthSettingsDto(EmailVerification/Google/Microsoft/Password)`, `EmailSettingsDto(Provider/SenderEmail/SenderName/Verification/Reset)`, `AiProviderConfigDto(Provider/Enabled/IsDefault/IsFallback/Models/TimeoutMs/MaxRetries)`, `AiSettingsDto(List<AiProviderConfigDto> Providers)`, `StorageSettingsDto(Provider/MaxFileSizeMb/AllowedTypes)`, `NotificationSettingsDto(Email/InApp/SignalR/RabbitMQ)`, `RateLimitsSettingsDto(Auth/API/AI/File/Notifications/EnforcedVia)`, `MaintenanceSettingsDto(MaintenanceMode/ScheduledAt/Announcement)`, `PlatformSettingsResponse(9 sections)`
+- Extended `Application/SuperAdmin/Interfaces/ISuperAdminService.cs:33` add `Task<PlatformSettingsResponse> GetSettingsAsync(ct)`
+- Implemented `Infrastructure/SuperAdmin/SuperAdminService.cs:960` `GetSettingsAsync`: returns `Task.FromResult(new PlatformSettingsResponse(...))` with mock `General("FlowBoard","/assets/logo.svg","support@flowboard.local","en","UTC")`, `Security(false,"30m","Min 8 chars, uppercase + ...",5,15)`, `Auth(true,false,false,true)`, `Email("Brevo","no-reply@flowboard.local","FlowBoard",true,true)`, `Ai(new List{ Gemini(true,true,false,["gemini-3.5-flash","gemini-1.5-pro"],30000,3), Groq(true,false,true,["llama-3.1-8b-instant","llama-3.3-70b-versatile"],15000,2) })`, `Storage("Cloudinary",25,["image/jpeg","image/png","image/webp","application/pdf","text/csv"])`, `Notifications(true,true,"/hubs/board","Healthy")`, `RateLimits(60,200,3,30,100,"Redis Sliding Window Counter via Upstash Lua (IP 200/min, User 300/min)")`, `Maintenance(false,null,null)` — never raw keys, aligned to YARP `IpLimit 200 User 300 Window 60s`
+- Created `Application/SuperAdmin/Queries/GetSuperAdminSettingsQuery.cs:1` record `(CallerId CallerRoles):IRequest<Result<PlatformSettingsResponse>>` + handler `Roles.IsSuperAdmin` else `Forbidden`, calls `service.GetSettingsAsync`
+- Added `Api/Controllers/SuperAdminController.cs:237` `[HttpGet settings]` extracts `GetUserId()/GetRoles()` → `GetSuperAdminSettingsQuery` → `403/400/200`
+- `core/services/superadmin.service.ts:272` added interface `PlatformSettings{general/security/authentication/email/ai/storage/notifications/rateLimits/maintenance}` (camelCase) + method `getSettings(): GET /api/superadmin/settings withCredentials`
+- Created `frontend/features/superadmin/settings/` 3-file: `settings.component.ts:1` standalone `CommonModule OnPush templateUrl` `injectQuery ['superadmin-settings'] firstValueFrom(sa.getSettings())` getter `d`; `settings.component.html:1` `p-3 sm:p-4 space-y-6` header `Platform Settings` + badge + `never raw keys` note, `isPending` spinner, `isError` human, `d as s` 9 cards — General (PlatformName/SupportEmail/Lang/Timezone/Logo), Security (MFA badge, Session, Lockout, PasswordPolicy), Authentication (4 badges), Email (Provider badge + masked key badge, Sender, Templates Verification/Reset), AI Providers table (Provider badge+masked, Enabled/Default/Fallback badges, Models, Timeout, Retry), Storage (Provider masked, Max 25 MB, Allowed Types), Notifications (3 badges + hub), RateLimits (5 cols Auth/API/AI/File/Notification + enforcedVia), Maintenance (Mode badge Operational/Maintenance, Scheduled, Announcement) responsive grids; `settings.component.css:1` empty
+- Updated `app.routes.ts:66` change `settings` child from `dashboard` placeholder to `settings.component` lazy `SettingsComponent`
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Identity.Service/Application/SuperAdmin/DTOs/SuperAdminDtos.cs | Modified | Add 10 DTOs `General/Security/Auth/Email/AiProvider/Ai/Storage/Notification/RateLimits/Maintenance/PlatformSettingsResponse` |
+| backend/Services/Identity.Service/Application/SuperAdmin/Interfaces/ISuperAdminService.cs | Modified | Add `GetSettingsAsync` |
+| backend/Services/Identity.Service/Infrastructure/SuperAdmin/SuperAdminService.cs | Modified | Implement `GetSettingsAsync` mock with YARP 200/300 values, never raw keys |
+| backend/Services/Identity.Service/Application/SuperAdmin/Queries/GetSuperAdminSettingsQuery.cs | Created | Record + handler `IsSuperAdmin` check |
+| backend/Services/Identity.Service/Api/Controllers/SuperAdminController.cs | Modified | Add `GET /api/superadmin/settings` via MediatR |
+| frontend/flowboard-web/src/app/core/services/superadmin.service.ts | Modified | Add `PlatformSettings` interface + `getSettings()` |
+| frontend/flowboard-web/src/app/features/superadmin/settings/settings.component.ts | Created | Standalone `OnPush` `injectQuery` |
+| frontend/flowboard-web/src/app/features/superadmin/settings/settings.component.html | Created | `p-3 sm:p-4` 9 cards General→Maintenance with masked badges |
+| frontend/flowboard-web/src/app/features/superadmin/settings/settings.component.css | Created | Empty `/* No internal CSS */` |
+| frontend/flowboard-web/src/app/app.routes.ts | Modified | `superadmin/settings` → `SettingsComponent` lazy |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build Identity.Service.csproj -c Release` → `0 Error 14 Warning EF1002 only`, `dotnet build FlowBoard.slnx -c Release` → `0 Error` (12 warnings EF1002 only, within slnx) |
+| Build frontend | Passed | `npm run build --configuration production` → `Application bundle generation complete` 32s, `apexcharts is not ESM` only, `initial 514.86 kB` budget pre-existing |
+| Auth | Passed | `GetSuperAdminSettingsHandler` checks `IsSuperAdmin` else `403 Forbidden - SuperAdmin only`, `200` for `superadmin@flowboard.local`; `GET /api/superadmin/settings` returns 9 sections JSON camelCase, no `ApiKey` fields |
+| 3-File Rule | Passed | `features/superadmin/settings` exactly 3 files `html+ts+css` `templateUrl OnPush css empty`, `grep -r "template:"` 0 hits |
+| Least privilege | Passed | Response never contains raw `Gemini/Groq/Brevo/Cloudinary/Jwt/Redis` secrets — only `Provider names`, `Models`, `Timeout/Retry`, `AllowedTypes`, `RateLimits` numbers + `EnforcedVia Redis Sliding Window` string; UI shows `key •• •• masked` badges |
+| UI | Passed | `/superadmin/settings` renders 9 cards `General/Security/Authentication/Email/AI Providers/Storage/Notifications/Rate Limits/Maintenance` responsive, AI table `Gemini default/Groq fallback` with masked badge, RateLimits `60/200/3/30/100` + `200 IP / 300 User Lua` note |
+
+### 7. Enterprise Relevance (MNC Value)
+Proves MNC `platform config` SuperAdmin portal completion — 10/10 sidebar `Dashboard→Settings` single module in `Identity.Service` (ready to extract to `SuperAdmin.Service`), DTOs cover 9 operational domains (General→Maintenance) with `RateLimits` `200 IP / 300 User` via `Upstash Lua` exactly matching `Gateway.YARP/Middleware/RateLimitMiddleware.cs:200/300 60s` sliding window + `Serilog JSON daily 30d` + `Scalar BluePlanet` + `ForwardedHeaders` + `HSTS/CSP` from Phase5 5.1, while `never raw keys` (Section 10) proves secret-handling maturity (mock `•• •• masked` for `Gemini/Groq/Brevo/Cloudinary/JWT/Redis`). Frontend `3-File` `OnPush` `TanStack Query` `firstValueFrom` + `superAdminGuard` demonstrates scale to 50+ components with no scattered CSS.
+
+### 8. Next Steps & Dependencies
+- Unlocks: SuperAdmin 10/10 Completed — unlocks Phase5 `5.2 Tests 70%` + `5.3 Docs` + `5.4 Deploy` (and Phase3 `3.1-3.3 Realtime/Messaging` deferred) to reach 50/50; `PUT /api/superadmin/settings` for future writes (validate + audit `OrganizationActivities`)
+- Depends on: SA.1-SA.9 (`superadmin-route` + `superAdminGuard` + `SA.9 ai-usage` provided final nav item before Settings)
+- Follow-up: Persist settings to `[identity].PlatformSettings` table with `UpdatedBy/UpdatedAt` audit + `IPlatformSettingsService` DIP, add `MaintenanceMode` toggle that returns `503 Service Unavailable` via YARP, keep `•• •• masked` never raw even on `GET`
 
 ---
 

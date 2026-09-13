@@ -30,4 +30,5 @@ public interface ISuperAdminService
     Task<List<FeatureFlagDto>> GetOrganizationFeatureFlagsAsync(Guid organizationId, CancellationToken ct = default);
     Task<FeatureFlagDto> ToggleOrganizationFeatureFlagAsync(Guid organizationId, string key, CancellationToken ct = default);
     Task<AiPlatformUsageResponse> GetAiPlatformUsageAsync(CancellationToken ct = default);
+    Task<PlatformSettingsResponse> GetSettingsAsync(CancellationToken ct = default);
 }

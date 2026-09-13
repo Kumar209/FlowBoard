@@ -1,0 +1,140 @@
+<div class="p-3 sm:p-4 space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">Platform Settings</h1>
+      <p class="text-sm opacity-60">General / Security / Auth / Email / AI / Storage / Notifications / Rate Limits / Maintenance — never raw keys</p>
+    </div>
+    <span class="badge badge-info badge-sm">SuperAdmin only</span>
+  </div>
+
+  <div *ngIf="query.isPending()" class="flex justify-center py-12"><span class="loading loading-spinner loading-lg"></span></div>
+  <div *ngIf="query.isError()" class="alert alert-error"><span>Failed to load settings — please try again.</span></div>
+
+  <ng-container *ngIf="d as s">
+    <!-- General -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">General</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+          <div><div class="text-xs opacity-60">Platform Name</div><div class="font-medium">{{ s.general.platformName }}</div></div>
+          <div><div class="text-xs opacity-60">Support Email</div><div class="font-medium">{{ s.general.supportEmail }}</div></div>
+          <div><div class="text-xs opacity-60">Language / Timezone</div><div class="font-medium">{{ s.general.language }} / {{ s.general.timezone }}</div></div>
+          <div class="col-span-full"><div class="text-xs opacity-60">Logo</div><div class="font-mono text-xs">{{ s.general.logoUrl }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Security</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+          <div><div class="text-xs opacity-60">MFA</div><span class="badge badge-sm" [ngClass]="s.security.mfaEnabled ? 'badge-success' : 'badge-ghost'">{{ s.security.mfaEnabled ? 'Enabled' : 'Disabled' }}</span></div>
+          <div><div class="text-xs opacity-60">Session Timeout</div><div class="font-mono">{{ s.security.sessionTimeout }}</div></div>
+          <div><div class="text-xs opacity-60">Lockout</div><div class="font-mono">{{ s.security.maxLoginAttempts }} attempts / {{ s.security.lockoutMinutes }} min</div></div>
+          <div class="col-span-full"><div class="text-xs opacity-60">Password Policy</div><div class="text-sm">{{ s.security.passwordPolicy }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Authentication -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Authentication</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
+          <div><div class="text-xs opacity-60">Email Verification</div><span class="badge badge-sm" [ngClass]="s.authentication.emailVerificationRequired ? 'badge-success' : 'badge-ghost'">{{ s.authentication.emailVerificationRequired ? 'Required' : 'Optional' }}</span></div>
+          <div><div class="text-xs opacity-60">Google</div><span class="badge badge-sm" [ngClass]="s.authentication.googleEnabled ? 'badge-success' : 'badge-ghost'">{{ s.authentication.googleEnabled ? 'Enabled' : 'Disabled' }}</span></div>
+          <div><div class="text-xs opacity-60">Microsoft</div><span class="badge badge-sm" [ngClass]="s.authentication.microsoftEnabled ? 'badge-success' : 'badge-ghost'">{{ s.authentication.microsoftEnabled ? 'Enabled' : 'Disabled' }}</span></div>
+          <div><div class="text-xs opacity-60">Password</div><span class="badge badge-sm" [ngClass]="s.authentication.passwordEnabled ? 'badge-success' : 'badge-ghost'">{{ s.authentication.passwordEnabled ? 'Enabled' : 'Disabled' }}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Email -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Email</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+          <div><div class="text-xs opacity-60">Provider</div><span class="badge badge-outline badge-sm">{{ s.email.provider }}</span><span class="text-xs opacity-40 ml-2">key masked •• •• never raw</span></div>
+          <div><div class="text-xs opacity-60">Sender</div><div class="font-mono text-sm">{{ s.email.senderName }} &lt;{{ s.email.senderEmail }}&gt;</div></div>
+          <div><div class="text-xs opacity-60">Templates</div><div class="text-sm">Verification: <span class="badge badge-sm" [ngClass]="s.email.verificationEnabled ? 'badge-success' : 'badge-ghost'">{{ s.email.verificationEnabled ? 'On' : 'Off' }}</span> Reset: <span class="badge badge-sm" [ngClass]="s.email.resetEnabled ? 'badge-success' : 'badge-ghost'">{{ s.email.resetEnabled ? 'On' : 'Off' }}</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Providers -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">AI Providers</h3>
+        <p class="text-xs opacity-50">Gemini/Groq — never raw keys (masked •• ••), Timeout/Retry visible</p>
+        <div class="overflow-x-auto mt-2">
+          <table class="table table-sm">
+            <thead><tr><th>Provider</th><th>Enabled</th><th>Default</th><th>Fallback</th><th>Models</th><th>Timeout</th><th>Retry</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let p of s.ai.providers">
+                <td><span class="badge badge-outline badge-sm">{{ p.provider }}</span><span class="text-xs opacity-40 ml-1">key •• •• masked</span></td>
+                <td><span class="badge badge-sm" [ngClass]="p.enabled ? 'badge-success' : 'badge-ghost'">{{ p.enabled ? 'Yes' : 'No' }}</span></td>
+                <td><span class="badge badge-sm" [ngClass]="p.isDefault ? 'badge-info' : 'badge-ghost'">{{ p.isDefault ? 'Default' : '-' }}</span></td>
+                <td><span class="badge badge-sm" [ngClass]="p.isFallback ? 'badge-warning' : 'badge-ghost'">{{ p.isFallback ? 'Fallback' : '-' }}</span></td>
+                <td class="text-xs font-mono">{{ p.models.join(', ') }}</td>
+                <td class="font-mono">{{ p.timeoutMs }} ms</td>
+                <td class="font-mono">{{ p.maxRetries }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Storage -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Storage</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+          <div><div class="text-xs opacity-60">Provider</div><span class="badge badge-outline badge-sm">{{ s.storage.provider }}</span><span class="text-xs opacity-40 ml-1">secret masked</span></div>
+          <div><div class="text-xs opacity-60">Max File Size</div><div class="font-mono">{{ s.storage.maxFileSizeMb }} MB</div></div>
+          <div><div class="text-xs opacity-60">Allowed Types</div><div class="text-xs font-mono">{{ s.storage.allowedTypes.join(', ') }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Notifications</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+          <div><div class="text-xs opacity-60">Email</div><span class="badge badge-sm" [ngClass]="s.notifications.emailEnabled ? 'badge-success' : 'badge-ghost'">{{ s.notifications.emailEnabled ? 'On' : 'Off' }}</span></div>
+          <div><div class="text-xs opacity-60">In-App</div><span class="badge badge-sm" [ngClass]="s.notifications.inAppEnabled ? 'badge-success' : 'badge-ghost'">{{ s.notifications.inAppEnabled ? 'On' : 'Off' }}</span></div>
+          <div><div class="text-xs opacity-60">SignalR / RabbitMQ</div><div class="font-mono text-xs">{{ s.notifications.signalRHub }} / {{ s.notifications.rabbitMqStatus }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rate Limits -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Rate Limits</h3>
+        <p class="text-xs opacity-50">Enforced via {{ s.rateLimits.enforcedVia }}</p>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-2">
+          <div><div class="text-xs opacity-60">Auth</div><div class="font-mono font-bold">{{ s.rateLimits.authRequestsPerMinute }}/min</div></div>
+          <div><div class="text-xs opacity-60">API (IP/User)</div><div class="font-mono font-bold">{{ s.rateLimits.apiRequestsPerMinute }}/min</div><div class="text-xs opacity-40">200 IP / 300 User Lua</div></div>
+          <div><div class="text-xs opacity-60">AI</div><div class="font-mono font-bold">{{ s.rateLimits.aiRequestsPerMinute }}/min</div></div>
+          <div><div class="text-xs opacity-60">File</div><div class="font-mono font-bold">{{ s.rateLimits.fileRequestsPerMinute }}/min</div></div>
+          <div><div class="text-xs opacity-60">Notifications</div><div class="font-mono font-bold">{{ s.rateLimits.notificationRequestsPerMinute }}/min</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Maintenance -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Maintenance</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+          <div><div class="text-xs opacity-60">Mode</div><span class="badge badge-sm" [ngClass]="s.maintenance.maintenanceMode ? 'badge-warning' : 'badge-success'">{{ s.maintenance.maintenanceMode ? 'Maintenance' : 'Operational' }}</span></div>
+          <div><div class="text-xs opacity-60">Scheduled</div><div class="font-mono text-sm">{{ s.maintenance.scheduledAt || '—' }}</div></div>
+          <div><div class="text-xs opacity-60">Announcement</div><div class="text-sm">{{ s.maintenance.announcement || '—' }}</div></div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>

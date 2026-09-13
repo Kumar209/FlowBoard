@@ -63,7 +63,7 @@ export const routes: Routes = [
       { path: 'support/:id', loadComponent: () => import('./features/superadmin/support/complaint-detail/complaint-detail.component').then(m => m.ComplaintDetailComponent) },
       { path: 'flags', loadComponent: () => import('./features/superadmin/flags/flags.component').then(m => m.FlagsComponent) },
       { path: 'ai-usage', loadComponent: () => import('./features/superadmin/ai-usage/ai-usage.component').then(m => m.AiUsageComponent) },
-      { path: 'settings', loadComponent: () => import('./features/superadmin/dashboard/dashboard.component').then(m => m.DashboardComponent) },
+      { path: 'settings', loadComponent: () => import('./features/superadmin/settings/settings.component').then(m => m.SettingsComponent) },
     ]
   },
   { path: '**', redirectTo: '' }

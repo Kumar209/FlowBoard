@@ -235,6 +235,17 @@ public class SuperAdminController : ControllerBase
         return Ok(result.Value);
     }
 
+    [HttpGet("settings")]
+    public async Task<IActionResult> GetSettings()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized(new { error = "Unauthorized" });
+        var roles = GetRoles();
+        var result = await _mediator.Send(new GetSuperAdminSettingsQuery(userId.Value, roles));
+        if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
     private Guid? GetUserId()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
