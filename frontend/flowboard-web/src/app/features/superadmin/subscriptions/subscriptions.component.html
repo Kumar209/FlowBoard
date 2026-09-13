@@ -1,0 +1,102 @@
+<div class="p-3 sm:p-4 space-y-6">
+  <h1 class="text-2xl font-bold">Subscriptions & Billing</h1>
+  <div class="text-xs opacity-60">Simplified mock — Free default for every new org (enum+table hybrid). Billing cycle/status/amount are mock.</div>
+
+  @if (query.isPending()) {
+    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
+  } @else if (query.isError()) {
+    <div class="alert alert-error"><span>Failed to load subscriptions — please try again.</span></div>
+  } @else {
+    <!-- Overview MRR/ARR etc -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card bg-base-100 shadow"><div class="card-body p-4"><div class="text-xs opacity-60">MRR</div><div class="text-2xl font-bold">${{ overview?.mrr }}</div><div class="text-xs opacity-50">Monthly Recurring</div></div></div>
+      <div class="card bg-base-100 shadow"><div class="card-body p-4"><div class="text-xs opacity-60">ARR</div><div class="text-2xl font-bold">${{ overview?.arr }}</div><div class="text-xs opacity-50">Annual</div></div></div>
+      <div class="card bg-base-100 shadow"><div class="card-body p-4"><div class="text-xs opacity-60">Active Subscriptions</div><div class="text-2xl font-bold">{{ overview?.activeSubscriptions }}</div><div class="text-xs text-success">● {{ overview?.churnRate }}% churn</div></div></div>
+      <div class="card bg-base-100 shadow"><div class="card-body p-4"><div class="text-xs opacity-60">Avg Revenue / Org</div><div class="text-2xl font-bold">${{ overview?.avgRevenuePerOrg }}</div><div class="text-xs opacity-50">ARPO</div></div></div>
+    </div>
+
+    <!-- Revenue chart -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <div class="text-sm font-semibold">Revenue History</div>
+        @if (revenueChart()) {
+          <apx-chart [series]="revenueChart()!.series" [chart]="revenueChart()!.chart" [xaxis]="revenueChart()!.xaxis" [colors]="revenueChart()!.colors" [stroke]="revenueChart()!.stroke" [fill]="revenueChart()!.fill" [dataLabels]="revenueChart()!.dataLabels"></apx-chart>
+        }
+      </div>
+    </div>
+
+    <!-- Subscriptions table 6 cols with Free badge + assign -->
+    <div class="card bg-base-100 shadow overflow-hidden">
+      <div class="card-body p-4 pb-2"><h3 class="font-semibold">Subscriptions</h3><div class="text-xs opacity-50">Organization / Plan / Billing Cycle / Status / Amount / Renewal — Free type row guaranteed. Change plan via dropdown (SuperAdmin).</div></div>
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead><tr><th>Organization</th><th>Plan</th><th>Billing Cycle</th><th>Status</th><th>Amount</th><th>Renewal</th><th>Assign</th></tr></thead>
+          <tbody>
+            @for (s of subscriptions; track s.organizationId) {
+              <tr>
+                <td><div class="font-medium">{{ s.organizationName }}</div><div class="text-xs opacity-50">{{ s.organizationId | slice:0:8 }}</div></td>
+                <td><span class="badge badge-sm {{ planBadgeClass(s.planName) }}">{{ s.planName }}</span></td>
+                <td><span class="text-xs">{{ s.billingCycle }}</span></td>
+                <td><span class="badge badge-sm" [class.badge-success]="s.status==='Active'" [class.badge-error]="s.status!=='Active'">{{ s.status }}</span></td>
+                <td><span class="font-mono text-sm">${{ s.amount }}</span></td>
+                <td><span class="text-xs">{{ s.renewalAt | date:'mediumDate' }}</span></td>
+                <td>
+                  @if (assignOrgId() === s.organizationId) {
+                    <div class="flex gap-1"><select class="select select-bordered select-xs" [(ngModel)]="assignPlanId"><option *ngFor="let p of plans" [value]="p.id">{{p.name}} ${{p.price}}</option></select><button class="btn btn-xs btn-primary" (click)="assignMut.mutate()" [disabled]="!assignPlanId() || assignMut.isPending()">Save</button><button class="btn btn-xs" (click)="assignOrgId.set(null)">Cancel</button></div>
+                  } @else { <button class="btn btn-xs btn-ghost" (click)="assignOrgId.set(s.organizationId); assignPlanId.set(plans.find(x=>x.name===s.planName)?.id || plans[0]?.id || '')">Change</button> }
+                </td>
+              </tr>
+            }
+            @if (subscriptions.length === 0) { <tr><td colspan="7" class="text-center py-8 opacity-50">No subscriptions</td></tr> }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Plans config cards with edit -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      @for (p of plans; track p.id) {
+        <div class="card bg-base-100 shadow border" [class.border-primary]="p.name==='Pro'">
+          <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold">{{ p.name }}</h4>
+              <span class="badge badge-sm {{ planBadgeClass(p.name) }}">{{ p.name }}</span>
+            </div>
+            <div class="text-2xl font-bold mt-2">${{ p.price }}<span class="text-xs font-normal opacity-60">/mo</span></div>
+            <div class="divider my-2"></div>
+            <div class="text-xs space-y-1">
+              <div>Users: {{ p.maxUsers }}</div>
+              <div>Workspaces: {{ p.maxWorkspaces }}</div>
+              <div>Projects: {{ p.maxProjects }}</div>
+              <div>Storage: {{ p.storageGB }} GB</div>
+              <div>AI Requests: {{ p.aiRequests }}</div>
+              <div>API Limit: {{ p.apiLimit }}</div>
+            </div>
+            <button class="btn btn-xs btn-outline mt-3" (click)="openEdit(p)">Edit Plan</button>
+          </div>
+        </div>
+      }
+    </div>
+    <!-- Edit modal -->
+    @if (editPlan(); as ep) {
+      <div class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-3">
+        <div class="card bg-base-100 w-full max-w-lg shadow-xl">
+          <div class="card-body p-4">
+            <h3 class="font-bold">Edit {{ ep.name }}</h3>
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <label class="form-control"><span class="label-text text-xs">Price $</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.price" /></label>
+              <label class="form-control"><span class="label-text text-xs">Max Users</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.maxUsers" /></label>
+              <label class="form-control"><span class="label-text text-xs">Max Workspaces</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.maxWorkspaces" /></label>
+              <label class="form-control"><span class="label-text text-xs">Max Projects</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.maxProjects" /></label>
+              <label class="form-control"><span class="label-text text-xs">Storage GB</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.storageGB" /></label>
+              <label class="form-control"><span class="label-text text-xs">AI Requests</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.aiRequests" /></label>
+              <label class="form-control"><span class="label-text text-xs">API Limit</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.apiLimit" /></label>
+              <label class="form-control col-span-2"><span class="label-text text-xs">FeaturesJson</span><input class="input input-bordered input-sm" [(ngModel)]="ep.featuresJson" /></label>
+            </div>
+            <div class="flex justify-end gap-2 mt-4"><button class="btn btn-sm" (click)="closeEdit()">Cancel</button><button class="btn btn-sm btn-primary" (click)="updatePlanMut.mutate()" [disabled]="updatePlanMut.isPending()">Save</button></div>
+          </div>
+        </div>
+      </div>
+    }
+  }
+</div>

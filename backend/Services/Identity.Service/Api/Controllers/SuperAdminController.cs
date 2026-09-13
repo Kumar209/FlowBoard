@@ -328,6 +328,26 @@ public class SuperAdminController : ControllerBase
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    [HttpPut("subscriptions/plans/{planId}")]
+    public async Task<IActionResult> UpdatePlan(Guid planId, [FromBody] Identity.Service.Application.SuperAdmin.DTOs.PlanConfigDto dto)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized(new { error = "Unauthorized" });
+        var roles = GetRoles();
+        var result = await _mediator.Send(new Identity.Service.Application.SuperAdmin.Commands.UpdatePlanCommand(userId.Value, roles, planId, dto));
+        if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpPut("subscriptions/organizations/{orgId}")]
+    public async Task<IActionResult> AssignPlan(Guid orgId, [FromBody] AssignPlanRequest req)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized(new { error = "Unauthorized" });
+        var roles = GetRoles();
+        var result = await _mediator.Send(new Identity.Service.Application.SuperAdmin.Commands.AssignPlanCommand(userId.Value, roles, orgId, req.PlanId));
+        if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(new { message = "Plan assigned" });
+    }
+
     private Guid? GetUserId()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
@@ -346,3 +366,4 @@ public class SuperAdminController : ControllerBase
 public record SuspendRequest(string? Reason, string? Message);
 public record SuspendUserRequest(Guid OrganizationId, string? Reason, string? Message, int? DeadlineDays, DateTime? DeadlineAt);
 public record ReplyRequest(string Message);
+public record AssignPlanRequest(Guid PlanId);

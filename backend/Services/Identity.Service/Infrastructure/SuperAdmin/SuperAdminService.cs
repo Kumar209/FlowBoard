@@ -961,6 +961,34 @@ public class SuperAdminService : ISuperAdminService
 
     public Task<PlatformSettingsResponse> GetSettingsAsync(CancellationToken ct = default) => _platformSettings.GetAllAsync(ct);
 
+    public async Task<PlanConfigDto> UpdatePlanAsync(Guid planId, PlanConfigDto dto, Guid actorId, CancellationToken ct = default)
+    {
+        var plan = await _db.SubscriptionPlans.FirstOrDefaultAsync(x => x.Id == planId, ct);
+        if (plan == null) throw new InvalidOperationException("Plan not found");
+        if (dto.Price < 0 || dto.Price > 10000) throw new InvalidOperationException("Price must be 0-10000");
+        if (dto.MaxUsers < 1 || dto.MaxUsers > 10000) throw new InvalidOperationException("MaxUsers invalid");
+        // audit via OrganizationActivities with synthetic org (first org or fallback)
+        plan.Update(dto.Price, dto.MaxUsers, dto.MaxWorkspaces, dto.MaxProjects, dto.StorageGB, dto.AiRequests, dto.ApiLimit, dto.FeaturesJson);
+        // Log audit to first org if exists
+        var firstOrg = await _db.Organizations.FirstOrDefaultAsync(ct);
+        if (firstOrg != null) _db.OrganizationActivities.Add(new OrganizationActivity(firstOrg.Id, actorId, "SubscriptionPlanUpdated", $"{{\"planId\":\"{planId}\",\"plan\":\"{plan.Name}\"}}"));
+        await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Plan {Plan} updated by {Actor}", plan.Name, actorId);
+        return new PlanConfigDto(plan.Id, plan.Name, plan.Price, plan.MaxUsers, plan.MaxWorkspaces, plan.MaxProjects, plan.StorageGB, plan.AiRequests, plan.ApiLimit, plan.FeaturesJson);
+    }
+
+    public async Task AssignPlanAsync(Guid organizationId, Guid planId, Guid actorId, CancellationToken ct = default)
+    {
+        var org = await _db.Organizations.FirstOrDefaultAsync(x => x.Id == organizationId, ct);
+        if (org == null) throw new InvalidOperationException("Organization not found");
+        var plan = await _db.SubscriptionPlans.FirstOrDefaultAsync(x => x.Id == planId, ct);
+        if (plan == null) throw new InvalidOperationException("Plan not found");
+        org.SetPlan(planId);
+        _db.OrganizationActivities.Add(new OrganizationActivity(organizationId, actorId, "SubscriptionPlanAssigned", $"{{\"plan\":\"{plan.Name}\",\"org\":\"{org.Name}\"}}"));
+        await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Org {Org} assigned plan {Plan} by {Actor}", org.Name, plan.Name, actorId);
+    }
+
     private class ProjectCountRow { public Guid OrgId { get; set; } public int Cnt { get; set; } }
     private class AiOverviewRaw { public int Total { get; set; } public int Success { get; set; } public int Failed { get; set; } public long Tokens { get; set; } public decimal Cost { get; set; } public double AvgLatency { get; set; } public int Fallback { get; set; } }
     private class AiProviderRaw { public string? Provider { get; set; } public int Requests { get; set; } public long Tokens { get; set; } public int SuccessCount { get; set; } public int FailedCount { get; set; } public double AvgLatency { get; set; } public decimal Cost { get; set; } }

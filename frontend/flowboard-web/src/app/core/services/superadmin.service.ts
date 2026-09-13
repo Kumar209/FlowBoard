@@ -313,4 +313,10 @@ export class SuperAdminService {
   getPlatformMaintenance() {
     return this.http.get<any>(`${environment.apiUrl}/api/platform/maintenance`);
   }
+  updatePlan(planId: string, dto: any) {
+    return this.http.put(`${environment.apiUrl}/api/superadmin/subscriptions/plans/${planId}`, dto, { withCredentials: true });
+  }
+  assignPlan(orgId: string, planId: string) {
+    return this.http.put(`${environment.apiUrl}/api/superadmin/subscriptions/organizations/${orgId}`, { planId }, { withCredentials: true });
+  }
 }
