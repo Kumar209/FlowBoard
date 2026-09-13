@@ -179,7 +179,8 @@ export interface PlatformSettings {
   storage: { provider: string; maxFileSizeMb: number; allowedTypes: string[] };
   notifications: { emailEnabled: boolean; inAppEnabled: boolean; signalRHub: string; rabbitMqStatus: string };
   rateLimits: { authRequestsPerMinute: number; apiRequestsPerMinute: number; aiRequestsPerMinute: number; fileRequestsPerMinute: number; notificationRequestsPerMinute: number; enforcedVia: string };
-  maintenance: { maintenanceMode: boolean; scheduledAt?: string | null; announcement?: string | null };
+  maintenance: { maintenanceMode: boolean; scheduledAt?: string | null; endAt?: string | null; announcement?: string | null };
+  tenantDefaults: { defaultPlanId: string };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -282,5 +283,34 @@ export class SuperAdminService {
   }
   getSettings() {
     return this.http.get<PlatformSettings>(`${environment.apiUrl}/api/superadmin/settings`, { withCredentials: true });
+  }
+  updateGeneral(dto: any) {
+    return this.http.put(`${environment.apiUrl}/api/superadmin/settings/general`, dto, { withCredentials: true });
+  }
+  updateSecurity(dto: any) {
+    return this.http.put(`${environment.apiUrl}/api/superadmin/settings/security`, dto, { withCredentials: true });
+  }
+  updateTenantDefaults(dto: any) {
+    return this.http.put(`${environment.apiUrl}/api/superadmin/settings/tenant-defaults`, dto, { withCredentials: true });
+  }
+  updateAi(dto: any) {
+    return this.http.put(`${environment.apiUrl}/api/superadmin/settings/ai`, dto, { withCredentials: true });
+  }
+  updateRateLimits(dto: any) {
+    return this.http.put(`${environment.apiUrl}/api/superadmin/settings/rate-limits`, dto, { withCredentials: true });
+  }
+  updateMaintenance(dto: any) {
+    return this.http.put(`${environment.apiUrl}/api/superadmin/settings/maintenance`, dto, { withCredentials: true });
+  }
+  uploadLogo(file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<{ logoUrl: string }>(`${environment.apiUrl}/api/superadmin/settings/platform/logo`, fd, { withCredentials: true });
+  }
+  getPlatformGeneral() {
+    return this.http.get<any>(`${environment.apiUrl}/api/platform/general`);
+  }
+  getPlatformMaintenance() {
+    return this.http.get<any>(`${environment.apiUrl}/api/platform/maintenance`);
   }
 }

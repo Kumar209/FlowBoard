@@ -6,6 +6,14 @@
         "ClusterId": "identity-cluster",
         "Match": { "Path": "/api/auth/{**catch-all}" }
       },
+      "superadmin-route": {
+        "ClusterId": "identity-cluster",
+        "Match": { "Path": "/api/superadmin/{**catch-all}" }
+      },
+      "platform-route": {
+        "ClusterId": "identity-cluster",
+        "Match": { "Path": "/api/platform/{**catch-all}" }
+      },
       "permissions-route": {
         "ClusterId": "identity-cluster",
         "Match": { "Path": "/api/permissions/{**catch-all}" }
@@ -18,6 +26,14 @@
         "ClusterId": "identity-cluster",
         "Match": { "Path": "/api/workspaces/{**catch-all}" },
         "Order": 1
+      },
+      "feature-flags-route": {
+        "ClusterId": "identity-cluster",
+        "Match": { "Path": "/api/feature-flags/{**catch-all}" }
+      },
+      "feature-flags-root-route": {
+        "ClusterId": "identity-cluster",
+        "Match": { "Path": "/api/feature-flags" }
       },
       "org-route": {
         "ClusterId": "identity-cluster",

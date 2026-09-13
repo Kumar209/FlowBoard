@@ -2,16 +2,26 @@
   <div class="navbar mx-auto min-h-14 max-w-[1600px] px-3 sm:px-5 lg:px-6">
     <div class="navbar-start gap-2">
       <a routerLink="/" (click)="closeMobile()" class="flex items-center gap-2.5">
-        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-content shadow-sm sm:h-9 sm:w-9">
-          <svg viewBox="0 0 24 24" class="h-4 w-4 sm:h-[18px] sm:w-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="4" y="4" width="16" height="16" rx="3"/>
-            <path d="M8 9h8M8 12h5M8 15h8"/>
-          </svg>
-        </div>
-        <div class="hidden leading-none sm:block">
-          <div class="text-sm font-black tracking-tight">FlowBoard</div>
-          <div class="mt-0.5 text-[7px] font-semibold uppercase tracking-[0.2em] opacity-40">Enterprise</div>
-        </div>
+        <ng-container *ngIf="platformQuery.data() as pg; else defaultLogo">
+          <img *ngIf="pg.logoUrl && pg.logoUrl.startsWith('http')" [src]="pg.logoUrl" class="h-8 w-8 sm:h-9 sm:w-9 rounded-lg object-cover shadow-sm" alt="logo" />
+          <div *ngIf="!pg.logoUrl || !pg.logoUrl.startsWith('http')" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-content shadow-sm sm:h-9 sm:w-9"><svg viewBox="0 0 24 24" class="h-4 w-4 sm:h-[18px] sm:w-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 12h5M8 15h8"/></svg></div>
+          <div class="hidden leading-none sm:block">
+            <div class="text-sm font-black tracking-tight">{{ pg.platformName }}</div>
+            <div class="mt-0.5 text-[7px] font-semibold uppercase tracking-[0.2em] opacity-40">Enterprise</div>
+          </div>
+        </ng-container>
+        <ng-template #defaultLogo>
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-content shadow-sm sm:h-9 sm:w-9">
+            <svg viewBox="0 0 24 24" class="h-4 w-4 sm:h-[18px] sm:w-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="4" width="16" height="16" rx="3"/>
+              <path d="M8 9h8M8 12h5M8 15h8"/>
+            </svg>
+          </div>
+          <div class="hidden leading-none sm:block">
+            <div class="text-sm font-black tracking-tight">FlowBoard</div>
+            <div class="mt-0.5 text-[7px] font-semibold uppercase tracking-[0.2em] opacity-40">Enterprise</div>
+          </div>
+        </ng-template>
       </a>
     </div>
 
@@ -36,25 +46,44 @@
           @if (notifOpen()) {
             <div class="dropdown-content z-[60] mt-3 w-80 rounded-2xl border border-base-300 bg-base-100 shadow-2xl p-2">
               <div class="flex justify-between items-center px-2 py-1">
-                <span class="text-sm font-bold">Notifications</span>
+                <span class="text-sm font-bold">@if (auth.isSuperAdmin()) { Support } @else { Notifications }</span>
                 <button class="btn btn-ghost btn-xs rounded-full" (click)="closeNotif()">✕</button>
               </div>
-              @if (notificationsQuery.data(); as nd) {
-                <div class="max-h-80 overflow-y-auto space-y-1">
-                  @for (n of nd.items; track n.id) {
-                    <div class="p-2 rounded-xl hover:bg-base-200 flex gap-2 items-start cursor-pointer" [class.bg-primary/10]="!n.isRead" (click)="openNotifDetail(n)">
-                      <span class="badge badge-xs mt-1" [ngClass]="n.action==='TaskMoved'?'badge-warning': n.action==='TaskCreated'?'badge-success':'badge-info'">{{ n.action }}</span>
-                      <div class="flex-1 min-w-0">
-                        <p class="text-xs font-medium truncate" [title]="formatNotif(n)">{{ formatNotif(n) }}</p>
-                        <p class="text-[10px] opacity-50">{{ n.occurredOnUtc | date:'short' }} • {{ n.action }}</p>
+              @if (auth.isSuperAdmin()) {
+                @if (complaintsQuery.data(); as list) {
+                  <div class="max-h-80 overflow-y-auto space-y-1">
+                    @for (c of list.slice(0,5); track c.id) {
+                      <div class="p-2 rounded-xl hover:bg-base-200 flex gap-2 items-start cursor-pointer" [class.bg-warning/10]="c.status==='Open'" (click)="closeNotif(); router.navigate(['/superadmin/support', c.id])">
+                        <span class="badge badge-xs mt-1" [ngClass]="c.status==='Open'?'badge-warning': c.status==='Replied'?'badge-success':'badge-ghost'">{{ c.status }}</span>
+                        <div class="flex-1 min-w-0">
+                          <p class="text-xs font-medium truncate" [title]="c.subject">{{ c.subject }}</p>
+                          <p class="text-[10px] opacity-50">{{ c.organizationName || (c.organizationId | slice:0:8) }} • {{ c.createdAt | date:'short' }}</p>
+                        </div>
+                        <span class="text-[10px] opacity-50 shrink-0">{{ c.createdByName | slice:0:12 }}</span>
                       </div>
-                      <button class="btn btn-ghost btn-xs rounded-full shrink-0" (click)="openNotifDetail(n); $event.stopPropagation()">View</button>
-                    </div>
-                  }
-                  @if (nd.items.length===0) { <p class="text-xs opacity-40 text-center py-4">No notifications</p> }
-                </div>
-              } @else { <p class="text-xs opacity-40 text-center py-4">Loading…</p> }
-              <a routerLink="/notifications" (click)="closeNotif()" class="btn btn-primary btn-sm w-full rounded-xl mt-2">View all notifications</a>
+                    }
+                    @if (list.length===0) { <p class="text-xs opacity-40 text-center py-4">No complaints</p> }
+                  </div>
+                } @else { <p class="text-xs opacity-40 text-center py-4">Loading…</p> }
+                <a routerLink="/superadmin/support" (click)="closeNotif()" class="btn btn-primary btn-sm w-full rounded-xl mt-2">View all support</a>
+              } @else {
+                @if (notificationsQuery.data(); as nd) {
+                  <div class="max-h-80 overflow-y-auto space-y-1">
+                    @for (n of nd.items; track n.id) {
+                      <div class="p-2 rounded-xl hover:bg-base-200 flex gap-2 items-start cursor-pointer" [class.bg-primary/10]="!n.isRead" (click)="openNotifDetail(n)">
+                        <span class="badge badge-xs mt-1" [ngClass]="n.action==='TaskMoved'?'badge-warning': n.action==='TaskCreated'?'badge-success':'badge-info'">{{ n.action }}</span>
+                        <div class="flex-1 min-w-0">
+                          <p class="text-xs font-medium truncate" [title]="formatNotif(n)">{{ formatNotif(n) }}</p>
+                          <p class="text-[10px] opacity-50">{{ n.occurredOnUtc | date:'short' }} • {{ n.action }}</p>
+                        </div>
+                        <button class="btn btn-ghost btn-xs rounded-full shrink-0" (click)="openNotifDetail(n); $event.stopPropagation()">View</button>
+                      </div>
+                    }
+                    @if (nd.items.length===0) { <p class="text-xs opacity-40 text-center py-4">No notifications</p> }
+                  </div>
+                } @else { <p class="text-xs opacity-40 text-center py-4">Loading…</p> }
+                <a routerLink="/notifications" (click)="closeNotif()" class="btn btn-primary btn-sm w-full rounded-xl mt-2">View all notifications</a>
+              }
             </div>
           }
         </div>
@@ -108,7 +137,11 @@
               <div class="text-xs font-semibold">{{ auth.currentUser()?.fullName }}</div>
               <div class="mt-0.5 truncate text-[10px] opacity-50">{{ auth.currentUser()?.email }}</div>
               <div class="mt-2">
-                <span class="badge badge-primary rounded-full px-2 py-1 text-[10px] font-medium">OrgAdmin</span>
+                @if (auth.isSuperAdmin()) {
+                  <span class="badge badge-error rounded-full px-2 py-1 text-[10px] font-medium">FlowBoard SuperAdmin</span>
+                } @else {
+                  <span class="badge badge-primary rounded-full px-2 py-1 text-[10px] font-medium">OrgAdmin</span>
+                }
               </div>
             </div>
             <button type="button" class="btn btn-ghost btn-sm w-full justify-start gap-2 rounded-xl text-error hover:bg-error/10" (click)="logout()">

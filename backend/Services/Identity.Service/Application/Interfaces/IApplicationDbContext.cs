@@ -18,7 +18,15 @@ public interface IApplicationDbContext
     DbSet<Permission> Permissions { get; }
     DbSet<RolePermission> RolePermissions { get; }
     DbSet<OrganizationActivity> OrganizationActivities { get; }
+    DbSet<SubscriptionPlanEntity> SubscriptionPlans { get; }
+    DbSet<PendingUserSuspension> PendingUserSuspensions { get; }
+    DbSet<PlatformNotice> PlatformNotices { get; }
+    DbSet<Complaint> Complaints { get; }
+    DbSet<ComplaintReply> ComplaintReplies { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
+    DbSet<FeatureFlag> FeatureFlags { get; }
+    DbSet<OrganizationFeatureFlag> OrganizationFeatureFlags { get; }
+    DbSet<PlatformSetting> PlatformSettings { get; }
 
     DatabaseFacade Database { get; }
 

@@ -1,9 +1,12 @@
-import { Component, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, signal, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { HeaderComponent } from '../../../shared/components/header/header.component';
+import { SuperAdminService } from '../../../core/services/superadmin.service';
+import { injectQuery } from '@tanstack/angular-query-experimental';
+import { firstValueFrom } from 'rxjs';
 
 /**
  * RegisterComponent - MNC-grade: OnPush + signals + ReactiveForms typed + always-enabled button + input-error below.
@@ -18,6 +21,12 @@ import { HeaderComponent } from '../../../shared/components/header/header.compon
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RegisterComponent {
+  private sa = inject(SuperAdminService);
+  maintenanceQuery = injectQuery(() => ({
+    queryKey: ['platform-maintenance'] as const,
+    queryFn: () => firstValueFrom(this.sa.getPlatformMaintenance()),
+    staleTime: 30 * 1000,
+  }));
   form: any;
   loading = signal(false);
   error = signal<string | null>(null);

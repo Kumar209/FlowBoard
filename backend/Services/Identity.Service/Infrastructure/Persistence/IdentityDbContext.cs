@@ -21,7 +21,15 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<OrganizationActivity> OrganizationActivities => Set<OrganizationActivity>();
+    public DbSet<SubscriptionPlanEntity> SubscriptionPlans => Set<SubscriptionPlanEntity>();
+    public DbSet<PendingUserSuspension> PendingUserSuspensions => Set<PendingUserSuspension>();
+    public DbSet<PlatformNotice> PlatformNotices => Set<PlatformNotice>();
+    public DbSet<Complaint> Complaints => Set<Complaint>();
+    public DbSet<ComplaintReply> ComplaintReplies => Set<ComplaintReply>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<FeatureFlag> FeatureFlags => Set<FeatureFlag>();
+    public DbSet<OrganizationFeatureFlag> OrganizationFeatureFlags => Set<OrganizationFeatureFlag>();
+    public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +49,16 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
             e.Property(x => x.AvatarUrl).HasMaxLength(512);
         });
 
+        // SubscriptionPlans - lookup table for billing (MNC enum+table hybrid)
+        modelBuilder.Entity<SubscriptionPlanEntity>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => x.Name).IsUnique();
+            e.Property(x => x.Name).IsRequired().HasMaxLength(50);
+            e.Property(x => x.FeaturesJson).HasMaxLength(2000);
+        });
+
         // Organization
         modelBuilder.Entity<Organization>(e =>
         {
@@ -48,9 +66,11 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
             e.Ignore(x => x.DomainEvents);
             e.HasIndex(x => x.Slug).IsUnique();
             e.HasIndex(x => x.OwnerId);
+            e.HasIndex(x => x.SubscriptionPlanId);
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);
             e.Property(x => x.Slug).IsRequired().HasMaxLength(100);
             e.Property(x => x.Description).HasMaxLength(1000);
+            e.HasOne(x => x.SubscriptionPlan).WithMany().HasForeignKey(x => x.SubscriptionPlanId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // Workspace
@@ -139,6 +159,60 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
             e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        // PendingUserSuspension - platform grace period
+        modelBuilder.Entity<PendingUserSuspension>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.OrganizationId);
+            e.HasIndex(x => x.Status);
+            e.Property(x => x.Reason).IsRequired().HasMaxLength(500);
+            e.Property(x => x.Message).IsRequired().HasMaxLength(2000);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // PlatformNotice - banner per org
+        modelBuilder.Entity<PlatformNotice>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => x.OrganizationId);
+            e.HasIndex(x => x.IsActive);
+            e.Property(x => x.Message).IsRequired().HasMaxLength(2000);
+            e.Property(x => x.Type).IsRequired().HasMaxLength(30);
+            e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Complaint - org to platform
+        modelBuilder.Entity<Complaint>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => x.OrganizationId);
+            e.HasIndex(x => x.CreatedByUserId);
+            e.HasIndex(x => x.Status);
+            e.Property(x => x.Subject).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Message).IsRequired().HasMaxLength(2000);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+            e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // ComplaintReply - threaded
+        modelBuilder.Entity<ComplaintReply>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => x.ComplaintId);
+            e.HasIndex(x => x.AuthorUserId);
+            e.Property(x => x.Message).IsRequired().HasMaxLength(2000);
+            e.HasOne(x => x.Complaint).WithMany().HasForeignKey(x => x.ComplaintId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.AuthorUserId).OnDelete(DeleteBehavior.NoAction);
+        });
+
         // RefreshToken
         modelBuilder.Entity<RefreshToken>(e =>
         {
@@ -148,6 +222,37 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
             e.HasIndex(x => x.TokenHash);
             e.Property(x => x.TokenHash).IsRequired().HasMaxLength(512);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // FeatureFlag - platform global flags
+        modelBuilder.Entity<FeatureFlag>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => x.Key).IsUnique();
+            e.Property(x => x.Key).IsRequired().HasMaxLength(50);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Description).HasMaxLength(500);
+        });
+
+        // OrganizationFeatureFlag - per-org override
+        modelBuilder.Entity<OrganizationFeatureFlag>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => new { x.OrganizationId, x.FlagKey }).IsUnique();
+            e.HasIndex(x => x.OrganizationId);
+            e.Property(x => x.FlagKey).IsRequired().HasMaxLength(50);
+            e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // PlatformSetting - global platform config (6 rows: platform/security/tenantDefaults/ai/rateLimits/maintenance)
+        modelBuilder.Entity<PlatformSetting>(e =>
+        {
+            e.HasKey(x => x.Key);
+            e.Property(x => x.Key).IsRequired().HasMaxLength(50);
+            e.Property(x => x.ValueJson).IsRequired().HasMaxLength(4000);
+            e.HasIndex(x => x.Key).IsUnique();
         });
     }
 }

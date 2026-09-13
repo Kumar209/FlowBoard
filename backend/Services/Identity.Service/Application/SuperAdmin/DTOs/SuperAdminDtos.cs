@@ -334,7 +334,12 @@ public record RateLimitsSettingsDto(
 public record MaintenanceSettingsDto(
     bool MaintenanceMode,
     string? ScheduledAt,
+    string? EndAt,
     string? Announcement
+);
+
+public record TenantDefaultsDto(
+    string DefaultPlanId
 );
 
 public record PlatformSettingsResponse(
@@ -346,5 +351,6 @@ public record PlatformSettingsResponse(
     StorageSettingsDto Storage,
     NotificationSettingsDto Notifications,
     RateLimitsSettingsDto RateLimits,
-    MaintenanceSettingsDto Maintenance
+    MaintenanceSettingsDto Maintenance,
+    TenantDefaultsDto TenantDefaults
 );

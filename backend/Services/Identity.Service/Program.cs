@@ -6,7 +6,9 @@ using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using Serilog.Context;
 using Identity.Service.Application.Interfaces;
+using Identity.Service.Application.SuperAdmin.Interfaces;
 using Identity.Service.Infrastructure.Services;
+using Identity.Service.Infrastructure.SuperAdmin;
 using Identity.Service.Infrastructure.Persistence;
 
 Log.Logger = new LoggerConfiguration()
@@ -28,6 +30,7 @@ builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<Id
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
 
 builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IPlatformSettingsService, PlatformSettingsService>();
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
@@ -37,6 +40,7 @@ builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IOrganizationRoleService, OrganizationRoleService>();
 builder.Services.AddScoped<IOrganizationActivityService, OrganizationActivityService>();
 builder.Services.AddScoped<IOrganizationStatsService, OrganizationStatsService>();
+builder.Services.AddScoped<ISuperAdminService, SuperAdminService>();
 builder.Services.AddHttpClient<IBrevoEmailService, BrevoEmailService>();
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key missing - set in appsettings.Development.json");
@@ -56,7 +60,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.FromMinutes(2)
         };
         options.Events = new JwtBearerEvents
         {
@@ -78,6 +82,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("RequireOrgAdmin", policy => policy.RequireRole("OrgAdmin", "SuperAdmin"));
     options.AddPolicy("RequireProjectManager", policy => policy.RequireRole("ProjectManager", "OrgAdmin", "SuperAdmin"));
     options.AddPolicy("RequireMember", policy => policy.RequireRole("Member", "ProjectManager", "OrgAdmin", "SuperAdmin", "Client", "Viewer"));
+    options.AddPolicy("RequireSuperAdmin", policy => policy.RequireRole("SuperAdmin"));
 });
 
 builder.Services.AddControllers();
@@ -151,6 +156,8 @@ app.Use(async (ctx, next) =>
 });
 
 app.UseSerilogRequestLogging();
+
+app.UseMiddleware<Identity.Service.Infrastructure.Middleware.MaintenanceMiddleware>();
 
 app.UseCors();
 app.UseAuthentication();

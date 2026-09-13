@@ -2,7 +2,7 @@
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold">Platform Settings</h1>
-      <p class="text-sm opacity-60">General / Security / Auth / Email / AI / Storage / Notifications / Rate Limits / Maintenance — never raw keys</p>
+      <p class="text-sm opacity-60">6 dynamic groups (DB + Redis 30s) + System read-only — never raw keys</p>
     </div>
     <span class="badge badge-info badge-sm">SuperAdmin only</span>
   </div>
@@ -14,12 +14,13 @@
     <!-- General -->
     <div class="card bg-base-100 shadow">
       <div class="card-body p-4">
-        <h3 class="font-semibold">General</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
-          <div><div class="text-xs opacity-60">Platform Name</div><div class="font-medium">{{ s.general.platformName }}</div></div>
-          <div><div class="text-xs opacity-60">Support Email</div><div class="font-medium">{{ s.general.supportEmail }}</div></div>
-          <div><div class="text-xs opacity-60">Language / Timezone</div><div class="font-medium">{{ s.general.language }} / {{ s.general.timezone }}</div></div>
-          <div class="col-span-full"><div class="text-xs opacity-60">Logo</div><div class="font-mono text-xs">{{ s.general.logoUrl }}</div></div>
+        <div class="flex justify-between items-center"><h3 class="font-semibold">Platform Identity</h3><button class="btn btn-xs btn-primary" (click)="saveGeneral.mutate()" [disabled]="saveGeneral.isPending()">Save</button></div>
+        <div *ngIf="generalEdit() as g" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+          <label class="form-control"><span class="label-text text-xs">Platform Name</span><input class="input input-bordered input-sm" [(ngModel)]="g.platformName" /></label>
+          <label class="form-control"><span class="label-text text-xs">Support Email</span><input class="input input-bordered input-sm" [(ngModel)]="g.supportEmail" /></label>
+          <label class="form-control"><span class="label-text text-xs">Language</span><input class="input input-bordered input-sm" [(ngModel)]="g.language" /></label>
+          <label class="form-control"><span class="label-text text-xs">Timezone</span><input class="input input-bordered input-sm" [(ngModel)]="g.timezone" /></label>
+          <label class="form-control col-span-full"><span class="label-text text-xs">Logo URL (auto-synced to header)</span><input class="input input-bordered input-sm" [(ngModel)]="g.logoUrl" /><div class="flex gap-2 mt-1"><input type="file" accept="image/*" class="file-input file-input-bordered file-input-sm" (change)="onLogoSelected($event)" /><button class="btn btn-xs" (click)="uploadLogoMut.mutate()" [disabled]="!logoFile() || uploadLogoMut.isPending()">Upload to Cloudinary</button></div></label>
         </div>
       </div>
     </div>
@@ -27,85 +28,44 @@
     <!-- Security -->
     <div class="card bg-base-100 shadow">
       <div class="card-body p-4">
-        <h3 class="font-semibold">Security</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-          <div><div class="text-xs opacity-60">MFA</div><span class="badge badge-sm" [ngClass]="s.security.mfaEnabled ? 'badge-success' : 'badge-ghost'">{{ s.security.mfaEnabled ? 'Enabled' : 'Disabled' }}</span></div>
-          <div><div class="text-xs opacity-60">Session Timeout</div><div class="font-mono">{{ s.security.sessionTimeout }}</div></div>
-          <div><div class="text-xs opacity-60">Lockout</div><div class="font-mono">{{ s.security.maxLoginAttempts }} attempts / {{ s.security.lockoutMinutes }} min</div></div>
-          <div class="col-span-full"><div class="text-xs opacity-60">Password Policy</div><div class="text-sm">{{ s.security.passwordPolicy }}</div></div>
+        <div class="flex justify-between items-center"><h3 class="font-semibold">Security Policy</h3><button class="btn btn-xs btn-primary" (click)="saveSecurity.mutate()" [disabled]="saveSecurity.isPending()">Save</button></div>
+        <div *ngIf="securityEdit() as sec" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+          <label class="form-control"><span class="label-text text-xs">Session Timeout</span><input class="input input-bordered input-sm" [(ngModel)]="sec.sessionTimeout" placeholder="30m" /></label>
+          <label class="form-control"><span class="label-text text-xs">Max Login Attempts</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="sec.maxLoginAttempts" /></label>
+          <label class="form-control"><span class="label-text text-xs">Lockout Minutes</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="sec.lockoutMinutes" /></label>
+          <label class="form-control col-span-full"><span class="label-text text-xs">Password Policy</span><input class="input input-bordered input-sm" [(ngModel)]="sec.passwordPolicy" /></label>
+          <label class="form-control"><span class="label-text text-xs">MFA</span><input type="checkbox" class="toggle toggle-sm" [(ngModel)]="sec.mfaRequired" /></label>
         </div>
       </div>
     </div>
 
-    <!-- Authentication -->
+    <!-- Tenant Defaults -->
     <div class="card bg-base-100 shadow">
       <div class="card-body p-4">
-        <h3 class="font-semibold">Authentication</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
-          <div><div class="text-xs opacity-60">Email Verification</div><span class="badge badge-sm" [ngClass]="s.authentication.emailVerificationRequired ? 'badge-success' : 'badge-ghost'">{{ s.authentication.emailVerificationRequired ? 'Required' : 'Optional' }}</span></div>
-          <div><div class="text-xs opacity-60">Google</div><span class="badge badge-sm" [ngClass]="s.authentication.googleEnabled ? 'badge-success' : 'badge-ghost'">{{ s.authentication.googleEnabled ? 'Enabled' : 'Disabled' }}</span></div>
-          <div><div class="text-xs opacity-60">Microsoft</div><span class="badge badge-sm" [ngClass]="s.authentication.microsoftEnabled ? 'badge-success' : 'badge-ghost'">{{ s.authentication.microsoftEnabled ? 'Enabled' : 'Disabled' }}</span></div>
-          <div><div class="text-xs opacity-60">Password</div><span class="badge badge-sm" [ngClass]="s.authentication.passwordEnabled ? 'badge-success' : 'badge-ghost'">{{ s.authentication.passwordEnabled ? 'Enabled' : 'Disabled' }}</span></div>
+        <div class="flex justify-between items-center"><h3 class="font-semibold">Tenant Defaults</h3><button class="btn btn-xs btn-primary" (click)="saveTenant.mutate()" [disabled]="saveTenant.isPending()">Save</button></div>
+        <div *ngIf="tenantEdit() as t" class="mt-2">
+          <label class="form-control max-w-sm"><span class="label-text text-xs">Default Plan for new orgs</span><select class="select select-bordered select-sm" [(ngModel)]="t.defaultPlanId"><option *ngFor="let p of plans" [value]="p.id">{{p.name}} - {{p.price | currency}} ({{p.maxUsers}} users)</option></select></label>
+          <div class="text-xs opacity-50 mt-1">AuthService Register reads this — no redeploy.</div>
         </div>
       </div>
     </div>
 
-    <!-- Email -->
+    <!-- AI Runtime -->
     <div class="card bg-base-100 shadow">
       <div class="card-body p-4">
-        <h3 class="font-semibold">Email</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
-          <div><div class="text-xs opacity-60">Provider</div><span class="badge badge-outline badge-sm">{{ s.email.provider }}</span><span class="text-xs opacity-40 ml-2">key masked •• •• never raw</span></div>
-          <div><div class="text-xs opacity-60">Sender</div><div class="font-mono text-sm">{{ s.email.senderName }} &lt;{{ s.email.senderEmail }}&gt;</div></div>
-          <div><div class="text-xs opacity-60">Templates</div><div class="text-sm">Verification: <span class="badge badge-sm" [ngClass]="s.email.verificationEnabled ? 'badge-success' : 'badge-ghost'">{{ s.email.verificationEnabled ? 'On' : 'Off' }}</span> Reset: <span class="badge badge-sm" [ngClass]="s.email.resetEnabled ? 'badge-success' : 'badge-ghost'">{{ s.email.resetEnabled ? 'On' : 'Off' }}</span></div></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- AI Providers -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <h3 class="font-semibold">AI Providers</h3>
-        <p class="text-xs opacity-50">Gemini/Groq — never raw keys (masked •• ••), Timeout/Retry visible</p>
-        <div class="overflow-x-auto mt-2">
-          <table class="table table-sm">
-            <thead><tr><th>Provider</th><th>Enabled</th><th>Default</th><th>Fallback</th><th>Models</th><th>Timeout</th><th>Retry</th></tr></thead>
-            <tbody>
-              <tr *ngFor="let p of s.ai.providers">
-                <td><span class="badge badge-outline badge-sm">{{ p.provider }}</span><span class="text-xs opacity-40 ml-1">key •• •• masked</span></td>
-                <td><span class="badge badge-sm" [ngClass]="p.enabled ? 'badge-success' : 'badge-ghost'">{{ p.enabled ? 'Yes' : 'No' }}</span></td>
-                <td><span class="badge badge-sm" [ngClass]="p.isDefault ? 'badge-info' : 'badge-ghost'">{{ p.isDefault ? 'Default' : '-' }}</span></td>
-                <td><span class="badge badge-sm" [ngClass]="p.isFallback ? 'badge-warning' : 'badge-ghost'">{{ p.isFallback ? 'Fallback' : '-' }}</span></td>
-                <td class="text-xs font-mono">{{ p.models.join(', ') }}</td>
-                <td class="font-mono">{{ p.timeoutMs }} ms</td>
-                <td class="font-mono">{{ p.maxRetries }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Storage -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <h3 class="font-semibold">Storage</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-          <div><div class="text-xs opacity-60">Provider</div><span class="badge badge-outline badge-sm">{{ s.storage.provider }}</span><span class="text-xs opacity-40 ml-1">secret masked</span></div>
-          <div><div class="text-xs opacity-60">Max File Size</div><div class="font-mono">{{ s.storage.maxFileSizeMb }} MB</div></div>
-          <div><div class="text-xs opacity-60">Allowed Types</div><div class="text-xs font-mono">{{ s.storage.allowedTypes.join(', ') }}</div></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Notifications -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <h3 class="font-semibold">Notifications</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-          <div><div class="text-xs opacity-60">Email</div><span class="badge badge-sm" [ngClass]="s.notifications.emailEnabled ? 'badge-success' : 'badge-ghost'">{{ s.notifications.emailEnabled ? 'On' : 'Off' }}</span></div>
-          <div><div class="text-xs opacity-60">In-App</div><span class="badge badge-sm" [ngClass]="s.notifications.inAppEnabled ? 'badge-success' : 'badge-ghost'">{{ s.notifications.inAppEnabled ? 'On' : 'Off' }}</span></div>
-          <div><div class="text-xs opacity-60">SignalR / RabbitMQ</div><div class="font-mono text-xs">{{ s.notifications.signalRHub }} / {{ s.notifications.rabbitMqStatus }}</div></div>
+        <div class="flex justify-between items-center"><h3 class="font-semibold">AI Runtime</h3><button class="btn btn-xs btn-primary" (click)="saveAi.mutate()" [disabled]="saveAi.isPending()">Save</button></div>
+        <div *ngIf="aiEdit() as ai" class="space-y-3 mt-2">
+          <div *ngFor="let p of ai.providers; let i=index" class="border rounded p-3">
+            <div class="font-medium text-sm">{{p.provider}} <span class="text-xs opacity-40">key •• configured (never raw)</span></div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+              <label class="flex items-center gap-1 text-xs"><input type="checkbox" class="checkbox checkbox-xs" [(ngModel)]="p.enabled" /> Enabled</label>
+              <label class="flex items-center gap-1 text-xs"><input type="checkbox" class="checkbox checkbox-xs" [(ngModel)]="p.isDefault" /> Default</label>
+              <label class="flex items-center gap-1 text-xs"><input type="checkbox" class="checkbox checkbox-xs" [(ngModel)]="p.isFallback" /> Fallback</label>
+              <label class="form-control"><span class="label-text text-xs">Timeout ms</span><input type="number" class="input input-bordered input-xs" [(ngModel)]="p.timeoutMs" /></label>
+              <label class="form-control"><span class="label-text text-xs">Max Retries</span><input type="number" class="input input-bordered input-xs" [(ngModel)]="p.maxRetries" /></label>
+              <label class="form-control col-span-full"><span class="label-text text-xs">Models (comma)</span><input class="input input-bordered input-xs" [ngModel]="p.models.join(',')" (ngModelChange)="p.models=$event.split(',').map(s=>s.trim()).filter(s=>s)" /></label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -113,27 +73,43 @@
     <!-- Rate Limits -->
     <div class="card bg-base-100 shadow">
       <div class="card-body p-4">
-        <h3 class="font-semibold">Rate Limits</h3>
-        <p class="text-xs opacity-50">Enforced via {{ s.rateLimits.enforcedVia }}</p>
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-2">
-          <div><div class="text-xs opacity-60">Auth</div><div class="font-mono font-bold">{{ s.rateLimits.authRequestsPerMinute }}/min</div></div>
-          <div><div class="text-xs opacity-60">API (IP/User)</div><div class="font-mono font-bold">{{ s.rateLimits.apiRequestsPerMinute }}/min</div><div class="text-xs opacity-40">200 IP / 300 User Lua</div></div>
-          <div><div class="text-xs opacity-60">AI</div><div class="font-mono font-bold">{{ s.rateLimits.aiRequestsPerMinute }}/min</div></div>
-          <div><div class="text-xs opacity-60">File</div><div class="font-mono font-bold">{{ s.rateLimits.fileRequestsPerMinute }}/min</div></div>
-          <div><div class="text-xs opacity-60">Notifications</div><div class="font-mono font-bold">{{ s.rateLimits.notificationRequestsPerMinute }}/min</div></div>
+        <div class="flex justify-between items-center"><h3 class="font-semibold">Rate Limits & Quotas</h3><button class="btn btn-xs btn-primary" (click)="saveRate.mutate()" [disabled]="saveRate.isPending()">Save</button></div>
+        <p class="text-xs opacity-50">Enforced via {{s.rateLimits.enforcedVia}} — Gateway fetches via HTTP every 30s (Lua sliding window)</p>
+        <div *ngIf="rateEdit() as r" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
+          <label class="form-control"><span class="label-text text-xs">Auth /min</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="r.authRequestsPerMinute" /></label>
+          <label class="form-control"><span class="label-text text-xs">API (Gateway IP/User) /min</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="r.apiRequestsPerMinute" /></label>
+          <label class="form-control"><span class="label-text text-xs">AI /min</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="r.aiRequestsPerMinute" /></label>
+          <label class="form-control"><span class="label-text text-xs">File /min</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="r.fileRequestsPerMinute" /></label>
+          <label class="form-control"><span class="label-text text-xs">Notifications /min</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="r.notificationRequestsPerMinute" /></label>
         </div>
       </div>
     </div>
 
     <!-- Maintenance -->
-    <div class="card bg-base-100 shadow">
+    <div class="card bg-base-100 shadow border-warning" [class.border]="s.maintenance.maintenanceMode">
       <div class="card-body p-4">
-        <h3 class="font-semibold">Maintenance</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-          <div><div class="text-xs opacity-60">Mode</div><span class="badge badge-sm" [ngClass]="s.maintenance.maintenanceMode ? 'badge-warning' : 'badge-success'">{{ s.maintenance.maintenanceMode ? 'Maintenance' : 'Operational' }}</span></div>
-          <div><div class="text-xs opacity-60">Scheduled</div><div class="font-mono text-sm">{{ s.maintenance.scheduledAt || '—' }}</div></div>
-          <div><div class="text-xs opacity-60">Announcement</div><div class="text-sm">{{ s.maintenance.announcement || '—' }}</div></div>
+        <div class="flex justify-between items-center"><h3 class="font-semibold">Maintenance</h3><button class="btn btn-xs btn-warning" (click)="saveMaint.mutate()" [disabled]="saveMaint.isPending()">Save</button></div>
+        <div *ngIf="maintEdit() as m" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+          <label class="form-control"><span class="label-text text-xs">Maintenance Mode</span><input type="checkbox" class="toggle toggle-warning" [(ngModel)]="m.maintenanceMode" /></label>
+          <label class="form-control"><span class="label-text text-xs">Scheduled At (UTC)</span><input type="datetime-local" class="input input-bordered input-sm" [(ngModel)]="m.scheduledAt" /></label>
+          <label class="form-control"><span class="label-text text-xs">End At (UTC)</span><input type="datetime-local" class="input input-bordered input-sm" [(ngModel)]="m.endAt" /></label>
+          <label class="form-control col-span-full"><span class="label-text text-xs">Announcement</span><input class="input input-bordered input-sm" [(ngModel)]="m.announcement" placeholder="Platform going under maintenance after 1 hour..." /></label>
+          <div class="col-span-full text-xs opacity-60">Toggle on → blocks login/register for all members (503), invalidates refresh tokens, creates PlatformNotice banner on dashboards. Off → re-login allowed. Update time anytime. SuperAdmin bypasses block.</div>
         </div>
+      </div>
+    </div>
+
+    <!-- System read-only -->
+    <div class="card bg-base-100 shadow opacity-70">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">System & Integrations (read-only)</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-sm">
+          <div>Storage: <span class="badge badge-ghost badge-sm">{{s.storage.provider}}</span> {{s.storage.maxFileSizeMb}}MB</div>
+          <div>SignalR: <span class="badge badge-success badge-sm">{{s.notifications.signalRHub}}</span></div>
+          <div>RabbitMQ: <span class="badge badge-success badge-sm">{{s.notifications.rabbitMqStatus}}</span></div>
+          <div>Email: <span class="badge badge-ghost badge-sm">{{s.email.provider}}</span> {{s.email.senderEmail}}</div>
+        </div>
+        <div class="text-xs opacity-50">Secrets never in DB — `apiKeyConfigured: true` only.</div>
       </div>
     </div>
   </ng-container>

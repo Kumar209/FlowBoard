@@ -13,12 +13,14 @@ public class SuperAdminService : ISuperAdminService
     private readonly IApplicationDbContext _db;
     private readonly IBrevoEmailService _email;
     private readonly ILogger<SuperAdminService> _logger;
+    private readonly Identity.Service.Application.Interfaces.IPlatformSettingsService _platformSettings;
 
-    public SuperAdminService(IApplicationDbContext db, IBrevoEmailService email, ILogger<SuperAdminService> logger)
+    public SuperAdminService(IApplicationDbContext db, IBrevoEmailService email, ILogger<SuperAdminService> logger, Identity.Service.Application.Interfaces.IPlatformSettingsService platformSettings)
     {
         _db = db;
         _email = email;
         _logger = logger;
+        _platformSettings = platformSettings;
     }
 
     public async Task<SuperAdminDashboardDto> GetDashboardAsync(CancellationToken ct = default)
@@ -957,67 +959,7 @@ public class SuperAdminService : ISuperAdminService
         }
     }
 
-    public Task<PlatformSettingsResponse> GetSettingsAsync(CancellationToken ct = default)
-    {
-        // Mock platform config - never exposes raw API keys (Section 10), values from appsettings + YARP rate limits
-        var general = new GeneralSettingsDto(
-            "FlowBoard",
-            "/assets/logo.svg",
-            "support@flowboard.local",
-            "en",
-            "UTC"
-        );
-        var security = new SecuritySettingsDto(
-            false,
-            "30m",
-            "Min 8 chars, uppercase + lowercase + number + symbol",
-            5,
-            15
-        );
-        var auth = new AuthSettingsDto(
-            true,
-            false,
-            false,
-            true
-        );
-        var email = new EmailSettingsDto(
-            "Brevo",
-            "no-reply@flowboard.local",
-            "FlowBoard",
-            true,
-            true
-        );
-        var ai = new AiSettingsDto(new List<AiProviderConfigDto>
-        {
-            new("Gemini", true, true, false, new[] { "gemini-3.5-flash", "gemini-1.5-pro" }, 30000, 3),
-            new("Groq", true, false, true, new[] { "llama-3.1-8b-instant", "llama-3.3-70b-versatile" }, 15000, 2)
-        });
-        var storage = new StorageSettingsDto(
-            "Cloudinary",
-            25,
-            new[] { "image/jpeg", "image/png", "image/webp", "application/pdf", "text/csv" }
-        );
-        var notifications = new NotificationSettingsDto(
-            true,
-            true,
-            "/hubs/board",
-            "Healthy"
-        );
-        var rateLimits = new RateLimitsSettingsDto(
-            60,
-            200,
-            3,
-            30,
-            100,
-            "Redis Sliding Window Counter via Upstash Lua (IP 200/min, User 300/min)"
-        );
-        var maintenance = new MaintenanceSettingsDto(
-            false,
-            null,
-            null
-        );
-        return Task.FromResult(new PlatformSettingsResponse(general, security, auth, email, ai, storage, notifications, rateLimits, maintenance));
-    }
+    public Task<PlatformSettingsResponse> GetSettingsAsync(CancellationToken ct = default) => _platformSettings.GetAllAsync(ct);
 
     private class ProjectCountRow { public Guid OrgId { get; set; } public int Cnt { get; set; } }
     private class AiOverviewRaw { public int Total { get; set; } public int Success { get; set; } public int Failed { get; set; } public long Tokens { get; set; } public decimal Cost { get; set; } public double AvgLatency { get; set; } public int Fallback { get; set; } }

@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ThemeService } from '../../../core/services/theme.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { SuperAdminService } from '../../../core/services/superadmin.service';
 import { NotificationDetailModalComponent } from '../../../features/notifications/notification-detail-modal/notification-detail-modal.component';
 import { injectQuery, QueryClient } from '@tanstack/angular-query-experimental';
 
@@ -25,7 +26,14 @@ export class HeaderComponent {
   auth = inject(AuthService);
   router = inject(Router);
   notificationService = inject(NotificationService);
+  private superAdminService = inject(SuperAdminService);
   private queryClient = inject(QueryClient);
+
+  platformQuery = injectQuery(() => ({
+    queryKey: ['platform-general'] as const,
+    queryFn: () => firstValueFrom(this.superAdminService.getPlatformGeneral()),
+    staleTime: 5 * 60 * 1000,
+  }));
   mobileOpen = signal(false);
   notifOpen = signal(false);
   selectedNotif = signal<any>(null);
@@ -34,14 +42,32 @@ export class HeaderComponent {
   notificationsQuery = injectQuery(() => ({
     queryKey: ['notifications', 'header', 1] as const,
     queryFn: () => firstValueFrom(this.notificationService.getNotifications(1, 5)),
-    enabled: this.auth.isAuthenticated(),
+    enabled: this.auth.isAuthenticated() && !this.auth.isSuperAdmin(),
+    staleTime: 30 * 1000,
+  }));
+
+  complaintsQuery = injectQuery(() => ({
+    queryKey: ['superadmin-complaints', 'header'] as const,
+    queryFn: () => firstValueFrom(this.superAdminService.getSuperAdminComplaints()),
+    enabled: this.auth.isAuthenticated() && this.auth.isSuperAdmin(),
     staleTime: 30 * 1000,
   }));
   
   unread = computed(() => {
+    if (this.auth.isSuperAdmin()) {
+      const list: any = this.complaintsQuery.data();
+      if (!Array.isArray(list)) return 0;
+      return list.filter((c: any) => c.status === 'Open').length;
+    }
     const d: any = this.notificationsQuery.data();
     if (!d?.items) return 0;
     return d.items.filter((n: any) => !n.isRead).length;
+  });
+
+  superAdminUnreadLabel = computed(() => {
+    const n = this.unread();
+    if (n === 0) return '';
+    return n > 9 ? '9+' : String(n);
   });
 
   toggleMobile() { this.mobileOpen.update(v => !v); }

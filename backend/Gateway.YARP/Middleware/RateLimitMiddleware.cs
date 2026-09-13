@@ -9,8 +9,10 @@ public class RateLimitMiddleware
     private readonly RequestDelegate _next;
     private readonly IConnectionMultiplexer? _redis;
     private readonly ILogger<RateLimitMiddleware> _logger;
-    private const int IpLimit = 60;
-    private const int UserLimit = 100;
+    private static int _cachedIpLimit = 200;
+    private static int _cachedUserLimit = 300;
+    private static DateTime _lastFetch = DateTime.MinValue;
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(2) };
     private const int WindowSeconds = 60;
     // Lua script atomic sliding window counter: KEYS[1]=curKey, KEYS[2]=prevKey, ARGV[1]=limit, ARGV[2]=elapsedSeconds
     private const string LuaScript = @"
@@ -59,21 +61,22 @@ return {1, sliding + 1, 0}
         var bucket = now.ToUnixTimeSeconds() / WindowSeconds;
         var prevBucket = bucket - 1;
 
+        await RefreshLimitsIfNeededAsync();
+
         string key;
         int limit;
         var userId = context.User.FindFirst("sub")?.Value ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (!string.IsNullOrWhiteSpace(userId))
         {
             key = $"rl:user:{userId}";
-            limit = UserLimit;
+            limit = _cachedUserLimit;
         }
         else
         {
-            // Use RemoteIpAddress after ForwardedHeaders middleware, do not trust X-Forwarded-For directly
             var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             ip = ip.Replace("::1", "127.0.0.1");
             key = $"rl:ip:{ip}";
-            limit = IpLimit;
+            limit = _cachedIpLimit;
         }
 
         var curKey = $"{key}:{bucket}";
@@ -111,5 +114,23 @@ return {1, sliding + 1, 0}
             _logger.LogWarning(ex, "[RateLimit] Lua error - allowing (best-effort)");
             return (true, 0, 0);
         }
+    }
+
+    private async Task RefreshLimitsIfNeededAsync()
+    {
+        if ((DateTime.UtcNow - _lastFetch).TotalSeconds < 30) return;
+        try
+        {
+            var resp = await _http.GetAsync("http://localhost:5001/api/platform/rate-limits");
+            if (!resp.IsSuccessStatusCode) return;
+            var json = await resp.Content.ReadAsStringAsync();
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("apiRequestsPerMinute", out var api)) _cachedIpLimit = api.GetInt32();
+            if (doc.RootElement.TryGetProperty("apiRequestsPerMinute", out var api2)) _cachedUserLimit = api2.GetInt32(); // use same for now, gateway user limit = api
+            // Try separate gatewayUser if exists
+            if (doc.RootElement.TryGetProperty("gatewayUser", out var gu)) _cachedUserLimit = gu.GetInt32();
+            _lastFetch = DateTime.UtcNow;
+        }
+        catch (Exception ex) { _logger.LogDebug(ex, "[RateLimit] fetch dynamic limits failed - use cached 200/300"); }
     }
 }

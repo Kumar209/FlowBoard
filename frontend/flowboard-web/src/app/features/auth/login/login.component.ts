@@ -4,6 +4,9 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { HeaderComponent } from '../../../shared/components/header/header.component';
+import { SuperAdminService } from '../../../core/services/superadmin.service';
+import { injectQuery } from '@tanstack/angular-query-experimental';
+import { firstValueFrom } from 'rxjs';
 
 /**
  * LoginComponent - MNC-grade: OnPush + inject() + signals (loading/error/submitted) + ReactiveForms with hasError(touched||dirty||submitted) + always-enabled button.
@@ -18,6 +21,12 @@ import { HeaderComponent } from '../../../shared/components/header/header.compon
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class LoginComponent {
+  private sa = inject(SuperAdminService);
+  maintenanceQuery = injectQuery(() => ({
+    queryKey: ['platform-maintenance'] as const,
+    queryFn: () => firstValueFrom(this.sa.getPlatformMaintenance()),
+    staleTime: 30 * 1000,
+  }));
   form: any;
   loading = signal(false);
   error = signal<string | null>(null);
@@ -69,8 +78,8 @@ export class LoginComponent {
         );
         // Hydrate memberships via me() so role-based UI works immediately (sidebar + board hide)
         this.auth.me().subscribe({
-          next: me => { this.auth.hydrateFromMe(me as any); this.loading.set(false); this.router.navigate(['/']); },
-          error: () => { this.loading.set(false); this.router.navigate(['/']); }
+          next: me => { this.auth.hydrateFromMe(me as any); this.loading.set(false); this.router.navigate(this.auth.isSuperAdmin() ? ['/superadmin'] : ['/']); },
+          error: () => { this.loading.set(false); this.router.navigate(this.auth.isSuperAdmin() ? ['/superadmin'] : ['/']); }
         });
         return;
       },

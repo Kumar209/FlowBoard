@@ -246,6 +246,88 @@ public class SuperAdminController : ControllerBase
         return Ok(result.Value);
     }
 
+    [HttpPut("settings/general")]
+    public async Task<IActionResult> UpdateGeneral([FromBody] Identity.Service.Application.SuperAdmin.DTOs.GeneralSettingsDto dto)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized(new { error = "Unauthorized" });
+        var roles = GetRoles();
+        var result = await _mediator.Send(new Identity.Service.Application.SuperAdmin.Commands.UpdateGeneralSettingsCommand(userId.Value, roles, dto));
+        if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpPut("settings/security")]
+    public async Task<IActionResult> UpdateSecurity([FromBody] Identity.Service.Application.SuperAdmin.DTOs.SecuritySettingsDto dto)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized(new { error = "Unauthorized" });
+        var roles = GetRoles();
+        var result = await _mediator.Send(new Identity.Service.Application.SuperAdmin.Commands.UpdateSecuritySettingsCommand(userId.Value, roles, dto));
+        if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpPut("settings/tenant-defaults")]
+    public async Task<IActionResult> UpdateTenantDefaults([FromBody] Identity.Service.Application.SuperAdmin.DTOs.TenantDefaultsDto dto)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized(new { error = "Unauthorized" });
+        var roles = GetRoles();
+        var result = await _mediator.Send(new Identity.Service.Application.SuperAdmin.Commands.UpdateTenantDefaultsCommand(userId.Value, roles, dto));
+        if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpPut("settings/ai")]
+    public async Task<IActionResult> UpdateAi([FromBody] Identity.Service.Application.SuperAdmin.DTOs.AiSettingsDto dto)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized(new { error = "Unauthorized" });
+        var roles = GetRoles();
+        var result = await _mediator.Send(new Identity.Service.Application.SuperAdmin.Commands.UpdateAiSettingsCommand(userId.Value, roles, dto));
+        if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpPut("settings/rate-limits")]
+    public async Task<IActionResult> UpdateRateLimits([FromBody] Identity.Service.Application.SuperAdmin.DTOs.RateLimitsSettingsDto dto)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized(new { error = "Unauthorized" });
+        var roles = GetRoles();
+        var result = await _mediator.Send(new Identity.Service.Application.SuperAdmin.Commands.UpdateRateLimitsCommand(userId.Value, roles, dto));
+        if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpPut("settings/maintenance")]
+    public async Task<IActionResult> UpdateMaintenance([FromBody] Identity.Service.Application.SuperAdmin.DTOs.MaintenanceSettingsDto dto)
+    {
+        var userId = GetUserId(); if (userId == null) return Unauthorized(new { error = "Unauthorized" });
+        var roles = GetRoles();
+        var result = await _mediator.Send(new Identity.Service.Application.SuperAdmin.Commands.UpdateMaintenanceCommand(userId.Value, roles, dto));
+        if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
+        return Ok(result.Value);
+    }
+
+    [HttpPost("settings/platform/logo")]
+    public async Task<IActionResult> UploadPlatformLogo(IFormFile file)
+    {
+        if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
+        if (file == null || file.Length == 0) return BadRequest(new { error = "File required" });
+        if (file.Length > 2 * 1024 * 1024) return BadRequest(new { error = "Logo max 2MB" });
+        var allowed = new[] { "image/jpeg", "image/png", "image/webp", "image/svg+xml" };
+        if (!allowed.Contains(file.ContentType)) return BadRequest(new { error = "Invalid logo type" });
+        var userId = GetUserId(); if (userId == null) return Unauthorized();
+        try
+        {
+            var svc = HttpContext.RequestServices.GetRequiredService<Identity.Service.Application.Interfaces.IPlatformSettingsService>();
+            using var stream = file.OpenReadStream();
+            var url = await svc.UploadLogoAsync(file.FileName, stream, file.ContentType);
+            var general = await svc.GetGeneralAsync();
+            var updated = new Identity.Service.Application.SuperAdmin.DTOs.GeneralSettingsDto(general.PlatformName, url, general.SupportEmail, general.Language, general.Timezone);
+            await svc.SetGeneralAsync(updated, userId.Value);
+            return Ok(new { logoUrl = url });
+        }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
     private Guid? GetUserId()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
