@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, orgAdminGuard } from './core/guards/auth.guard';
+import { superAdminGuard } from './core/guards/superadmin.guard';
 
 export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent) },
@@ -42,6 +43,27 @@ export const routes: Routes = [
       { path: 'roles/:roleId/permissions', canActivate: [orgAdminGuard], loadComponent: () => import('./features/roles/role-permissions/role-permissions.component').then(m => m.RolePermissionsComponent) },
       { path: 'system', canActivate: [orgAdminGuard], loadComponent: () => import('./features/system/system.component').then(m => m.SystemComponent) },
       { path: 'ai-usage', canActivate: [orgAdminGuard], loadComponent: () => import('./features/ai-usage/ai-usage.component').then(m => m.AiUsageComponent) },
+      { path: 'support', canActivate: [orgAdminGuard], loadComponent: () => import('./features/support/support.component').then(m => m.SupportComponent) },
+      { path: 'support/:id', canActivate: [orgAdminGuard], loadComponent: () => import('./features/support/complaint-detail/complaint-detail.component').then(m => m.ComplaintDetailComponent) },
+    ]
+  },
+  {
+    path: 'superadmin',
+    canActivate: [authGuard, superAdminGuard],
+    loadComponent: () => import('./features/superadmin/superadmin-layout/superadmin-layout.component').then(m => m.SuperAdminLayoutComponent),
+    children: [
+      { path: '', loadComponent: () => import('./features/superadmin/dashboard/dashboard.component').then(m => m.DashboardComponent) },
+      { path: 'organizations', loadComponent: () => import('./features/superadmin/organizations/organizations.component').then(m => m.OrganizationsComponent) },
+      { path: 'organizations/:orgId/members', loadComponent: () => import('./features/superadmin/org-members/org-members.component').then(m => m.OrgMembersComponent) },
+      { path: 'users', loadComponent: () => import('./features/superadmin/users/users.component').then(m => m.UsersComponent) },
+      { path: 'subscriptions', loadComponent: () => import('./features/superadmin/subscriptions/subscriptions.component').then(m => m.SubscriptionsComponent) },
+      { path: 'activity', loadComponent: () => import('./features/superadmin/activity/activity.component').then(m => m.ActivityComponent) },
+      { path: 'system', loadComponent: () => import('./features/superadmin/system/system.component').then(m => m.SystemComponent) },
+      { path: 'support', loadComponent: () => import('./features/superadmin/support/support.component').then(m => m.SupportComponent) },
+      { path: 'support/:id', loadComponent: () => import('./features/superadmin/support/complaint-detail/complaint-detail.component').then(m => m.ComplaintDetailComponent) },
+      { path: 'flags', loadComponent: () => import('./features/superadmin/flags/flags.component').then(m => m.FlagsComponent) },
+      { path: 'ai-usage', loadComponent: () => import('./features/superadmin/ai-usage/ai-usage.component').then(m => m.AiUsageComponent) },
+      { path: 'settings', loadComponent: () => import('./features/superadmin/dashboard/dashboard.component').then(m => m.DashboardComponent) },
     ]
   },
   { path: '**', redirectTo: '' }

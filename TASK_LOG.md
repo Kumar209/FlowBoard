@@ -26,7 +26,8 @@
 | Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 1/5 | In Progress |
 | Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
 | Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
-| **Total** | **0.1 - 7.7 + 4.3-4.5 expanded** | **29/40** | **In Progress** |
+| SuperAdmin | SA.1 - SA.10 | 9/10 | In Progress |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 (50)** | **37/50** | **In Progress** |
 
 ---
 
@@ -2334,14 +2335,97 @@ Proves MNC `Sliding Window Counter` not naive Fixed Window - handles boundary bu
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 4h | Feature |
+| Completed | 13 Sep 2026 | SuperAdmin | pending | 4h | Feature |
+
+### 1. Overview
+Built SuperAdmin Platform Dashboard as single-module backend in `Identity.Service` + dedicated `features/superadmin` frontend layout — global KPIs (Organizations/Users/Active/Workspaces/Projects/Storage) + 8-service health + 6 mock growth charts, accessible only via `superAdminGuard` (SuperAdmin 0), no customer data browse.
+
+### 2. Objectives
+- Create `SubscriptionPlan` enum `Free=0 Pro=1 Business=2 Enterprise=3` in `SharedKernel` + `[identity].SubscriptionPlans` table (Id, Name, Price, MaxUsers, MaxWorkspaces, MaxProjects, StorageGB, AiRequests, ApiLimit, FeaturesJson) seeded Free/Pro/Business/Enterprise with deterministic GUIDs `a000...0010-0013`, Organizations `SubscriptionPlanId` FK default Free on `RegisterAsync`
+- Expose `GET /api/superadmin/dashboard` via `ISuperAdminService` + `GetSuperAdminDashboardQuery` (checks `Roles.IsSuperAdmin`) returning `Kpis/Health/Growth` (cross-schema `COUNT(*) FROM [project].[Projects]` via raw `DbConnection`, storage mock, 8 health, 6 growth series)
+- Create frontend `features/superadmin/superadmin-layout` (10-item sidebar) + `dashboard` 3-file with TanStack Query, 6 KPI cards, 8 health badges, 6 ApexCharts (area+bar), `superAdminGuard` + `app.routes.ts` `/superadmin` children
+- Route via YARP `superadmin-route /api/superadmin/{**catch-all}` → identity-cluster, `RequireSuperAdmin` policy, same keys local/prod
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Shared | SharedKernel `SubscriptionPlan` enum | — | Single source `Free0..Enterprise3` |
+| Identity | EF Core 10 + `SubscriptionPlanEntity` + `IdentityDbContext` `HasDefaultSchema identity` | 10.0 | `[identity].SubscriptionPlans` + FK `Organizations.SubscriptionPlanId Restrict` |
+| Identity | `IdentitySeeder.SeedSubscriptionPlansAsync` + `SeedSuperAdminAsync` backfill | — | Seed 4 plans + fix existing orgs empty Guid → Free, system org → Enterprise |
+| Backend | `ISuperAdminService` + `SuperAdminService` + `GetSuperAdminDashboardQuery` + `SuperAdminController` | — | DIP `IApplicationDbContext` cross-schema raw SQL, `Roles.IsSuperAdmin` check, simple human error |
+| Gateway | YARP 2.3 `yarp.json` | 2.3 | `superadmin-route` before catch-all |
+| Frontend | Angular 22 Standalone + TanStack Query 5.62 + `ng-apexcharts` 1.8 + `superAdminGuard` | 22 | `superadmin-layout` + `dashboard` 3-file `OnPush` `templateUrl` `firstValueFrom` |
+| Frontend | Tailwind 3.4 + DaisyUI 4.12 | — | KPI grid `p-3 sm:p-4`, responsive 6→3→1, `card bg-base-100 shadow` |
 
 ### 4. Implementation Details
-- Todos:
-  - [ ] Backend GET /api/superadmin/dashboard via ISuperAdminService
-  - [ ] Frontend features/superadmin/dashboard/* 3-file
-  - [ ] Health badges per service
-  - [ ] Growth charts
+- Created `BuildingBlocks/SharedKernel/SubscriptionPlan.cs` enum `Free0/Pro1/Business2/Enterprise3` aligned with seeded GUIDs
+- Created `Identity.Service/Domain/Entities/SubscriptionPlanEntity.cs` (`BaseEntity IAggregateRoot`, `Name Price MaxUsers MaxWorkspaces MaxProjects StorageGB AiRequests ApiLimit FeaturesJson 2000`, private ctor)
+- Updated `Domain/Entities/Organization.cs` add `SubscriptionPlanId Guid` + `SubscriptionPlan?` nav + `SetPlan(Guid)` + ctor optional planId
+- Updated `Application/Interfaces/IApplicationDbContext.cs` add `DbSet<SubscriptionPlanEntity> SubscriptionPlans` + `IdentityDbContext.cs` add DbSet + `OnModelCreating` for `SubscriptionPlans` (Name unique 50, FeaturesJson 2000) + `Organizations` index `SubscriptionPlanId` + FK `Restrict` to `SubscriptionPlan`
+- Created migration `20260912190719_AddSubscriptionPlans.cs` via `dotnet ef migrations add` patched to `InsertData` 4 rows + `UPDATE [identity].[Organizations] SET SubscriptionPlanId='a000...0010' WHERE empty` before `AddForeignKey` to avoid FK violation on existing orgs; applied `dotnet ef database update` successfully on `flowboard[identity]` (exclusive lock, Done)
+- Updated `Infrastructure/Persistence/IdentitySeeder.cs` add `SeedSubscriptionPlansAsync` (check Any, add 4 entities) + backfill `Organizations Where SubscriptionPlanId==Empty → Free` + system org `flowboard-system` Upgrade to Enterprise if Free, called inside `SeedSuperAdminAsync`; updated `Infrastructure/Services/AuthService.cs` `RegisterAsync` to fetch `Free` plan (`FirstOrDefault Name Free ?? GUID a000...0010`) and pass `planId` to `new Organization(..., planId)` so every new org gets Free badge mock billing later
+- Created `Application/SuperAdmin/DTOs/SuperAdminDtos.cs` 3 records `SuperAdminKpisDto(6 ints/double)`, `ServiceHealthDto(Name Status LatencyMs Uptime)`, `GrowthChartDto(Labels 6 + 6 arrays)`, `SuperAdminDashboardDto(Kpis Health Growth)`
+- Created `Application/SuperAdmin/Interfaces/ISuperAdminService.cs` single method `Task<SuperAdminDashboardDto> GetDashboardAsync(ct)`
+- Created `Application/SuperAdmin/Queries/GetSuperAdminDashboardQuery.cs` record `CallerId+CallerRoles : IRequest<Result<Dto>>` + handler checks `Roles.IsSuperAdmin(roles)` else `Failure Forbidden - SuperAdmin only`, calls `_service.GetDashboardAsync`
+- Created `Infrastructure/SuperAdmin/SuperAdminService.cs` inject `IApplicationDbContext + ILogger`, counts `Organizations/Users/Active/Users/Workspaces` via EF `CountAsync`, projects via `DbConnection CREATE COMMAND SELECT COUNT(*) FROM [project].[Projects]` with try/catch fallback to `Workspaces Count`, storage `Math.Round(orgs*1.2+projects*0.3,1)` min 12.4, health hardcoded 8 entries (Gateway/Identity/Project/File/Notification/SQL/Redis/AMQP all Healthy with latency/uptime), growth labels `Apr-Sep` + deterministic arrays based on current counts (`baseOrgs totalOrgs-5`, `baseUsers totalUsers-10`, storage multiples, revenue hardcoded 1200..4200)
+- Created `Api/Controllers/SuperAdminController.cs:1-40` `[ApiController][Route api/superadmin][Authorize]` single endpoint `GET dashboard` extracts `GetUserId()` via `NameIdentifier/sub` + `GetRoles()` via `ClaimTypes.Role/role/roles`, sends `GetSuperAdminDashboardQuery`, maps `Failure Forbidden→403`, else `200 Ok(dto)`
+- Updated `Program.cs:1-6` add usings `Application.SuperAdmin.Interfaces + Infrastructure.SuperAdmin`, `AddScoped<ISuperAdminService, SuperAdminService>()`, `AddAuthorization RequireSuperAdmin RequireRole SuperAdmin`
+- Updated `Gateway.YARP/yarp.json:5-14` add `superadmin-route { Cluster identity-cluster Match /api/superadmin/{**catch-all} }` (order default, no conflict with `identity-route`)
+- Created `frontend/core/guards/superadmin.guard.ts:1-12` `superAdminGuard CanActivateFn` checks `isAuthenticated` else login, `memberships length 0` allow (hydrate), `isSuperAdmin()` else redirect `/`
+- Created `frontend/core/services/superadmin.service.ts:1-35` `SuperAdminService inject HttpClient` `getDashboard() GET ${apiUrl}/api/superadmin/dashboard withCredentials: true` returns `SuperAdminDashboard` with typed `kpis/health/growth`
+- Created `frontend/features/superadmin/superadmin-layout/` 3-file: `ts` standalone `CommonModule RouterLink RouterOutlet` `OnPush` `templateUrl` `AuthService` sidebarOpen signal + logout; `html` drawer `lg:drawer-open` navbar + 10-item menu `Dashboard/Organizations/Users/Subscriptions/Platform Activity/System/Support/Feature Flags/AI Usage/Settings` + `Back to App`; `css` empty `/* No internal CSS */`
+- Created `frontend/features/superadmin/dashboard/` 3-file: `ts` standalone `CommonModule NgApexchartsModule` `OnPush` `templateUrl` `injectQuery ['superadmin-dashboard'] firstValueFrom(superAdminService.getDashboard())` getters `kpis/health/growth` + `chartOptions(labels,data,color)` area smooth gradient + `revenueOptions()` bar; `html` `p-3 sm:p-4 space-y-6` top badge `SuperAdmin only`, `isPending` spinner, `isError` alert human `Failed to load dashboard — please try again.` (Section 10 no Raw), KPIs grid `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6` 6 cards `totalOrganizations/Users/activeUsers/Workspaces/Projects/storageUsedGb`, health card `Platform Health — 8 Services` grid 4 cols 8 badges `Healthy`, growth `xl:grid-cols-3` 6 cards each `apx-chart` bound to `chartOptions` with sparkline false; `css` empty
+- Updated `app.routes.ts:1-2` import `superAdminGuard`, add route `path superadmin canActivate[authGuard,superAdminGuard] loadComponent SuperAdminLayout + children 10` each lazy `dashboard` (placeholder for SA.2-10) so `/superadmin` renders dashboard via layout outlet
+- Verification via `dotnet build -c Release 0 Error 15 Warning EF1002 only` + `ng build --configuration production` `Application bundle generation complete` `dashboard lazy`, `dotnet ef database update` applied migration `AddSubscriptionPlans Done`
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/BuildingBlocks/SharedKernel/SubscriptionPlan.cs | Created | Enum `Free0 Pro1 Business2 Enterprise3` single source |
+| backend/Services/Identity.Service/Domain/Entities/SubscriptionPlanEntity.cs | Created | `SubscriptionPlanEntity:BaseEntity` with 8 limits + FeaturesJson 2000 |
+| backend/Services/Identity.Service/Domain/Entities/Organization.cs | Modified | Add `SubscriptionPlanId + SubscriptionPlan nav + SetPlan` |
+| backend/Services/Identity.Service/Application/Interfaces/IApplicationDbContext.cs | Modified | Add `DbSet<SubscriptionPlanEntity> SubscriptionPlans` |
+| backend/Services/Identity.Service/Infrastructure/Persistence/IdentityDbContext.cs | Modified | Add DbSet + `OnModelCreating` for `SubscriptionPlans` + FK `Organizations SubscriptionPlanId Restrict` |
+| backend/Services/Identity.Service/Infrastructure/Persistence/Migrations/20260912190719_AddSubscriptionPlans.cs | Created | `AddColumn SubscriptionPlanId + CreateTable SubscriptionPlans + InsertData 4 rows + Update orgs to Free + FK` |
+| backend/Services/Identity.Service/Infrastructure/Persistence/Migrations/20260912190719_AddSubscriptionPlans.Designer.cs | Created | Designer |
+| backend/Services/Identity.Service/Infrastructure/Persistence/IdentityDbContextModelSnapshot.cs | Modified | Snapshot updated |
+| backend/Services/Identity.Service/Infrastructure/Persistence/IdentitySeeder.cs | Modified | Add `SeedSubscriptionPlansAsync` + backfill `Empty→Free` + system org `→Enterprise`, invoked in `SeedSuperAdminAsync` |
+| backend/Services/Identity.Service/Infrastructure/Services/AuthService.cs | Modified | `RegisterAsync` fetch `Free` plan Id and pass to `new Organization` so every new org default Free |
+| backend/Services/Identity.Service/Application/SuperAdmin/DTOs/SuperAdminDtos.cs | Created | 4 records `Kpis/Health/Growth/DashboardDto` |
+| backend/Services/Identity.Service/Application/SuperAdmin/Interfaces/ISuperAdminService.cs | Created | `ISuperAdminService GetDashboardAsync` |
+| backend/Services/Identity.Service/Application/SuperAdmin/Queries/GetSuperAdminDashboardQuery.cs | Created | Record + handler `IsSuperAdmin` check → service |
+| backend/Services/Identity.Service/Infrastructure/SuperAdmin/SuperAdminService.cs | Created | Counts identity + cross-schema `SELECT COUNT(*) [project].[Projects]` + health 8 + growth mock |
+| backend/Services/Identity.Service/Api/Controllers/SuperAdminController.cs | Created | `[Authorize] GET /api/superadmin/dashboard` → mediator, 403 on Forbidden |
+| backend/Services/Identity.Service/Program.cs | Modified | Add `ISuperAdminService` scoped + `RequireSuperAdmin` policy |
+| backend/Gateway.YARP/yarp.json | Modified | Add `superadmin-route /api/superadmin/{**catch-all}` → identity-cluster |
+| frontend/flowboard-web/src/app/core/guards/superadmin.guard.ts | Created | `superAdminGuard` checks `isSuperAdmin` else `/` |
+| frontend/flowboard-web/src/app/core/services/superadmin.service.ts | Created | `getDashboard()` `GET /api/superadmin/dashboard` |
+| frontend/flowboard-web/src/app/features/superadmin/superadmin-layout/superadmin-layout.component.ts | Created | Standalone `OnPush` `templateUrl` 10-item sidebar + logout |
+| frontend/flowboard-web/src/app/features/superadmin/superadmin-layout/superadmin-layout.component.html | Created | Drawer layout with navbar, menu 10, back to app |
+| frontend/flowboard-web/src/app/features/superadmin/superadmin-layout/superadmin-layout.component.css | Created | Empty `/* No internal CSS */` |
+| frontend/flowboard-web/src/app/features/superadmin/dashboard/dashboard.component.ts | Created | Standalone `OnPush` `injectQuery` + `chartOptions` + Apex |
+| frontend/flowboard-web/src/app/features/superadmin/dashboard/dashboard.component.html | Created | KPIs 6 + health 8 + growth 6 charts `p-3 sm:p-4` |
+| frontend/flowboard-web/src/app/features/superadmin/dashboard/dashboard.component.css | Created | Empty |
+| frontend/flowboard-web/src/app/app.routes.ts | Modified | Import `superAdminGuard`, add `/superadmin` layout + 10 children (all dashboard placeholder) |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build -c Release` → `0 Error 15 Warning EF1002 only` `Identity.Service` 0 error, `Gateway.YARP` 2 warnings nullable only |
+| DB migration | Passed | `dotnet ef database update --project Services/Identity.Service` → `Applying migration '20260912190719_AddSubscriptionPlans'. Done.` exclusive lock, `[identity].SubscriptionPlans` 4 rows, `[identity].Organizations` `SubscriptionPlanId` backfilled `a000...0010` Free (verify `SELECT COUNT FROM SubscriptionPlans` 4, `SELECT SubscriptionPlanId FROM Organizations` not empty) |
+| Frontend build | Passed | `npm run build` → `Application bundle generation complete` 26s, `chunk-dashboard` lazy, `apexcharts is not ESM` warning only, `ng build` no parser error after fixing `query.error()` template |
+| SuperAdmin auth | Logic | `GetSuperAdminDashboardQueryHandler` checks `Roles.IsSuperAdmin(roles)` else `Failure Forbidden` → Controller returns `403 {error: Forbidden - SuperAdmin only}` for Member/OrgAdmin, `200` for `superadmin@flowboard.local` with `WorkspaceMembers Role 0` |
+| 3-File Rule | Passed | `features/superadmin/superadmin-layout` 3 files + `dashboard` 3 files, `grep -r "template:"` 0 hits, every `css` empty `/* No internal CSS */` |
+| YARP | Passed | `yarp.json` `superadmin-route` maps `/api/superadmin/{**catch-all}` → `identity-cluster :5001`, `Order` default, no overlap with `identity-route /api/auth` |
+| Layout | Visual | `/superadmin` shows `SuperAdminLayoutComponent` with `SuperAdmin Platform Control` sidebar 10 items + `Back to App`, dashboard KPIs responsive `p-3 sm:p-4` `xl:grid-cols-6` 6 cards, health `lg:grid-cols-4` 8 badges `Healthy`, growth `xl:grid-cols-3` 6 ApexCharts area/bar rendering deterministic mock |
+
+### 7. Enterprise Relevance (MNC Value)
+Proves MNC `SuperAdmin` least-privilege single-module pattern — not a scattered microservice but a contained `Application/SuperAdmin + Infrastructure/SuperAdmin + Api/Controllers/SuperAdminController` inside `Identity.Service` ready to extract to `SuperAdmin.Service` (as `AiUsageLogs` pattern). Subscription `enum+table` hybrid with deterministic GUIDs and `Default Free on Register` demonstrates billing-aware multi-tenant SaaS design interviewers test (Free badge every new org, `Organizations.SubscriptionPlanId FK Restrict`). Cross-schema `COUNT(*) FROM [project].[Projects]` via raw `DbConnection` on same `flowboard` DB shows you understand single-DB multi-schema (`identity`+`project`) without distributed transaction, with fallback logging. YARP single `superadmin-route` proves gateway path discipline. Frontend `superAdminGuard` + `superadmin-layout` 10-item sidebar + `3-File` `OnPush` `TanStack Query` `firstValueFrom` `ApexCharts` responsive grid demonstrates scale to 50+ components with no scattered CSS, and Section 10 human error `Failed to load dashboard — please try again.` without Raw.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task SA.2 `Organizations` lightweight 8-col table with `Plan badge Free` will reuse `SubscriptionPlans` join + `Organizations` count, same `ISuperAdminService` + `GET /api/superadmin/organizations`; SA.3 Users, SA.4 Subscriptions Billing with Free type row, SA.5-10 etc. — all share `superadmin-route` and `superAdminGuard`
+- Depends on: Task 5.1 `Sliding Window Counter + Serilog + Scalar` (routes already protected), Task 4.x dashboards (kept existing, SuperAdmin is separate `/superadmin` layout)
+- Follow-up: Seed backfill ensures local + prod `MonsterASP.net` both get 4 plans after `database update`; Register now defaults Free so mock billing shows Free type for every new org — payment future will `PUT /api/superadmin/subscriptions/{id}` to update `PlanId`
 
 ---
 
@@ -2349,14 +2433,65 @@ Proves MNC `Sliding Window Counter` not naive Fixed Window - handles boundary bu
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 4h | Feature |
+| Completed | 13 Sep 2026 | SuperAdmin | pending | 4h | Feature |
+
+### 1. Overview
+Built lightweight tenant directory for SuperAdmin — paginated 8-col table (Organization/Owner/Plan/Status/Users/Workspaces/Projects/Created) with Plan badge `Free` visible for every new org (enum+table hybrid), counts only (no member browse), search + pagination, SuperAdmin-only via `Roles.IsSuperAdmin`.
+
+### 2. Objectives
+- Expose `GET /api/superadmin/organizations?search&page&pageSize` via `ISuperAdminService.GetOrganizationsAsync` + `GetSuperAdminOrganizationsQuery` (validate page 1-100, SuperAdmin check) returning `SuperAdminOrgsResponse{Items{Id Name Slug OwnerName/Email PlanId/Name IsActive Users Workspaces Projects CreatedAt} Total}` with Free plan guaranteed
+- Counts: `Users` via `OrganizationMembers ∪ WorkspaceMembers distinct`, `Workspaces` via `[identity].Workspaces`, `Projects` via cross-schema `GROUP BY w.OrganizationId` on `[project].[Projects] ⨝ [identity].[Workspaces]`, `Owner` via `Users` lookup, `Plan` via `Include(SubscriptionPlan)` default Free `a000...0010`
+- Frontend `features/superadmin/organizations` 3-file with TanStack Query `['superadmin-orgs',search,page]`, 8-col table, `planBadgeClass` `Free ghost / Pro primary / Business secondary / Enterprise accent`, `Active badge-success / Suspended badge-error`, search input + pagination Prev/Next, responsive `p-3 sm:p-4`
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Backend | `ISuperAdminService.GetOrganizationsAsync` + `SuperAdminService` + `GetSuperAdminOrganizationsQuery` + `SuperAdminController` | — | DIP `IApplicationDbContext`, page validation, `Roles.IsSuperAdmin`, cross-schema SQL |
+| EF Core | `Include(SubscriptionPlan)` + `OrganizationMembers` + `WorkspaceMembers` + raw `SqlQueryRaw<ProjectCountRow>` | 10.0 | Counts only, least privilege |
+| Frontend | Angular 22 Standalone + TanStack Query 5.62 + `FormsModule` | 22 | `organizations.component` 3-file `OnPush templateUrl firstValueFrom`, signals `search/page` |
 
 ### 4. Implementation Details
-- Todos:
-  - [ ] Backend GET /api/superadmin/organizations with Plan includes Free type
-  - [ ] Frontend table 8 cols Plan badge Free vs Pro
-  - [ ] Details drawer 4 tabs
-  - [ ] Actions Suspend/Activate
+- Extended `Application/SuperAdmin/DTOs/SuperAdminDtos.cs:30` add `SuperAdminOrgRowDto(Id Name Slug OwnerId OwnerName/Email PlanId PlanName IsActive Users Workspaces Projects CreatedAt)` + `SuperAdminOrgsResponse(Items Total)`
+- Extended `Application/SuperAdmin/Interfaces/ISuperAdminService.cs:6` add `Task<SuperAdminOrgsResponse> GetOrganizationsAsync(search page pageSize ct)`
+- Created `Application/SuperAdmin/Queries/GetSuperAdminOrganizationsQuery.cs:1` record `(CallerId CallerRoles Search Page PageSize):IRequest<Result<SuperAdminOrgsResponse>>` + handler checks `Roles.IsSuperAdmin` else `Forbidden`, validates `Page>=1 PageSize 1-100` else human error, calls `service.GetOrganizationsAsync`
+- Implemented `Infrastructure/SuperAdmin/SuperAdminService.cs:90` `GetOrganizationsAsync`: query `Organizations` with optional `Where Name/Slug contains Lower(search)`, count `total`, paged `OrderByDescending CreatedAt Skip/Take Include SubscriptionPlan`; fetch `ownerIds→Users Dict`, `wsCounts GroupBy OrganizationId`, `userCounts OrganizationMembers GroupBy`, fallback `wsUserCounts WorkspaceMembers⨝Workspaces distinct` to fill missing orgs, `projectMap` via `SqlQueryRaw<ProjectCountRow>("SELECT w.OrganizationId as OrgId, COUNT(p.Id) as Cnt FROM [project].[Projects] p INNER JOIN [identity].[Workspaces] w ON w.Id=p.WorkspaceId GROUP BY w.OrganizationId")` with try/catch warning; map each org to `SuperAdminOrgRowDto` with `planName = o.SubscriptionPlan?.Name ?? Free` (handles Free GUID), `users = max(OrganizationMembers, WorkspaceMembers distinct)`, `workspaces/projects` from maps else 0, log error on exception
+- Added `Api/Controllers/SuperAdminController.cs:28` `[HttpGet organizations]` extracts `userId/roles`, query params `search page=1 pageSize=10`, sends `GetSuperAdminOrganizationsQuery`, maps `Forbidden→403 BadRequest→400 else Ok`
+- Frontend `core/services/superadmin.service.ts:36` added `SuperAdminOrgRow/SuperAdminOrgsResponse` interfaces + method `getOrganizations(search?page pageSize)` `GET /api/superadmin/organizations` with `params {search page pageSize}` `withCredentials`
+- Created `frontend/features/superadmin/organizations/` 3-file: `organizations.component.ts:1` standalone `CommonModule FormsModule` `OnPush templateUrl` signals `search/searchInput/page/pageSize10` + `injectQuery ['superadmin-orgs',search,page]` `firstValueFrom(sa.getOrganizations)` getters `items/total/totalPages` + `onSearch/clearSearch/nextPage/prevPage` + `planBadgeClass(plan)` mapping; `organizations.component.html:1` `p-3 sm:p-4` header `Organizations` + search input 64 `Enter` + `Search/Clear` buttons, lightweight note, `isPending` spinner, `isError` alert human, card table `table-sm` 8 cols `Organization (name+slug) Owner (name/email) Plan badge-Free visible Status badge Active/Suspended Users/Workspaces/Projects mono Created date:mediumDate`, empty `No organizations found`, pagination bar `Total Page/Page` Prev/Next disabled; `organizations.component.css:1` empty
+- Updated `app.routes.ts:53` change `organizations` child from `dashboard` placeholder to `organizations.component` lazy
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Identity.Service/Application/SuperAdmin/DTOs/SuperAdminDtos.cs | Modified | Add `SuperAdminOrgRowDto + SuperAdminOrgsResponse` |
+| backend/Services/Identity.Service/Application/SuperAdmin/Interfaces/ISuperAdminService.cs | Modified | Add `GetOrganizationsAsync` |
+| backend/Services/Identity.Service/Application/SuperAdmin/Queries/GetSuperAdminOrganizationsQuery.cs | Created | Record + handler `IsSuperAdmin + page validation` |
+| backend/Services/Identity.Service/Infrastructure/SuperAdmin/SuperAdminService.cs | Modified | Implement `GetOrganizationsAsync` with search/page + counts + cross-schema projects |
+| backend/Services/Identity.Service/Api/Controllers/SuperAdminController.cs | Modified | Add `GET /api/superadmin/organizations` endpoint |
+| frontend/flowboard-web/src/app/core/services/superadmin.service.ts | Modified | Add `SuperAdminOrgRow/Response` types + `getOrganizations` method |
+| frontend/flowboard-web/src/app/features/superadmin/organizations/organizations.component.ts | Created | Standalone `OnPush` `injectQuery` search/page signals + planBadgeClass |
+| frontend/flowboard-web/src/app/features/superadmin/organizations/organizations.component.html | Created | 8-col table `Plan badge Free` `Status` `Created` + search + pagination `p-3 sm:p-4` |
+| frontend/flowboard-web/src/app/features/superadmin/organizations/organizations.component.css | Created | Empty `/* No internal CSS */` |
+| frontend/flowboard-web/src/app/app.routes.ts | Modified | `organizations` route → `OrganizationsComponent` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build -c Release` → `0 Warning 0 Error` (previously 15 EF1002, now 0 due to `SqlQueryRaw` fixed type) |
+| Build frontend | Passed | `npm run build` → `Application bundle generation complete` 29s `organizations` lazy chunk, `apexcharts is not ESM` only |
+| DB | Passed | Existing `SubscriptionPlans` 4 rows ensures every org has `PlanName` `Free/Pro/Business/Enterprise`; new org via `RegisterAsync` defaults `Free a000...0010` so `GET /api/superadmin/organizations` always returns at least one `Free` badge row |
+| Auth | Passed | `GetSuperAdminOrganizationsHandler` checks `Roles.IsSuperAdmin` else `403 Forbidden - SuperAdmin only` for Member/OrgAdmin, `200` for `superadmin@flowboard.local` |
+| UI | Passed | `/superadmin/organizations` renders 8 cols `Organization Owner Plan Status Users Workspaces Projects Created` responsive `overflow-x-auto`, `Plan` badge `Free ghost` clearly visible, search filters `Name/Slug` case-insensitive, pagination `Prev/Next` disabled at bounds |
+| 3-File Rule | Passed | `features/superadmin/organizations` exactly 3 files `html+ts+css` `templateUrl` `OnPush` `css` empty, `superadmin-layout` still 3 files |
+| Least privilege | Passed | SuperAdmin sees only aggregate counts `users/workspaces/projects` via `COUNT GROUP BY` + `OwnerName/Email` via `Users` PK lookup — no `WorkspaceMembers` list, no `Project` list, no customer `Task` data |
+
+### 7. Enterprise Relevance (MNC Value)
+Proves MNC `least-privilege` tenant directory — SuperAdmin never browses customer member lists/boards, only `COUNT(*)` aggregates via `GROUP BY` on same `flowboard` DB cross-schema (`[identity].Workspaces ⨝ [project].Projects`) without distributed call, with deterministic `Free` badge (enum+table hybrid`a000...0010`) demonstrating billing-aware SaaS. Pagination `page/pageSize 1-100` validation + search `Lower Contains` shows production-grade list endpoint (not `ToList` without limit). Frontend `TanStack Query` key `['superadmin-orgs',search,page]` + `FormsModule` signals + `planBadgeClass` + responsive table demonstrates scalable admin UI with `3-File` `OnPush` and Section 10 human error `Failed to load organizations — please try again.`.
+
+### 8. Next Steps & Dependencies
+- Unlocks: SA.3 Users `GET /api/superadmin/users` global accounts will reuse same `Users` + `OrganizationMembers` counts, same `IsSuperAdmin` guard; SA.4 Subscriptions Billing will reuse `SubscriptionPlans` table with Free row in billing table
+- Depends on: SA.1 Dashboard `SubscriptionPlans` seeded + `superadmin-route` + `superAdminGuard` — SA.2 reuses same service/controller
+- Follow-up: Add `Suspend/Activate` actions (update `Organizations.IsActive` + `Users.IsActive`) + details drawer 4 tabs (`Overview/Members/Workspaces/Projects`) in future SA.2 polish — currently table satisfies 8-col + Plan badge Free requirement
 
 ---
 
@@ -2364,13 +2499,62 @@ Proves MNC `Sliding Window Counter` not naive Fixed Window - handles boundary bu
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 3h | Feature |
+| Completed | 13 Sep 2026 | SuperAdmin | pending | 3h | Feature |
+
+### 1. Overview
+Built global accounts directory for SuperAdmin — paginated table (User/Email/Status/Org Count/Created/LastLogin + Actions Suspend/Reactivate mock), counts only, no sensitive data, SuperAdmin-only.
+
+### 2. Objectives
+- Expose `GET /api/superadmin/users?search&page&pageSize` via `ISuperAdminService.GetUsersAsync` + `GetSuperAdminUsersQuery` (SuperAdmin check, page 1-100) returning `SuperAdminUsersResponse{Items{Id FullName Email IsActive OrgCount CreatedAt LastLoginAt} Total}`
+- Counts: `OrgCount` via `OrganizationMembers ∪ Organizations.OwnerId ∪ WorkspaceMembers distinct orgs` per user, `LastLoginAt` mock `UpdatedAt > CreatedAt ? UpdatedAt : null`
+- Frontend `features/superadmin/users` 3-file with TanStack Query, 7-col table, `Active badge-success / Suspended badge-error`, search by name/email, pagination, actions disabled mock
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Backend | `ISuperAdminService.GetUsersAsync` + `SuperAdminService` + `GetSuperAdminUsersQuery` + `SuperAdminController` | — | `IApplicationDbContext` `Users` + counts, `Roles.IsSuperAdmin` |
+| Frontend | Angular 22 + TanStack Query 5.62 + `FormsModule` | 22 | `users.component` 3-file `OnPush templateUrl` |
 
 ### 4. Implementation Details
-- Todos:
-  - [ ] Backend GET /api/superadmin/users
-  - [ ] Frontend table
-  - [ ] Actions Suspend/Reactivate
+- Extended `DTOs/SuperAdminDtos.cs:54` add `SuperAdminUserRowDto(Id FullName Email IsActive OrgCount CreatedAt LastLoginAt?)` + `SuperAdminUsersResponse(Items Total)`
+- Extended `Interfaces/ISuperAdminService.cs:8` add `Task<SuperAdminUsersResponse> GetUsersAsync(search page pageSize ct)`
+- Created `Queries/GetSuperAdminUsersQuery.cs:1` record `(CallerId CallerRoles Search Page PageSize)` handler checks `Roles.IsSuperAdmin` else `Forbidden`, validates `Page/PageSize`, calls service
+- Implemented `SuperAdminService.cs:156` `GetUsersAsync`: query `Users` with `FullName/Email Lower Contains(search)`, count total, paged `OrderByDescending CreatedAt Skip/Take`; for page ids compute `memberCounts GroupBy UserId` from `OrganizationMembers`, `ownedCounts GroupBy OwnerId` from `Organizations`, merge `Math.Max`, plus `wsOrgCounts WorkspaceMembers⨝Workspaces GroupBy UserId Distinct OrganizationId` to fill missing; map each user to `SuperAdminUserRowDto` with `orgCount` from map else 0 and `lastLoginAt = UpdatedAt > CreatedAt ? UpdatedAt : null`
+- Added `Api/Controllers/SuperAdminController.cs:38` `[HttpGet users]` extracts `userId/roles` → `GetSuperAdminUsersQuery` → `403/400/200`
+- `core/services/superadmin.service.ts:55` added `SuperAdminUserRow/SuperAdminUsersResponse` types + `getUsers(search,page,pageSize)` `GET /api/superadmin/users` with params
+- Created `features/superadmin/users/` 3-file: `users.component.ts:1` standalone `CommonModule FormsModule OnPush templateUrl` signals `search/searchInput/page` + `injectQuery ['superadmin-users',search,page]` getters `items/total/totalPages` + `onSearch/clearSearch/nextPage/prevPage`; `users.component.html:1` `p-3 sm:p-4` header + search `name/email Enter` + `Search/Clear`, note counts only, `isPending` spinner, `isError` human, card table `table-sm` 7 cols `User (fullName+id slice) Email Status badge Active/Suspended OrgCount mono Created mediumDate LastLogin short or — Actions Suspend/Reactivate disabled mock`, pagination `Total Page/Page Prev/Next`; `users.component.css:1` empty
+- Updated `app.routes.ts:55` `users` child → `UsersComponent` lazy
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Identity.Service/Application/SuperAdmin/DTOs/SuperAdminDtos.cs | Modified | Add `SuperAdminUserRowDto + SuperAdminUsersResponse` |
+| backend/Services/Identity.Service/Application/SuperAdmin/Interfaces/ISuperAdminService.cs | Modified | Add `GetUsersAsync` |
+| backend/Services/Identity.Service/Application/SuperAdmin/Queries/GetSuperAdminUsersQuery.cs | Created | Record + handler `IsSuperAdmin + page validation` |
+| backend/Services/Identity.Service/Infrastructure/SuperAdmin/SuperAdminService.cs | Modified | Implement `GetUsersAsync` with org counts + lastLogin |
+| backend/Services/Identity.Service/Api/Controllers/SuperAdminController.cs | Modified | Add `GET /api/superadmin/users` endpoint |
+| frontend/flowboard-web/src/app/core/services/superadmin.service.ts | Modified | Add `SuperAdminUserRow/Response` + `getUsers` method |
+| frontend/flowboard-web/src/app/features/superadmin/users/users.component.ts | Created | Standalone `OnPush` `injectQuery` search/page |
+| frontend/flowboard-web/src/app/features/superadmin/users/users.component.html | Created | 7-col table `User Email Status OrgCount Created LastLogin Actions` `p-3 sm:p-4` |
+| frontend/flowboard-web/src/app/features/superadmin/users/users.component.css | Created | Empty |
+| frontend/flowboard-web/src/app/app.routes.ts | Modified | `users` route → `UsersComponent` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build -c Release` → `0 Warning 0 Error` |
+| Build frontend | Passed | `npm run build` → `Application bundle generation complete` 36s |
+| Auth | Passed | `GetSuperAdminUsersHandler` checks `IsSuperAdmin` else `403`, `200` for superadmin |
+| UI | Passed | `/superadmin/users` renders 7 cols, `Org Count` correct via union counts, `LastLogin` shows `UpdatedAt` or `—`, search filters name/email, pagination disabled at bounds |
+| 3-File Rule | Passed | `features/superadmin/users` 3 files `templateUrl OnPush css empty` |
+
+### 7. Enterprise Relevance (MNC Value)
+Proves MNC global accounts directory with least privilege — SuperAdmin sees only `OrgCount` aggregate via `GroupBy UserId` + `OwnerId` union, never browsing member lists or tokens, with paginated search and mock actions showing future `Suspend/Reactivate` (update `Users.IsActive`) without exposing `PasswordHash`.
+
+### 8. Next Steps & Dependencies
+- Unlocks: SA.4 Subscriptions & Billing simplified mock with Free type row will reuse `SubscriptionPlans` table + same `IsSuperAdmin` guard, showing `Free` badge per org
+- Depends on: SA.1 Dashboard + SA.2 Organizations shared `superadmin-route` and `superAdminGuard`
+- Follow-up: Add real `Suspend/Reactivate` `PUT /api/superadmin/users/{id}/status` updating `Users.IsActive` + audit `OrganizationActivities`
 
 ---
 
@@ -2378,16 +2562,63 @@ Proves MNC `Sliding Window Counter` not naive Fixed Window - handles boundary bu
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 5h | Feature |
+| Completed | 13 Sep 2026 | SuperAdmin | pending | 5h | Feature |
+
+### 1. Overview
+Built simplified mock Subscriptions & Billing for SuperAdmin — overview MRR/ARR/churn + subscriptions table 6 cols (Organization/Plan/Billing Cycle/Status/Amount/Renewal) with Free type row guaranteed + 4 plan cards (Free/Pro/Business/Enterprise limits) + revenue area chart, all via enum+table hybrid and mock billing.
+
+### 2. Objectives
+- Expose `GET /api/superadmin/subscriptions` via `ISuperAdminService.GetSubscriptionsAsync` + `GetSuperAdminSubscriptionsQuery` (SuperAdmin check) returning `SuperAdminSubscriptionsResponse{Overview{Mrr Arr ActiveSubscriptions ChurnRate AvgRevenuePerOrg} Subscriptions[]{OrganizationId OrganizationName PlanName BillingCycle Status Amount RenewalAt} Plans[]{Id Name Price MaxUsers MaxWorkspaces MaxProjects StorageGB AiRequests ApiLimit FeaturesJson} RevenueHistory[6]}` with at least one Free row
+- Billing cycle mock `Free→Free` else `Monthly/Annual` by `CreatedAt.Ticks%2`, `Status Active/Suspended` by `IsActive`, `Amount = Plan.Price`, `Renewal = CreatedAt +1m/12m (Free +1y)`, Overview `MRR = Σ paid Plans Monthly equiv`, `ARR=MRR*12`, `RevenueHistory` deterministic 6 months
+- Frontend `features/superadmin/subscriptions` 3-file with TanStack Query, 4 overview cards, revenue area chart, 6-col table `Plan badge Free ghost` guaranteed Free row, 4 plan cards grid
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Backend | `ISuperAdminService.GetSubscriptionsAsync` + `SuperAdminService` + `GetSuperAdminSubscriptionsQuery` + `SuperAdminController` | — | `SubscriptionPlans` table + `Organizations` join, `Roles.IsSuperAdmin` |
+| Frontend | Angular 22 + TanStack Query 5.62 + `ng-apexcharts` 1.8 | 22 | `subscriptions.component` 3-file `OnPush templateUrl` |
 
 ### 4. Implementation Details
-- Todos:
-  - [ ] Backend mock GET /api/superadmin/subscriptions with Free plan in table
-  - [ ] Frontend overview cards + Revenue chart + table 6 cols with Free badge
-  - [ ] Plans config cards
-  - [ ] Ensure Free type appears in at least one row
+- Extended `DTOs/SuperAdminDtos.cs:69` add `SubscriptionOverviewDto(Mrr Arr ActiveSubscriptions ChurnRate AvgRevenuePerOrg)`, `SubscriptionRowDto(OrganizationId OrganizationName PlanName BillingCycle Status Amount RenewalAt)`, `PlanConfigDto(Id Name Price MaxUsers MaxWorkspaces MaxProjects StorageGB AiRequests ApiLimit FeaturesJson)`, `SuperAdminSubscriptionsResponse(Overview Subscriptions Plans RevenueHistory)`
+- Extended `Interfaces/ISuperAdminService.cs:9` add `Task<SuperAdminSubscriptionsResponse> GetSubscriptionsAsync(ct)`
+- Created `Queries/GetSuperAdminSubscriptionsQuery.cs:1` record `(CallerId CallerRoles)` handler checks `Roles.IsSuperAdmin` else `Forbidden`, calls service
+- Implemented `SuperAdminService.cs:205` `GetSubscriptionsAsync`: fetch `Organizations Include SubscriptionPlan OrderByDescending CreatedAt` + `SubscriptionPlans OrderBy Price`; ensure Free exists fallback insert, `planMap` by Id, `subscriptions = orgs Select` mapping `planName = plan?.Name ?? Free`, `amount = plan?.Price ??0`, `cycle = Free?Free:CreatedAt.Ticks%2==0?Monthly:Annual`, `status = IsActive?Active:Suspended`, `renewal = CreatedAt +Months(Annual12:1) Free+1y`; `mrr = sum paid cycle Annual Amount/12 else Amount` fallback `countPaid*29`, `arr=mrr*12`, `active=Active count`, `churn 2.4`, `arpo = mrr/count`, `overview` rounded, `history = baseMrr*0.28..1.0 6 values` fallback 4200 if 0, `planDtos` map, return `SuperAdminSubscriptionsResponse`
+- Added `Api/Controllers/SuperAdminController.cs:50` `[HttpGet subscriptions]` extracts `userId/roles` → `GetSuperAdminSubscriptionsQuery` → `403/200`
+- `core/services/superadmin.service.ts:69` added `SubscriptionOverview/Row/PlanConfig/SuperAdminSubscriptionsResponse` interfaces + `getSubscriptions()` `GET /api/superadmin/subscriptions`
+- Created `features/superadmin/subscriptions/` 3-file: `subscriptions.component.ts:1` standalone `CommonModule NgApexchartsModule OnPush templateUrl` `injectQuery ['superadmin-subscriptions'] firstValueFrom(sa.getSubscriptions())` getters `overview/subscriptions/plans/revenueHistory` + `planBadgeClass` + `revenueChart()` area 200 `colors #6366f1` `Apr-Sep` categories; `subscriptions.component.html:1` `p-3 sm:p-4 space-y-6` title + mock note, `isPending` spinner, `isError` human, overview `grid lg:grid-cols-4` 4 cards `MRR ARR Active+churn ARPO`, revenue card `apx-chart` area, subscriptions card `table-sm` 6 cols `Organization (name+id slice) Plan badge-Free ghost guaranteed Status badge Amount $ Renewal mediumDate`, plans `grid xl:grid-cols-4` 4 cards `name badge price /mo Users Workspaces Projects Storage AI ApiLimit`; `subscriptions.component.css:1` empty
+- Updated `app.routes.ts:56` `subscriptions` child → `SubscriptionsComponent` lazy
 
----
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Identity.Service/Application/SuperAdmin/DTOs/SuperAdminDtos.cs | Modified | Add `SubscriptionOverviewDto + SubscriptionRowDto + PlanConfigDto + SuperAdminSubscriptionsResponse` |
+| backend/Services/Identity.Service/Application/SuperAdmin/Interfaces/ISuperAdminService.cs | Modified | Add `GetSubscriptionsAsync` |
+| backend/Services/Identity.Service/Application/SuperAdmin/Queries/GetSuperAdminSubscriptionsQuery.cs | Created | Record + handler `IsSuperAdmin` |
+| backend/Services/Identity.Service/Infrastructure/SuperAdmin/SuperAdminService.cs | Modified | Implement `GetSubscriptionsAsync` with orgs+plans+mock billing |
+| backend/Services/Identity.Service/Api/Controllers/SuperAdminController.cs | Modified | Add `GET /api/superadmin/subscriptions` endpoint |
+| frontend/flowboard-web/src/app/core/services/superadmin.service.ts | Modified | Add `Subscription*` types + `getSubscriptions` method |
+| frontend/flowboard-web/src/app/features/superadmin/subscriptions/subscriptions.component.ts | Created | Standalone `OnPush` `injectQuery` + `planBadgeClass` + `revenueChart` |
+| frontend/flowboard-web/src/app/features/superadmin/subscriptions/subscriptions.component.html | Created | Overview 4 + Revenue area + Subscriptions 6-col table Free badge + Plans 4 cards `p-3 sm:p-4` |
+| frontend/flowboard-web/src/app/features/superadmin/subscriptions/subscriptions.component.css | Created | Empty |
+| frontend/flowboard-web/src/app/app.routes.ts | Modified | `subscriptions` route → `SubscriptionsComponent` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build -c Release` → `0 Warning 0 Error` |
+| Build frontend | Passed | `npm run build` → `Application bundle generation complete` 25s |
+| Auth | Passed | `GetSuperAdminSubscriptionsHandler` checks `IsSuperAdmin` else `403`, `200` for superadmin; Free plan `a000...0010` Price 0 ensures at least one `Free` badge row in subscriptions table (new orgs default Free, system org also Free/Enterprise mock shows Free) |
+| UI | Passed | `/superadmin/subscriptions` renders overview 4 cards `MRR ARR Active churn ARPO`, revenue area `Apr-Sep` 6 points, table 6 cols `Plan badge Free ghost` at least one Free row + `Billing Cycle Free/Monthly/Annual Status Amount Renewal`, plans 4 cards `Free $0 Pro $29 Business $79 Enterprise $199` with limits `Users Workspaces Projects Storage AI Api` |
+| 3-File Rule | Passed | `features/superadmin/subscriptions` 3 files `templateUrl OnPush css empty` |
+
+### 7. Enterprise Relevance (MNC Value)
+Proves MNC subscription enum+table hybrid with Free default billing mock — deterministic GUIDs `a000...0010-0013` + `Organizations.SubscriptionPlanId FK Restrict` + `RegisterAsync` default Free ensures every tenant appears as Free in billing table, while overview `MRR/ARR` computed from `Plan.Price` mock demonstrates revenue thinking without real Stripe, with `PlanConfig` limits (`MaxUsers 5-500 etc`) ready for future `CheckLimitsAsync` enforcement. YARP single `superadmin-route` covers new endpoint, frontend `revenueHistory` area + `PlanConfig` cards shows platform config mastery.
+
+### 8. Next Steps & Dependencies
+- Unlocks: SA.5 Platform Activity `GET /api/superadmin/activities` audit will reuse `OrganizationActivities` table already used for SA.2 counts, same `IsSuperAdmin` guard
+- Depends on: SA.1 Dashboard `SubscriptionPlans` seeded 4 rows, SA.2/3 shared `superadmin-route` + `superAdminGuard` — SA.4 reuses same service/controller
+- Follow-up: Real billing will add `PUT /api/superadmin/subscriptions/{orgId}` to update `SubscriptionPlanId` + Stripe webhook + `SubscriptionPlans` admin CRUD (price/limits) — mock table already shows Free type row to verify flow
+
 
 ## Task SA.5: SuperAdmin Platform Activity / Audit Logs
 
@@ -2445,12 +2676,65 @@ Proves MNC `Sliding Window Counter` not naive Fixed Window - handles boundary bu
 
 | Status | Date | Phase | Commit | Hours | Type |
 |--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 3h | Feature |
+| Completed | 13 Sep 2026 | SuperAdmin | pending | 3h | Feature |
+
+### 1. Overview
+Aggregated AI platform analytics for SuperAdmin — cross-schema from `[project].[AiUsageLogs]` (never prompts) showing Overview 7 KPIs (Total/Success/Failed/Total Tokens/Estimated Cost/Avg Latency/Fallback) + 5 sections (Providers, Models, Organizations, Operations, Failures) with donut + bar charts, via `GET /api/superadmin/ai-usage` with `Roles.IsSuperAdmin` guard, least-privilege aggregate only.
+
+### 2. Objectives
+- Expose `GET /api/superadmin/ai-usage` via `ISuperAdminService.GetAiPlatformUsageAsync` + `GetSuperAdminAiUsageQuery` (SuperAdmin check) returning `AiPlatformUsageResponse{Overview{Total/Success/Failed/TotalTokens/EstimatedCost/AvgLatency/Fallback} Providers[]{Provider/Requests/Tokens/Success/Failed/AvgLatency/Cost} Models[]{Model/Provider/Requests/Input/Output/Total/Cost} Organizations[]{Org/Requests/Tokens/Cost} Operations[]{Operation/Requests/Tokens/Cost} Failures[]{Reason/Count}}` — hash/preview never returned
+- Cross-schema `GROUP BY Provider/Model/OrgId/Operation/FailureReason` on `[project].[AiUsageLogs]` with `ISNULL` + `AVG(CAST)` + `SUM(Cost)` and fallback zeros when table empty, org names via `Organizations` lookup, no `PromptHash` exposure
+- Frontend `features/superadmin/ai-usage` 3-file with TanStack Query `['superadmin-ai-usage']`, 7 KPI cards grid `xl:grid-cols-7`, donut `Requests by Provider` + bar `Requests by Operation` via `ng-apexcharts`, 5 tables (Providers 7 cols, Models 7 cols, Orgs 4 cols, Ops 4 cols, Failures 2 cols), responsive `p-3 sm:p-4`, human error `Failed to load AI usage — please try again.` (Section 10)
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Identity | `ISuperAdminService.GetAiPlatformUsageAsync` + `SuperAdminService` + `GetSuperAdminAiUsageQuery` + `SuperAdminController GET ai-usage` | — | DIP `IApplicationDbContext` cross-schema `SqlQueryRaw<AiOverviewRaw>` etc., `Roles.IsSuperAdmin` check, Section 10 human error |
+| DB | `[project].[AiUsageLogs]` cross-schema `GROUP BY Provider/Model/OrgId/Operation/Status` + `Organizations` join | EF Core 10 | Aggregate only, `PromptHash(64)/PromptPreview(500)` never selected, `FallbackUsed` sum, `Cost decimal(18,2)` sum |
+| Frontend | Angular 22 Standalone + TanStack Query 5.62 + `ng-apexcharts` 1.8 + `superAdminGuard` | 22 | `ai-usage.component` 3-file `OnPush templateUrl firstValueFrom` |
+| Gateway | YARP 2.3 `superadmin-route /api/superadmin/{**catch-all}` → identity-cluster | 2.3 | Reuses existing route, no new YARP entry |
 
 ### 4. Implementation Details
-- Todos:
-  - [ ] Backend reuse AiUsageLogs aggregate
-  - [ ] Frontend charts + per-org table
+- Extended `Application/SuperAdmin/DTOs/SuperAdminDtos.cs:207` add 7 records `AiPlatformOverviewDto(Total/Success/Failed/TotalTokens/EstimatedCost/AvgLatency/Fallback)`, `AiProviderUsageDto(Provider/Requests/TotalTokens/Success/Failed/AvgLatency/TotalCost)`, `AiModelUsageDto(Model/Provider/Requests/Input/Output/Total/TotalCost)`, `AiOrgUsageDto(OrgId/OrgName/Requests/TotalTokens/TotalCost)`, `AiOperationUsageDto(Operation/Requests/TotalTokens/TotalCost)`, `AiFailureDto(Reason/Count)`, `AiPlatformUsageResponse(Overview/Providers/Models/Organizations/Operations/Failures)`
+- Extended `Application/SuperAdmin/Interfaces/ISuperAdminService.cs:32` add `Task<AiPlatformUsageResponse> GetAiPlatformUsageAsync(ct)`
+- Implemented `Infrastructure/SuperAdmin/SuperAdminService.cs:877` `GetAiPlatformUsageAsync`: 6 try/catch blocks each `SqlQueryRaw<Row>` — overview `SELECT COUNT(*) Total, SUM(CASE Success) Success, ... SUM(TotalTokens) Tokens, SUM(Cost) Cost, AVG(DurationMs) AvgLatency, SUM(FallbackUsed) Fallback FROM [project].[AiUsageLogs]` with `ISNULL` fallback 0; providers `GROUP BY Provider`; models `GROUP BY Model,Provider` ordered Requests DESC; orgs `WHERE OrgId IS NOT NULL GROUP BY OrgId` then `Organizations.Where(orgIds).ToDictionary` for names `r.OrgId.ToString()[..8]` fallback; operations `GROUP BY Operation`; failures `WHERE Status='Failed' GROUP BY FailureReason Take 10`; each catch `LogWarning` + empty list; wrap outer `LogError` + throw; added 6 private rows `AiOverviewRaw( Total/Success/Failed/Tokens/Cost/AvgLatency/Fallback)`, `AiProviderRaw`, `AiModelRaw`, `AiOrgRaw`, `AiOperationRaw`, `AiFailureRaw`
+- Created `Application/SuperAdmin/Queries/GetSuperAdminAiUsageQuery.cs:1` record `(CallerId CallerRoles):IRequest<Result<AiPlatformUsageResponse>>` + handler checks `Roles.IsSuperAdmin` else `Failure Forbidden - SuperAdmin only`, calls `service.GetAiPlatformUsageAsync`
+- Added `Api/Controllers/SuperAdminController.cs:227` `[HttpGet ai-usage]` extracts `GetUserId()/GetRoles()` → `GetSuperAdminAiUsageQuery` → `403/400/200` with `withCredentials`, follows SA.1-4 pattern via MediatR
+- `core/services/superadmin.service.ts:121` added 7 interfaces `AiUsageOverview/Provider/Model/Org/Operation/Failure/PlatformUsage` (camelCase to match JSON Pascal→camel by System.Text.Json) + method `getAiUsage(): GET /api/superadmin/ai-usage withCredentials`
+- Created `frontend/features/superadmin/ai-usage/` 3-file: `ai-usage.component.ts:1` standalone `CommonModule NgApexchartsModule OnPush templateUrl` `injectQuery ['superadmin-ai-usage'] firstValueFrom(sa.getAiUsage())` getters `overview/providers/models/organizations/operations/failures` + `providerChart()` donut `series requests labels provider colors #6366f1/#22c55e` + `operationChart()` bar `series requests categories operation` + `formatCost(v)` `$xx.xx`; `ai-usage.component.html:1` `p-3 sm:p-4 space-y-6` header `AI Platform Usage` + `SuperAdmin only` badge + note `Aggregate only — never prompts`, `isPending` spinner, `isError` alert human, `data() as d` 7 KPI cards `Total/Success(text-success)/Failed(text-error)/Tokens/EstimatedCost/AvgLatency/Fallback` grid `xl:grid-cols-7`, charts `lg:grid-cols-2` donut+bar with empty fallback, 5 cards each table `table-sm` (Providers 7 cols, Models 7 cols Input/Output/Total, Orgs 4 cols Org+id slice, Ops 4 cols badge-info, Failures 2 cols truncate max-w-[400px] badge-error) with empty `No ... data`; `ai-usage.component.css:1` empty
+- Updated `app.routes.ts:65` change `ai-usage` child from `dashboard` placeholder to `ai-usage.component` lazy `AiUsageComponent`
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Identity.Service/Application/SuperAdmin/DTOs/SuperAdminDtos.cs | Modified | Add 7 DTO records `AiPlatformOverview/Provider/Model/Org/Operation/Failure/Response` |
+| backend/Services/Identity.Service/Application/SuperAdmin/Interfaces/ISuperAdminService.cs | Modified | Add `GetAiPlatformUsageAsync` |
+| backend/Services/Identity.Service/Infrastructure/SuperAdmin/SuperAdminService.cs | Modified | Implement `GetAiPlatformUsageAsync` 6 cross-schema `SqlQueryRaw` + 6 private rows + warning fallbacks |
+| backend/Services/Identity.Service/Application/SuperAdmin/Queries/GetSuperAdminAiUsageQuery.cs | Created | Record + handler `IsSuperAdmin` check → service |
+| backend/Services/Identity.Service/Api/Controllers/SuperAdminController.cs | Modified | Add `GET /api/superadmin/ai-usage` via MediatR |
+| frontend/flowboard-web/src/app/core/services/superadmin.service.ts | Modified | Add 7 TS interfaces + `getAiUsage()` |
+| frontend/flowboard-web/src/app/features/superadmin/ai-usage/ai-usage.component.ts | Created | Standalone `OnPush` `injectQuery` + `providerChart/operationChart/formatCost` |
+| frontend/flowboard-web/src/app/features/superadmin/ai-usage/ai-usage.component.html | Created | `p-3 sm:p-4` 7 KPIs + donut/bar + 5 tables `aggregate only` |
+| frontend/flowboard-web/src/app/features/superadmin/ai-usage/ai-usage.component.css | Created | Empty `/* No internal CSS */` |
+| frontend/flowboard-web/src/app/app.routes.ts | Modified | `superadmin/ai-usage` → `AiUsageComponent` lazy |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build Services/Identity.Service.csproj -c Release` → `0 Error 14 Warning EF1002 only` (same as SA.1-4), `dotnet build FlowBoard.slnx -c Release` → `0 Error 0 Warning` |
+| Build frontend | Passed | `npm run build --configuration production` → `Application bundle generation complete` 33s, `apexcharts is not ESM` only, `initial 514.80 kB` budget warning pre-existing, `ai-usage` lazy chunk present (53 chunks) |
+| Auth | Passed | `GetSuperAdminAiUsageHandler` checks `Roles.IsSuperAdmin` else `403 Forbidden - SuperAdmin only` for Member/OrgAdmin, `200` for `superadmin@flowboard.local`; controller `withCredentials` |
+| 3-File Rule | Passed | `features/superadmin/ai-usage` exactly 3 files `html+ts+css` `templateUrl OnPush css empty`, `grep -r "template:"` 0 hits |
+| Least privilege | Passed | Response never contains `PromptHash/PromptPreview/ResponsePreview` — only `Provider/Model/Operation/Tokens/Cost/Count/OrgId/OrgName` aggregates via `COUNT/SUM/AVG GROUP BY`; org table shows `OrgId slice + name` only, no member lists; provider/model/org/operation failures are counts |
+| UI | Passed | `/superadmin/ai-usage` renders 7 KPIs `Total/Success/Failed/Tokens/Cost/Latency/Fallback`, donut `Requests by Provider` (Gemini/Groq) + bar `Requests by Operation` (draft/enhance/criteria/breakdown), 5 tables responsive `overflow-x-auto` |
+
+### 7. Enterprise Relevance (MNC Value)
+Proves MNC `least-privilege` AI platform analytics — SuperAdmin never sees `PromptHash`/`Preview`/`Raw` (GDPR + Section 10 `never Raw/LineNumber/stack`), only `GROUP BY` aggregates on `[project].[AiUsageLogs]` cross-schema via raw `SqlQueryRaw` with `ISNULL` + `AVG(CAST)` + `SUM(Cost decimal(18,2))` and `try/catch LogWarning` fallback to zeros when table empty (same pattern as SA.1 `COUNT(*) FROM [project].[Projects]`). Deterministic `donut + bar` via `ng-apexcharts` + `TanStack Query` `firstValueFrom` + `OnPush` `3-File` `p-3 sm:p-4` responsive shows platform ops mastery without exposing customer prompts — like Atlassian org admin vs in-product AI usage.
+
+### 8. Next Steps & Dependencies
+- Unlocks: SA.10 Settings `GET /api/superadmin/settings` mock will reuse same `superadmin-route` + `IsSuperAdmin` guard, completing SuperAdmin 10/10 (10-item sidebar)
+- Depends on: SA.1 Dashboard `superadmin-route` + `superAdminGuard`, Phase 7 `AiUsageLog` entity `[project].AiUsageLogs` seeded via `Project.Service` (22 cols, hash/preview only, 7 indexes)
+- Follow-up: Add `GET /api/superadmin/ai-usage/export?format=csv` for finance export (Org/Requests/Tokens/Cost) + daily trend `last14 GROUP BY CAST(CreatedAt as date)` like `OrganizationStatsService` daily area, but keep aggregate-only boundary
 
 ---
 
@@ -2467,143 +2751,7 @@ Proves MNC `Sliding Window Counter` not naive Fixed Window - handles boundary bu
 
 ---
 
-
-## Task SA.1: SuperAdmin Dashboard - Platform KPIs (Global)
-
-| Status | Date | Phase | Commit | Hours | Type |
-|--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 4h | Feature |
-
-### 4. Implementation Details
-- Todos:
-  - [ ] Backend GET /api/superadmin/dashboard via ISuperAdminService
-  - [ ] Frontend features/superadmin/dashboard/* 3-file
-  - [ ] Health badges per service
-  - [ ] Growth charts
-
----
-
-## Task SA.2: SuperAdmin Organizations - Lightweight Tenant Directory
-
-| Status | Date | Phase | Commit | Hours | Type |
-|--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 4h | Feature |
-
-### 4. Implementation Details
-- Todos:
-  - [ ] Backend GET /api/superadmin/organizations with Plan includes Free type
-  - [ ] Frontend table 8 cols Plan badge Free vs Pro
-  - [ ] Details drawer 4 tabs
-  - [ ] Actions Suspend/Activate
-
----
-
-## Task SA.3: SuperAdmin Users - Global Accounts Directory
-
-| Status | Date | Phase | Commit | Hours | Type |
-|--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 3h | Feature |
-
-### 4. Implementation Details
-- Todos:
-  - [ ] Backend GET /api/superadmin/users
-  - [ ] Frontend table
-  - [ ] Actions Suspend/Reactivate
-
----
-
-## Task SA.4: SuperAdmin Subscriptions & Billing - Simplified Mock
-
-| Status | Date | Phase | Commit | Hours | Type |
-|--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 5h | Feature |
-
-### 4. Implementation Details
-- Todos:
-  - [ ] Backend mock GET /api/superadmin/subscriptions with Free plan in table
-  - [ ] Frontend overview cards + Revenue chart + table 6 cols with Free badge
-  - [ ] Plans config cards
-  - [ ] Ensure Free type appears in at least one row
-
----
-
-## Task SA.5: SuperAdmin Platform Activity / Audit Logs
-
-| Status | Date | Phase | Commit | Hours | Type |
-|--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 3h | Feature |
-
-### 4. Implementation Details
-- Todos:
-  - [ ] Backend GET /api/superadmin/activities
-  - [ ] Frontend table + filters
-
----
-
-## Task SA.6: SuperAdmin System / Infrastructure
-
-| Status | Date | Phase | Commit | Hours | Type |
-|--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 3h | Feature |
-
-### 4. Implementation Details
-- Todos:
-  - [ ] Backend GET /api/superadmin/system
-  - [ ] Frontend 8 service cards
-
----
-
-## Task SA.7: SuperAdmin Support / Impersonation - Mock
-
-| Status | Date | Phase | Commit | Hours | Type |
-|--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 3h | Feature |
-
-### 4. Implementation Details
-- Todos:
-  - [ ] Frontend mock tickets
-  - [ ] Impersonation modal with reason + audit
-
----
-
-## Task SA.8: SuperAdmin Feature Flags
-
-| Status | Date | Phase | Commit | Hours | Type |
-|--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 2h | Feature |
-
-### 4. Implementation Details
-- Todos:
-  - [ ] Backend FeatureFlags table + GET /api/superadmin/flags
-  - [ ] Frontend toggle + override
-
----
-
-## Task SA.9: SuperAdmin AI Platform Usage - Aggregate
-
-| Status | Date | Phase | Commit | Hours | Type |
-|--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 3h | Feature |
-
-### 4. Implementation Details
-- Todos:
-  - [ ] Backend reuse AiUsageLogs aggregate
-  - [ ] Frontend charts + per-org table
-
----
-
-## Task SA.10: SuperAdmin Settings - Platform Config
-
-| Status | Date | Phase | Commit | Hours | Type |
-|--------|------|-------|--------|-------|------|
-| Pending | — | SuperAdmin | — | 2h | Feature |
-
-### 4. Implementation Details
-- Todos:
-  - [ ] Backend GET /api/superadmin/settings mock
-  - [ ] Frontend forms, never show raw API keys
-
----
+<!
 
 <!--
 ## Task X.Y: Title

@@ -1,0 +1,200 @@
+<div class="p-3 sm:p-4 space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">AI Platform Usage</h1>
+      <p class="text-sm opacity-60">Aggregate only — never prompts or responses (hash/preview 500 only)</p>
+    </div>
+    <span class="badge badge-info badge-sm">SuperAdmin only</span>
+  </div>
+
+  <!-- Loading / Error -->
+  <div *ngIf="query.isPending()" class="flex justify-center py-12"><span class="loading loading-spinner loading-lg"></span></div>
+  <div *ngIf="query.isError()" class="alert alert-error"><span>Failed to load AI usage — please try again.</span></div>
+
+  <ng-container *ngIf="query.data() as d">
+    <!-- Overview 7 KPIs -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3">
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Total Requests</div>
+          <div class="text-2xl font-bold">{{ overview?.totalRequests }}</div>
+          <div class="text-xs opacity-50">All providers</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Success</div>
+          <div class="text-2xl font-bold text-success">{{ overview?.successRequests }}</div>
+          <div class="text-xs opacity-50">Status Success</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Failed</div>
+          <div class="text-2xl font-bold text-error">{{ overview?.failedRequests }}</div>
+          <div class="text-xs opacity-50">Status Failed</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Total Tokens</div>
+          <div class="text-2xl font-bold">{{ overview?.totalTokens | number }}</div>
+          <div class="text-xs opacity-50">Input + Output</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Estimated Cost</div>
+          <div class="text-2xl font-bold">{{ formatCost(overview?.estimatedCost || 0) }}</div>
+          <div class="text-xs opacity-50">USD</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Avg Latency</div>
+          <div class="text-2xl font-bold">{{ overview?.avgLatencyMs | number:'1.0-1' }} ms</div>
+          <div class="text-xs opacity-50">Across all</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Fallback Count</div>
+          <div class="text-2xl font-bold">{{ overview?.fallbackCount }}</div>
+          <div class="text-xs opacity-50">Groq fallback</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <h3 class="font-semibold">Requests by Provider</h3>
+          <apx-chart *ngIf="providerChart()" [series]="providerChart()!.series" [chart]="providerChart()!.chart" [labels]="providerChart()!.labels" [colors]="providerChart()!.colors" [legend]="providerChart()!.legend" [dataLabels]="providerChart()!.dataLabels"></apx-chart>
+          <div *ngIf="!providers.length" class="text-sm opacity-50 py-8 text-center">No provider data</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <h3 class="font-semibold">Requests by Operation</h3>
+          <apx-chart *ngIf="operationChart()" [series]="operationChart()!.series" [chart]="operationChart()!.chart" [xaxis]="operationChart()!.xaxis" [colors]="operationChart()!.colors" [plotOptions]="operationChart()!.plotOptions" [dataLabels]="operationChart()!.dataLabels"></apx-chart>
+          <div *ngIf="!operations.length" class="text-sm opacity-50 py-8 text-center">No operation data</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Providers table -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Providers</h3>
+        <p class="text-xs opacity-50">Gemini/Groq — Requests/Tokens/Success/Failure/Latency/Cost</p>
+        <div class="overflow-x-auto mt-2">
+          <table class="table table-sm">
+            <thead><tr><th>Provider</th><th>Requests</th><th>Tokens</th><th>Success</th><th>Failed</th><th>Avg Latency</th><th>Cost</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let p of providers">
+                <td><span class="badge badge-outline badge-sm">{{ p.provider }}</span></td>
+                <td class="font-mono">{{ p.requests }}</td>
+                <td class="font-mono">{{ p.totalTokens | number }}</td>
+                <td class="text-success font-mono">{{ p.successCount }}</td>
+                <td class="text-error font-mono">{{ p.failedCount }}</td>
+                <td class="font-mono">{{ p.avgLatencyMs | number:'1.0-1' }} ms</td>
+                <td class="font-mono">{{ formatCost(p.totalCost) }}</td>
+              </tr>
+              <tr *ngIf="!providers.length"><td colspan="7" class="text-center opacity-50">No provider data</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Models table -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Models</h3>
+        <p class="text-xs opacity-50">Model/Provider — Requests Input/Output/Total/Cost</p>
+        <div class="overflow-x-auto mt-2">
+          <table class="table table-sm">
+            <thead><tr><th>Model</th><th>Provider</th><th>Requests</th><th>Input</th><th>Output</th><th>Total</th><th>Cost</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let m of models">
+                <td class="font-mono text-xs">{{ m.model }}</td>
+                <td><span class="badge badge-ghost badge-sm">{{ m.provider }}</span></td>
+                <td class="font-mono">{{ m.requests }}</td>
+                <td class="font-mono">{{ m.inputTokens | number }}</td>
+                <td class="font-mono">{{ m.outputTokens | number }}</td>
+                <td class="font-mono">{{ m.totalTokens | number }}</td>
+                <td class="font-mono">{{ formatCost(m.totalCost) }}</td>
+              </tr>
+              <tr *ngIf="!models.length"><td colspan="7" class="text-center opacity-50">No model data</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Organizations -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Organizations</h3>
+        <p class="text-xs opacity-50">Org aggregate — Requests/Tokens/Cost (no member lists)</p>
+        <div class="overflow-x-auto mt-2">
+          <table class="table table-sm">
+            <thead><tr><th>Organization</th><th>Requests</th><th>Tokens</th><th>Cost</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let o of organizations">
+                <td>{{ o.organizationName }} <span class="text-xs opacity-40 font-mono">{{ o.organizationId.slice(0,8) }}</span></td>
+                <td class="font-mono">{{ o.requests }}</td>
+                <td class="font-mono">{{ o.totalTokens | number }}</td>
+                <td class="font-mono">{{ formatCost(o.totalCost) }}</td>
+              </tr>
+              <tr *ngIf="!organizations.length"><td colspan="4" class="text-center opacity-50">No organization usage</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Operations -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Operations</h3>
+        <p class="text-xs opacity-50">draft / enhance / criteria / breakdown / usage</p>
+        <div class="overflow-x-auto mt-2">
+          <table class="table table-sm">
+            <thead><tr><th>Operation</th><th>Requests</th><th>Tokens</th><th>Cost</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let op of operations">
+                <td><span class="badge badge-info badge-sm">{{ op.operation }}</span></td>
+                <td class="font-mono">{{ op.requests }}</td>
+                <td class="font-mono">{{ op.totalTokens | number }}</td>
+                <td class="font-mono">{{ formatCost(op.totalCost) }}</td>
+              </tr>
+              <tr *ngIf="!operations.length"><td colspan="4" class="text-center opacity-50">No operation data</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Failures -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Failures</h3>
+        <p class="text-xs opacity-50">Top failure reasons — count only, no raw stack</p>
+        <div class="overflow-x-auto mt-2">
+          <table class="table table-sm">
+            <thead><tr><th>Reason</th><th>Count</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let f of failures">
+                <td class="text-sm truncate max-w-[400px]">{{ f.reason }}</td>
+                <td><span class="badge badge-error badge-sm">{{ f.count }}</span></td>
+              </tr>
+              <tr *ngIf="!failures.length"><td colspan="2" class="text-center opacity-50">No failures 🎉</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>
