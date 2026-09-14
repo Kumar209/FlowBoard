@@ -154,17 +154,17 @@ export class IssuesComponent {
   });
   updateMutation = injectMutation(() => ({
     mutationFn: (vars: any) => firstValueFrom(this.ps.updateTask(vars.id, vars.title, vars.description, vars.priority, vars.listId, vars.labelsJson, vars.assigneeId, vars.dueDate, vars.issueType, vars.epic, vars.storyPoints, vars.startDate, vars.environment, vars.parentIssueId, vars.sprintId, vars.watchersJson, vars.linkedIssuesJson, vars.timeEstimated, vars.timeSpent, vars.timeRemaining, vars.teamId, vars.statusId, vars.acceptanceCriteriaJson)),
-    onSuccess: () => { this.qc.invalidateQueries({queryKey: ['board']}); this.detailOpen.set(false); this.toast.success('Issue updated'); },
+    onSuccess: () => { this.qc.invalidateQueries({queryKey: ['board', this.projectId()]}); this.qc.invalidateQueries({queryKey: ['board']}); this.detailOpen.set(false); this.toast.success('Issue updated'); },
     onError: (e:any) => this.toast.error(e.error?.error || 'Update failed'),
   }));
   createMutation = injectMutation(() => ({
     mutationFn: (vars: any) => firstValueFrom(this.ps.createTask(this.projectId(), vars.listId || null, vars.title, vars.description, vars.priority, vars.labelsJson, undefined, vars.dueDate, vars.issueType, vars.epic, vars.storyPoints, vars.startDate, vars.environment, vars.parentIssueId, vars.sprintId, vars.teamId, vars.statusId)),
-    onSuccess: () => { this.qc.invalidateQueries({queryKey: ['board']}); this.toast.success('Issue created in Backlog'); },
+    onSuccess: () => { this.qc.invalidateQueries({queryKey: ['board', this.projectId()]}); this.qc.invalidateQueries({queryKey: ['board']}); this.toast.success('Issue created in Backlog'); },
     onError: (e:any) => this.toast.error(e.error?.error || 'Create failed'),
   }));
   deleteMutation = injectMutation(() => ({
     mutationFn: (id:string) => firstValueFrom(this.ps.deleteTask(id)),
-    onSuccess: () => { this.qc.invalidateQueries({queryKey:['board']}); this.deleteTarget.set(null); this.toast.success('Issue deleted'); },
+    onSuccess: () => { this.qc.invalidateQueries({queryKey: ['board', this.projectId()]}); this.qc.invalidateQueries({queryKey:['board']}); this.deleteTarget.set(null); this.toast.success('Issue deleted'); },
     onError: (e:any) => this.toast.error(e.error?.error || 'Delete failed')
   }));
   openDetail(t:any, readOnly=false){ this.selectedTask.set(t); this.detailReadOnly.set(readOnly); this.detailOpen.set(true); }

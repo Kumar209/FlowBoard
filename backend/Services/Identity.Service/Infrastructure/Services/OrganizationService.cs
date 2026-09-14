@@ -201,6 +201,20 @@ public class OrganizationService : IOrganizationService
             if (orgMember != null) orgMember.UpdateRole(orgRoleInt);
             else _db.OrganizationMembers.Add(new OrganizationMember(organizationId, userId, orgRoleInt));
             await _db.SaveChangesAsync(ct);
+            // OrgAdmin has complete authority — clear any workspace custom role (allocated workspace role as null)
+            if (orgRoleInt == Roles.OrgAdminValue)
+            {
+                var wsIdsForClear = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).ToListAsync(ct);
+                var wsMembersToClear = await _db.WorkspaceMembers.Where(m => m.UserId == userId && wsIdsForClear.Contains(m.WorkspaceId) && m.CustomRoleId != null).ToListAsync(ct);
+                foreach (var wm in wsMembersToClear) wm.CustomRoleId = null;
+                if (wsMembersToClear.Any()) await _db.SaveChangesAsync(ct);
+                // For OrgAdmin, ignore any provided workspaceRoles custom assignments
+                if (workspaceRoles != null && workspaceRoles.Any())
+                {
+                    // Keep workspace membership but ensure CustomRoleId null — already cleared above for existing, and skip adding new custom
+                    workspaceRoles = null;
+                }
+            }
         }
         if (workspaceRoles != null)
         {

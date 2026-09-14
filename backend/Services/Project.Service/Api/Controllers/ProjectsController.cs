@@ -66,7 +66,7 @@ public class ProjectsController : ControllerBase
         var etag = GenerateETag(board);
         Response.Headers["ETag"] = etag;
         if (Request.Headers.TryGetValue("If-None-Match", out var inm) && inm == etag) return StatusCode(304);
-        Response.Headers["Cache-Control"] = "private, max-age=300";
+        Response.Headers["Cache-Control"] = "no-cache";
         return Ok(board);
     }
     private static string GenerateETag(object obj) { var json = System.Text.Json.JsonSerializer.Serialize(obj); var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(json)); return "\"" + Convert.ToHexString(hash)[..16] + "\""; }

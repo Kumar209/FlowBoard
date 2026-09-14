@@ -41,7 +41,7 @@ public class TasksController : ControllerBase
         var etag = GenerateETag(result);
         Response.Headers["ETag"] = etag;
         if (Request.Headers.TryGetValue("If-None-Match", out var inm) && inm == etag) return StatusCode(304);
-        Response.Headers["Cache-Control"] = "private, max-age=120";
+        Response.Headers["Cache-Control"] = "no-cache";
         return Ok(result);
     }
     private static string GenerateETag(object obj) { var json = System.Text.Json.JsonSerializer.Serialize(obj); var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(json)); return "\"" + Convert.ToHexString(hash)[..16] + "\""; }
