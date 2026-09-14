@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
+import { ROLE_LABEL_MAP, OrgRoleValues } from '../../shared/constants/roles';
 
 @Injectable({ providedIn: 'root' })
 export class FeatureFlagService {
@@ -49,7 +50,7 @@ export class FeatureFlagService {
   async isEnabledForOrg(key: string, orgId?: string): Promise<{ enabled: boolean; by: string }> {
     await this.load();
     const globalOn = this.isEnabled(key);
-    if (!globalOn) return { enabled: false, by: 'SuperAdmin' };
+    if (!globalOn) return { enabled: false, by: ROLE_LABEL_MAP[String(OrgRoleValues.SuperAdmin)] };
     if (orgId) {
       try {
         const orgMap = await this.loadForOrg(orgId);

@@ -1,7 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { ROLE_VALUE_MAP as SharedRoleMap } from '../../shared/constants/roles';
+import { ROLE_VALUE_MAP as SharedRoleMap, ROLE_LABEL_MAP, OrgRoleValues } from '../../shared/constants/roles';
 import { Observable, shareReplay, finalize } from 'rxjs';
 
 export interface User {
@@ -49,16 +49,16 @@ export class AuthService {
 
   // Global role helpers - computed memoized (OnPush reads)
   hasAnyRole = computed(() => this.memberships().length > 0);
-  isSuperAdmin = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.SuperAdmin || m.roleName === 'SuperAdmin'));
-  isOrgAdmin = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.OrgAdmin || m.roleName === 'OrgAdmin') || this.isSuperAdmin());
-  isProjectManager = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.ProjectManager || m.roleName === 'ProjectManager'));
-  isMember = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.Member));
-  isClient = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.Client || m.roleName === 'Client'));
-  isViewer = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.Viewer || m.roleName === 'Viewer'));
+  isSuperAdmin = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.SuperAdmin || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.SuperAdmin)]));
+  isOrgAdmin = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.OrgAdmin || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.OrgAdmin)]) || this.isSuperAdmin());
+  isProjectManager = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.Member || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.Member)]));
+  isMember = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.Member));
+  isClient = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.Client || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.Client)]));
+  isViewer = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.Member));
 
   // Workspace-scoped checks
-  isManagerFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && Number(m.role) === WorkspaceRole.ProjectManager);
-  isOrgAdminFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && (Number(m.role) === WorkspaceRole.OrgAdmin || Number(m.role) === WorkspaceRole.SuperAdmin));
+  isManagerFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && Number(m.role) === OrgRoleValues.Member);
+  isOrgAdminFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && (Number(m.role) === OrgRoleValues.OrgAdmin || Number(m.role) === OrgRoleValues.SuperAdmin));
   canCreateProject = computed(() => this.isOrgAdmin() || this.isProjectManager() || this.isSuperAdmin());
   canCreateWorkspace = computed(() => this.isOrgAdmin() || this.isSuperAdmin());
   canCreateTask = computed(() => !this.isClient() && !this.isViewer()); // Client 403, Viewer 403

@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
+import { ROLE_LABEL_MAP, OrgRoleValues } from '../../shared/constants/roles';
 
 @Component({
   selector: 'app-members',
@@ -31,13 +32,13 @@ export class MembersComponent {
   inviteEmail = signal('');
   invitePassword = signal('');
   showInvitePassword = signal(false);
-  inviteRole = signal('Member');
+  inviteRole = signal(ROLE_LABEL_MAP[String(OrgRoleValues.Member)]);
   inviteWorkspaceIds = signal<string[]>([]);
   inviteWorkspaceRoles = signal<Record<string,string>>({});
   editTarget = signal<any>(null);
   editName = signal('');
   editEmail = signal('');
-  editRole = signal('Member');
+  editRole = signal(ROLE_LABEL_MAP[String(OrgRoleValues.Member)]);
   editWorkspaceIds = signal<string[]>([]);
   editWorkspaceRoles = signal<Record<string,string>>({});
 
@@ -112,9 +113,9 @@ export class MembersComponent {
       const roles = wids.map(id => {
         const selectedName = this.inviteWorkspaceRoles()[id];
         const cr = customRoles.find((c:any) => c.name === selectedName);
-        return { workspaceId: id, role: selectedName || cr?.name || 'Member', customRoleId: cr?.id || undefined };
+        return { workspaceId: id, role: selectedName || cr?.name || ROLE_LABEL_MAP[String(OrgRoleValues.Member)], customRoleId: cr?.id || undefined };
       });
-      const orgRole = this.inviteRole().trim() || 'Member';
+      const orgRole = this.inviteRole().trim() || ROLE_LABEL_MAP[String(OrgRoleValues.Member)];
       return firstValueFrom(this.ws.createOrganizationMember(orgId, this.inviteFullName().trim(), this.inviteEmail().trim(), this.invitePassword().trim(), roles as any, orgRole));
     },
     onSuccess: () => {
@@ -143,7 +144,7 @@ export class MembersComponent {
       const roles = wids.map(id => {
         const selectedName = this.editWorkspaceRoles()[id];
         const cr = customRoles.find((c:any) => c.name === selectedName);
-        return { workspaceId: id, role: selectedName || cr?.name || 'Member', customRoleId: cr?.id || undefined };
+        return { workspaceId: id, role: selectedName || cr?.name || ROLE_LABEL_MAP[String(OrgRoleValues.Member)], customRoleId: cr?.id || undefined };
       });
       const orgRole = this.editRole().trim() || undefined;
       return firstValueFrom(this.ws.updateOrganizationMember(this.orgId(), this.editTarget()!.userId, this.editName().trim() || undefined, this.editEmail().trim() || undefined, roles as any, orgRole));
@@ -159,7 +160,7 @@ export class MembersComponent {
 
   openInvite(){
     const wss = this.workspacesQuery.data() || [];
-    this.inviteFullName.set(''); this.inviteEmail.set(''); this.invitePassword.set(''); this.inviteRole.set('Member');
+    this.inviteFullName.set(''); this.inviteEmail.set(''); this.invitePassword.set(''); this.inviteRole.set(ROLE_LABEL_MAP[String(OrgRoleValues.Member)]);
     const customRoles = (this.customRolesQuery.data() as any[]) || [];
     // If no custom roles, disable workspace checklist (org-level only)
     if (customRoles.length === 0) {
@@ -170,7 +171,7 @@ export class MembersComponent {
     }
     const dev = wss.find((w:any) => w.name.toLowerCase().includes('development')) || wss[0];
     const ids = dev ? [dev.id] : wss.slice(0,1).map((w:any)=>w.id);
-    const defaultRole = customRoles[0]?.name || 'Member';
+    const defaultRole = customRoles[0]?.name || ROLE_LABEL_MAP[String(OrgRoleValues.Member)];
     this.inviteWorkspaceIds.set(ids);
     const map: Record<string,string> = {};
     ids.forEach(id => map[id] = defaultRole);
@@ -222,7 +223,7 @@ export class MembersComponent {
     this.editName.set(m.fullName);
     this.editEmail.set(m.email);
     // org-level editRole must be one of Member/OrgAdmin/Client - map incoming to 3-role
-    const mappedOrg = ['Member','OrgAdmin','Client','SuperAdmin'].includes(m.role) ? m.role : 'Member';
+    const mappedOrg = [ROLE_LABEL_MAP[String(OrgRoleValues.Member)],ROLE_LABEL_MAP[String(OrgRoleValues.OrgAdmin)],ROLE_LABEL_MAP[String(OrgRoleValues.Client)],ROLE_LABEL_MAP[String(OrgRoleValues.SuperAdmin)]].includes(m.role) ? m.role : ROLE_LABEL_MAP[String(OrgRoleValues.Member)];
     this.editRole.set(mappedOrg);
     const wids = (m as any).workspaceIds as string[] | undefined;
     const allWids = wids && wids.length ? wids : ((m as any).workspaceId ? [(m as any).workspaceId] : []);

@@ -8,6 +8,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { WorkspaceModalComponent } from '../../shared/components/modals/workspace-modal/workspace-modal.component';
 import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
+import { getRoleLabel } from '../../shared/constants/roles';
 
 /**
  * WorkspacesComponent - modals for Create/Update + Delete warning + hash gradient icon.
@@ -64,6 +65,7 @@ export class WorkspacesComponent {
     let h = 0; for (let i=0;i<slug.length;i++) h = (h*31 + slug.charCodeAt(i)) >>>0;
     return grads[h % grads.length];
   }
+  getRoleLabel(v: any) { return getRoleLabel(v); }
 
   createMutation = injectMutation(() => ({
     mutationFn: (vars: { organizationId: string; name: string }) =>

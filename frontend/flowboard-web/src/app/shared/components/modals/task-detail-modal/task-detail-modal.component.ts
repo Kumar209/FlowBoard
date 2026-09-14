@@ -15,7 +15,6 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AttachmentService } from '../../../../core/services/attachment.service';
 import { AiService } from '../../../../core/services/ai.service';
-import { ConfirmDeleteComponent } from '../confirm-delete/confirm-delete.component';
 import { LoaderComponent } from '../../loader/loader.component';
 import { FeatureDisabledModalComponent } from '../../feature-disabled-modal/feature-disabled-modal.component';
 import { FeatureFlagService } from '../../../../core/services/feature-flag.service';
@@ -29,7 +28,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 @Component({
   selector: 'app-task-detail-modal',
   standalone: true,
-  imports: [CommonModule, ConfirmDeleteComponent, LoaderComponent, FeatureDisabledModalComponent],
+  imports: [CommonModule, LoaderComponent, FeatureDisabledModalComponent],
   templateUrl: './task-detail-modal.component.html',
   styleUrls: ['./task-detail-modal.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -6,6 +6,7 @@ import { ProjectService } from '../../../core/services/project.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmDeleteComponent } from '../../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
+import { ROLE_LABEL_MAP, OrgRoleValues } from '../../../shared/constants/roles';
 
 @Component({
   selector: 'app-team-detail',
@@ -78,7 +79,7 @@ export class TeamDetailComponent {
     const map = new Map<string, any>(wsMembers.map((m:any) => [m.userId, m]));
     return teamMembers.map((tm:any) => {
       const ws:any = map.get(tm.userId);
-      return { ...tm, fullName: ws?.fullName || tm.userId.slice(0,8), email: ws?.email || '', role: ws?.role || 'Member', avatarUrl: ws?.avatarUrl };
+      return { ...tm, fullName: ws?.fullName || tm.userId.slice(0,8), email: ws?.email || '', role: ws?.role || ROLE_LABEL_MAP[String(OrgRoleValues.Member)], avatarUrl: ws?.avatarUrl };
     });
   });
 

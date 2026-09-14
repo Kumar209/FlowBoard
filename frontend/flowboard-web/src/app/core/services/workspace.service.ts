@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { ROLE_LABEL_MAP, OrgRoleValues } from '../../shared/constants/roles';
 
 /**
  * WorkspaceService - inject(HttpClient) + signals.
@@ -35,7 +36,7 @@ export class WorkspaceService {
   getOrganizationMembers(organizationId: string) {
     return this.http.get<any[]>(`${environment.apiUrl}/api/organizations/${organizationId}/members`, { withCredentials: true });
   }
-  createOrganizationMember(organizationId: string, fullName: string, email: string, password: string, workspaceRoles: {workspaceId: string, role: string, customRoleId?: string}[], orgRole: string = 'Member') {
+  createOrganizationMember(organizationId: string, fullName: string, email: string, password: string, workspaceRoles: {workspaceId: string, role: string, customRoleId?: string}[], orgRole: string = ROLE_LABEL_MAP[String(OrgRoleValues.Member)]) {
     return this.http.post(`${environment.apiUrl}/api/organizations/${organizationId}/employees`, { FullName: fullName, Email: email, Password: password, Role: orgRole, WorkspaceIds: workspaceRoles.map(r=>r.workspaceId), WorkspaceRoles: workspaceRoles }, { withCredentials: true });
   }
   updateOrganizationMember(organizationId: string, userId: string, fullName?: string, email?: string, workspaceRoles?: {workspaceId: string, role: string, customRoleId?: string}[], orgRole?: string) {

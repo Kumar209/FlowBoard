@@ -1,6 +1,7 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { ROLE_LABEL_MAP, OrgRoleValues } from '../../shared/constants/roles';
 
 /**
  * ProjectService - inject(HttpClient) + signals + typed HttpClient + firstValueFrom in components (not toPromise).
@@ -157,7 +158,7 @@ export class ProjectService {
   getAssigneeCandidates(projectId: string) {
     return this.http.get<any[]>(`${environment.apiUrl}/api/projects/${projectId}/assignee-candidates`, { withCredentials: true });
   }
-  addProjectMember(projectId: string, userId: string, role='Member') {
+  addProjectMember(projectId: string, userId: string, role=ROLE_LABEL_MAP[String(OrgRoleValues.Member)]) {
     return this.http.post<any>(`${environment.apiUrl}/api/projects/${projectId}/members`, { UserId: userId, Role: role }, { withCredentials: true });
   }
   removeProjectMember(projectId: string, userId: string) {

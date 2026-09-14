@@ -9,7 +9,7 @@ import { WorkspaceService } from '../../core/services/workspace.service';
 import { ProjectModalComponent } from '../../shared/components/modals/project-modal/project-modal.component';
 import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
-import { ROLE_LABEL_MAP } from '../../shared/constants/roles';
+import { ROLE_LABEL_MAP, OrgRoleValues } from '../../shared/constants/roles';
 
 /**
  * WorkspaceComponent - modals for Create/Update/Delete project + toast + dropdown.
@@ -70,7 +70,7 @@ export class WorkspaceComponent {
     if (raw !== undefined) return (ROLE_LABEL_MAP as any)[String(raw)] ?? String(raw);
     const ws = this.workspacesQuery.data()?.find((w) => w.id === wid);
     if (ws?.role !== undefined) return (ROLE_LABEL_MAP as any)[String(ws.role)] ?? String(ws.role);
-    return 'Member';
+    return ROLE_LABEL_MAP[String(OrgRoleValues.Member)];
   });
 
   projectsQuery = injectQuery(() => ({

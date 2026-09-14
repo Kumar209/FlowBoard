@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { injectQuery } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 import { SuperAdminService } from '../../../core/services/superadmin.service';
+import { ROLE_LABEL_MAP, OrgRoleValues } from '../../../shared/constants/roles';
 
 @Component({
   selector: 'app-superadmin-org-members',
@@ -39,6 +40,6 @@ export class OrgMembersComponent {
   prevPage() { if (this.page() > 1) this.page.update(v => v - 1); }
 
   roleBadgeClass(role: string) {
-    return role === 'OrgAdmin' ? 'badge-primary' : role === 'Client' ? 'badge-ghost' : 'badge-secondary';
+    return role === ROLE_LABEL_MAP[String(OrgRoleValues.OrgAdmin)] ? 'badge-primary' : role === ROLE_LABEL_MAP[String(OrgRoleValues.Client)] ? 'badge-ghost' : 'badge-secondary';
   }
 }

@@ -6,6 +6,7 @@ import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-quer
 import { firstValueFrom } from 'rxjs';
 import { SuperAdminService } from '../../../core/services/superadmin.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ROLE_LABEL_MAP, OrgRoleValues } from '../../../shared/constants/roles';
 
 @Component({
   selector: 'app-superadmin-users',
@@ -85,7 +86,7 @@ export class UsersComponent {
     // Check if this is last orgadmin for its org
     try {
       const res: any = await firstValueFrom(this.sa.getOrgMembers(row.organizationId, undefined, 1, 50));
-      const orgAdminCount = (res.items || []).filter((m: any) => m.orgRole === 'OrgAdmin').length;
+      const orgAdminCount = (res.items || []).filter((m: any) => m.orgRole === ROLE_LABEL_MAP[String(OrgRoleValues.OrgAdmin)]).length;
       const isLast = orgAdminCount <= 1;
       this.deleteTarget.set(row);
       this.deleteIsLastAdmin.set(isLast);

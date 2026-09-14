@@ -1,5 +1,6 @@
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ROLE_LABEL_MAP, OrgRoleValues } from '../../constants/roles';
 
 @Component({
   selector: 'app-feature-disabled-modal',
@@ -12,6 +13,6 @@ import { CommonModule } from '@angular/common';
 export class FeatureDisabledModalComponent {
   open = input.required<boolean>();
   featureName = input<string>('This feature');
-  disabledBy = input<string>('SuperAdmin');
+  disabledBy = input<string>(ROLE_LABEL_MAP[String(OrgRoleValues.SuperAdmin)]);
   closed = output<void>();
 }
