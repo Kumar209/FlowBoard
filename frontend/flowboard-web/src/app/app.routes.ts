@@ -17,25 +17,8 @@ export const routes: Routes = [
       { path: 'projects', loadComponent: () => import('./features/projects/projects.component').then(m => m.ProjectsComponent) },
       {
         path: 'w/:wid/p/:pid',
-        loadComponent: () => import('./features/project/project-layout/project-layout.component').then(m => m.ProjectLayoutComponent),
-        children: [
-          { path: '', redirectTo: 'overview', pathMatch: 'full' },
-          { path: 'overview', loadComponent: () => import('./features/project/overview/overview.component').then(m => m.OverviewComponent) },
-          { path: 'board', loadComponent: () => import('./features/board/board.component').then(m => m.BoardComponent) },
-          { path: 'boards', loadComponent: () => import('./features/project/boards/boards.component').then(m => m.BoardsComponent) },
-          { path: 'backlog', loadComponent: () => import('./features/project/backlog/backlog.component').then(m => m.BacklogComponent) },
-          { path: 'sprints', loadComponent: () => import('./features/project/sprints/sprints.component').then(m => m.SprintsComponent) },
-          { path: 'issues', loadComponent: () => import('./features/project/issues/issues.component').then(m => m.IssuesComponent) },
-          { path: 'team', loadComponent: () => import('./features/project/team/team.component').then(m => m.TeamComponent) },
-          { path: 'team/:teamId', loadComponent: () => import('./features/project/team-detail/team-detail.component').then(m => m.TeamDetailComponent) },
-          { path: 'members', loadComponent: () => import('./features/project/members/project-members.component').then(m => m.ProjectMembersComponent) },
-          { path: 'activity', loadComponent: () => import('./features/project/activity/project-activity.component').then(m => m.ProjectActivityComponent) },
-          { path: 'statuses', loadComponent: () => import('./features/project/statuses/statuses.component').then(m => m.StatusesComponent) },
-          { path: 'environments', loadComponent: () => import('./features/project/environments/environments.component').then(m => m.EnvironmentsComponent) },
-          { path: 'docs', loadComponent: () => import('./features/project/docs/docs.component').then(m => m.DocsComponent) },
-          { path: 'settings', loadComponent: () => import('./features/project/settings/settings.component').then(m => m.SettingsComponent) },
-          { path: 'ai-usage', loadComponent: () => import('./features/project/ai-usage/ai-usage.component').then(m => m.ProjectAiUsageComponent) },
-        ]
+        loadChildren: () => import('./features/project/project.routes').then(m => m.projectRoutes),
+        data: { preload: true }
       },
       { path: 'notifications', loadComponent: () => import('./features/notifications/notification-list/notification-list.component').then(m => m.NotificationListComponent) },
       { path: 'activity', loadComponent: () => import('./features/activity/activity.component').then(m => m.ActivityComponent) },
@@ -51,21 +34,8 @@ export const routes: Routes = [
   {
     path: 'superadmin',
     canActivate: [authGuard, superAdminGuard],
-    loadComponent: () => import('./features/superadmin/superadmin-layout/superadmin-layout.component').then(m => m.SuperAdminLayoutComponent),
-    children: [
-      { path: '', loadComponent: () => import('./features/superadmin/dashboard/dashboard.component').then(m => m.DashboardComponent) },
-      { path: 'organizations', loadComponent: () => import('./features/superadmin/organizations/organizations.component').then(m => m.OrganizationsComponent) },
-      { path: 'organizations/:orgId/members', loadComponent: () => import('./features/superadmin/org-members/org-members.component').then(m => m.OrgMembersComponent) },
-      { path: 'users', loadComponent: () => import('./features/superadmin/users/users.component').then(m => m.UsersComponent) },
-      { path: 'subscriptions', loadComponent: () => import('./features/superadmin/subscriptions/subscriptions.component').then(m => m.SubscriptionsComponent) },
-      { path: 'activity', loadComponent: () => import('./features/superadmin/activity/activity.component').then(m => m.ActivityComponent) },
-      { path: 'system', loadComponent: () => import('./features/superadmin/system/system.component').then(m => m.SystemComponent) },
-      { path: 'support', loadComponent: () => import('./features/superadmin/support/support.component').then(m => m.SupportComponent) },
-      { path: 'support/:id', loadComponent: () => import('./features/superadmin/support/complaint-detail/complaint-detail.component').then(m => m.ComplaintDetailComponent) },
-      { path: 'flags', loadComponent: () => import('./features/superadmin/flags/flags.component').then(m => m.FlagsComponent) },
-      { path: 'ai-usage', loadComponent: () => import('./features/superadmin/ai-usage/ai-usage.component').then(m => m.AiUsageComponent) },
-      { path: 'settings', loadComponent: () => import('./features/superadmin/settings/settings.component').then(m => m.SettingsComponent) },
-    ]
+    loadChildren: () => import('./features/superadmin/superadmin.routes').then(m => m.superAdminRoutes),
+    data: { preload: false }
   },
   { path: '**', redirectTo: '' }
 ];

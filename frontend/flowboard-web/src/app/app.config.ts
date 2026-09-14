@@ -1,8 +1,9 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, withPreloading } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideTanStackQuery, QueryClient } from '@tanstack/angular-query-experimental';
 import { routes } from './app.routes';
+import { SelectivePreloadStrategy } from './core/strategies/selective-preload.strategy';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { correlationInterceptor } from './core/interceptors/correlation.interceptor';
 import { rateLimitInterceptor } from './core/interceptors/rate-limit.interceptor';
@@ -13,7 +14,7 @@ import { errorToastInterceptor } from './core/interceptors/error-toast.intercept
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(routes),
+    provideRouter(routes, withPreloading(SelectivePreloadStrategy)),
     provideHttpClient(withInterceptors([correlationInterceptor, maintenanceInterceptor, rateLimitInterceptor, loadingInterceptor, errorToastInterceptor, authInterceptor])),
     provideTanStackQuery(new QueryClient({
       defaultOptions: {
