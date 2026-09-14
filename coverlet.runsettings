@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Include>[Project.Service]Project.Service.Infrastructure.Services.ProjectService,[Project.Service]Project.Service.Infrastructure.Services.TaskService,[Project.Service]Project.Service.Infrastructure.Services.StatusService,[Project.Service]Project.Service.Infrastructure.Services.BoardService,[Identity.Service]Identity.Service.Infrastructure.Services.WorkspaceService,[SharedKernel]*</Include>
+          <ExcludeByFile>**/Migrations/**,**/Program.cs,**/obj/**,**/Gateway.YARP/**</ExcludeByFile>
+          <ExcludeByAttribute>ExcludeFromCodeCoverage,GeneratedCode</ExcludeByAttribute>
+          <Exclude>[*.Tests]*</Exclude>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

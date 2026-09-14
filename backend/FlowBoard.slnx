@@ -9,5 +9,9 @@
     <Project Path="Services/Notification.Service/Notification.Service.csproj" />
     <Project Path="Services/Project.Service/Project.Service.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FlowBoard.IntegrationTests/FlowBoard.IntegrationTests.csproj" />
+    <Project Path="tests/FlowBoard.UnitTests/FlowBoard.UnitTests.csproj" />
+  </Folder>
   <Project Path="Gateway.YARP/Gateway.YARP.csproj" />
 </Solution>
