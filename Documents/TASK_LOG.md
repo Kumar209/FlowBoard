@@ -18,14 +18,19 @@
 
 | Phase | Task Range | Completed | Status |
 |-------|------------|-----------|--------|
-| Phase 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
-| Phase 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
-| Phase 2: Project Core (CQRS) | 2.1 - 2.5 | 5/5 | Completed |
-| Phase 3: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
-| Phase 4: Files & Charts & Analytics | 4.1 - 4.5 | 5/5 | Completed |
-| Phase 5: Polish & Production Deploy | 5.1 - 5.5 | 1/5 | In Progress |
-| Phase 6: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
-| Phase 7: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
+| 0: Setup & Foundation | 0.1 - 0.5 | 5/5 | Completed |
+| 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
+| 2: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
+| 3: Project Core (CQRS) | 2.1 - 2.5 | 5/5 | Completed |
+| 4: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
+| 5: Files & Charts & Analytics | 4.1 - 4.5 | 5/5 | Completed |
+| 6: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
+| 7: SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
+| 8: Polish & Production Deploy | 5.1 - 5.5 | 1/5 | In Progress |
+| 9: Production Deployment | 5.4 | 0/1 | Pending |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 (50)** | **38/50** | **In Progress** |
+
+> **New Order Note (2026-09-14):** Phases reordered as per 0,1,2(Phase6),3(Project Core),4(Realtime),5(Files),6(AI),7(SuperAdmin),8(Polish),9(Production) — task sections below follow this new phase order as per table.
 | SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
 | **Total** | **0.1 - 7.7 + SA.1-SA.10 (50)** | **38/50** | **In Progress** |
 

@@ -1,159 +1,186 @@
-# FlowBoard — Architecture Rules (MNC-Grade — Strict)
+# FlowBoard — Architecture Rules
 
-> **Source:** `Documents/FlowBoard_System_Design.docx v1.3` + `Documents/FlowBoard_Tasks_Plan.docx v1.1`
-> **Applies to:** All microservices (`Identity.Service`, `Project.Service`, `File.Service`, `Notification.Service`) + Gateway + Frontend
-> **Enforcement:** Every new controller/command/query/service must follow this. Any session (new Opencode chat, new agent) must read this + `TASK_LOG.md` + `SESSION_RESUME.md` before coding. Violations are blocked in code review.
+> **For every developer (including future you) and every AI session.**
+> This file explains *how* we build FlowBoard so that the code stays consistent, secure, and easy to review.
+> It is based on `FlowBoard_System_Design.docx` and `FlowBoard_Tasks_Plan.docx`.
+> **Read this + `Documents/TASK_LOG.md` before writing any code.**
+
+**Applies to:** `Identity.Service`, `Project.Service`, `File.Service`, `Notification.Service`, `Gateway.YARP`, `frontend/flowboard-web` (Angular 22).
+
+**Enforcement:** Code review blocks any violation. No exceptions.
 
 ---
 
-## 1. Layering — Clean Architecture + DIP (Strict)
+## Table of Contents
+1. [How to Use This File](#how-to-use-this-file)
+2. [Layering — Clean Architecture](#1-layering--clean-architecture)
+3. [Controller → Command → Service Flow](#2-controller--command--service-flow)
+4. [Folder Structure](#3-folder-structure)
+5. [Frontend Rules](#4-frontend--angular-22-standalone)
+6. [Redis Caching](#5-redis-caching)
+7. [YARP, EF Core & Other Backend Rules](#6-yarp-ef-core--other-backend-rules)
+8. [Frontend 3-File Rule](#7-frontend-3-file-rule)
+9. [Git & Session Rules](#8-git--session-rules)
+10. [Permissions — Every New Feature Needs Them](#9-permissions--every-new-feature-needs-them)
+11. [Human Error Messages — Never Expose Internals](#10-human-error-messages--never-expose-internals)
+
+---
+
+## How to Use This File
+
+- **If you are a developer:** Read sections 1-4 before creating a new controller, command, or service.
+- **If you are an AI session:** Read this file + `Documents/TASK_LOG.md` + `Documents/FlowBoard_Tasks_Plan.docx` in order. Do not assume a task is next — check `TASK_LOG.md` for the first `Pending` task.
+- **If you are a reviewer:** Use the checklists at the end of sections 9 and 10.
+
+We keep this file human-readable: each rule has *why* it exists, a *good vs bad* example, and a *check*.
+
+---
+
+## 1. Layering — Clean Architecture
+
+**Why:** Keeps business logic testable and independent of frameworks. `Application` can be unit-tested without a database or Redis.
 
 ```
-Api (Controllers) 
-  → Application (Interfaces + Commands/Queries/DTOs + MediatR Handlers) 
+Api (Controllers)
+  → Application (Interfaces + Commands/Queries + DTOs + Handlers)
   → Domain (Entities, Enums, BaseEntity)
-  → Infrastructure (Implementations of Application Interfaces + Persistence + External Services)
+  → Infrastructure (Implementations + Persistence + External Services)
   ← SharedKernel (BaseEntity, Result, DomainEvent)
   ← Shared.Contracts (Integration Events)
 ```
 
-**Rule:** `Application` defines `interfaces`, `Infrastructure` implements. `Application` never references `Infrastructure` (except via DI). `Api` depends only on `Application` (via `IMediator` + `IApplicationDbContext` abstraction). `Domain` has no dependencies.
+**Rule:** `Application` defines *interfaces*, `Infrastructure` implements them. `Application` never imports `Infrastructure`. `Api` only knows `Application` (via `IMediator` + `IApplicationDbContext`). `Domain` has no dependencies at all.
 
-**Forbidden:** `using Infrastructure` inside `Application/Commands` handlers, `new DbContext` in controller, `static` service calls.
+**Bad:** `using Infrastructure` inside `Application/Commands/MyHandler.cs`, `new ProjectDbContext()` in a controller, `static` calls to `JwtProvider`.
+
+**Check:** `dotnet build` should not show `Application` referencing `Infrastructure`.
 
 ---
 
-## 2. Controller → Command/Query → Service (Strict — like AuthController)
+## 2. Controller → Command → Service Flow
 
-**Pattern (Auth is reference):**
+**Why:** Controllers stay thin, business logic stays in services, and every operation is testable via `MediatR`.
 
-```
-Controller (Api) 
-  - Injects IMediator + IApplicationDbContext only for thin orchestration (e.g., GetUserId() from claims)
-  - Does NOT contain business logic, no _db.Users.Where(...).ToList()
-  - Calls await _mediator.Send(new XxxCommand(...)) or new XxxQuery(...)
-  - Maps Result<T> to 201/200/403/BadRequest via Result.IsSuccess
-  - Extracts CallerId (Guid from ClaimTypes.NameIdentifier/sub) + CallerRoles (ClaimTypes.Role/role) and passes to command
+**Flow:**
 
-Command/Query (Application) 
-  - Record implements IRequest<Result<T>> (MediatR 12.4)
-  - Validator : AbstractValidator<T> (FluentValidation 11.10) — Title 300, Name 200, etc.
-  - Handler : IRequestHandler<T, Result<T>> — Injects *Service Interfaces* (e.g., IProjectService, ITaskService, IJwtProvider) — NOT IApplicationDbContext directly (except for Project legacy, must migrate to service)
-  - Handler calls service methods, returns Result<T>.Success / Failure (SharedKernel Result) — no throw for business errors
+1. **Controller (`Api`)** — thin, only orchestration:
+   - Injects `IMediator` and `IApplicationDbContext` (only for `GetUserId()` from claims).
+   - No `_db.Users.Where(...).ToList()` business logic.
+   - Calls `await _mediator.Send(new CreateProjectCommand(...))`.
+   - Maps `Result<T>` to `201 / 200 / 403 / 400`.
 
-Service Interface (Application/Interfaces) 
-  - e.g., IProjectService, IBoardService, ITaskService, IWorkspaceService, IOrganizationService, IJwtProvider, IPasswordHasher, IRefreshTokenService, IBrevoEmailService, IRedisCacheService
-  - Methods return DTOs or Result<T>, hide EF details
+2. **Command/Query (`Application`)** — `MediatR 12.4` + `FluentValidation 11.10`:
+   - `record CreateProjectCommand(...) : IRequest<Result<ProjectDto>>`
+   - `Validator : AbstractValidator<T>` (e.g., `Name` max 200, `Title` max 300).
+   - `Handler : IRequestHandler<T, Result<T>>` injects *service interfaces* (`IProjectService`, `IJwtProvider`), not `DbContext` directly. Calls the service, returns `Result.Success` or `Result.Failure` (no `throw` for business errors).
 
-Service Implementation (Infrastructure/Services or Infrastructure/Persistence) 
-  - Implements interface, injects IApplicationDbContext + other infra (IRedisCacheService, HttpClient for Brevo/Cloudinary/Gemini, IConnectionMultiplexer for Redis)
-  - Contains EF Core queries (Where, Include), hasTransaction, ActivityLog/Outbox same txn, cache invalidation via IRedisCacheService
-  - Registered in Program.cs as AddScoped<IInterface, Implementation> (or AddHttpClient for Brevo, AddSingleton for Redis)
-```
+3. **Service Interface (`Application/Interfaces`)** — e.g., `IProjectService`, `IJwtProvider`, `IRedisCacheService`. Methods return `DTOs` or `Result<T>`.
 
-**Example — Auth (good):**
+4. **Service Implementation (`Infrastructure/Services`)** — injects `IApplicationDbContext` + `IRedisCacheService` + `HttpClient`. Contains `EF Core` queries, `ActivityLog`/`Outbox` in same transaction, cache invalidation. Registered as `AddScoped<IProjectService, ProjectService>`.
+
+**Good example (Auth):**
 - `Api/Controllers/AuthController.cs` → `await _mediator.Send(new RegisterCommand(dto.Email, dto.Password, dto.FullName))`
-- `Application/Commands/RegisterCommand.cs` + `RegisterCommandHandler` injects `IJwtProvider, IPasswordHasher, IRefreshTokenService, IApplicationDbContext` (via IApplicationDbContext abstraction, but should ideally be IIdentityService — future)
-- `Infrastructure/Services/JwtProvider.cs : IJwtProvider` (moved from Application/Services)
+- `Application/Commands/RegisterCommand.cs` handler injects `IJwtProvider, IPasswordHasher, IRefreshTokenService`
+- `Infrastructure/Services/JwtProvider.cs : IJwtProvider`
 
-**Example — Workspace/Organization (must refactor to this):**
-- Before (bad): `WorkspacesController.cs` has `_db.WorkspaceMembers.Where(...).ToListAsync()` — remove
-- After (good): `WorkspacesController` → `GetMyWorkspacesQuery(workspaceId, page, search)` → `GetMyWorkspacesHandler` injects `IWorkspaceService` → `Infrastructure/Services/WorkspaceService.cs` does EF
-
-**Example — Project (must refactor):**
-- Before (bad): `CreateProjectCommandHandler` has `_db.Projects.Add(...)` — move to `IProjectService.CreateProjectAsync(...)` in `Infrastructure/Services/ProjectService.cs`
-- After (good): `ProjectsController` → `CreateProjectCommand(workspaceId, name, description, callerId, callerRoles)` → handler → `IProjectService` → Infrastructure EF + cache invalidation
+**Bad example (to refactor):**
+- `WorkspacesController.cs` with `_db.WorkspaceMembers.Where(...).ToListAsync()` → move to `IWorkspaceService` → `WorkspaceService.cs`.
 
 ---
 
-## 3. Folder Structure (Strict)
+## 3. Folder Structure
+
+**Why:** A predictable layout lets any developer find code in 30 seconds.
 
 ```
 backend/Services/{Service}/
-  Api/Controllers/          <- thin, IMediator only, no business logic, no _db
+  Api/Controllers/          <- thin controllers, IMediator only
   Application/
-    Interfaces/             <- IApplicationDbContext, IRedisCacheService, IJwtProvider, IWorkspaceService, IProjectService, etc. + DTOs
-    Commands/               <- Records + Validators + Handlers (no EF, call services)
-    Queries/                <- Records + Handlers (call services, ICacheableRequest for pipeline)
-    DTOs/                   <- ProjectDto, TaskDto, etc. (no EF navigation)
-    Behaviors/              <- CachingBehavior<TRequest,TResponse> for ICacheableRequest
+    Interfaces/             <- IApplicationDbContext, IRedisCacheService, IJwtProvider, DTOs
+    Commands/               <- Records + Validators + Handlers (call services, no EF)
+    Queries/                <- Records + Handlers (ICacheableRequest for caching)
+    DTOs/                   <- ProjectDto, TaskDto (no EF navigation)
+    Behaviors/              <- CachingBehavior<TRequest,TResponse>
     Caching/                <- CacheKeys, ICacheableRequest
-    Validators/             <- FluentValidation (if separate)
   Domain/
-    Entities/               <- Project, Board, BoardList, TaskItem, SubTask, Comment, ActivityLog, OutboxMessage, Sprint, Team, etc. : BaseEntity, IAggregateRoot, private setters, methods Update/Move/Rename
-    Enums/                  <- TaskPriority (only — Roles are in SharedKernel/Roles.cs, never Domain/Enums/WorkspaceRole)
+    Entities/               <- Project, Board, TaskItem, SubTask, Comment, ActivityLog, etc. : BaseEntity
+    Enums/                  <- TaskPriority (only)
   Infrastructure/
-    Persistence/            <- DbContext : IApplicationDbContext, HasDefaultSchema("project"/"identity"), Ignore(DomainEvents), Migrations
-    Services/               <- Implementations of Application/Interfaces (e.g., WorkspaceService, ProjectService, JwtProvider, BrevoEmailService, RedisCacheService, CloudinaryService, GeminiService)
-    Caching/                <- RedisCacheService : IRedisCacheService (StackExchange.Redis)
-  Program.cs                <- AddDbContext + AddMediatR + AddScoped<IInterface, Implementation> + AddAuthentication(JwtBearer) + AddAuthorization + MapControllers
+    Persistence/            <- DbContext : IApplicationDbContext, HasDefaultSchema("project"/"identity"), Migrations
+    Services/               <- Implementations of Application interfaces
+    Caching/                <- RedisCacheService : IRedisCacheService
+  Program.cs                <- AddDbContext + AddMediatR + AddScoped + AddAuthentication + MapControllers
 ```
 
-**Rule:** `Application/Services` folder must NOT exist — all service implementations go to `Infrastructure/Services` (see Image 1 — Application has Services, should be Infrastructure). If you see `Application/Services`, move to `Infrastructure/Services` and update `namespace` + `Program.cs` `using`.
+**Rule:** `Application/Services` must **not** exist. All implementations go to `Infrastructure/Services`. If you see `Application/Services`, move it and update `namespace` + `Program.cs`.
 
 ---
 
-## 4. Frontend — Angular 22 Standalone + Signals + TanStack (Strict)
+## 4. Frontend — Angular 22 Standalone
 
-- `input.required<T>()` + `computed` + `ChangeDetectionStrategy.OnPush` + `inject(HttpClient)` + `firstValueFrom` (not `toPromise`) + `injectQuery/injectMutation` (TanStack experimental 5.62)
+**Why:** Signals + TanStack Query is the 2026 MNC standard for .NET + Angular shops, not legacy `NgRx`.
+
+- `input.required<T>()` + `computed()` + `ChangeDetectionStrategy.OnPush` + `inject(HttpClient)` + `firstValueFrom` + `injectQuery/injectMutation` (TanStack experimental 5.62)
 - No `NgRx`, no internal CSS (`style: none` → Tailwind + DaisyUI 4.12.14 `src/styles.css` only, 6 themes `light/dark/corporate/cupcake/emerald/synthwave`)
 - `core/services/project.service.ts` uses `inject(HttpClient)` + `signals` + `environment.apiUrl` (`http://localhost:5000` Gateway) + `withCredentials:true`
-- `app.config.ts` `provideTanStackQuery(new QueryClient({defaultOptions: {queries: {staleTime: 2*60*1000}}})` matches Upstash `board 5m`/`tasks 2m`
+- `app.config.ts` `provideTanStackQuery(new QueryClient({defaultOptions: {queries: {staleTime: 2*60*1000}}}))` matches Redis `board 5m`/`tasks 2m`
 
 ---
 
-## 5. Redis Caching (MNC-Grade)
+## 5. Redis Caching
 
-- `Application/Caching/CacheKeys.cs` (pure, no Infra) + `Application/Interfaces/IRedisCacheService.cs` (GetAsync<T>/SetAsync/RemoveAsync) + `Application/Caching/ICacheableRequest<T>` + `Application/Behaviors/CachingBehavior<TRequest,TResponse> : IPipelineBehavior` (HIT/MISS `X-Cache` header)
-- Never use `RedisCacheService` directly in controller — handler or behavior uses `IRedisCacheService` + `CacheKeys`
-- Invalidation on write: `CreateTask/MoveTask` handler calls `_cache.RemoveAsync(CacheKeys.Board(projectId))` + `RemoveByPrefixAsync($"tasks:{projectId}:")`
+**Why:** Avoid repeated `SQL` for `board:{projectId}` and `tasks:{hash}`; works across `4` instances via `Upstash`.
 
----
-
-## 6. Other MNC Rules (Memorized)
-
-- `.env.example` + `appsettings.Development.json.example` with `PASTE_` placeholders — real secrets gitignored, same keys local/prod (Upstash `rediss://`, CloudAMQP `amqps://`, Cloudinary, Brevo `xkeysib-...`, Gemini `AIza...`)
-- `YARP 2.3` `yarp.json` `Order 0` specific (`/api/workspaces/{wid}/projects/{**catch-all}`) before `Order 1` catch-all (`/api/workspaces/{**catch-all}`) — add `team-route` for `/api/teams`
-- `EF Core 10` `HasDefaultSchema("project")` single `flowboard` DB 4 schemas, `Ignore(DomainEvents)`, `MigrationsHistoryTable("__EFMigrationsHistory", schema)`, composite `WorkspaceMember` PK, `TaskItem` avoids `Task` clash
-- **Roles — Single source `BuildingBlocks/SharedKernel/Roles.cs` + `frontend/shared/constants/roles.ts`** — Fixed org roles `Member 0 / OrgAdmin 2 / Client 3` (`OrganizationMember.Role`) + system `SuperAdmin 5` (`Users.IsSuperAdmin` + `WorkspaceMembers Role 5` for System org). Workspace roles are **dynamic custom** via `[identity].OrganizationWorkspaceRoles` + `WorkspaceMembers.CustomRoleId FK NoAction` (e.g., Developer, QA) — **never hardcoded `ProjectManager/Viewer`**. Checks use `Roles.OrgAdmin / Roles.Member / Roles.Client / Roles.SuperAdmin` constants, `RolePermissions` join for `attachment:view/create/delete` etc.; hardcoded `new[] {"OrgAdmin","ProjectManager"}` is forbidden. `Task 1.5` now `OrgAdmin/SuperAdmin` can create projects (custom `ProjectManager` via `project:create` permission), `Client 403 POST /tasks/attachments` via `Roles.Client` check, `Member` view+comment+attach.
-- `Board = view` (filter `teamIds` + `sprintId`), `Sprint = project time-box` (`ProjectId`, `BoardId?` nullable), `Issue = single source` (`Status` synced to `BoardList.Name` on `MoveToList`), `Backlog = view` `WHERE SprintId IS NULL`, `Environments` FK optional `Url`, `Team` `TeamMember` per project
-- `Future` `3.1` CloudAMQP+MassTransit+Outbox `2s` poll, `3.2` SignalR `10.0` Hub `:5004 /hubs/board` Groups, `3.3` CDK DragDrop + Redis lock + optimistic + realtime
+- `Application/Caching/CacheKeys.cs` (pure) + `Application/Interfaces/IRedisCacheService.cs` (`GetAsync<T>/SetAsync/RemoveAsync`) + `Application/Caching/ICacheableRequest<T>` + `Application/Behaviors/CachingBehavior<TRequest,TResponse>` (`HIT/MISS` `X-Cache` header)
+- Never call `RedisCacheService` directly in a controller — handler or behavior uses `IRedisCacheService` + `CacheKeys`.
+- On write (`CreateTask/MoveTask`): `_cache.RemoveAsync(CacheKeys.Board(projectId))` + `RemoveByPrefixAsync($"tasks:{projectId}:")`
 
 ---
 
-## 7. Frontend Component — 3-File Rule (MNC-Grade — Strict — Memorize Forever)
+## 6. YARP, EF Core & Other Backend Rules
 
-**Rule (never break):**
-- Every **component folder** must contain **exactly 3 files**: `*.component.html` + `*.component.ts` + `*.component.css` (css **always empty** `/* No internal CSS */`, all styles via `src/styles.css` Tailwind+DaisyUI).
-- **TS never holds HTML**: `template: `...`` is **forbidden**. Always use `templateUrl: './xxx.component.html'` + `styleUrls` is empty. `imports: [CommonModule]` + `ChangeDetectionStrategy.OnPush`.
-- A **feature folder** (e.g., `features/notifications`) may contain **multiple component subfolders** (e.g., `notification-list/` + `notification-detail-modal/`), each with 3 files. A **child component not shared** by others may live as subfolder inside parent component folder (e.g., `notification-list/notification-detail-modal/`), also 3 files — but shared components go to `shared/components/`.
-- **Double folder forbidden**: `features/board/board/board.component.*` is **incorrect** (component name `board` then folder `board` again). Correct is `features/board/board.component.*` (3 files directly under `features/board/`). Same for any `feature/<name>/<name>/`.
+- **Secrets:** `.env.example` + `appsettings.Development.json.example` with `PASTE_` placeholders. Real secrets are gitignored. Same keys for local/prod (`rediss://`, `amqps://`, `Cloudinary`, `Brevo xkeysib-...`, `Gemini AIza...`), only URLs differ.
+- **YARP 2.3:** `yarp.json` `Order 0` specific (`/api/workspaces/{wid}/projects/{**catch-all}`) before `Order 1` catch-all (`/api/workspaces/{**catch-all}`). Add `team-route` for `/api/teams` with same `Order` rule.
+- **EF Core 10:** `HasDefaultSchema("project")` single `flowboard` DB `4` schemas, `Ignore(DomainEvents)`, `MigrationsHistoryTable("__EFMigrationsHistory", schema)`, composite `WorkspaceMember` PK, `TaskItem` avoids `Task` clash.
+- **Roles — single source `BuildingBlocks/SharedKernel/Roles.cs` + `frontend/shared/constants/roles.ts`:** Fixed `Member 1 / OrgAdmin 2 / Client 3` (`OrganizationMember.Role`) + `SuperAdmin 0` (`Users.IsSuperAdmin`). Workspace roles are **dynamic custom** via `[identity].OrganizationWorkspaceRoles` + `WorkspaceMembers.CustomRoleId` (e.g., `Developer`, `QA`) — **never hardcoded `ProjectManager/Viewer`**. Use `Roles.OrgAdmin` constants, `RolePermissions` join for `attachment:view` etc.
+- **Board/Sprint/Issue:** `Board = view` (filter `teamIds` + `sprintId`), `Sprint = project time-box` (`ProjectId`, `BoardId?`), `Issue = single source` (`Status` synced on `MoveToList`), `Backlog = view` `WHERE SprintId IS NULL`.
+- **Future:** `3.1` `CloudAMQP+MassTransit+Outbox 2s` poll, `3.2` `SignalR 10.0 Hub :5004 /hubs/board` Groups, `3.3` `CDK DragDrop` + Redis lock + optimistic + realtime.
 
-**Correct examples:**
-- `features/notifications/notification-list/notification-list.component.{html,ts,css}` + `features/notifications/notification-detail-modal/notification-detail-modal.component.{html,ts,css}` (sibling component folders)
-- `shared/components/loader/loader.component.{html,ts,css}` (css empty)
+---
+
+## 7. Frontend 3-File Rule
+
+**Why:** Keeps styling consistent (one `src/styles.css`) and makes every component predictable for code review.
+
+**Rule:** Every **component folder** must have **exactly 3 files**: `*.component.html` + `*.component.ts` + `*.component.css` (css **always empty** `/* No internal CSS */`, styles via `src/styles.css`).
+
+**Good:**
+- `features/notifications/notification-list/notification-list.component.{html,ts,css}`
+- `shared/components/loader/loader.component.{html,ts,css}`
 - `features/board/board.component.{html,ts,css}` (not `board/board/board.component.*`)
 
-**Incorrect examples:**
-- `features/notifications/notification-list.component.ts` + `notification-detail-modal.component.ts` in same folder (4 files in one folder — split required)
-- `features/board/board/board.component.*` (nested double)
+**Bad:**
+- `features/notifications/notification-list.component.ts` + `notification-detail-modal.component.ts` in same folder (split required)
+- `features/board/board/board.component.*` (double folder)
+- `template: `...`` in `*.ts` (forbidden, use `templateUrl`)
 
-**Enforcement:** `grep -r "template:" src/app` must return **0** hits. Every `*.ts` must have `templateUrl`. Every `*.css` is empty. `ng build` must stay `0 errors`.
-
----
-
-## 8. Commit & Session
-
-- `git` at `FlowBoard` root (backend/ + frontend/ siblings), `origin https://github.com/Kumar209/FlowBoard.git` `main`
-- One task at a time, `TASK_LOG.md` 8-section + `Progress Overview` `X/26`, `SESSION_RESUME.md` + `Documents/*.md` + `Postman` remain source of truth — any new chat must read them before coding, even if told "already verified"
-- After each task, `dotnet build -c Release 0W` + `ng build --configuration production` `0 errors` before `git push`
+**Check:** `grep -r "template:" src/app` must be `0`. Every `*.css` empty. `ng build` `0 errors`.
 
 ---
 
-## 9. Permissions CRUD Rule (Strict — Every New Feature Must Add Permissions)
+## 8. Git & Session Rules
 
-**Rule (never skip):**
-- Whenever a new domain, entity, or operation is added (e.g., `Status` in `6.5→7.0`, `Boards`, `Sprints`, `Tasks`, `Files`, `AI`), you **MUST** add its CRUD permissions to the fixed catalog `IdentitySeeder.SeedPermissionsAsync` (`[identity].Permissions`):
+- `git` at `FlowBoard` root (`backend/` + `frontend/` siblings), `origin https://github.com/Kumar209/FlowBoard.git` `main`
+- One task at a time, `Documents/TASK_LOG.md` `8` sections + `Progress Overview` `X/50`, `Documents/FlowBoard_Tasks_Plan.docx` + `Documents/FlowBoard_System_Design.docx` are source of truth — any new chat must read them before coding.
+- After each task: `dotnet build -c Release 0W` + `ng build --configuration production` `0 errors` before `git push`.
+
+---
+
+## 9. Permissions — Every New Feature Needs Them
+
+**Why:** Custom roles (`Developer`, `QA`) need explicit permissions, otherwise `403` is inconsistent.
+
+**Rule:** When you add a new entity or operation (e.g., `Status`, `Boards`, `Sprints`), add `4` permissions to `IdentitySeeder.SeedPermissionsAsync` (`[identity].Permissions`):
 
 ```
 {entity}:view    → View {Entity}      — Group {Entity}
@@ -162,38 +189,40 @@ backend/Services/{Service}/
 {entity}:delete  → Delete {Entity}    — Group {Entity}
 ```
 
-  plus any extra operation-specific perms (e.g., `task:move`, `task:assign`, `activity:view:org`).
-- `view` is mandatory as the base read gate; `create/update/delete` follow REST `POST/PUT/DELETE`. Use lowercase `:` separator (`status:view` not `StatusView`).
-- Naming: `key` must be `lowercase:view/create/update/delete` (`status:view`, `sprint:view`, `file:view`), `Group` is capitalized (`Status`, `Sprint`, `Board`), `Name` is `View/Create/Update/Delete {Entity}`.
-- For this Jira-like implementation we added `status:view | status:create | status:update | status:delete` (4) → total `27 → 31` permissions and `attachment:view | attachment:create | attachment:update | attachment:delete` (4) → total `31 → 35` (count = previous 31 + 4). Future `Phase 4` (`AI`) and any new module must do the same (e.g., `ai:view/create`).
-- Enforcement: `IOrganizationRoleService` + `IOrganizationActivityService` check `activity:view:org` etc. via `RolePermissions` join; `SeedPermissionsAsync` is the single source of truth — no hard-coded permission string outside seeder + check.
+plus `task:move`, `task:assign`, etc. Use `lowercase:view/create` (`status:view` not `StatusView`).
 
-**Examples:**
-- `Status` → `status:view / status:create / status:update / status:delete` (implemented `7.0`, `[project].Statuses` + `[project].BoardColumnStatuses`)
-- `Sprint` → `sprint:view / sprint:create / sprint:update / sprint:delete` (already implied by `board` group, but should be explicit for sprint CRUD if separated)
-- `BoardColumn` → `board:update` covers column mapping (or `board:manage`); if new entity `BoardColumn` has its own CRUD, add `boardcolumn:view/...`
+**Example:** `Status → status:view/create/update/delete` (`7.0`, `[project].Statuses` + `BoardColumnStatuses`) — total `27 → 31` → `attachment:view/create/update/delete` `31 → 35`.
 
 **Checklist before `git push`:**
-- [ ] Added 4 `Permission` rows in `IdentitySeeder.cs` with `Group` and `Description`
-- [ ] Updated permission `count` in docs (`27 → 31 → ...`)
-- [ ] Added `RolePermissions` handling (seed for new roles if needed) and checks in `*Service.CanViewAsync` (like `OrganizationActivityService.CanViewAsync` for `status:view`)
+- [ ] Added `4` `Permission` rows in `IdentitySeeder.cs` with `Group` `Description`
+- [ ] Updated permission count in docs
+- [ ] Added `RolePermissions` checks in `*Service.CanViewAsync` (like `OrganizationActivityService.CanViewAsync` for `status:view`)
 - [ ] Verified `GET /api/permissions` returns new keys
 
 ---
 
-## 10. Human Error UX Rule (Strict — Never Expose Raw/Stack) — MNC-Grade
+## 10. Human Error Messages — Never Expose Internals
 
-**Rule (never break, applies to ALL 4 microservices + Gateway + Frontend, present & future APIs):**
-- Never return `exception.Message` with `StackTrace`, `Raw JSON`, `LineNumber/BytePosition`, `SQL`, `PromptHash` preview >500, or `InnerException` to client. Log full `Exception + RawPreview 500 + PromptHash + DurationMs + Stack` to `ILogger`/`Serilog` server only (`Infrastructure/AI/GeminiProvider Logs Warning` + `AiService LogAsync AiUsageLog Status Failed FailureReason 500`).
-- Client receives `simple human` `400 {error:"AI draft failed — please try again."}` or `400 {error:"Title required"}` or `429 {error:"Too Many Requests — please try again after 60s", retryAfter:60, Header Retry-After}` — `no LineNumber/Raw:…/at System.Text.Json` . `Frontend` `toast.error` truncates `>120 chars` and never renders `Raw:`.
-- For `AI Enhance` `description` is `optional` (`MNC Jira` — `if empty → generate from title only` `prompt = Title: {title} + No existing description. Generate description from title` `maxOutputTokens 2048` to avoid truncation `**Ste` `Expected end… 964` `Image 1`). Never `toast "Description shouldn't be empty"` as `block` — allow `title-only` enhance, but if `Title empty → toast "Title required"` (human).
-- Enforcement: Every new `Controller → Command → Handler → Service` must `catch (Exception ex) { _logger.LogError(ex, full); return Result.Failure("AI operation failed — please try again."); }` not `return Failure($"AI response parse failed: {ex.Message}. Raw: {raw[..200]}")`. `Frontend` `ai.service catch` maps `e.error?.error` with `includes("Raw:") || includes("LineNumber") || length>120 → "AI operation failed — please try again."`. `Code review` must `grep -r "Raw:"` `grep -r "LineNumber"` return `0` hits (except logger). Applies to `Identity` `AuthService login 401`, `Project` `TaskService`, `File` `Cloudinary`, `Notification` `Brevo` — all `403/400` must be human.
+**Why:** Users should see `Title required`, not `Raw: {"line":5} at System.Text.Json` + `StackTrace`.
+
+**Rule (applies to ALL 4 services + Gateway + Frontend):**
+- Log `Exception + RawPreview 500 + PromptHash + DurationMs + Stack` to `ILogger`/`Serilog` server only.
+- Client gets `400 {error:"AI draft failed — please try again."}` or `429 {error:"Too Many Requests — please try again after 60s", retryAfter:60, Header Retry-After}` — **no** `Raw:` `LineNumber` `at System`.
+- Frontend `toast.error` truncates `>120` chars to `AI operation failed — please try again.`
+- `AI Enhance` `description` is `optional` — `if empty → generate from title only` `prompt = Title: {title}` `maxOutputTokens 2048` — never `toast "Description shouldn't be empty"`; `Title empty → toast "Title required"`.
+
+**Enforcement:** Every `Controller → Command → Handler → Service` must:
+```csharp
+catch (Exception ex) { _logger.LogError(ex, full); return Result.Failure("AI operation failed — please try again."); }
+```
+not `return Failure($"Raw: {raw[..200]}")`. Code review: `grep -r "Raw:"` `grep -r "LineNumber"` must be `0` (except logger).
 
 **Checklist before `git push`:**
-- [ ] `Backend` `catch` logs `ex` + `RawPreview` + `PromptHash` via `_logger`, returns `human` `400/429` only (keeps `Retry-After` for `429`).
-- [ ] `Frontend` `toast` never shows `Raw:`/`LineNumber`/`at System` — `>120 chars` truncated to `human` `AI operation failed — please try again.`
-- [ ] `AI Enhance` `description optional` — `if empty → prompt = Title only` `Gemini 2048 tokens` `no block`.
+- [ ] `Backend` `catch` logs `ex` + `RawPreview` via `_logger`, returns `human` `400/429` only (keep `Retry-After`).
+- [ ] `Frontend` `toast` never shows `Raw:`/`LineNumber`/`at System` — `>120` truncated.
+- [ ] `AI Enhance` `description optional` `Title only` `2048` tokens.
 
 ---
 
-*Last updated: 2026-09-11 — Added Section 10 Human Error UX Rule (never expose Raw/Stack, simple human error, keep Retry-After, AI Enhance description optional title-only 2048 tokens) + Roles single-source, attachment 31→35.*
+*Last updated: 2026-09-14 — Added Rate Limiter + Human Error + 3-File Rule human-readable. Source of truth: `Documents/TASK_LOG.md` `38/50`.*
+
