@@ -35,9 +35,9 @@ export class ColumnModalComponent {
   private el = inject(ElementRef);
   pendingMoveStatus = signal<{id:string; name:string; fromColumn:string} | null>(null);
 
-  // Map statusId -> column name for already used statuses (excluding current column)
+  // Map statusId -> {columnName, count} for already used statuses (excluding current column) — for 1→0 guard
   usedStatusMap = computed(() => {
-    const map = new Map<string,string>();
+    const map = new Map<string,{columnName:string; count:number}>();
     const cols: any[] = (this.existingColumns() as any) || [];
     const curId = this.currentColumnId();
     for (const c of cols) {
@@ -45,10 +45,16 @@ export class ColumnModalComponent {
       const sids: string[] = (c as any).statusIds || [];
       for (const sid of sids) {
         const st = this.availableStatuses().find(s=>s.id===sid);
-        map.set(sid, c.name || st?.name || sid.slice(0,4));
+        map.set(sid, { columnName: c.name || st?.name || sid.slice(0,4), count: sids.length });
       }
     }
     return map;
+  });
+  // For template: statusId -> columnName (for display)
+  usedStatusColumnName = computed(() => {
+    const m = new Map<string,string>();
+    for (const [k,v] of this.usedStatusMap()) m.set(k, v.columnName);
+    return m;
   });
 
   @HostListener('document:click', ['$event'])
@@ -92,10 +98,15 @@ export class ColumnModalComponent {
 
   toggleStatus(id:string, checked:boolean){
     const usedMap = this.usedStatusMap();
-    const alreadyIn = usedMap.get(id);
-    if (checked && alreadyIn) {
+    const already = usedMap.get(id);
+    if (checked && already) {
+      if (already.count === 1) {
+        // Edge 1→0: source would be left without status — block move, show error via toast or inline
+        this.pendingMoveStatus.set({ id, name: this.availableStatuses().find(s=>s.id===id)?.name || id.slice(0,4), fromColumn: already.columnName + " (would be empty — add another status there first)" });
+        return;
+      }
       const st = this.availableStatuses().find(s=>s.id===id);
-      this.pendingMoveStatus.set({ id, name: st?.name || id.slice(0,4), fromColumn: alreadyIn });
+      this.pendingMoveStatus.set({ id, name: st?.name || id.slice(0,4), fromColumn: already.columnName });
       return;
     }
     if(checked) this.selectedStatusIds.set([...this.selectedStatusIds(), id]);

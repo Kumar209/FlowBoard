@@ -116,14 +116,17 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.Ignore(x => x.DomainEvents);
         });
 
-        // BoardColumnStatus - join for column → status mapping (multiple statuses per column)
+        // BoardColumnStatus - join for column → status mapping (multiple statuses per column, one status = one column per board, BoardId denormalized for per-board unique)
         b.Entity<BoardColumnStatus>(e =>
         {
             e.HasKey(x => new { x.ColumnId, x.StatusId });
             e.HasIndex(x => x.ColumnId);
             e.HasIndex(x => x.StatusId);
+            e.HasIndex(x => x.BoardId);
+            e.HasIndex(x => new { x.BoardId, x.StatusId }).IsUnique();
             e.HasOne(x => x.Column).WithMany().HasForeignKey(x => x.ColumnId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Status).WithMany().HasForeignKey(x => x.StatusId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Board).WithMany().HasForeignKey(x => x.BoardId).OnDelete(DeleteBehavior.NoAction);
         });
 
         // TaskItem (Status = project workflow status, StatusId FK; ListId nullable for backlog Jira-like)

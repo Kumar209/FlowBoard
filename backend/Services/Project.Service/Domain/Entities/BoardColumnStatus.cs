@@ -7,14 +7,17 @@ public class BoardColumnStatus
 {
     public Guid ColumnId { get; set; }
     public Guid StatusId { get; set; }
+    public Guid BoardId { get; set; }
 
     public BoardList? Column { get; set; }
     public Status? Status { get; set; }
+    public Board? Board { get; set; }
 
     public BoardColumnStatus() { }
-    public BoardColumnStatus(Guid columnId, Guid statusId)
+    public BoardColumnStatus(Guid columnId, Guid statusId, Guid boardId)
     {
         ColumnId = columnId;
         StatusId = statusId;
+        BoardId = boardId;
     }
 }

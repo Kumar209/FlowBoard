@@ -92,20 +92,32 @@ public class BoardService : IBoardService
         var list = new BoardList(projectId, display, pos, targetBoardId);
         _db.BoardLists.Add(list);
         await _db.SaveChangesAsync(ct);
-        // Move statuses already mapped to other columns of same board (C — one status one column, one column many statuses)
+        // A1 — Move with ≥1 guard: one status = one column per board, ≥1 required, move only if source cnt>1
         var distinctIds = statusIds.Distinct().ToList();
         var alreadyMapped = await _db.BoardColumnStatuses
             .Where(bcs => distinctIds.Contains(bcs.StatusId))
-            .Join(_db.BoardLists.Where(bl => bl.BoardId == targetBoardId), bcs => bcs.ColumnId, bl => bl.Id, (bcs, bl) => bcs)
+            .Join(_db.BoardLists.Where(bl => bl.BoardId == targetBoardId), bcs => bcs.ColumnId, bl => bl.Id, (bcs, bl) => new { bcs, bl })
             .ToListAsync(ct);
         if (alreadyMapped.Any())
         {
-            _db.BoardColumnStatuses.RemoveRange(alreadyMapped);
+            // Check edge 1→0: any source column with cnt==1 cannot be moved
+            foreach (var g in alreadyMapped.GroupBy(x => x.bl.Id))
+            {
+                var cnt = await _db.BoardColumnStatuses.CountAsync(bcs => bcs.ColumnId == g.Key, ct);
+                if (cnt == 1 && g.Any(x => distinctIds.Contains(x.bcs.StatusId)))
+                {
+                    var colName = g.First().bl.Name;
+                    var statusId = g.First().bcs.StatusId;
+                    var statusName = existingStatuses.First(s => s.Id == statusId).Name;
+                    return Result<BoardListDto>.Failure($"Cannot move status '{statusName}' — column '{colName}' would be left without status. Add another status to '{colName}' first.");
+                }
+            }
+            _db.BoardColumnStatuses.RemoveRange(alreadyMapped.Select(x => x.bcs));
             await _db.SaveChangesAsync(ct);
         }
         foreach (var sid in distinctIds)
         {
-            _db.BoardColumnStatuses.Add(new BoardColumnStatus(list.Id, sid));
+            _db.BoardColumnStatuses.Add(new BoardColumnStatus(list.Id, sid, targetBoardId.Value));
         }
         await _db.SaveChangesAsync(ct);
         var wsList = await _db.Projects.Where(p => p.Id == projectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
@@ -136,22 +148,35 @@ public class BoardService : IBoardService
             var distinctIds = statusIds.Distinct().ToList();
             var validStatuses = await _db.Statuses.Where(s => s.ProjectId == projectId && distinctIds.Contains(s.Id)).ToListAsync(ct);
             if (validStatuses.Count != distinctIds.Count) return Result<BoardListDto>.Failure("One or more statuses not found in this project");
-            // Remove existing mappings for this column
+            // Remove existing mappings for this column (target will get new set, so old target's 0 not an issue)
             var existing = await _db.BoardColumnStatuses.Where(bcs => bcs.ColumnId == listId).ToListAsync(ct);
             _db.BoardColumnStatuses.RemoveRange(existing);
             await _db.SaveChangesAsync(ct);
-            // Move statuses already mapped to other columns of same board
+            // Move statuses already mapped to other columns of same board — check 1→0 edge
             var alreadyMappedOther = await _db.BoardColumnStatuses
                 .Where(bcs => distinctIds.Contains(bcs.StatusId))
-                .Join(_db.BoardLists.Where(bl => bl.BoardId == list.BoardId), bcs => bcs.ColumnId, bl => bl.Id, (bcs, bl) => bcs)
+                .Join(_db.BoardLists.Where(bl => bl.BoardId == list.BoardId), bcs => bcs.ColumnId, bl => bl.Id, (bcs, bl) => new { bcs, bl })
                 .ToListAsync(ct);
             if (alreadyMappedOther.Any())
             {
-                _db.BoardColumnStatuses.RemoveRange(alreadyMappedOther);
+                foreach (var g in alreadyMappedOther.GroupBy(x => x.bl.Id))
+                {
+                    var cnt = await _db.BoardColumnStatuses.CountAsync(bcs => bcs.ColumnId == g.Key, ct);
+                    if (cnt == 1 && g.Any(x => distinctIds.Contains(x.bcs.StatusId)))
+                    {
+                        var colName = g.First().bl.Name;
+                        var statusName = validStatuses.First(s => g.Any(x => x.bcs.StatusId == s.Id)).Name;
+                        // Rollback already removed existing for target: re-add before return
+                        foreach (var old in existing) _db.BoardColumnStatuses.Add(new BoardColumnStatus(listId, old.StatusId, list.BoardId ?? Guid.Empty));
+                        await _db.SaveChangesAsync(ct);
+                        return Result<BoardListDto>.Failure($"Cannot move status '{statusName}' — column '{colName}' would be left without status. Add another status to '{colName}' first.");
+                    }
+                }
+                _db.BoardColumnStatuses.RemoveRange(alreadyMappedOther.Select(x => x.bcs));
                 await _db.SaveChangesAsync(ct);
             }
             foreach (var sid in distinctIds)
-                _db.BoardColumnStatuses.Add(new BoardColumnStatus(listId, sid));
+                _db.BoardColumnStatuses.Add(new BoardColumnStatus(listId, sid, list.BoardId ?? Guid.Empty));
             await _db.SaveChangesAsync(ct);
         }
         var wsRen = await _db.Projects.Where(p => p.Id == projectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);

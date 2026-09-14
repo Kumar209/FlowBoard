@@ -35,11 +35,15 @@
             @if (dropdownOpen()) {
               <div class="absolute z-20 mt-1 w-full bg-base-100 border rounded-xl shadow-xl max-h-40 overflow-y-auto p-1 status-dropdown">
                 @for (s of availableStatuses(); track s.id) {
-                  @let usedIn = usedStatusMap().get(s.id);
-                  <label class="flex items-center gap-2 cursor-pointer p-2 hover:bg-base-200 rounded-lg" [class.bg-warning/10]="!!usedIn && !selectedStatusIds().includes(s.id)">
-                    <input type="checkbox" class="checkbox checkbox-xs" [checked]="selectedStatusIds().includes(s.id)" (change)="toggleStatus(s.id, $any($event.target).checked)" />
+                  @let usedIn = usedStatusColumnName().get(s.id);
+                  @let usedInfo = usedStatusMap().get(s.id);
+                  <label class="flex items-center gap-2 p-2 rounded-lg" [class.cursor-pointer]="!usedInfo || usedInfo.count>1" [class.opacity-50]="usedInfo && usedInfo.count===1 && !selectedStatusIds().includes(s.id)" [class.bg-warning/10]="!!usedIn && !selectedStatusIds().includes(s.id)">
+                    <input type="checkbox" class="checkbox checkbox-xs" [checked]="selectedStatusIds().includes(s.id)" (change)="toggleStatus(s.id, $any($event.target).checked)" [disabled]="!!usedInfo && usedInfo.count===1 && !selectedStatusIds().includes(s.id)" />
                     <span class="text-sm flex-1">{{ s.name }}</span>
-                    @if (usedIn && !selectedStatusIds().includes(s.id)) { <span class="badge badge-ghost badge-xs">in {{ usedIn }} — click to move</span> }
+                    @if (usedIn && !selectedStatusIds().includes(s.id)) {
+                      @if (usedInfo && usedInfo.count===1) { <span class="badge badge-error badge-xs">in {{ usedIn }} (1) — cannot move, would be empty</span> }
+                      @else { <span class="badge badge-ghost badge-xs">in {{ usedIn }} — click to move</span> }
+                    }
                     @if (selectedStatusIds().includes(s.id) && usedIn) { <span class="badge badge-warning badge-xs">will move from {{ usedIn }}</span> }
                   </label>
                 }
@@ -53,12 +57,16 @@
           <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="cancelMoveStatus()"></div>
             <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-sm w-full p-4 relative z-10 border">
-              <h4 class="font-bold text-sm">Move status?</h4>
+              <h4 class="font-bold text-sm" [class.text-error]="pending.fromColumn.includes('would be empty')">{{ pending.fromColumn.includes('would be empty') ? 'Cannot move status' : 'Move status?' }}</h4>
               <p class="text-xs mt-2">Move <b>{{ pending.name }}</b> from <b>{{ pending.fromColumn }}</b> to this column?</p>
-              <p class="opacity-60 text-[11px] mt-1">One status can be in only one column. Tasks with this status will move to the new column.</p>
+              @if (pending.fromColumn.includes('would be empty')) {
+                <p class="text-error text-xs mt-2">● Column '{{ pending.fromColumn.split(' ')[0] }}' would be left without status. Add another status to that column first.</p>
+              } @else {
+                <p class="opacity-60 text-[11px] mt-1">One status can be in only one column. Tasks with this status will move to the new column.</p>
+              }
               <div class="flex gap-2 justify-end mt-4">
                 <button class="btn btn-ghost btn-xs rounded-full" (click)="cancelMoveStatus()">Cancel</button>
-                <button class="btn btn-warning btn-xs rounded-full" (click)="confirmMoveStatus()">Move</button>
+                <button class="btn btn-warning btn-xs rounded-full" (click)="confirmMoveStatus()" [disabled]="pending.fromColumn.includes('would be empty')">Move</button>
               </div>
             </div>
           </div>
