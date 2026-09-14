@@ -75,8 +75,8 @@ export class ProjectsComponent {
   projectsQuery = injectQuery(() => ({
     queryKey: ['projects-global', this.selectedWorkspaceId()] as const,
     queryFn: async () => {
-      const workspaces = await firstValueFrom(this.workspaceService.getMyWorkspaces());
-      const ids = this.selectedWorkspaceId() === 'all' ? workspaces.map(w => w.id) : [this.selectedWorkspaceId()];
+      const workspaces = this.workspacesQuery.data() ?? await firstValueFrom(this.workspaceService.getMyWorkspaces());
+      const ids = this.selectedWorkspaceId() === 'all' ? (workspaces as any[]).map(w => w.id) : [this.selectedWorkspaceId()];
       const results = await Promise.all(ids.map(id => firstValueFrom(this.projectService.getProjects(id)).catch(() => ({ items: [], total: 0 } as any))));
       const all = results.flatMap(r => r.items);
       return { items: all, total: all.length };

@@ -14,7 +14,7 @@ export const superAdminGuard: CanActivateFn = async () => {
       if (res?.accessToken) {
         auth.accessToken.set(res.accessToken);
         try {
-          const me: any = await firstValueFrom(auth.me());
+          const me: any = await firstValueFrom(auth.meDeduped());
           auth.hydrateFromMe(me);
         } catch {}
         // Fallback hydrate from token if me failed
@@ -51,7 +51,7 @@ export const superAdminGuard: CanActivateFn = async () => {
   if (auth.memberships().length === 0) {
     try {
       const { firstValueFrom } = await import('rxjs');
-      const me: any = await firstValueFrom(auth.me());
+      const me: any = await firstValueFrom(auth.meDeduped());
       auth.hydrateFromMe(me);
     } catch {}
     if (auth.memberships().length === 0) return true; // still allow, component will show loading then redirect if not superadmin

@@ -35,7 +35,7 @@ export class LayoutComponent implements OnInit {
 
   ngOnInit() {
     if (this.auth.isAuthenticated() && this.auth.memberships().length === 0) {
-      this.auth.me().subscribe({
+      this.auth.meDeduped().subscribe({
         next: res => this.auth.hydrateFromMe(res as any),
         error: () => {}
       });

@@ -14,7 +14,7 @@ export const authGuard: CanActivateFn = async () => {
     if (res?.accessToken) {
       auth.accessToken.set(res.accessToken);
       try {
-        const me: any = await firstValueFrom(auth.me());
+        const me: any = await firstValueFrom(auth.meDeduped());
         auth.hydrateFromMe(me);
       } catch {
         // me failed but token is valid — still consider authenticated, try to hydrate minimally

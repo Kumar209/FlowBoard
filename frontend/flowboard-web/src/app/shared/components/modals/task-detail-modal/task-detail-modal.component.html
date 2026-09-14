@@ -27,8 +27,8 @@
             <div class="flex justify-between items-center mt-2">
               <span class="text-xs opacity-60">Description</span>
               @if (!readOnly()) {
-                <button class="btn btn-ghost btn-xs rounded-full border" (click)="enhance()" [disabled]="enhanceLoading()" [class.loading]="enhanceLoading()">
-                  @if (enhanceLoading()) { Enhancing… } @else { ✨ Enhance }
+                <button class="btn btn-ghost btn-xs rounded-full border" (click)="enhance()" [disabled]="enhanceLoading() || !aiEnhanceEnabled()" [class.opacity-50]="!aiEnhanceEnabled()" [title]="!aiEnhanceEnabled() ? 'Disabled by SuperAdmin/Owner' : ''">
+                  @if (enhanceLoading()) { Enhancing… } @else { ✨ Enhance } @if (!aiEnhanceEnabled()) { <span class="badge badge-error badge-xs ml-1">Suspended</span> }
                 </button>
               }
             </div>
@@ -64,8 +64,8 @@
             <div class="flex justify-between items-center mb-2">
               <h4 class="font-semibold text-sm">Acceptance Criteria <span class="opacity-40 font-normal">optional</span></h4>
               @if (!readOnly()) {
-                <button class="btn btn-ghost btn-xs rounded-full border" (click)="generateCriteria()" [disabled]="criteriaGenerating()" [class.loading]="criteriaGenerating()">
-                  @if (criteriaGenerating()) { Generating… } @else { ✨ Generate }
+                <button class="btn btn-ghost btn-xs rounded-full border" (click)="generateCriteria()" [disabled]="criteriaGenerating() || !aiCriteriaEnabled()" [class.opacity-50]="!aiCriteriaEnabled()" [title]="!aiCriteriaEnabled() ? 'Disabled by SuperAdmin/Owner' : ''">
+                  @if (criteriaGenerating()) { Generating… } @else { ✨ Generate } @if (!aiCriteriaEnabled()) { <span class="badge badge-error badge-xs ml-1">Suspended</span> }
                 </button>
               }
             </div>
@@ -132,8 +132,8 @@
                   <span class="text-xs opacity-60">{{ subs.filter(s=>s.isCompleted).length }} / {{ subs.length }}</span>
                 }
                 @if (!readOnly()) {
-                  <button class="btn btn-ghost btn-xs rounded-full border" (click)="generateBreakdown()" [disabled]="breakdownGenerating()" [class.loading]="breakdownGenerating()">
-                    @if (breakdownGenerating()) { Generating… } @else { ✨ Breakdown }
+                  <button class="btn btn-ghost btn-xs rounded-full border" (click)="generateBreakdown()" [disabled]="breakdownGenerating() || !aiBreakdownEnabled()" [class.opacity-50]="!aiBreakdownEnabled()" [title]="!aiBreakdownEnabled() ? 'Disabled by SuperAdmin/Owner' : ''">
+                    @if (breakdownGenerating()) { Generating… } @else { ✨ Breakdown } @if (!aiBreakdownEnabled()) { <span class="badge badge-error badge-xs ml-1">Suspended</span> }
                   </button>
                 }
                 @if (pendingBreakdown().length) { <span class="badge badge-primary badge-xs">{{ pendingBreakdown().length }} pending</span> }

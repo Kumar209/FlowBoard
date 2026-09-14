@@ -100,8 +100,17 @@ export class AuthService {
   }
   clearRefreshDedup() { this.refreshInFlight = null; }
 
+  private meInFlight: Observable<MeResponse> | null = null;
   me() {
     return this.http.get<MeResponse>(`${environment.apiUrl}/api/auth/me`, { withCredentials: true });
+  }
+  meDeduped(): Observable<MeResponse> {
+    if (this.meInFlight) return this.meInFlight;
+    this.meInFlight = this.http.get<MeResponse>(`${environment.apiUrl}/api/auth/me`, { withCredentials: true }).pipe(
+      shareReplay({ bufferSize: 1, refCount: true }),
+      finalize(() => setTimeout(() => (this.meInFlight = null), 2000))
+    );
+    return this.meInFlight;
   }
 
   hydrateFromMe(res: MeResponse) {
