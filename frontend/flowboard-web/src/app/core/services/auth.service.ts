@@ -17,14 +17,12 @@ export interface AuthResponse {
   accessTokenExpiresAt: string;
 }
 
-// Re-export compact WorkspaceRole for compat — SuperAdmin 0, Member 1, OrgAdmin 2, Client 3 (legacy ProjectManager/Viewer → Member 1)
+// Fixed roles only — SuperAdmin 0, Member 1, OrgAdmin 2, Client 3. Workspace custom roles are dynamic via OrganizationWorkspaceRoles, not hardcoded here.
 export enum WorkspaceRole {
   SuperAdmin = 0,
   Member = 1,
   OrgAdmin = 2,
   Client = 3,
-  ProjectManager = 1,
-  Viewer = 1
 }
 
 export interface Membership {
@@ -47,24 +45,25 @@ export class AuthService {
 
   isAuthenticated = computed(() => this.currentUser() !== null && this.accessToken() !== null);
 
-  // Global role helpers - computed memoized (OnPush reads)
+  // Global role helpers — fixed roles only (Member/OrgAdmin/Client/SuperAdmin). Custom workspace roles are dynamic and checked via permissions on backend.
   hasAnyRole = computed(() => this.memberships().length > 0);
   isSuperAdmin = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.SuperAdmin || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.SuperAdmin)]));
   isOrgAdmin = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.OrgAdmin || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.OrgAdmin)]) || this.isSuperAdmin());
-  isProjectManager = computed(() => this.memberships().some(m => m.roleName === 'ProjectManager'));
   isMember = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.Member));
   isClient = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.Client || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.Client)]));
-  isViewer = computed(() => this.memberships().some(m => m.roleName === 'Viewer'));
+  // Custom workspace roles: not hardcoded — permission checks are backend-enforced via RolePermissions (e.g., project:create, comment:create). Frontend treats custom roles as Member-like for UX.
+  isViewer = computed(() => false);
+  isViewerFor = (_workspaceId: string) => false;
 
-  // Workspace-scoped checks
-  isManagerFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && m.roleName === 'ProjectManager');
+  // Workspace-scoped checks — only fixed roles; custom workspace roles are dynamic via OrganizationWorkspaceRoles
   isOrgAdminFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && (Number(m.role) === OrgRoleValues.OrgAdmin || Number(m.role) === OrgRoleValues.SuperAdmin));
-  isViewerFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && m.roleName === 'Viewer');
-  canCreateProject = computed(() => this.isOrgAdmin() || this.isProjectManager() || this.isSuperAdmin());
+  // legacy alias kept for compat — custom manager roles are not hardcoded, treat as OrgAdmin check
+  isManagerFor = (workspaceId: string) => this.isOrgAdminFor(workspaceId);
+  canCreateProject = computed(() => this.isOrgAdmin() || this.isSuperAdmin());
   canCreateWorkspace = computed(() => this.isOrgAdmin() || this.isSuperAdmin());
-  canCreateTask = computed(() => !this.isClient() && !this.isViewer()); // Client 403, Viewer 403
-  canComment = computed(() => !this.isViewer()); // Viewer no comment, Client can comment
-  canCommentFor = (workspaceId: string) => !this.isViewerFor(workspaceId);
+  canCreateTask = computed(() => !this.isClient()); // Client 403 via Roles.CanUpload
+  canComment = computed(() => true); // Client and all fixed roles can comment; custom Viewer-like restrictions are backend 403 via permissions
+  canCommentFor = (_workspaceId: string) => true;
 
   constructor(private http: HttpClient) {
     // In-memory only — no sessionStorage (Image 1 fix: nothing visible in Application > Session Storage)
