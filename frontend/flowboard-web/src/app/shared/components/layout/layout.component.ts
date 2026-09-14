@@ -48,13 +48,19 @@ export class LayoutComponent implements OnInit {
         localStorage.setItem('mainSidebarCollapsed', '0');
       }
     });
-    // Global platform-notice poll 30s for maintenance banner
-    const poll = () => this.http.get<any>(`${environment.apiUrl}/api/platform/maintenance`, { withCredentials: false }).subscribe({
-      next: (res:any) => { if (res?.isActive) this.globalNotice.set(res); else this.globalNotice.set(null); },
-      error: () => {}
-    });
+    // Maintenance banner — single fetch on load, then 5m poll only when tab visible (minimized)
+    const poll = () => {
+      if (document.visibilityState !== 'visible') return;
+      this.http.get<any>(`${environment.apiUrl}/api/platform/maintenance`, { withCredentials: false }).subscribe({
+        next: (res:any) => { if (res?.isActive) this.globalNotice.set(res); else this.globalNotice.set(null); },
+        error: () => {}
+      });
+    };
     poll();
-    setInterval(poll, 30000);
+    let timer: any;
+    const schedule = () => { clearInterval(timer); timer = setInterval(poll, 300000); }; // 5m, not 30s
+    schedule();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') poll(); });
   }
 
   toggle() { this.sidebarOpen.update(v => !v); }

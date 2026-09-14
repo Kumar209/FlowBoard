@@ -40,7 +40,7 @@ public class MaintenanceMiddleware
 
         try
         {
-            if ((DateTime.UtcNow - _lastFetch).TotalSeconds > 30)
+            if ((DateTime.UtcNow - _lastFetch).TotalSeconds > 300)
             {
                 try
                 {

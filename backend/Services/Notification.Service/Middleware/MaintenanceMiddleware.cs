@@ -24,7 +24,7 @@ public class MaintenanceMiddleware
         if (path.StartsWith("/api/platform/maintenance") || path.StartsWith("/api/platform/general")) { await _next(context); return; }
         try
         {
-            if ((DateTime.UtcNow - _lastFetch).TotalSeconds > 30)
+            if ((DateTime.UtcNow - _lastFetch).TotalSeconds > 300)
             {
                 try
                 {
