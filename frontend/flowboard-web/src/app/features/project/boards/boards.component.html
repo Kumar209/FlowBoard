@@ -1,7 +1,8 @@
 <div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
   <div class="flex justify-between items-center">
     <h1 class="text-xl font-bold">Boards</h1>
-    <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ New Board</button>
+    @if (canCreate()) { <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ New Board</button> }
+    @else { <span class="badge badge-ghost badge-xs">View only — missing board:create</span> }
   </div>
   <p class="text-xs opacity-60">Boards are views/configurations of the same Project issues — not copies. Each board stores filter (sprint/label/assignee) and column config. Project → Board → Sprint → Column → Task → Subtasks</p>
 
@@ -17,8 +18,8 @@
         <p class="text-xs opacity-60">{{ b.desc }}</p>
         <div class="flex gap-1 mt-3">
           <a [routerLink]="['../board']" [queryParams]="{view: b.id}" class="btn btn-primary btn-xs rounded-full flex-1">Open →</a>
-          <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(b)">Edit</button>
-          <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(b)">Delete</button>
+          @if (canUpdate()) { <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(b)">Edit</button> }
+          @if (canDelete()) { <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(b)">Delete</button> }
         </div>
       </div>
     }

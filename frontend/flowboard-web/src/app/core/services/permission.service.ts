@@ -2,10 +2,12 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
+import { AuthService } from './auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class PermissionService {
   private http = inject(HttpClient);
+  private auth = inject(AuthService);
   private cache = new Map<string, { perms: Set<string>; at: number }>();
   private ttl = 60_000; // 1m cache
 
@@ -35,6 +37,13 @@ export class PermissionService {
   }
 
   async getMyPermissions(workspaceId: string): Promise<Set<string>> {
+    // Prefer B (me cache) — single source, no extra HTTP
+    const fromMe = this.auth.memberships().find(m => m.workspaceId === workspaceId)?.permissions;
+    if (fromMe && fromMe.length) {
+      const set = new Set(fromMe);
+      this.cache.set(workspaceId, { perms: set, at: Date.now() });
+      return set;
+    }
     const cached = this.cache.get(workspaceId);
     if (cached && Date.now() - cached.at < this.ttl) return cached.perms;
     try {

@@ -11,3 +11,4 @@ public record AuthResponse(
 );
 
 public record UserDto(Guid Id, string Email, string FullName, string? AvatarUrl);
+public record WorkspaceMembershipDto(Guid WorkspaceId, string Role, Guid? CustomRoleId, string? CustomRoleName, List<string> Permissions);

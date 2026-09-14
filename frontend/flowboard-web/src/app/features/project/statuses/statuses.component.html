@@ -5,7 +5,7 @@
       <p class="text-xs opacity-60">Project-level statuses (explicit, no auto). Issues have a Status, boards map columns to statuses.</p>
       <p class="text-xs opacity-40">Create statuses like To Do, In Progress, In Review, Done. Boards will use them.</p>
     </div>
-    <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ New Status</button>
+    @if (canCreate()) { <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ New Status</button> } @else { <span class="badge badge-ghost badge-xs">View only — missing status:create</span> }
   </div>
 
   <div class="flex gap-2">
@@ -33,8 +33,8 @@
                 <td class="text-xs opacity-60">{{ s.createdAt | date:'short' }}</td>
                 <td>
                   <div class="flex gap-1">
-                    <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(s)">Edit</button>
-                    <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="openDelete(s)">Delete</button>
+                    @if (canUpdate()) { <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(s)">Edit</button> }
+                    @if (canDelete()) { <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="openDelete(s)">Delete</button> }
                   </div>
                 </td>
               </tr>

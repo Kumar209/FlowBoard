@@ -29,11 +29,14 @@ export interface Membership {
   workspaceId: string;
   role: WorkspaceRole | number;
   roleName?: string;
+  customRoleId?: string | null;
+  customRoleName?: string | null;
+  permissions?: string[];
 }
 
 export interface MeResponse {
   user: User;
-  workspaces: { workspaceId: string; role: string | number }[];
+  workspaces: { workspaceId: string; role: string | number; customRoleId?: string | null; customRoleName?: string | null; permissions?: string[] }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -111,10 +114,27 @@ export class AuthService {
         if (isNaN(roleNum) && roleName) {
           roleNum = (SharedRoleMap as any)[roleName] ?? 1;
         }
-        return { workspaceId: (w as any).workspaceId ?? (w as any).workspaceID ?? (w as any).id, role: isNaN(roleNum) ? raw : roleNum, roleName: roleName ?? (typeof raw === 'string' ? raw : undefined) };
+        return {
+          workspaceId: (w as any).workspaceId ?? (w as any).workspaceID ?? (w as any).id,
+          role: isNaN(roleNum) ? raw : roleNum,
+          roleName: roleName ?? (typeof raw === 'string' ? raw : undefined),
+          customRoleId: (w as any).customRoleId ?? null,
+          customRoleName: (w as any).customRoleName ?? null,
+          permissions: (w as any).permissions ?? []
+        };
       });
       this.memberships.set(mapped);
     }
+  }
+
+  hasPermission(workspaceId: string, permKey: string): boolean {
+    const m = this.memberships().find(x => x.workspaceId === workspaceId);
+    if (!m) return false;
+    if (m.permissions && m.permissions.length) return m.permissions.includes(permKey);
+    // Fallback to fixed role implicit: OrgAdmin/SuperAdmin have all
+    if (Number(m.role) === OrgRoleValues.SuperAdmin || Number(m.role) === OrgRoleValues.OrgAdmin || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.OrgAdmin)]) return true;
+    // Member/Client fallback handled via backend my-permissions, but for me cache we already have perms
+    return false;
   }
 
   logout() {

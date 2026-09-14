@@ -140,22 +140,53 @@ public class AuthService : IAuthService
         return Result<AuthResponse>.Success(new AuthResponse(user.Id, user.Email, user.FullName, accessToken, rawNew, accessExpires, newToken.ExpiresAt));
     }
 
-    public async Task<Result<(UserDto User, List<(Guid WorkspaceId, string Role)> Memberships)>> GetMeAsync(Guid userId, CancellationToken ct = default)
+    public async Task<Result<(UserDto User, List<WorkspaceMembershipDto> Memberships)>> GetMeAsync(Guid userId, CancellationToken ct = default)
     {
         var user = await _db.Users.FirstOrDefaultAsync(x => x.Id == userId, ct);
-        if (user == null) return Result<(UserDto, List<(Guid, string)>)>.Failure("User not found");
-        var membershipsRaw = await _db.WorkspaceMembers.Where(x => x.UserId == userId).Select(x => new { x.WorkspaceId, x.Role }).ToListAsync(ct);
-        var memberships = membershipsRaw.Select(x => new ValueTuple<Guid, string>(x.WorkspaceId, Roles.GetLabel(x.Role))).ToList();
+        if (user == null) return Result<(UserDto, List<WorkspaceMembershipDto>)>.Failure("User not found");
+        var isSuper = user.IsSuperAdmin;
+        var allPerms = isSuper ? await _db.Permissions.Select(p => p.Key).ToListAsync(ct) : new List<string>();
+        var wsMembers = await _db.WorkspaceMembers.Where(x => x.UserId == userId).ToListAsync(ct);
+        var memberships = new List<WorkspaceMembershipDto>();
+        foreach (var wm in wsMembers)
+        {
+            var roleLabel = Roles.GetLabel(wm.Role);
+            Guid? customId = wm.CustomRoleId;
+            string? customName = null;
+            List<string> perms;
+            if (isSuper) perms = allPerms;
+            else if (customId != null && customId != Guid.Empty)
+            {
+                var role = await _db.OrganizationWorkspaceRoles.FirstOrDefaultAsync(r => r.Id == customId.Value, ct);
+                customName = role?.Name;
+                var permIds = await _db.RolePermissions.Where(rp => rp.RoleId == customId.Value).Select(rp => rp.PermissionId).ToListAsync(ct);
+                perms = await _db.Permissions.Where(p => permIds.Contains(p.Id)).Select(p => p.Key).ToListAsync(ct);
+                // Fallback to fixed Member base if custom has no perms
+                if (!perms.Any() && wm.Role == Roles.MemberValue) perms = new List<string> { "org:view","workspace:view","project:view","board:view","status:view","task:view","task:create","task:update","task:move","task:assign","comment:view","comment:create","activity:view:project","attachment:view","attachment:create" };
+            }
+            else
+            {
+                // Fixed role implicit perms
+                if (wm.Role == Roles.OrgAdminValue) perms = await _db.Permissions.Select(p => p.Key).ToListAsync(ct);
+                else if (wm.Role == Roles.MemberValue) perms = new List<string> { "org:view","workspace:view","project:view","board:view","status:view","task:view","task:create","task:update","task:move","task:assign","comment:view","comment:create","activity:view:project","attachment:view","attachment:create" };
+                else if (wm.Role == Roles.ClientValue) perms = new List<string> { "org:view","workspace:view","project:view","board:view","status:view","task:view","comment:view","comment:create","attachment:view" };
+                else perms = new List<string> { "org:view" };
+            }
+            memberships.Add(new WorkspaceMembershipDto(wm.WorkspaceId, roleLabel, customId, customName, perms));
+        }
         var isOrgAdminMe = await _db.OrganizationMembers.AnyAsync(m => m.UserId == userId && m.Role == Roles.OrgAdminValue, ct) || await _db.Organizations.AnyAsync(o => o.OwnerId == userId, ct);
-        if (isOrgAdminMe && !memberships.Any(m => m.Item2 == Roles.OrgAdmin))
+        if (isOrgAdminMe && !memberships.Any(m => m.Role == Roles.OrgAdmin))
         {
             var wsIdMe = await _db.Workspaces.Where(w => _db.Organizations.Where(o => o.OwnerId == userId || _db.OrganizationMembers.Any(m => m.OrganizationId == o.Id && m.UserId == userId)).Select(o => o.Id).Contains(w.OrganizationId)).Select(w => w.Id).FirstOrDefaultAsync(ct);
-            memberships.Add((wsIdMe, Roles.OrgAdmin));
+            var permsAll = await _db.Permissions.Select(p => p.Key).ToListAsync(ct);
+            memberships.Add(new WorkspaceMembershipDto(wsIdMe, Roles.OrgAdmin, null, null, permsAll));
         }
-        if (user.IsSuperAdmin && !memberships.Any(m => m.Item2 == Roles.SuperAdmin))
-            memberships.Add((Guid.Empty, Roles.SuperAdmin));
+        if (isSuper && !memberships.Any(m => m.Role == Roles.SuperAdmin))
+        {
+            memberships.Add(new WorkspaceMembershipDto(Guid.Empty, Roles.SuperAdmin, null, null, allPerms));
+        }
         var userResponse = new UserDto(user.Id, user.Email, user.FullName, user.AvatarUrl);
-        return Result<(UserDto, List<(Guid, string)>)>.Success((userResponse, memberships));
+        return Result<(UserDto, List<WorkspaceMembershipDto>)>.Success((userResponse, memberships));
     }
 
     private async Task EnforcePendingForUserAsync(Guid userId, CancellationToken ct)

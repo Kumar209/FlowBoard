@@ -110,7 +110,7 @@ public class AuthController : ControllerBase
         return Ok(new
         {
             user = result.Value.User,
-            workspaces = result.Value.Memberships.Select(m => new { workspaceId = m.WorkspaceId, role = m.Role })
+            workspaces = result.Value.Memberships.Select(m => new { workspaceId = m.WorkspaceId, role = m.Role, customRoleId = m.CustomRoleId, customRoleName = m.CustomRoleName, permissions = m.Permissions })
         });
     }
 

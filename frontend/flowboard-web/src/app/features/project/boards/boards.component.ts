@@ -1,9 +1,11 @@
-import { Component, ChangeDetectionStrategy, signal, inject, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { PermissionService } from '../../../core/services/permission.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
@@ -19,7 +21,37 @@ export class BoardsComponent {
   private ps = inject(ProjectService);
   private toast = inject(ToastService);
   private qc = inject(QueryClient);
+  private perm = inject(PermissionService);
+  private auth = inject(AuthService);
+  workspaceId = signal(this.route.parent?.snapshot.paramMap.get('wid') || this.route.snapshot.paramMap.get('wid') || '');
   projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || '');
+  canCreate = signal(false);
+  canUpdate = signal(false);
+  canDelete = signal(false);
+  constructor() {
+    effect(async () => {
+      const wid = this.workspaceId();
+      if (!wid) return;
+      // Prefer me cache (B) — single source, no extra HTTP if me already has perms
+      const hasCreate = this.auth.hasPermission(wid, 'board:create');
+      const hasUpdate = this.auth.hasPermission(wid, 'board:update');
+      const hasDelete = this.auth.hasPermission(wid, 'board:delete');
+      if (hasCreate || hasUpdate || hasDelete) {
+        this.canCreate.set(hasCreate || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
+        this.canUpdate.set(hasUpdate || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
+        this.canDelete.set(hasDelete || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
+        return;
+      }
+      try {
+        const c = await this.perm.hasPermission(wid, 'board:create');
+        const u = await this.perm.hasPermission(wid, 'board:update');
+        const d = await this.perm.hasPermission(wid, 'board:delete');
+        this.canCreate.set(c || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
+        this.canUpdate.set(u || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
+        this.canDelete.set(d || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
+      } catch { this.canCreate.set(this.auth.isOrgAdmin() || this.auth.isSuperAdmin()); }
+    }, { allowSignalWrites: true });
+  }
   boardsQuery = injectQuery(() => ({
     queryKey: ['boards', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.ps.getBoards(this.projectId())),
