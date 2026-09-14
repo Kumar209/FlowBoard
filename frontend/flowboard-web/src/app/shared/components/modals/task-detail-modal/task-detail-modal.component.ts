@@ -20,6 +20,8 @@ import { ConfirmDeleteComponent } from '../confirm-delete/confirm-delete.compone
 import { FeatureDisabledModalComponent } from '../../feature-disabled-modal/feature-disabled-modal.component';
 import { FeatureFlagService } from '../../../../core/services/feature-flag.service';
 import { WorkspaceService } from '../../../../core/services/workspace.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../../../environments/environment';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
@@ -75,6 +77,7 @@ export class TaskDetailModalComponent {
   private aiService = inject(AiService);
   private flagService = inject(FeatureFlagService);
   private workspaceService = inject(WorkspaceService);
+  private http = inject(HttpClient);
   private sanitizer = inject(DomSanitizer);
   private queryClient = inject(QueryClient);
   showFlagDisabled = signal(false);

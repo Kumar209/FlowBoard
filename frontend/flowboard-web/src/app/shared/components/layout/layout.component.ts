@@ -48,10 +48,10 @@ export class LayoutComponent implements OnInit {
         localStorage.setItem('mainSidebarCollapsed', '0');
       }
     });
-    // Maintenance banner — single fetch on load, then 5m poll only when tab visible (minimized)
+    // Maintenance banner — single fetch on load, then 5m poll only when tab visible (minimized, silent)
     const poll = () => {
       if (document.visibilityState !== 'visible') return;
-      this.http.get<any>(`${environment.apiUrl}/api/platform/maintenance`, { withCredentials: false }).subscribe({
+      this.http.get<any>(`${environment.apiUrl}/api/platform/maintenance`, { withCredentials: false, headers: { 'X-Silent': 'true' } as any }).subscribe({
         next: (res:any) => { if (res?.isActive) this.globalNotice.set(res); else this.globalNotice.set(null); },
         error: () => {}
       });

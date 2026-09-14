@@ -13,7 +13,7 @@ export class FeatureFlagService {
   async load(force = false): Promise<void> {
     if (this.loaded() && !force) return;
     try {
-      const list: any = await firstValueFrom(this.http.get<any[]>(`${environment.apiUrl}/api/feature-flags`, { withCredentials: true }));
+      const list: any = await firstValueFrom(this.http.get<any[]>(`${environment.apiUrl}/api/feature-flags`, { withCredentials: true, headers: { 'X-Silent': 'true' } as any }));
       const map = new Map<string, boolean>();
       for (const f of list) map.set(f.key, !!f.isEnabled);
       this.flags.set(map);
@@ -26,7 +26,7 @@ export class FeatureFlagService {
     const cached = this.orgCache.get(orgId);
     if (!force && cached && Date.now() - cached.at < 5_000) return cached.map;
     try {
-      const list: any = await firstValueFrom(this.http.get<any[]>(`${environment.apiUrl}/api/feature-flags/organizations/${orgId}`, { withCredentials: true }));
+      const list: any = await firstValueFrom(this.http.get<any[]>(`${environment.apiUrl}/api/feature-flags/organizations/${orgId}`, { withCredentials: true, headers: { 'X-Silent': 'true' } as any }));
       const map = new Map<string, boolean>();
       for (const f of list) map.set(f.key, !!f.isEnabled);
       this.orgCache.set(orgId, { map, at: Date.now() });

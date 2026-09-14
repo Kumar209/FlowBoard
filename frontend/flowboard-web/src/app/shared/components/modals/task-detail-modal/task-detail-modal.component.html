@@ -665,4 +665,5 @@
       </div>
     }
   </div>
+  <app-feature-disabled-modal [open]="showFlagDisabled()" [featureName]="flagDisabledName()" [disabledBy]="flagDisabledBy()" (closed)="showFlagDisabled.set(false)" />
 }
