@@ -375,6 +375,11 @@ export class TaskDetailModalComponent {
     // Don't block on ancillary lookups — teams/sprints/members/status can load async and show fallback selects
     return true;
   });
+  canCommentHere = computed(() => {
+    const wid = this.workspaceId() || (this.boardForTaskQuery.data() as any)?.project?.workspaceId || '';
+    if (!wid) return this.auth.canComment();
+    return this.auth.canCommentFor(wid);
+  });
   isScrumBoard = computed(() => {
     const boardId = this.task()?.boardId || '';
     const boards = (this.boardForTaskQuery.data() as any)?.project ? [] : []; // fallback

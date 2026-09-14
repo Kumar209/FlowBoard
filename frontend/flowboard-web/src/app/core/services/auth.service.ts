@@ -51,18 +51,20 @@ export class AuthService {
   hasAnyRole = computed(() => this.memberships().length > 0);
   isSuperAdmin = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.SuperAdmin || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.SuperAdmin)]));
   isOrgAdmin = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.OrgAdmin || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.OrgAdmin)]) || this.isSuperAdmin());
-  isProjectManager = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.Member || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.Member)]));
+  isProjectManager = computed(() => this.memberships().some(m => m.roleName === 'ProjectManager'));
   isMember = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.Member));
   isClient = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.Client || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.Client)]));
-  isViewer = computed(() => this.memberships().some(m => Number(m.role) === OrgRoleValues.Member));
+  isViewer = computed(() => this.memberships().some(m => m.roleName === 'Viewer'));
 
   // Workspace-scoped checks
-  isManagerFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && Number(m.role) === OrgRoleValues.Member);
+  isManagerFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && m.roleName === 'ProjectManager');
   isOrgAdminFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && (Number(m.role) === OrgRoleValues.OrgAdmin || Number(m.role) === OrgRoleValues.SuperAdmin));
+  isViewerFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && m.roleName === 'Viewer');
   canCreateProject = computed(() => this.isOrgAdmin() || this.isProjectManager() || this.isSuperAdmin());
   canCreateWorkspace = computed(() => this.isOrgAdmin() || this.isSuperAdmin());
   canCreateTask = computed(() => !this.isClient() && !this.isViewer()); // Client 403, Viewer 403
   canComment = computed(() => !this.isViewer()); // Viewer no comment, Client can comment
+  canCommentFor = (workspaceId: string) => !this.isViewerFor(workspaceId);
 
   constructor(private http: HttpClient) {
     // In-memory only — no sessionStorage (Image 1 fix: nothing visible in Application > Session Storage)

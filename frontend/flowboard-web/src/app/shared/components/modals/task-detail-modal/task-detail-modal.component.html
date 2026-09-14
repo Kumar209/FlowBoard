@@ -260,9 +260,9 @@
               <app-confirm-delete [open]="!!deleteCommentConfirmId()" title="Delete comment?" message="This will permanently delete the comment." [loading]="deleteCommentMut.isPending()" (cancelled)="deleteCommentConfirmId.set(null)" (confirmed)="doDeleteComment()" />
               <div class="flex gap-2">
                 <input type="text" placeholder="Add a comment... (Client can comment, Viewer cannot)" class="input input-bordered flex-1 rounded-xl text-sm input-sm" [value]="newComment()" (input)="newComment.set($any($event.target).value)" (keydown.enter)="addComment()" />
-                <button class="btn btn-primary btn-sm rounded-xl" (click)="addComment()" [disabled]="!newComment().trim() || !auth.canComment()" [class.loading]="createCommentMut.isPending()">Comment</button>
+                <button class="btn btn-primary btn-sm rounded-xl" (click)="addComment()" [disabled]="!newComment().trim() || !canCommentHere()" [class.loading]="createCommentMut.isPending()">Comment</button>
               </div>
-              @if (!auth.canComment()) { <p class="text-xs text-error mt-1">Viewer cannot comment</p> }
+              @if (!canCommentHere()) { <p class="text-xs text-error mt-1">Viewer cannot comment</p> }
               } @else if (activeTab()==='attachments') {
               <!-- Attachments Jira-style -->
               <div class="space-y-3">
