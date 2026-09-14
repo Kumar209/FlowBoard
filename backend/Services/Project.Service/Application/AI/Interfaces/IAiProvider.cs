@@ -3,7 +3,7 @@ using Project.Service.Application.AI.DTOs;
 namespace Project.Service.Application.AI.Interfaces;
 
 /// <summary>
-/// IAiProvider - abstraction for LLM providers (Gemini 2.5 Flash fixed + Groq llama-3.1-8b selectable). Infrastructure implements via HttpClient (same keys local/prod). DIP - Application depends on interface, mockable without network.
+/// IAiProvider - abstraction for LLM providers (Gemini 2.5 Flash fixed + Groq llama-3.1-8b selectable). Infrastructure implements via HttpClient (same keys local/prod). DIP - Application depends on interface, testable without network.
 /// </summary>
 public interface IAiProvider
 {

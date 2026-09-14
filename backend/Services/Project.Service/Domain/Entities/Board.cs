@@ -3,7 +3,7 @@ using SharedKernel;
 namespace Project.Service.Domain.Entities;
 
 /// <summary>
-/// Board - Enterprise: Project has multiple Boards (Engineering/QA/Support) as different views/configurations of same issues.
+/// Board - Project has multiple Boards (Engineering/QA/Support) as different views/configurations of same issues.
 /// Board owns Columns (BoardList), Swimlanes, Settings. Issues (TaskItem) belong to Project, but are organized via Board + Sprint + Column.
 /// This is UI hierarchy, not DB hierarchy: PROJECT → BOARDS, SPRINTS, ISSUES, EPICS, WORKFLOWS. BOARD → Columns, BoardFilter.
 /// For backward compat, existing BoardList.ProjectId remains, but new Boards will have ProjectId and BoardList will get BoardId.

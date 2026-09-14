@@ -7,7 +7,7 @@ namespace Identity.Service.Infrastructure.Persistence;
 
 // Single DB flowboard with schema [identity] - 4 schemas total (identity, project, file, notification)
 // Each service has its own DbContext with HasDefaultSchema, same ConnectionStrings Default = Server=localhost;Database=flowboard
-// Enterprise: Implements IApplicationDbContext (defined in Application) - DIP, testable via mock
+// Implements IApplicationDbContext — DIP, testable without DB
 public class IdentityDbContext : DbContext, IApplicationDbContext
 {
     public IdentityDbContext(DbContextOptions<IdentityDbContext> options) : base(options) { }
@@ -49,7 +49,7 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
             e.Property(x => x.AvatarUrl).HasMaxLength(512);
         });
 
-        // SubscriptionPlans - lookup table for billing (MNC enum+table hybrid)
+        // SubscriptionPlans - lookup table for billing (enum+table hybrid)
         modelBuilder.Entity<SubscriptionPlanEntity>(e =>
         {
             e.HasKey(x => x.Id);

@@ -8,7 +8,7 @@ using Project.Service.Application.Interfaces;
 namespace Project.Service.Application.Commands;
 
 /// <summary>
-/// Board CRUD - Enterprise: Project has multiple Boards (Engineering/QA/Support) as views. Boards own Columns.
+/// Board CRUD - Project has multiple Boards (Engineering/QA/Support) as views. Boards own Columns.
 /// </summary>
 public record CreateBoardCommand(Guid ProjectId, string Name, string Type, string? Description, Guid CallerId, List<string> CallerRoles, string? FilterJson = null) : IRequest<Result<BoardInfoDto>>;
 public record UpdateBoardCommand(Guid BoardId, string Name, string Type, Guid CallerId, List<string> CallerRoles, string? FilterJson = null) : IRequest<Result<BoardInfoDto>>;

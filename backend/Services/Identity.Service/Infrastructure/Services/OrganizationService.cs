@@ -12,6 +12,13 @@ public class OrganizationService : IOrganizationService
 
     public OrganizationService(IApplicationDbContext db) => _db = db;
 
+    private async Task<bool> IsOrgAdminAsync(Guid organizationId, Guid callerId, CancellationToken ct)
+    {
+        if (await _db.Users.AnyAsync(u => u.Id == callerId && u.IsSuperAdmin, ct)) return true;
+        if (await _db.Organizations.AnyAsync(o => o.Id == organizationId && o.OwnerId == callerId, ct)) return true;
+        return await _db.OrganizationMembers.AnyAsync(m => m.OrganizationId == organizationId && m.UserId == callerId && m.Role == Roles.OrgAdminValue, ct);
+    }
+
     public async Task<List<OrganizationDto>> GetMyOrganizationsAsync(Guid userId, CancellationToken ct = default)
     {
         var workspaceOrgIds = await _db.WorkspaceMembers.Where(m => m.UserId == userId).Select(m => m.Workspace).Where(w => w != null).Select(w => w!.OrganizationId).Distinct().ToListAsync(ct);
@@ -34,10 +41,7 @@ public class OrganizationService : IOrganizationService
     {
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
-        var isOwner = org.OwnerId == callerId;
-        var isSuper = await _db.WorkspaceMembers.Where(m => m.UserId == callerId && m.Role == Roles.SuperAdminValue).AnyAsync(ct);
-        var isOrgAdmin = isSuper || await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == Roles.OrgAdminValue || m.Role == Roles.SuperAdminValue, ct);
-        if (!isOwner && !isOrgAdmin && !isSuper) throw new ForbiddenException("Forbidden - Need OrgAdmin for own org or SuperAdmin");
+        if (!await IsOrgAdminAsync(organizationId, callerId, ct)) throw new ForbiddenException("Forbidden - Need OrgAdmin for own org or SuperAdmin");
         if (string.IsNullOrWhiteSpace(name)) throw new ValidationException("Name required");
         org.Update(name, description);
         await _db.SaveChangesAsync(ct);
@@ -48,10 +52,7 @@ public class OrganizationService : IOrganizationService
     {
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
-        var isOwner = org.OwnerId == callerId;
-        var isSuper = await _db.WorkspaceMembers.Where(m => m.UserId == callerId && m.Role == Roles.SuperAdminValue).AnyAsync(ct);
-        var isOrgAdmin = isSuper || await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == Roles.OrgAdminValue || m.Role == Roles.SuperAdminValue, ct);
-        if (!isOwner && !isSuper && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin for own org or SuperAdmin");
+        if (!await IsOrgAdminAsync(organizationId, callerId, ct)) throw new ForbiddenException("Forbidden - Need OrgAdmin for own org or SuperAdmin");
         // For SuperAdmin can delete any org, for OrgAdmin only own org (already checked via isOrgAdmin/isOwner)
         var workspaceIds = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).ToListAsync(ct);
         if (workspaceIds.Any())
@@ -117,9 +118,7 @@ public class OrganizationService : IOrganizationService
     {
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
-        var isOwner = org.OwnerId == callerId;
-        var isOrgAdmin = await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == Roles.OrgAdminValue || m.Role == Roles.SuperAdminValue, ct);
-        if (!isOwner && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin");
+        if (!await IsOrgAdminAsync(organizationId, callerId, ct)) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(password)) throw new ValidationException("FullName, Email, Password required");
         if (await _db.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower(), ct)) throw new ValidationException("Email already exists");
         var user = new User(email.ToLowerInvariant(), BCrypt.Net.BCrypt.HashPassword(password), fullName);
@@ -178,9 +177,7 @@ public class OrganizationService : IOrganizationService
     {
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
-        var isOwner = org.OwnerId == callerId;
-        var isOrgAdmin = await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == Roles.OrgAdminValue || m.Role == Roles.SuperAdminValue, ct);
-        if (!isOwner && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin");
+        if (!await IsOrgAdminAsync(organizationId, callerId, ct)) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
         if (user == null) throw new NotFoundException("User not found");
         if (!string.IsNullOrWhiteSpace(fullName)) user.UpdateFullName(fullName);
@@ -260,9 +257,7 @@ public class OrganizationService : IOrganizationService
     {
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
-        var isOwner = org.OwnerId == callerId;
-        var isOrgAdmin = await _db.WorkspaceMembers.Where(m => m.UserId == callerId).Join(_db.Workspaces.Where(w => w.OrganizationId == organizationId), m => m.WorkspaceId, w => w.Id, (m,w) => m).AnyAsync(m => m.Role == Roles.OrgAdminValue || m.Role == Roles.SuperAdminValue, ct);
-        if (!isOwner && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin");
+        if (!await IsOrgAdminAsync(organizationId, callerId, ct)) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         if (userId == org.OwnerId) throw new ValidationException("Cannot remove organization owner");
         var workspaceIds = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).ToListAsync(ct);
         var memberships = await _db.WorkspaceMembers.Where(m => m.UserId == userId && workspaceIds.Contains(m.WorkspaceId)).ToListAsync(ct);

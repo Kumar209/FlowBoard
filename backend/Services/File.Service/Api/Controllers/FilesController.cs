@@ -16,14 +16,14 @@ public class FilesController : ControllerBase
 
     // POST /api/files/upload (multipart form: taskId + file)
     [HttpPost("api/files/upload")]
-    [RequestSizeLimit(11 * 1024 * 1024)]
+    [RequestSizeLimit(26 * 1024 * 1024)]
     public async Task<IActionResult> Upload([FromForm] UploadForm form, CancellationToken ct)
     {
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var roles = GetRoles();
         if (form.File == null || form.File.Length == 0) return BadRequest(new { error = "File required" });
         if (form.TaskId == Guid.Empty) return BadRequest(new { error = "TaskId required" });
-        if (form.File.Length > 10 * 1024 * 1024) return BadRequest(new { error = "File too large >10MB" });
+        if (form.File.Length > 25 * 1024 * 1024) return BadRequest(new { error = "File too large — please try again with a smaller file (max 25MB)." });
 
         using var stream = form.File.OpenReadStream();
         var cmd = new UploadAttachmentCommand(form.TaskId, form.File.FileName, form.File.ContentType ?? "application/octet-stream", form.File.Length, stream, userId.Value, roles);
@@ -50,7 +50,7 @@ public class FilesController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return StatusCode(403, new { error = ex.Message });
+            return StatusCode(403, new { error = "Forbidden — you do not have permission." });
         }
     }
 

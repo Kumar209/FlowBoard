@@ -3,6 +3,7 @@ import { authGuard, orgAdminGuard } from './core/guards/auth.guard';
 import { superAdminGuard } from './core/guards/superadmin.guard';
 
 export const routes: Routes = [
+  { path: 'maintenance', loadComponent: () => import('./features/maintenance/maintenance.component').then(m => m.MaintenanceComponent) },
   { path: 'login', loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent) },
   { path: 'register', loadComponent: () => import('./features/auth/register/register.component').then(m => m.RegisterComponent) },
   {

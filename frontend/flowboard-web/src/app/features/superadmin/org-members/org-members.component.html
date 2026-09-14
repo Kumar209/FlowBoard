@@ -1,0 +1,44 @@
+<div class="p-3 sm:p-4 space-y-4">
+  <div class="flex items-center gap-3">
+    <a routerLink="/superadmin/users" class="btn btn-sm btn-ghost">← Back to Users</a>
+    <h1 class="text-xl font-bold">Organization Members</h1>
+    <span class="text-xs opacity-50">{{ orgId() | slice:0:8 }}</span>
+  </div>
+  <div class="flex gap-2">
+    <input class="input input-bordered input-sm w-64" placeholder="Search name or email..." [ngModel]="searchInput()" (ngModelChange)="searchInput.set($event)" (keyup.enter)="onSearch()" />
+    <button class="btn btn-sm btn-primary" (click)="onSearch()">Search</button>
+    @if (search()) { <button class="btn btn-sm btn-ghost" (click)="clearSearch()">Clear</button> }
+  </div>
+  <div class="text-xs opacity-60">Read-only roster — fixed org roles OrgAdmin/Member/Client only, no custom roles, no actions.</div>
+
+  @if (query.isPending()) {
+    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
+  } <!-- error via toast --> @else {
+    <div class="card bg-base-100 shadow overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead><tr><th>User</th><th>Email</th><th>Org Role</th><th>Status</th><th>Joined</th></tr></thead>
+          <tbody>
+            @for (m of items; track m.userId) {
+              <tr>
+                <td><div class="font-medium">{{ m.fullName }}</div><div class="text-xs opacity-50">{{ m.userId | slice:0:8 }}</div></td>
+                <td><span class="text-sm">{{ m.email }}</span></td>
+                <td><span class="badge badge-sm {{ roleBadgeClass(m.orgRole) }}">{{ m.orgRole }}</span></td>
+                <td>@if (m.isActive) { <span class="badge badge-success badge-sm">Active</span> } @else { <span class="badge badge-error badge-sm">Suspended</span> }</td>
+                <td><span class="text-xs">{{ m.joinedAt | date:'mediumDate' }}</span></td>
+              </tr>
+            }
+            @if (items.length === 0) { <tr><td colspan="5" class="text-center py-8 opacity-50">No members</td></tr> }
+          </tbody>
+        </table>
+      </div>
+      <div class="flex items-center justify-between p-3 border-t border-base-200">
+        <div class="text-xs opacity-60">Total {{ total }} · Page {{ page() }} / {{ totalPages }}</div>
+        <div class="flex gap-2">
+          <button class="btn btn-xs" [disabled]="page() <= 1" (click)="prevPage()">Prev</button>
+          <button class="btn btn-xs" [disabled]="page() >= totalPages" (click)="nextPage()">Next</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

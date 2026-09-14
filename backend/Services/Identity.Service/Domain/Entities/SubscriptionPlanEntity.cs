@@ -3,9 +3,7 @@ using SharedKernel;
 namespace Identity.Service.Domain.Entities;
 
 /// <summary>
-/// SubscriptionPlans table [identity].SubscriptionPlans — MNC-grade lookup for billing.
-/// Seeded Free/Pro/Business/Enterprise via IdentitySeeder. Organizations.SubscriptionPlanId FK.
-/// Enum SubscriptionPlan (SharedKernel) is code single source, table holds mutable limits.
+/// Lookup for billing limits. Seeded via IdentitySeeder.
 /// </summary>
 public class SubscriptionPlanEntity : BaseEntity, IAggregateRoot
 {

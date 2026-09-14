@@ -6,7 +6,7 @@ using Project.Service.Application.Queries;
 namespace Project.Service.Api.Controllers;
 
 /// <summary>
-/// Activities API - GET /api/projects/{projectId}/activities paginated timeline for burndown (Task 4.4).
+/// Activities API - GET /api/projects/{projectId}/activities paginated timeline for burndown.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -18,6 +18,8 @@ public class ActivitiesController : ControllerBase
     [HttpGet("api/projects/{projectId}/activities")]
     public async Task<IActionResult> Get(Guid projectId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? taskId = null)
     {
+        page = Math.Clamp(page, 1, 1000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
         var q = new GetActivitiesQuery(projectId, page, pageSize, taskId);
         var (items, total) = await _mediator.Send(q);
         Response.Headers.Append("X-Total-Count", total.ToString());

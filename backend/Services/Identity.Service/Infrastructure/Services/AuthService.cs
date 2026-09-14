@@ -102,7 +102,7 @@ public class AuthService : IAuthService
             var wsId = await _db.Workspaces.Where(w => userOrgIds.Contains(w.OrganizationId)).Select(w => w.Id).FirstOrDefaultAsync(ct);
             memberships.Add((wsId, Roles.OrgAdmin));
         }
-        // MNC-grade: global SuperAdmin via Users.IsSuperAdmin flag, not workspace membership
+        // Global SuperAdmin via IsSuperAdmin
         if (user.IsSuperAdmin && !memberships.Any(m => m.Item2 == Roles.SuperAdmin))
             memberships.Add((Guid.Empty, Roles.SuperAdmin));
         var (accessToken, accessExpires) = _jwt.GenerateAccessToken(user, memberships);

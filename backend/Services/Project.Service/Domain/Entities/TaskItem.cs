@@ -19,7 +19,7 @@ public class TaskItem : BaseEntity, IAggregateRoot
     public int Position { get; private set; }
     public Guid CreatedById { get; private set; }
     public DateTime? DueDate { get; private set; }
-    // Enterprise extensions
+    // Extended fields
     public string IssueType { get; private set; } = "Task"; // Task, Bug, Story, Feature, Sub-task
     public string? Epic { get; private set; } // e.g., Authentication
     public int? StoryPoints { get; private set; } // e.g., 5

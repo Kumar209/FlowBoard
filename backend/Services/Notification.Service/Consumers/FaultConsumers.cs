@@ -6,7 +6,7 @@ namespace Notification.Service.Consumers;
 /// <summary>
 /// DLQ observability: MassTransit moves failed messages (after retries exhausted) to {queue}_error queues
 /// (notification-task-created_error, notification-task-moved_error, notification-task-commented_error).
-/// These Fault consumers log the dead-letter for MNC-grade observability.
+/// These Fault consumers log the dead-letter for observability.
 /// Recommended: add CloudAMQP alarm on _error queue depth > 0.
 /// </summary>
 public class TaskCreatedFaultConsumer : IConsumer<Fault<TaskCreatedEvent>>

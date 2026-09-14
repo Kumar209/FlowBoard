@@ -5,9 +5,10 @@
       <p class="text-xs opacity-60">Project issues = all TaskItems. Boards group same issues. New issues go to Backlog (Sprint None) until assigned to Sprint.</p>
     </div>
     <div class="flex gap-2">
-      <button class="btn btn-ghost btn-sm rounded-full border" (click)="openAiDraft()">✨ AI Draft</button>
+      <button class="btn btn-ghost btn-sm rounded-full border" (click)="openAiDraft()" [disabled]="!aiDraftEnabled()" [title]="!aiDraftEnabled() ? 'Disabled by SuperAdmin/Owner' : ''">✨ AI Draft @if (!aiDraftEnabled()) { <span class="badge badge-error badge-xs ml-1">Suspended</span> }</button>
       <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ Create Issue</button>
     </div>
+    <app-feature-disabled-modal [open]="showFlagDisabled()" featureName="AI Draft" [disabledBy]="flagDisabledBy()" (closed)="showFlagDisabled.set(false)" />
   </div>
 
   <div class="flex flex-col sm:flex-row gap-2">
@@ -89,7 +90,7 @@
         </div>
       </div>
     }
-    <app-task-detail-modal [open]="detailOpen()" [task]="selectedTask()" [lists]="b.lists" [projectId]="projectId()" [workspaceId]="workspaceId()" [loading]="updateMutation.isPending()" [readOnly]="detailReadOnly()" (closed)="detailOpen.set(false)" (saved)="onSave($event)" />
+    <app-task-detail-modal [open]="detailOpen()" [task]="selectedTask()" [lists]="b.lists" [projectId]="projectId()" [workspaceId]="workspaceId()" [loading]="updateMutation.isPending()" [readOnly]="detailReadOnly()" [featureFlags]="orgFlags()" (closed)="detailOpen.set(false)" (saved)="onSave($event)" />
     <app-task-create-modal [open]="createOpen()" [listName]="boardQuery.data()?.lists?.[0]?.name || 'To Do'" [projectId]="projectId()" [loading]="createMutation.isPending()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
     <app-ai-draft-modal [open]="aiDraftOpen()" [projectId]="projectId()" (closed)="aiDraftOpen.set(false)" (created)="onAiDraftCreated($event)" />
 

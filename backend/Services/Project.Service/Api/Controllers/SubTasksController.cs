@@ -27,6 +27,7 @@ public class SubTasksController : ControllerBase
     [HttpPost("api/tasks/{taskId}/subtasks")]
     public async Task<IActionResult> Create(Guid taskId, [FromBody] SubTaskBody body)
     {
+        if (string.IsNullOrWhiteSpace(body.Title) || body.Title.Length > 300) return BadRequest(new { error = "Title required (1-300 chars)" });
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var roles = GetRoles();
         var result = await _mediator.Send(new CreateSubTaskCommand(taskId, body.Title, userId.Value, roles));
@@ -37,12 +38,14 @@ public class SubTasksController : ControllerBase
     [HttpPut("api/subtasks/{subTaskId}")]
     public async Task<IActionResult> Update(Guid subTaskId, [FromBody] SubTaskBody body)
     {
+        if (string.IsNullOrWhiteSpace(body.Title) || body.Title.Length > 300) return BadRequest(new { error = "Title required (1-300 chars)" });
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var result = await _mediator.Send(new UpdateSubTaskCommand(subTaskId, body.Title, userId.Value));
-        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
         return Ok(result.Value);
     }
 
+    [HttpPatch("api/subtasks/{subTaskId}/toggle")]
     [HttpPut("api/subtasks/{subTaskId}/toggle")]
     public async Task<IActionResult> Toggle(Guid subTaskId)
     {

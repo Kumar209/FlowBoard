@@ -80,7 +80,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(o =>
 {
-    o.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "FlowBoard Project.Service", Version = "v1", Description = "Projects, Lists, Tasks, Comments - 6 Roles (PM can create projects, Client view+comment only) - Task 1.5 + Task 2.x" });
+    o.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "FlowBoard Project.Service", Version = "v1", Description = "Projects, Lists, Tasks, Comments - 6 Roles (PM can create projects, Client view+comment only)" });
     o.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Description = "JWT Bearer. Enter 'Bearer {token}'",
@@ -97,7 +97,7 @@ builder.Services.AddSwaggerGen(o =>
 builder.Services.AddHealthChecks();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins("http://localhost:4200","https://flowboard.vercel.app").AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256";
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key missing - set in appsettings.Development.json");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "FlowBoard.Identity";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "FlowBoard.Gateway";
 var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
@@ -113,7 +113,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.FromMinutes(2)
         };
         o.Events = new JwtBearerEvents
         {
@@ -143,28 +143,9 @@ app.Use(async (ctx, next) =>
     await next();
 });
 if (!app.Environment.IsDevelopment()) app.UseHsts();
-app.Use(async (ctx, next) =>
-{
-    var cid = ctx.Request.Headers["X-Correlation-Id"].FirstOrDefault();
-    if (string.IsNullOrWhiteSpace(cid) || cid.Length > 100) cid = Guid.NewGuid().ToString("N");
-    ctx.Items["X-Correlation-Id"] = cid;
-    ctx.Response.OnStarting(() => { ctx.Response.Headers["X-Correlation-Id"] = cid!; return Task.CompletedTask; });
-    var userId = ctx.User.FindFirst("sub")?.Value ?? ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
-    var workspaceId = ctx.Request.RouteValues["workspaceId"]?.ToString() ?? ctx.Request.RouteValues["wid"]?.ToString() ?? ctx.User.FindFirst("workspace_id")?.Value ?? ctx.User.FindFirst("workspaceId")?.Value ?? "";
-    var projectId = ctx.Request.RouteValues["projectId"]?.ToString() ?? ctx.Request.RouteValues["pid"]?.ToString() ?? "";
-    var orgId = ctx.User.FindFirst("organization_id")?.Value ?? ctx.User.FindFirst("org_id")?.Value ?? ctx.User.FindFirst("OrganizationId")?.Value ?? "";
-    using (Serilog.Context.LogContext.PushProperty("CorrelationId", cid!))
-    using (Serilog.Context.LogContext.PushProperty("UserId", userId))
-    using (Serilog.Context.LogContext.PushProperty("OrganizationId", orgId))
-    using (Serilog.Context.LogContext.PushProperty("WorkspaceId", workspaceId))
-    using (Serilog.Context.LogContext.PushProperty("ProjectId", projectId))
-    {
-        await next();
-    }
-});
-
+app.UseMiddleware<Project.Service.Middleware.CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
-
+app.UseMiddleware<Project.Service.Middleware.MaintenanceMiddleware>();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

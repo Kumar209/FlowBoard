@@ -1,0 +1,64 @@
+<div class="p-3 sm:p-4 space-y-4">
+  <button class="btn btn-ghost btn-sm" (click)="goBack()">← Back to Support</button>
+
+  @if (detailQuery.isPending()) {
+    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
+  } <!-- error via toast --> @else if (complaint) {
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 class="text-xl font-bold">{{ complaint.subject }}</h1>
+            <div class="text-xs opacity-60 mt-1">{{ complaint.organizationName || (complaint.organizationId | slice:0:8) }} · {{ complaint.createdAt | date:'medium' }} · <span class="badge badge-sm" [ngClass]="complaint.status === 'Replied' ? 'badge-success' : 'badge-warning'">{{ complaint.status }}</span></div>
+            <div class="text-xs opacity-60 mt-1">By {{ complaint.createdByName }} <span class="opacity-50">({{ complaint.createdByEmail }})</span> · <span class="badge badge-xs badge-ghost">{{ complaint.createdByRole }}</span></div>
+          </div>
+          <button class="btn btn-error btn-sm btn-outline" (click)="onDelete()">Delete</button>
+        </div>
+        <div class="divider my-3"></div>
+        <div class="text-sm whitespace-pre-wrap">{{ complaint.message }}</div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Threaded Replies — {{ replies.length }}</h3>
+        @if (replies.length === 0) {
+          <div class="text-sm opacity-50 py-4">No replies yet</div>
+        } @else {
+          <div class="space-y-3 mt-3">
+            @for (r of replies; track r.id) {
+              <div class="border border-base-200 rounded-xl p-3" [ngClass]="r.isSuperAdminReply ? 'bg-primary/5 border-primary/20' : 'bg-base-100'">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <span class="text-xs font-semibold" [ngClass]="r.isSuperAdminReply ? 'text-primary' : 'opacity-70'">
+                    @if (r.isSuperAdminReply) { FlowBoard SuperAdmin<span class="font-normal opacity-60"> ({{ r.authorEmail }})</span> } @else { {{ r.authorName }}<span class="font-normal opacity-60"> ({{ r.authorEmail }})</span> }
+                    · <span class="badge badge-xs" [ngClass]="r.isSuperAdminReply ? 'badge-primary' : 'badge-ghost'">{{ r.authorRole }}</span>
+                  </span>
+                  <span class="text-xs opacity-50">{{ r.createdAt | date:'medium' }}</span>
+                </div>
+                <div class="text-sm mt-2 whitespace-pre-wrap">{{ r.message }}</div>
+              </div>
+            }
+          </div>
+        }
+        <div class="mt-4">
+          <textarea class="textarea textarea-bordered w-full" rows="4" placeholder="Reply as platform admin..." [ngModel]="replyText()" (ngModelChange)="replyText.set($event)"></textarea>
+          <button class="btn btn-primary btn-sm mt-3" [disabled]="replyMutation.isPending()" (click)="onReply()">@if (replyMutation.isPending()) { <span class="loading loading-spinner loading-xs"></span> } Send Reply</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (deleteConfirm()) {
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold">Delete complaint?</h3>
+        <p class="text-sm opacity-60 mt-2">This will permanently delete the complaint and its replies.</p>
+        <div class="modal-action">
+          <button class="btn btn-ghost btn-sm" (click)="deleteConfirm.set(false)">Cancel</button>
+          <button class="btn btn-error btn-sm" [disabled]="deleteMutation.isPending()" (click)="confirmDelete()">Delete</button>
+        </div>
+      </div>
+      <div class="modal-backdrop" (click)="deleteConfirm.set(false)"></div>
+    </div>
+  }
+</div>

@@ -11,7 +11,7 @@ import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-d
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**
- * ProjectsComponent - MNC-grade: modals for Create/Update/Delete + toast + dropdown.
+ * ProjectsComponent - modals for Create/Update/Delete + toast + dropdown.
  */
 @Component({
   selector: 'app-projects',

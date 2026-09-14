@@ -93,4 +93,5 @@
       }
     </div>
   </div>
+  <app-feature-disabled-modal [open]="showFlagDisabled()" featureName="AI Draft" [disabledBy]="flagDisabledBy()" (closed)="showFlagDisabled.set(false)" />
 }

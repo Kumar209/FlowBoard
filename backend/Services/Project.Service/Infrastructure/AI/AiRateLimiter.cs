@@ -5,7 +5,7 @@ using StackExchange.Redis;
 namespace Project.Service.Infrastructure.AI;
 
 /// <summary>
-/// AiRateLimiter - Redis 3/min per user per model (key ai:{userId}:{model}) + global 5 RPM (ai:global). Uses INCR + EXPIRE 60. Best-effort: if Redis null or PASTE_, allows (local dev without Upstash still works). Returns 429 + RetryAfter 60 when exceeded. Like SDD rate limit table: 15 RPM Gemini but app enforces 3/min per user, 5 RPM total.
+/// Redis rate limiter 3/min per user per model + 5 RPM global. Best-effort — allows if Redis unavailable. Returns 429 with RetryAfter when exceeded.
 /// </summary>
 public class AiRateLimiter : IAiRateLimiter
 {

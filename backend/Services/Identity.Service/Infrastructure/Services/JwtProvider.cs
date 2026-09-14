@@ -9,7 +9,7 @@ using SharedKernel;
 namespace Identity.Service.Infrastructure.Services;
 
 // Generates JWT access token (15m) with claims: sub, email, orgIds, workspaceIds, roles
-// Enterprise: Implements IJwtProvider (Application interface) - DIP, mockable
+// Implements IJwtProvider (Application interface) - DIP, testable
 public class JwtProvider : IJwtProvider
 {
     private readonly IConfiguration _config;
@@ -39,6 +39,14 @@ public class JwtProvider : IJwtProvider
         {
             claims.Add(new Claim("workspace_id", workspaceId.ToString()));
             claims.Add(new Claim(ClaimTypes.Role, role));
+        }
+
+        // Global SuperAdmin via IsSuperAdmin — role claim without workspace
+        if (user.IsSuperAdmin)
+        {
+            if (!claims.Any(c => c.Type == ClaimTypes.Role && c.Value == SharedKernel.Roles.SuperAdmin))
+                claims.Add(new Claim(ClaimTypes.Role, SharedKernel.Roles.SuperAdmin));
+            claims.Add(new Claim("is_super_admin", "true"));
         }
 
         var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);

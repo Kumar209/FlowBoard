@@ -1,0 +1,120 @@
+<div class="p-3 sm:p-4 space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">SuperAdmin Dashboard</h1>
+    <span class="badge badge-error badge-sm">SuperAdmin only</span>
+  </div>
+
+  @if (query.isPending()) {
+    <div class="grid place-items-center py-20">
+      <span class="loading loading-spinner loading-lg"></span>
+    </div>
+  } <!-- error via toast --> @else {
+    <!-- KPIs 6 cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Organizations</div>
+          <div class="text-2xl font-bold">{{ kpis?.totalOrganizations }}</div>
+          <div class="text-xs text-success">+{{ growth?.organizations?.[5] ?? 0 }} total</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Users</div>
+          <div class="text-2xl font-bold">{{ kpis?.totalUsers }}</div>
+          <div class="text-xs opacity-50">Active {{ kpis?.activeUsers }}</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Active Users</div>
+          <div class="text-2xl font-bold">{{ kpis?.activeUsers }}</div>
+          <div class="text-xs text-success">● online</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Workspaces</div>
+          <div class="text-2xl font-bold">{{ kpis?.totalWorkspaces }}</div>
+          <div class="text-xs opacity-50">across orgs</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Projects</div>
+          <div class="text-2xl font-bold">{{ kpis?.totalProjects }}</div>
+          <div class="text-xs opacity-50">all tenants</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-4">
+          <div class="text-xs opacity-60">Storage</div>
+          <div class="text-2xl font-bold">{{ kpis?.storageUsedGb }} GB</div>
+          <div class="text-xs opacity-50">aggregate</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Health 8 services -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">Platform Health — 8 Services</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+          @for (h of health; track h.name) {
+            <div class="flex items-center justify-between p-3 rounded-xl border border-base-200 bg-base-200/30">
+              <div>
+                <div class="text-sm font-medium">{{ h.name }}</div>
+                <div class="text-xs opacity-60">{{ h.latencyMs }}ms · {{ h.uptime }}</div>
+              </div>
+              <span class="badge badge-success badge-sm">{{ h.status }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Growth 6 charts -->
+    @if (growth) {
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-4">
+            <div class="text-sm font-semibold">Organizations Growth</div>
+            <apx-chart [series]="chartOptions(growth.labels, growth.organizations, '#6366f1').series" [chart]="chartOptions(growth.labels, growth.organizations, '#6366f1').chart" [xaxis]="chartOptions(growth.labels, growth.organizations, '#6366f1').xaxis" [colors]="chartOptions(growth.labels, growth.organizations, '#6366f1').colors" [stroke]="chartOptions(growth.labels, growth.organizations, '#6366f1').stroke" [fill]="chartOptions(growth.labels, growth.organizations, '#6366f1').fill" [dataLabels]="chartOptions(growth.labels, growth.organizations, '#6366f1').dataLabels"></apx-chart>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-4">
+            <div class="text-sm font-semibold">Users Growth</div>
+            <apx-chart [series]="chartOptions(growth.labels, growth.users, '#10b981').series" [chart]="chartOptions(growth.labels, growth.users, '#10b981').chart" [xaxis]="chartOptions(growth.labels, growth.users, '#10b981').xaxis" [colors]="chartOptions(growth.labels, growth.users, '#10b981').colors" [stroke]="chartOptions(growth.labels, growth.users, '#10b981').stroke" [fill]="chartOptions(growth.labels, growth.users, '#10b981').fill" [dataLabels]="chartOptions(growth.labels, growth.users, '#10b981').dataLabels"></apx-chart>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-4">
+            <div class="text-sm font-semibold">Workspaces Growth</div>
+            <apx-chart [series]="chartOptions(growth.labels, growth.workspaces, '#f59e0b').series" [chart]="chartOptions(growth.labels, growth.workspaces, '#f59e0b').chart" [xaxis]="chartOptions(growth.labels, growth.workspaces, '#f59e0b').xaxis" [colors]="chartOptions(growth.labels, growth.workspaces, '#f59e0b').colors" [stroke]="chartOptions(growth.labels, growth.workspaces, '#f59e0b').stroke" [fill]="chartOptions(growth.labels, growth.workspaces, '#f59e0b').fill" [dataLabels]="chartOptions(growth.labels, growth.workspaces, '#f59e0b').dataLabels"></apx-chart>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-4">
+            <div class="text-sm font-semibold">Projects Growth</div>
+            <apx-chart [series]="chartOptions(growth.labels, growth.projects, '#ef4444').series" [chart]="chartOptions(growth.labels, growth.projects, '#ef4444').chart" [xaxis]="chartOptions(growth.labels, growth.projects, '#ef4444').xaxis" [colors]="chartOptions(growth.labels, growth.projects, '#ef4444').colors" [stroke]="chartOptions(growth.labels, growth.projects, '#ef4444').stroke" [fill]="chartOptions(growth.labels, growth.projects, '#ef4444').fill" [dataLabels]="chartOptions(growth.labels, growth.projects, '#ef4444').dataLabels"></apx-chart>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-4">
+            <div class="text-sm font-semibold">Storage Growth (GB)</div>
+            <apx-chart [series]="chartOptions(growth.labels, growth.storage, '#8b5cf6').series" [chart]="chartOptions(growth.labels, growth.storage, '#8b5cf6').chart" [xaxis]="chartOptions(growth.labels, growth.storage, '#8b5cf6').xaxis" [colors]="chartOptions(growth.labels, growth.storage, '#8b5cf6').colors" [stroke]="chartOptions(growth.labels, growth.storage, '#8b5cf6').stroke" [fill]="chartOptions(growth.labels, growth.storage, '#8b5cf6').fill" [dataLabels]="chartOptions(growth.labels, growth.storage, '#8b5cf6').dataLabels"></apx-chart>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-4">
+            <div class="text-sm font-semibold">Revenue (MRR $)</div>
+            @if (revenueOptions()) {
+              <apx-chart [series]="revenueOptions()!.series" [chart]="revenueOptions()!.chart" [xaxis]="revenueOptions()!.xaxis" [colors]="revenueOptions()!.colors" [plotOptions]="revenueOptions()!.plotOptions" [dataLabels]="revenueOptions()!.dataLabels"></apx-chart>
+            }
+          </div>
+        </div>
+      </div>
+    }
+  }
+</div>

@@ -9,7 +9,7 @@ import { ProjectChartsComponent } from '../../../shared/charts/project-charts/pr
 import { injectQuery } from '@tanstack/angular-query-experimental';
 
 /**
- * Overview - Project stats, recent activity, quick links. Jira-style overview.
+ * Overview — project stats, recent activity, quick links.
  */
 @Component({
   selector: 'app-project-overview',

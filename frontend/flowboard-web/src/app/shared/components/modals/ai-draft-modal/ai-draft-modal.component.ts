@@ -3,11 +3,14 @@ import { CommonModule } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { AiService, AiDraftResponse } from '../../../../core/services/ai.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { FeatureFlagService } from '../../../../core/services/feature-flag.service';
+import { WorkspaceService } from '../../../../core/services/workspace.service';
+import { FeatureDisabledModalComponent } from '../../feature-disabled-modal/feature-disabled-modal.component';
 
 @Component({
   selector: 'app-ai-draft-modal',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FeatureDisabledModalComponent],
   templateUrl: './ai-draft-modal.component.html',
   styleUrls: ['./ai-draft-modal.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -20,6 +23,10 @@ export class AiDraftModalComponent {
 
   private ai = inject(AiService);
   private toast = inject(ToastService);
+  private flagService = inject(FeatureFlagService);
+  private ws = inject(WorkspaceService);
+  showFlagDisabled = signal(false);
+  flagDisabledBy = signal('SuperAdmin or Organization Owner');
 
   prompt = signal('');
   model = signal('gemini-3.5-flash');
@@ -84,6 +91,14 @@ export class AiDraftModalComponent {
   }
 
   async generate() {
+    let orgId: string | undefined;
+    try { const orgs: any = await firstValueFrom(this.ws.getMyOrganizations()); const arr = Array.isArray(orgs) ? orgs : (orgs?.items ?? []); orgId = arr[0]?.id; } catch {}
+    const chk = await this.flagService.isEnabledForOrg('ai_draft', orgId);
+    if (!chk.enabled) {
+      this.flagDisabledBy.set(chk.by);
+      this.showFlagDisabled.set(true);
+      return;
+    }
     if (!this.canGenerate()) return;
     this.isGenerating.set(true);
     this.error.set(null);

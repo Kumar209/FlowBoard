@@ -10,7 +10,7 @@ using System.Text.Json;
 namespace Project.Service.Application.Commands;
 
 /// <summary>
-/// CreateTask - card in BoardList. Title required, Priority Medium default, LabelsJson JSON array, AssigneeId optional. Allowed Member/PM/OrgAdmin/SuperAdmin (Client/Viewer 403). Publishes TaskCreated via Outbox (Task 3.1) for SignalR.
+/// CreateTask - card in BoardList. Title required, Priority Medium default, LabelsJson JSON array, AssigneeId optional. Allowed Member/PM/OrgAdmin/SuperAdmin (Client/Viewer 403). Publishes TaskCreated via Outbox for SignalR.
 /// </summary>
 public record CreateTaskCommand(Guid ProjectId, Guid? ListId, string Title, string? Description, string Priority, string? LabelsJson, Guid? AssigneeId, DateTime? DueDate, string? IssueType, string? Epic, int? StoryPoints, DateTime? StartDate, string? Environment, Guid? ParentIssueId, Guid? SprintId, Guid CallerId, List<string> CallerRoles, Guid? TeamId = null, Guid? StatusId = null) : IRequest<Result<TaskDto>>;
 

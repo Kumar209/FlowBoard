@@ -4,9 +4,9 @@ using Identity.Service.Domain.Entities;
 
 namespace Identity.Service.Application.Interfaces;
 
-// Enterprise Clean Architecture - Application defines abstraction, Infrastructure implements
+// Clean Architecture - Application defines abstraction, Infrastructure implements
 // Handlers depend on this interface, not concrete IdentityDbContext (DIP)
-// This allows mocking in unit tests without SQL Server
+// Testable without SQL Server
 public interface IApplicationDbContext
 {
     DbSet<User> Users { get; }

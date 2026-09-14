@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, input, output } from '@angular/core
 import { CommonModule } from '@angular/common';
 
 /**
- * ConfirmDeleteModal - MNC-grade: OnPush + input.required + output. DaisyUI modal with warning.
+ * ConfirmDeleteModal - OnPush + input.required + output. DaisyUI modal with warning.
  */
 @Component({
   selector: 'app-confirm-delete',

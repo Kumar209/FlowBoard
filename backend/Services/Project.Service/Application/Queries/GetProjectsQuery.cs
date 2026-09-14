@@ -7,7 +7,7 @@ using Project.Service.Application.Interfaces;
 namespace Project.Service.Application.Queries;
 
 /// <summary>
-/// GetProjects - list projects in workspace with pagination. Any workspace member can view (filtered by WorkspaceId). Used by Angular workspace.component grid 1 col mobile 3 col desktop (Task 2.4).
+/// GetProjects - list projects in workspace with pagination. Any workspace member can view (filtered by WorkspaceId). Used by Angular workspace.component grid 1 col mobile 3 col desktop.
 /// </summary>
 public record GetProjectsQuery(Guid WorkspaceId, int Page = 1, int PageSize = 20) : ICacheableRequest<PaginatedResult<ProjectDto>>
 {

@@ -7,7 +7,7 @@ using System.Security.Claims;
 namespace Notification.Service.Hubs;
 
 /// <summary>
-/// BoardHub - SignalR 10.0 Hub for realtime board sync. Groups per workspace:{id} and project:{id} (Task 3.2).
+/// BoardHub - SignalR 10.0 Hub for realtime board sync. Groups per workspace:{id} and project:{id}.
 /// OnConnected validates JWT via ?access_token (Program.cs JwtBearer OnMessageReceived for /hubs), adds to groups from claims.
 /// </summary>
 [Authorize]
@@ -26,7 +26,7 @@ public class BoardHub : Hub
 
         _logger.LogInformation("[BoardHub] Connected {ConnId} user {UserId} workspaces {Ws}", Context.ConnectionId, userId, string.Join(",", workspaces));
 
-        // Add to workspace groups (MNC-grade: one connection belongs to multiple workspaces)
+        // Add to workspace groups (one connection belongs to multiple workspaces)
         foreach (var ws in workspaces.Distinct())
         {
             if (!string.IsNullOrWhiteSpace(ws))
@@ -104,7 +104,7 @@ public class BoardHub : Hub
         await Clients.Caller.SendAsync("joinedWorkspace", workspaceId);
     }
 
-    // Typing indicator (for Task 3.3 realtime) — also requires project membership
+    // Typing indicator (for realtime) — also requires project membership
     public async Task UserTyping(string projectId, string taskId)
     {
         if (!Guid.TryParse(projectId, out var pid)) return;

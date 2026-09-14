@@ -17,6 +17,8 @@ public class ProjectMembersController : ControllerBase
     [HttpGet("api/projects/{projectId}/members")]
     public async Task<IActionResult> Get(Guid projectId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
     {
+        page = Math.Clamp(page, 1, 1000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
         var result = await _mediator.Send(new GetProjectMembersQuery(projectId, page, pageSize, search));
         Response.Headers["X-Total-Count"] = result.Total.ToString();
         return Ok(result);
@@ -32,10 +34,11 @@ public class ProjectMembersController : ControllerBase
     [HttpPost("api/projects/{projectId}/members")]
     public async Task<IActionResult> Add(Guid projectId, [FromBody] AddProjectMemberBody body)
     {
+        if (body.UserId == Guid.Empty) return BadRequest(new { error = "UserId required" });
         var callerId = GetUserId(); if (callerId == null) return Unauthorized();
         var roles = GetRoles();
         var result = await _mediator.Send(new AddProjectMemberCommand(projectId, body.UserId, body.Role ?? Roles.Member, callerId.Value, roles));
-        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
         return StatusCode(201, result.Value);
     }
 

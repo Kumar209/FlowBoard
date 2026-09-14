@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, input, output, signal, effect, comp
 import { CommonModule } from '@angular/common';
 
 /**
- * WorkspaceModal - MNC-grade: OnPush + input.required + signals + computed validation. Handles Create + Update.
+ * WorkspaceModal - OnPush + input.required + signals + computed validation. Handles Create + Update.
  * DaisyUI modal, slug editable with pattern a-z0-9-.
  */
 @Component({

@@ -226,13 +226,7 @@
             }
 
             @if (success()) {
-              <div class="alert alert-success rounded-xl px-3 py-2.5 text-xs">
-                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M8 12l2.5 2.5L16 9" />
-                </svg>
-                <span>Account created — redirecting...</span>
-              </div>
+              <!-- success via toast -->
             }
 
             <button type="submit" class="btn btn-primary h-11 min-h-11 w-full rounded-xl text-sm font-bold" [disabled]="loading()">

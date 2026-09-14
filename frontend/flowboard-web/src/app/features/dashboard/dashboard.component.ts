@@ -1,29 +1,31 @@
 import { Component, OnInit, ChangeDetectionStrategy, signal, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { StatsService } from '../../core/services/stats.service';
 import { ToastService } from '../../core/services/toast.service';
 import { OrgChartsComponent } from '../../shared/charts/org-charts/org-charts.component';
+import { PlatformNoticeComponent } from '../../shared/components/platform-notice/platform-notice.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 
 /**
- * DashboardComponent - MNC-grade: OnPush + inject() + Signals + RouterLink (not dead buttons).
+ * DashboardComponent - OnPush + inject() + Signals + RouterLink (not dead buttons).
  * Header moved to LayoutComponent (drawer), so this page is just content under Layout.
  * workspaceId Signal defaults to demo 111... and updates from me() workspaces[0].id for View projects link.
  */
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, OrgChartsComponent],
+  imports: [CommonModule, RouterLink, OrgChartsComponent, PlatformNoticeComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardComponent implements OnInit {
   auth = inject(AuthService);
+  private router = inject(Router);
   private wsService = inject(WorkspaceService);
   private stats = inject(StatsService);
   private toast = inject(ToastService);
@@ -69,9 +71,18 @@ export class DashboardComponent implements OnInit {
   }
 
   ngOnInit() {
+    // SuperAdmin must go to dedicated portal, not org portal (system org FlowBoard System is internal only)
+    if (this.auth.isSuperAdmin()) {
+      this.router.navigate(['/superadmin']);
+      return;
+    }
     this.auth.me().subscribe({
       next: (res: any) => {
         this.auth.hydrateFromMe(res);
+        if (this.auth.isSuperAdmin()) {
+          this.router.navigate(['/superadmin']);
+          return;
+        }
         const ws = res?.workspaces?.[0];
         if (ws?.id) this.workspaceId.set(ws.id);
         else if (ws?.workspaceId) this.workspaceId.set(ws.workspaceId);

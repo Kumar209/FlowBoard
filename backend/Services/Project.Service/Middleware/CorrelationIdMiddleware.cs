@@ -1,0 +1,31 @@
+using Serilog.Context;
+
+namespace Project.Service.Middleware;
+
+public class CorrelationIdMiddleware
+{
+    private readonly RequestDelegate _next;
+    private const string HeaderName = "X-Correlation-Id";
+    public CorrelationIdMiddleware(RequestDelegate next) => _next = next;
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var cid = context.Request.Headers[HeaderName].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(cid) || cid.Length > 100) cid = Guid.NewGuid().ToString("N");
+        context.Request.Headers[HeaderName] = cid;
+        context.Response.OnStarting(() => { context.Response.Headers[HeaderName] = cid!; return Task.CompletedTask; });
+        context.Items[HeaderName] = cid!;
+        var userId = context.User.FindFirst("sub")?.Value ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+        var workspaceId = context.Request.RouteValues["workspaceId"]?.ToString() ?? context.Request.RouteValues["wid"]?.ToString() ?? context.User.FindFirst("workspace_id")?.Value ?? context.User.FindFirst("workspaceId")?.Value ?? "";
+        var projectId = context.Request.RouteValues["projectId"]?.ToString() ?? context.Request.RouteValues["pid"]?.ToString() ?? "";
+        var orgId = context.User.FindFirst("organization_id")?.Value ?? context.User.FindFirst("org_id")?.Value ?? context.User.FindFirst("OrganizationId")?.Value ?? "";
+        using (LogContext.PushProperty("CorrelationId", cid!))
+        using (LogContext.PushProperty("UserId", userId))
+        using (LogContext.PushProperty("OrganizationId", orgId))
+        using (LogContext.PushProperty("WorkspaceId", workspaceId))
+        using (LogContext.PushProperty("ProjectId", projectId))
+        {
+            await _next(context);
+        }
+    }
+}

@@ -23,11 +23,26 @@ export class AttachmentService {
     return this.http.get<AttachmentDto[]>(`${environment.apiUrl}/api/tasks/${taskId}/attachments`, { withCredentials: true });
   }
 
-  upload(taskId: string, file: File) {
+  upload(taskId: string, file: File, onProgress?: (pct: number) => void) {
     const fd = new FormData();
     fd.append('TaskId', taskId);
     fd.append('File', file, file.name);
-    return this.http.post<AttachmentDto>(`${environment.apiUrl}/api/files/upload`, fd, { withCredentials: true });
+    return this.http.post<AttachmentDto>(`${environment.apiUrl}/api/files/upload`, fd, {
+      withCredentials: true,
+      reportProgress: true,
+      observe: onProgress ? 'events' as const : 'body' as const
+    } as any);
+  }
+
+  uploadWithProgress(taskId: string, file: File) {
+    const fd = new FormData();
+    fd.append('TaskId', taskId);
+    fd.append('File', file, file.name);
+    return this.http.post<AttachmentDto>(`${environment.apiUrl}/api/files/upload`, fd, {
+      withCredentials: true,
+      reportProgress: true,
+      observe: 'events'
+    });
   }
 
   delete(attachmentId: string) {

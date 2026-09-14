@@ -1,7 +1,7 @@
 namespace Project.Service.Application.Interfaces;
 
 /// <summary>
-/// IRedisCacheService - abstraction for Upstash Redis cache (board:{projectId} 5m, tasks:{hash} 2m). Application depends on interface (DIP), Infrastructure provides RedisCacheService. Mockable for unit tests without Redis.
+/// Abstraction for Redis cache (board:{projectId} 5m, tasks:{hash} 2m). Application depends on interface, infrastructure provides implementation. Testable without Redis.
 /// </summary>
 public interface IRedisCacheService
 {

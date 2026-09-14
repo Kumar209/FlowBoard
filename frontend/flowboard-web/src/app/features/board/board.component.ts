@@ -366,7 +366,7 @@ export class BoardComponent {
   }
 
   tasksForList(listId: string) {
-    // Jira-like: column shows issues whose StatusId is in column.statusIds (mapping). Fallback to Status name == column name or ListId for legacy.
+    // Column shows issues whose StatusId is in column.statusIds. Fallback to Status name or ListId.
     const col = (this.boardQuery.data()?.lists || []).find((l:any) => l.id === listId);
     const colStatusIds: string[] = col?.statusIds || [];
     const colStatus = col?.name || '';

@@ -37,9 +37,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @for (i of [1,2,3,4,5,6]; track i) { <div class="card bg-base-100 shadow border p-6 animate-pulse"><div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div><div class="h-3 bg-base-200 rounded w-1/2"></div></div> }
       </div>
-    } @else if (projectsQuery.isError()) {
-      <div class="alert alert-error rounded-xl">Failed to load projects - check Gateway :5000 + Project :5002 + JWT</div>
-    } @else {
+    } <!-- error via toast --> @else {
       <!-- Projects grid: 1 col mobile, 2 tablet, 3 desktop -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         @for (project of paginatedProjects(); track project.id) {
@@ -78,7 +76,7 @@
         <div class="text-center py-16 bg-base-100 rounded-2xl border border-dashed mt-6">
           <div class="text-4xl mb-2">▦</div>
           <p class="font-semibold">No projects yet</p>
-          <p class="text-sm opacity-60">Seeded FlowBoard Demo should appear here (Task 2.1) or create one above (PM/OrgAdmin only)</p>
+          <p class="text-sm opacity-60">Seeded FlowBoard Demo should appear here or create one above (PM/OrgAdmin only)</p>
           <div class="mt-2 text-xs opacity-40">Total: {{ projectsQuery.data()?.total }} • page {{ projectsQuery.data()?.page }}</div>
         </div>
       }

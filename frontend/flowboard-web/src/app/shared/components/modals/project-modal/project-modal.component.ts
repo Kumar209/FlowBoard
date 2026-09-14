@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, input, output, signal, effect, comp
 import { CommonModule } from '@angular/common';
 
 /**
- * ProjectModal - MNC-grade: OnPush + signals + validation. Create/Update project (name + description + optional slug).
+ * ProjectModal - OnPush + signals + validation. Create/Update project (name + description + optional slug).
  */
 @Component({
   selector: 'app-project-modal',

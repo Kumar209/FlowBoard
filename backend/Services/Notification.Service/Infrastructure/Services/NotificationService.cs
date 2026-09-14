@@ -13,7 +13,7 @@ public class NotificationService : INotificationService
 
     public async Task<Result> PersistTaskCreatedAsync(Guid eventId, Guid projectId, Guid workspaceId, Guid taskId, string title, Guid actorUserId, List<Guid> recipientUserIds, DateTime occurredOnUtc, CancellationToken ct = default)
     {
-        // Enrich payload with names for MNC-grade display
+        // Enrich payload with names for display
         string projectName = "", actorName = "", listName = "";
         try { var pr = await _db.Database.SqlQueryRaw<ProjectNameRow>("SELECT Name FROM [project].[Projects] WHERE Id = {0}", projectId).FirstOrDefaultAsync(ct); if (pr != null) projectName = pr.Name; } catch { }
         try { var ar = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", actorUserId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? ""; } catch { }
@@ -98,7 +98,7 @@ public class NotificationService : INotificationService
             .Skip((page - 1) * pageSize).Take(pageSize)
             .ToListAsync(ct);
 
-        // Enrich with names (ProjectName, TaskTitle, ActorName) for MNC-grade display
+        // Enrich with names (ProjectName, TaskTitle, ActorName) for display
         var items = new List<NotificationDto>();
         foreach (var n in raw)
         {

@@ -3,7 +3,7 @@ import { Injectable, signal } from '@angular/core';
 export interface Toast { id: number; message: string; type: 'success' | 'error' | 'info'; }
 
 /**
- * ToastService - MNC-grade: signals + computed auto-dismiss 3s. Used by all mutations (create/update/delete 403->error).
+ * ToastService - signals + computed auto-dismiss 3s. Used by all mutations (create/update/delete 403->error).
  */
 @Injectable({ providedIn: 'root' })
 export class ToastService {

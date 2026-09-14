@@ -3,7 +3,7 @@ using SharedKernel;
 namespace Project.Service.Domain.Entities;
 
 /// <summary>
-/// ActivityLog - audit timeline for Project/Task actions (e.g., Created, Moved, Commented, Updated). Stores ProjectId, optional TaskId, ActorId (who did it), Action string, PayloadJson (diff), OccurredAt indexed for burndown charts (Task 4.4 ng-apexcharts) and GET /api/projects/{id}/activities pagination. Retention via Task 2.5 filtering.
+/// ActivityLog - audit timeline for Project/Task actions (e.g., Created, Moved, Commented, Updated). Stores ProjectId, optional TaskId, ActorId (who did it), Action string, PayloadJson (diff), OccurredAt indexed for burndown charts (ng-apexcharts) and GET /api/projects/{id}/activities pagination. Retention via filtering.
 /// </summary>
 public class ActivityLog : BaseEntity
 {

@@ -11,7 +11,7 @@ using SharedKernel;
 namespace Project.Service.Api.Controllers;
 
 /// <summary>
-/// Projects API - thin controllers (MNC-grade: no Redis logic here, caching via CachingBehavior pipeline for ICacheableRequest). YARP routes /api/workspaces/{wid}/projects -> :5002. PM/OrgAdmin create 201 else 403.
+/// Projects API — thin controllers, caching via pipeline. YARP routes /api/workspaces/{wid}/projects -> :5002.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -27,8 +27,7 @@ public class ProjectsController : ControllerBase
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var role = GetRoleForWorkspace(workspaceId) ?? await GetRoleForWorkspaceDbAsync(workspaceId, userId.Value);
         if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
-        var allowed = new[] { Roles.OrgAdmin, Roles.SuperAdmin };
-        if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/SuperAdmin. Your role in this workspace: {role}" });
+        if (!Roles.IsPrivilegedForManage(new[] { role })) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/SuperAdmin. Your role in this workspace: {role}" });
         var roles = GetRoles();
         var result = await _mediator.Send(new CreateProjectCommand(workspaceId, body.Name, body.Description, userId.Value, roles));
         if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
@@ -38,6 +37,8 @@ public class ProjectsController : ControllerBase
     [HttpGet("api/workspaces/{workspaceId}/projects")]
     public async Task<IActionResult> GetByWorkspace(Guid workspaceId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
+        page = Math.Clamp(page, 1, 1000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
         var result = await _mediator.Send(new GetProjectsQuery(workspaceId, page, pageSize));
         Response.Headers.Append("X-Total-Count", result.Total.ToString());
         return Ok(new { items = result.Items, total = result.Total, page, pageSize });
@@ -46,17 +47,29 @@ public class ProjectsController : ControllerBase
     [HttpGet("api/projects/{projectId}")]
     public async Task<IActionResult> GetOne(Guid projectId)
     {
-        var board = await _mediator.Send(new GetBoardQuery(projectId));
-        return Ok(board.Project);
+        try
+        {
+            var board = await _mediator.Send(new GetBoardQuery(projectId));
+            if (board?.Project == null) return NotFound(new { error = "Project not found" });
+            return Ok(board.Project);
+        }
+        catch (Exception ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+        {
+            return NotFound(new { error = "Project not found" });
+        }
     }
 
     [HttpGet("api/projects/{projectId}/board")]
     public async Task<IActionResult> GetBoard(Guid projectId, [FromQuery] Guid? boardId)
     {
-        // Board filtering: ?boardId= isolates Kanban (new board empty until columns added)
         var board = await _mediator.Send(new GetBoardQuery(projectId, boardId));
+        var etag = GenerateETag(board);
+        Response.Headers["ETag"] = etag;
+        if (Request.Headers.TryGetValue("If-None-Match", out var inm) && inm == etag) return StatusCode(304);
+        Response.Headers["Cache-Control"] = "private, max-age=300";
         return Ok(board);
     }
+    private static string GenerateETag(object obj) { var json = System.Text.Json.JsonSerializer.Serialize(obj); var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(json)); return "\"" + Convert.ToHexString(hash)[..16] + "\""; }
 
     [HttpPut("api/projects/{projectId}")]
     public async Task<IActionResult> Update(Guid projectId, [FromBody] UpdateProjectBody body)
@@ -67,8 +80,7 @@ public class ProjectsController : ControllerBase
         if (board?.Project == null) return NotFound(new { error = "Project not found" });
         var role = GetRoleForWorkspace(board.Project.WorkspaceId) ?? await GetRoleForWorkspaceDbAsync(board.Project.WorkspaceId, userId.Value);
         if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
-        var allowed = new[] { Roles.OrgAdmin, Roles.SuperAdmin };
-        if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/SuperAdmin. Your role in this workspace: {role}" });
+        if (!Roles.IsPrivilegedForManage(new[] { role })) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/SuperAdmin. Your role in this workspace: {role}" });
         var roles = GetRoles();
         var result = await _mediator.Send(new UpdateProjectCommand(projectId, body.Name, body.Description, body.Slug, userId.Value, roles));
         if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
@@ -110,8 +122,7 @@ public class ProjectsController : ControllerBase
         if (board?.Project == null) return NotFound(new { error = "Project not found" });
         var role = GetRoleForWorkspace(board.Project.WorkspaceId) ?? await GetRoleForWorkspaceDbAsync(board.Project.WorkspaceId, userId.Value);
         if (role == null) return StatusCode(403, new { error = "Forbidden - Not a member of this workspace" });
-        var allowed = new[] { Roles.OrgAdmin, Roles.SuperAdmin };
-        if (!allowed.Contains(role)) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/SuperAdmin to delete. Your role: {role}" });
+        if (!Roles.IsPrivilegedForManage(new[] { role })) return StatusCode(403, new { error = $"Forbidden - Need OrgAdmin/SuperAdmin to delete. Your role: {role}" });
         var roles = GetRoles();
         var result = await _mediator.Send(new DeleteProjectCommand(projectId, userId.Value, roles));
         if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
@@ -136,11 +147,24 @@ public class ProjectsController : ControllerBase
     {
         try
         {
-            // Fallback to DB when JWT is stale (e.g., just created workspace, token not refreshed yet)
-            // Project and Identity share same physical DB flowboard, different schemas. Query [identity].WorkspaceMembers directly.
-            var roleInt = await _db.Database.SqlQueryRaw<int?>("SELECT Role FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = @p0 AND UserId = @p1", workspaceId, userId).FirstOrDefaultAsync();
+            // Global SuperAdmin via IsSuperAdmin
+            try { var isSuper = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(*) as Value FROM [identity].[Users] WHERE Id = {0} AND IsSuperAdmin = 1", userId).FirstOrDefaultAsync(); if (isSuper > 0) return Roles.SuperAdmin; } catch { }
+            // Org-level OrgAdmin via OrganizationMembers or Owner
+            try
+            {
+                var orgId = await _db.Database.SqlQueryRaw<Guid>("SELECT OrganizationId FROM [identity].[Workspaces] WHERE Id = {0}", workspaceId).FirstOrDefaultAsync();
+                if (orgId != Guid.Empty)
+                {
+                    var isOwner = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(*) as Value FROM [identity].[Organizations] WHERE Id = {0} AND OwnerId = {1}", orgId, userId).FirstOrDefaultAsync();
+                    if (isOwner > 0) return Roles.OrgAdmin;
+                    var isOrgAdmin = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(*) as Value FROM [identity].[OrganizationMembers] WHERE OrganizationId = {0} AND UserId = {1} AND Role = 2", orgId, userId).FirstOrDefaultAsync();
+                    if (isOrgAdmin > 0) return Roles.OrgAdmin;
+                }
+            } catch { }
+            // Fallback to workspace membership
+            var roleInt = await _db.Database.SqlQueryRaw<int?>("SELECT Role FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1}", workspaceId, userId).FirstOrDefaultAsync();
             if (roleInt == null) return null;
-            return roleInt.Value switch { 0 => Roles.Member, 2 => Roles.OrgAdmin, 3 => Roles.Client, 5 => Roles.SuperAdmin, _ => null };
+            return roleInt.Value switch { 0 => Roles.SuperAdmin, 1 => Roles.Member, 2 => Roles.OrgAdmin, 3 => Roles.Client, _ => Roles.GetLabel(roleInt.Value) };
         }
         catch { return null; }
     }

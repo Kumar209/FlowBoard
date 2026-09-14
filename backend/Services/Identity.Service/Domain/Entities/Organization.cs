@@ -12,17 +12,23 @@ public class Organization : BaseEntity, IAggregateRoot
     public Guid OwnerId { get; private set; }
     public string? Description { get; private set; }
     public bool IsActive { get; private set; } = true;
+    public Guid SubscriptionPlanId { get; private set; } = Guid.Empty;
+    public SubscriptionPlanEntity? SubscriptionPlan { get; private set; }
 
     private Organization() { }
 
-    public Organization(string name, string slug, Guid ownerId, string? description = null)
+    public Organization(string name, string slug, Guid ownerId, string? description = null, Guid? subscriptionPlanId = null)
     {
         Name = name;
         Slug = slug.ToLowerInvariant();
         OwnerId = ownerId;
         Description = description;
+        if (subscriptionPlanId.HasValue) SubscriptionPlanId = subscriptionPlanId.Value;
     }
 
     public void Update(string name, string? description = null) { Name = name; Description = description; Touch(); }
-    public void Deactivate() => IsActive = false;
+    public void Deactivate() { IsActive = false; Touch(); }
+    public void Activate() { IsActive = true; Touch(); }
+    public void SetPlan(Guid planId) { SubscriptionPlanId = planId; Touch(); }
+    public void SetOwner(Guid newOwnerId) { OwnerId = newOwnerId; Touch(); }
 }

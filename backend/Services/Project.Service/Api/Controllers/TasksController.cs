@@ -8,7 +8,7 @@ using Project.Service.Application.Queries;
 namespace Project.Service.Api.Controllers;
 
 /// <summary>
-/// Tasks API - thin controllers (MNC-grade pipeline caching for queries, invalidation in handlers). YARP /api/tasks/{**catch-all} -> :5002. Filtering via GetTasksQuery.
+/// Tasks API - thin controllers (pipeline caching for queries, invalidation in handlers). YARP /api/tasks/{**catch-all} -> :5002. Filtering via GetTasksQuery.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -35,10 +35,16 @@ public class TasksController : ControllerBase
     public async Task<IActionResult> Get([FromQuery] Guid projectId, [FromQuery] string? search, [FromQuery] Guid? assigneeId, [FromQuery] string? priority, [FromQuery] string? label, [FromQuery] DateTime? dueFrom, [FromQuery] DateTime? dueTo, [FromQuery] string? sortBy, [FromQuery] bool sortDesc = false, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         if (projectId == Guid.Empty) return BadRequest(new { error = "projectId query required (?projectId=...)" });
-        // MNC-grade: caching via CachingBehavior pipeline (ICacheableRequest), not controller manual Get/Set
+        page = Math.Clamp(page, 1, 1000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
         var result = await _mediator.Send(new GetTasksQuery(projectId, search, assigneeId, priority, label, dueFrom, dueTo, sortBy, sortDesc, page, pageSize));
+        var etag = GenerateETag(result);
+        Response.Headers["ETag"] = etag;
+        if (Request.Headers.TryGetValue("If-None-Match", out var inm) && inm == etag) return StatusCode(304);
+        Response.Headers["Cache-Control"] = "private, max-age=120";
         return Ok(result);
     }
+    private static string GenerateETag(object obj) { var json = System.Text.Json.JsonSerializer.Serialize(obj); var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(json)); return "\"" + Convert.ToHexString(hash)[..16] + "\""; }
 
     [HttpGet("api/projects/{projectId}/tasks")]
     public async Task<IActionResult> GetByProject(Guid projectId, [FromQuery] string? search, [FromQuery] Guid? assigneeId, [FromQuery] string? priority, [FromQuery] string? label, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)

@@ -3,7 +3,7 @@ using MediatR;
 namespace Project.Service.Application.Caching;
 
 /// <summary>
-/// ICacheableRequest - MNC-grade marker for queries that should be cached via Redis pipeline. Implementors provide CacheKey (e.g., CacheKeys.Board(id)) + Expiration (e.g., 5m). CachingBehavior<TRequest,TResponse> will intercept before handler, return cached Hit, or call handler then Set. Keeps Api thin and reuse across all future Redis usages (Tasks 3.x real-time, 4.x etc.).
+/// Marker for queries cached via Redis pipeline. Provides CacheKey + Expiration.
 /// </summary>
 public interface ICacheableRequest<TResponse> : IRequest<TResponse>
 {

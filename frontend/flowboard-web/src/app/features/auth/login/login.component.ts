@@ -9,7 +9,7 @@ import { injectQuery } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 
 /**
- * LoginComponent - MNC-grade: OnPush + inject() + signals (loading/error/submitted) + ReactiveForms with hasError(touched||dirty||submitted) + always-enabled button.
+ * LoginComponent - OnPush + inject() + signals (loading/error/submitted) + ReactiveForms with hasError(touched||dirty||submitted) + always-enabled button.
  * Why not simple? OnPush + signals gives fine-grained CD, not full tick. hasError with submitted ensures error shows on click submit (not disabled) + on blur.
  */
 @Component({

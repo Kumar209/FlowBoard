@@ -7,7 +7,7 @@ using Project.Service.Application.Interfaces;
 namespace Project.Service.Application.Commands;
 
 /// <summary>
-/// Subtasks CRUD - Jira checklist inside Task. POST /tasks/{id}/subtasks, toggle, rename, delete. Handlers delegate to ISubTaskService (MNC-grade DIP, like SprintCommands).
+/// Subtasks CRUD - Jira checklist inside Task. POST /tasks/{id}/subtasks, toggle, rename, delete. Handlers delegate to ISubTaskService (DIP, like SprintCommands).
 /// </summary>
 public record CreateSubTaskCommand(Guid TaskId, string Title, Guid CallerId, List<string> CallerRoles) : IRequest<Result<SubTaskDto>>;
 public record UpdateSubTaskCommand(Guid SubTaskId, string Title, Guid CallerId) : IRequest<Result<SubTaskDto>>;

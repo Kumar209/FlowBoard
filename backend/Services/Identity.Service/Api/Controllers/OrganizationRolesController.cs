@@ -63,7 +63,7 @@ public class OrganizationRolesController : ControllerBase
     }
 
     [HttpGet("/api/permissions")]
-    [AllowAnonymous]
+    [Authorize]
     public async Task<IActionResult> GetAllPermissions()
     {
         try { var list = await _service.GetPermissionsAsync(); return Ok(list); }
@@ -80,7 +80,8 @@ public class OrganizationRolesController : ControllerBase
         if (ex is ForbiddenException) return StatusCode(403, new { error = ex.Message });
         if (ex is NotFoundException) return NotFound(new { error = ex.Message });
         if (ex is ValidationException) return BadRequest(new { error = ex.Message });
-        return BadRequest(new { error = ex.Message });
+        if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message });
+        return BadRequest(new { error = "Something went wrong \u2014 please try again." });
     }
 }
 

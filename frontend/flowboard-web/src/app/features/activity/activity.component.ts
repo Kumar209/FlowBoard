@@ -7,7 +7,7 @@ import { WorkspaceService } from '../../core/services/workspace.service';
 import { injectQuery } from '@tanstack/angular-query-experimental';
 
 /**
- * ActivityComponent - MNC-grade: OnPush + TanStack paginated timeline (GET /api/projects/{pid}/activities).
+ * ActivityComponent - OnPush + TanStack paginated timeline (GET /api/projects/{pid}/activities).
  * Select workspace -> project -> timeline. DaisyUI timeline vertical, responsive.
  */
 @Component({

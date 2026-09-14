@@ -92,7 +92,7 @@
       <p class="text-xs opacity-70 mt-1">Tasks live in one Project. Boards in <code class="bg-base-100 px-1 rounded">/boards</code> only change filter/grouping (sprint, assignee, priority). No duplicate issues.</p>
     </div>
 
-    <!-- Project Health KPIs + Charts (Task 4.4) — keep existing above, only add below -->
+    <!-- Project Health KPIs + Charts — keep existing above, only add below -->
     <section class="mt-6">
       <div class="mb-3 flex items-end justify-between gap-3">
         <div>
@@ -134,9 +134,7 @@
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           @for (i of [1,2,3,4,5]; track i) { <div class="card bg-base-100 rounded-2xl p-4 h-24 animate-pulse border"></div> }
         </div>
-      } @else if (projectStatsQuery.isError()) {
-        <div class="alert alert-error rounded-xl text-sm">Failed to load project stats — {{ $any(projectStatsQuery.error)?.error?.error || 'please try again' }}</div>
-      }
+      } <!-- error via toast -->
 
       <div class="mt-4">
         @if (burndownQuery.isPending()) {
@@ -153,9 +151,7 @@
           <div class="grid gap-3 lg:grid-cols-2">
             @for (i of [1,2,3,4,5]; track i) { <div class="card bg-base-100 rounded-2xl p-4 h-[340px] animate-pulse border"></div> }
           </div>
-        } @else if (projectChartQuery.isError()) {
-          <div class="alert alert-error rounded-xl text-sm">Failed to load charts — {{ $any(projectChartQuery.error)?.error?.error || 'please try again' }}</div>
-        } @else {
+        } <!-- error via toast --> @else {
           <app-project-charts [chartData]="projectChartQuery.data() ?? null"></app-project-charts>
         }
       </div>

@@ -3,9 +3,9 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
 /**
- * ProjectService - MNC-grade: inject(HttpClient) + signals + typed HttpClient + firstValueFrom in components (not toPromise).
+ * ProjectService - inject(HttpClient) + signals + typed HttpClient + firstValueFrom in components (not toPromise).
  * Why not simple? inject() is tree-shakable for standalone, signals give fine-grained state (selectedProject/filters) without NgRx.
- * All methods return Observable<T> (HttpClient) - caller does firstValueFrom() in TanStack queryFn (MNC uses firstValueFrom, not deprecated toPromise().then(r=>r!)).
+ * All methods return Observable<T> (HttpClient) - caller does firstValueFrom() in TanStack queryFn (uses firstValueFrom, not deprecated toPromise().then(r=>r!)).
  */
 
 export interface Project { id: string; workspaceId: string; name: string; key: string; description?: string; ownerId: string; createdAt: string; }
@@ -24,7 +24,7 @@ export interface WorkspaceMemberDto { userId: string; email: string; fullName: s
 
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
-  // Signals - client state (no NgRx, MNC-grade) - fine-grained, OnPush components read via signal()
+  // Signals - client state (no NgRx) - fine-grained, OnPush components read via signal()
   selectedProject = signal<Project | null>(null);
   selectedWorkspaceId = signal<string | null>(null);
   filters = signal<{ search?: string; assigneeId?: string; priority?: string; label?: string }>({});
@@ -71,7 +71,7 @@ export class ProjectService {
     if (search) params.search = search;
     return this.http.get<{items: WorkspaceMemberDto[], total: number}>(`${environment.apiUrl}/api/workspaces/${workspaceId}/members`, { params, withCredentials: true });
   }
-  // Boards (Enterprise: Project → Boards)
+  // Boards (Project → Boards)
   getBoards(projectId: string) {
     return this.http.get<BoardDtoFull[]>(`${environment.apiUrl}/api/projects/${projectId}/boards`, { withCredentials: true });
   }
@@ -125,7 +125,7 @@ export class ProjectService {
     return this.http.get<{ items: TaskItem[]; total: number }>(`${environment.apiUrl}/api/tasks`, { params, withCredentials: true });
   }
 
-  // Statuses - project-level workflow statuses (Jira-like, explicit creation)
+  // Statuses — explicit, created via project settings
   getStatuses(projectId: string) {
     return this.http.get<StatusDto[]>(`${environment.apiUrl}/api/projects/${projectId}/statuses`, { withCredentials: true });
   }
@@ -148,7 +148,7 @@ export class ProjectService {
     const toGuidOrNull = (v?: string) => (!v || v.trim() === '' ? null : v);
     return this.http.put(`${environment.apiUrl}/api/tasks/${taskId}`, { title, description, priority, listId: toGuidOrNull(listId), labelsJson, assigneeId: toGuidOrNull(assigneeId), dueDate, issueType, epic, storyPoints, startDate, environment: taskEnv, parentIssueId: toGuidOrNull(parentIssueId), sprintId: toGuidOrNull(sprintId), watchersJson, linkedIssuesJson, timeEstimated, timeSpent, timeRemaining, teamId: toGuidOrNull(teamId), status: undefined, statusId: toGuidOrNull(statusId), acceptanceCriteriaJson }, { withCredentials: true });
   }
-  // Project Members (Enterprise: Project has explicit members from workspace)
+  // Project Members (Project has explicit members from workspace)
   getProjectMembers(projectId: string, page=1, pageSize=20, search?: string) {
     let params:any = { page, pageSize };
     if(search) params.search = search;

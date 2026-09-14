@@ -5,7 +5,7 @@ using Project.Service.Application.Interfaces;
 namespace Project.Service.Application.Queries;
 
 /// <summary>
-/// GetActivities - paged activity timeline for project (DaisyUI timeline). Filtered by ProjectId, ordered OccurredAt desc. Used by activity.component + burndown (Task 4.4 ApexCharts). Delegates to IActivityService (MNC-grade DIP, like GetProjects).
+/// GetActivities - paged activity timeline for project (DaisyUI timeline). Filtered by ProjectId, ordered OccurredAt desc. Used by activity.component + burndown (ApexCharts). Delegates to IActivityService (DIP, like GetProjects).
 /// </summary>
 public record GetActivitiesQuery(Guid ProjectId, int Page = 1, int PageSize = 20, Guid? TaskId = null) : IRequest<(List<ActivityDto> Items, int Total)>;
 

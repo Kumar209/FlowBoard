@@ -17,41 +17,58 @@ public static class IdentitySeeder
         {
             var hash = BCrypt.Net.BCrypt.HashPassword(superPassword);
             user = new User(superEmail, hash, superName);
+            user.PromoteToSuperAdmin();
             db.Users.Add(user);
             await db.SaveChangesAsync();
         }
-
-        var org = await db.Organizations.FirstOrDefaultAsync(o => o.OwnerId == user.Id);
-        if (org == null)
+        else if (!user.IsSuperAdmin)
         {
-            org = new Organization("FlowBoard System", "flowboard-system-" + Guid.NewGuid().ToString()[..6], user.Id, "System organization for SuperAdmin");
-            db.Organizations.Add(org);
+            user.PromoteToSuperAdmin();
             await db.SaveChangesAsync();
         }
 
-        var ws = await db.Workspaces.FirstOrDefaultAsync(w => w.OrganizationId == org.Id);
-        if (ws == null)
+        // SuperAdmin is global platform owner via Users.IsSuperAdmin, not a tenant member.
+        // No system org/workspace is created. Remove legacy system org if it exists (created before this refactor).
+        var legacyOrg = await db.Organizations.FirstOrDefaultAsync(o => o.Name == "FlowBoard System" && o.OwnerId == user.Id);
+        if (legacyOrg != null)
         {
-            ws = new Workspace(org.Id, "System", "system-" + Guid.NewGuid().ToString()[..4]);
-            db.Workspaces.Add(ws);
-            await db.SaveChangesAsync();
+            var legacyWsIds = await db.Workspaces.Where(w => w.OrganizationId == legacyOrg.Id).Select(w => w.Id).ToListAsync();
+            if (legacyWsIds.Any())
+            {
+                var wsMembers = await db.WorkspaceMembers.Where(m => legacyWsIds.Contains(m.WorkspaceId)).ToListAsync();
+                if (wsMembers.Any()) { db.WorkspaceMembers.RemoveRange(wsMembers); await db.SaveChangesAsync(); }
+                var wsList = await db.Workspaces.Where(w => w.OrganizationId == legacyOrg.Id).ToListAsync();
+                db.Workspaces.RemoveRange(wsList); await db.SaveChangesAsync();
+            }
+            var orgMembers = await db.OrganizationMembers.Where(m => m.OrganizationId == legacyOrg.Id).ToListAsync();
+            if (orgMembers.Any()) { db.OrganizationMembers.RemoveRange(orgMembers); await db.SaveChangesAsync(); }
+            db.Organizations.Remove(legacyOrg); await db.SaveChangesAsync();
         }
 
-        if (!await db.WorkspaceMembers.AnyAsync(m => m.WorkspaceId == ws.Id && m.UserId == user.Id))
-        {
-            var member = new WorkspaceMember(ws.Id, user.Id, Roles.SuperAdminValue);
-            db.WorkspaceMembers.Add(member);
-            await db.SaveChangesAsync();
-        }
-
-        if (!await db.OrganizationMembers.AnyAsync(m => m.OrganizationId == org.Id && m.UserId == user.Id))
-        {
-            var orgMember = new OrganizationMember(org.Id, user.Id, 2); // OrgAdmin
-            db.OrganizationMembers.Add(orgMember);
-            await db.SaveChangesAsync();
-        }
-
+        await SeedSubscriptionPlansAsync(db);
         await SeedPermissionsAsync(db);
+        // Backfill existing orgs without plan to Free (customer orgs only, system org already removed)
+        var freePlan = await db.SubscriptionPlans.FirstOrDefaultAsync(p => p.Name == "Free");
+        if (freePlan != null)
+        {
+            var orgsWithoutPlan = await db.Organizations.Where(o => o.SubscriptionPlanId == Guid.Empty).ToListAsync();
+            foreach (var o in orgsWithoutPlan) o.SetPlan(freePlan.Id);
+            if (orgsWithoutPlan.Any()) await db.SaveChangesAsync();
+        }
+    }
+
+    public static async Task SeedSubscriptionPlansAsync(IdentityDbContext db)
+    {
+        if (await db.SubscriptionPlans.AnyAsync()) return;
+        var plans = new[]
+        {
+            new SubscriptionPlanEntity(Guid.Parse("a0000000-0000-0000-0000-000000000010"), "Free", 0m, 5, 2, 3, 5, 100, 1000, "[\"basic-board\",\"basic-tasks\"]"),
+            new SubscriptionPlanEntity(Guid.Parse("a0000000-0000-0000-0000-000000000011"), "Pro", 29m, 25, 10, 50, 50, 5000, 10000, "[\"board\",\"sprints\",\"ai-draft\"]"),
+            new SubscriptionPlanEntity(Guid.Parse("a0000000-0000-0000-0000-000000000012"), "Business", 79m, 100, 50, 200, 200, 20000, 50000, "[\"board\",\"sprints\",\"ai-full\",\"analytics\"]"),
+            new SubscriptionPlanEntity(Guid.Parse("a0000000-0000-0000-0000-000000000013"), "Enterprise", 199m, 500, 200, 1000, 1000, 100000, 200000, "[\"all\"]"),
+        };
+        db.SubscriptionPlans.AddRange(plans);
+        await db.SaveChangesAsync();
     }
 
     public static async Task SeedPermissionsAsync(IdentityDbContext db)

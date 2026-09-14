@@ -12,10 +12,10 @@ public class FileService : IFileService
     private readonly IApplicationDbContext _db;
     private readonly ICloudinaryService _cloudinary;
 
-    // Allowed mime types - MNC strict whitelist (image + pdf + text + zip)
+    // Strict whitelist for uploads
     private static readonly HashSet<string> AllowedMimePrefixes = new() { "image/", "video/", "application/pdf", "text/", "application/zip", "application/msword", "application/vnd." };
     private static readonly HashSet<string> AllowedExtensions = new() { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".pdf", ".txt", ".csv", ".zip", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".mp4", ".mov" };
-    private const long MaxSizeBytes = 10 * 1024 * 1024; // 10MB
+    private const long MaxSizeBytes = 25 * 1024 * 1024; // 25MB — aligns with PlatformSettings Storage MaxFileSizeMb
 
     public FileService(IApplicationDbContext db, ICloudinaryService cloudinary)
     {
@@ -30,7 +30,7 @@ public class FileService : IFileService
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         if (!AllowedExtensions.Contains(ext) && !AllowedMimePrefixes.Any(p => contentType.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
             return Result<AttachmentDto>.Failure($"File type not allowed: {contentType} ({ext})");
-        if (sizeBytes > MaxSizeBytes) return Result<AttachmentDto>.Failure($"File too large: {sizeBytes} bytes > 10MB");
+        if (sizeBytes > MaxSizeBytes) return Result<AttachmentDto>.Failure($"File too large: {sizeBytes} bytes > 25MB");
         if (fileStream.Length == 0) return Result<AttachmentDto>.Failure("Empty file");
 
         // 2. Resolve task -> project -> workspace -> org with permission checks
@@ -42,7 +42,7 @@ public class FileService : IFileService
         if (Roles.CanUpload(callerRoles) == false)
             return Result<AttachmentDto>.Failure("Forbidden - Client cannot upload attachments");
 
-        // 4. Cloudinary upload — short ids to keep public_id <255 (MNC) + sanitized truncated filename (fixes VS break on long public_id)
+        // 4. Cloudinary upload — short ids to keep public_id <255 + sanitized truncated filename (fixes VS break on long public_id)
         var folder = $"flowboard/{orgId.ToString()[..8]}/{workspaceId.ToString()[..8]}/{projectId.ToString()[..8]}/{taskId.ToString()[..8]}";
         var safeFileName = Path.GetFileNameWithoutExtension(fileName);
         safeFileName = System.Text.RegularExpressions.Regex.Replace(safeFileName, @"[^a-zA-Z0-9_\-]", "_");
@@ -101,10 +101,10 @@ public class FileService : IFileService
         var resolve = await ResolveAndAuthorizeAsync(attachment.TaskId, callerId, callerRoles, "attachment:delete", ct);
         if (!resolve.IsSuccess) return Result<bool>.Failure(resolve.Error!);
 
-        // Only uploader or OrgAdmin/SuperAdmin can delete (ProjectManager is now custom workspace role)
+        // Only uploader or OrgAdmin/SuperAdmin can delete
         bool isUploader = attachment.UploaderId == callerId;
         bool isPrivileged = Roles.IsPrivilegedForManage(callerRoles);
-        // Also check SuperAdmin via identity
+        // Also check SuperAdmin
         if (!isUploader && !isPrivileged)
         {
             try
@@ -166,7 +166,7 @@ public class FileService : IFileService
             return Result<(Guid, Guid, Guid)>.Failure($"Resolve failed: {ex.Message}");
         }
 
-        // 2. SuperAdmin bypass (Users.IsSuperAdmin or WorkspaceMembers Role=5)
+        // 2. SuperAdmin bypass via IsSuperAdmin
         try
         {
             var isSuperClaim = callerRoles.Contains(Roles.SuperAdmin);
@@ -194,7 +194,7 @@ public class FileService : IFileService
         try { isWsMember = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1}", workspaceId, callerId).FirstOrDefaultAsync(ct) > 0; } catch { }
         if (!isWsMember) return Result<(Guid, Guid, Guid)>.Failure("Forbidden - Not a workspace member");
 
-        // 5. Project membership check (ProjectMembers) — OrgAdmin/SuperAdmin have full authority even if not explicit project member
+        // 5. Project membership — OrgAdmin/SuperAdmin bypass
         bool isProjMember = false;
         try { isProjMember = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [project].[ProjectMembers] WHERE ProjectId = {0} AND UserId = {1}", projectId, callerId).FirstOrDefaultAsync(ct) > 0; } catch { }
         bool isPrivilegedForProject = Roles.IsPrivilegedForManage(callerRoles);
@@ -219,7 +219,7 @@ public class FileService : IFileService
             try
             {
                 var customRoleId = await _db.Database.SqlQueryRaw<Guid?>("SELECT CustomRoleId as Value FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1}", workspaceId, callerId).FirstOrDefaultAsync(ct);
-                // If customRoleId is null -> fixed role, allow Member/OrgAdmin/SuperAdmin, deny Client (Viewer is custom)
+                    // Fixed role vs custom role check
                 if (customRoleId == null || customRoleId == Guid.Empty)
                 {
                     if (Roles.CanUpload(callerRoles) == false)

@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
 /**
- * WorkspaceService - MNC-grade: inject(HttpClient) + signals.
+ * WorkspaceService - inject(HttpClient) + signals.
  * Wraps Identity Service workspaces via Gateway :5000 -> :5001.
  * Used by Workspaces list w (all) and Workspace detail w/:wid.
  */

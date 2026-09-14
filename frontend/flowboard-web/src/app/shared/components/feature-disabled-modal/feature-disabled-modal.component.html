@@ -1,0 +1,13 @@
+@if (open()) {
+  <div class="modal modal-open">
+    <div class="modal-box">
+      <h3 class="font-bold">Feature Disabled</h3>
+      <p class="text-sm mt-3">{{ featureName() }} is currently disabled by {{ disabledBy() }}.</p>
+      <p class="text-xs opacity-60 mt-2">Please contact your organization owner or platform SuperAdmin to enable it.</p>
+      <div class="modal-action">
+        <button class="btn btn-primary btn-sm" (click)="closed.emit()">OK</button>
+      </div>
+    </div>
+    <div class="modal-backdrop" (click)="closed.emit()"></div>
+  </div>
+}

@@ -46,7 +46,7 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.HasMany(x => x.Tasks).WithOne(x => x.Project).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        // Board (Enterprise: Project → Boards as views, same Issues) + FilterJson
+        // Board (Project → Boards as views, same Issues) + FilterJson
         b.Entity<Board>(e =>
         {
             e.HasKey(x => x.Id);
@@ -60,7 +60,7 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        // BoardList = Column (Enterprise: Board → Columns To Do etc., terminology Column in UI)
+        // BoardList = Column (Board → Columns To Do etc., terminology Column in UI)
         b.Entity<BoardList>(e =>
         {
             e.HasKey(x => x.Id);
@@ -72,7 +72,7 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.HasOne(x => x.Board).WithMany().HasForeignKey(x => x.BoardId).OnDelete(DeleteBehavior.NoAction);
         });
 
-        // Sprint (Enterprise: Project-owned, Board filters by Sprint)
+        // Sprint (Project-owned, Board filters by Sprint)
         b.Entity<Sprint>(e =>
         {
             e.HasKey(x => x.Id);
@@ -218,7 +218,7 @@ public class ProjectDbContext : DbContext, IApplicationDbContext
             e.Ignore(x => x.DomainEvents);
         });
 
-        // ProjectMember (Enterprise: Project has explicit members from workspace)
+        // ProjectMember (Project has explicit members from workspace)
         b.Entity<ProjectMember>(e =>
         {
             e.HasKey(x => x.Id);

@@ -3,7 +3,7 @@ using SharedKernel;
 namespace Project.Service.Domain.Entities;
 
 /// <summary>
-/// OutboxMessage - transactional outbox pattern for reliable MassTransit publishing (Task 3.1). Stores integration events (TaskCreated/Moved/Commented) as JSON Payload with Type, OccurredOn, ProcessedAt, Error. Saved in same DB transaction as domain changes, then BackgroundService polls every 2s to publish to CloudAMQP (same key local/prod) and marks ProcessedAt. Prevents lost events on crash/restart, retry 3x + _error queue.
+/// OutboxMessage - transactional outbox pattern for reliable MassTransit publishing. Stores integration events (TaskCreated/Moved/Commented) as JSON Payload with Type, OccurredOn, ProcessedAt, Error. Saved in same DB transaction as domain changes, then BackgroundService polls every 2s to publish to CloudAMQP (same key local/prod) and marks ProcessedAt. Prevents lost events on crash/restart, retry 3x + _error queue.
 /// </summary>
 public class OutboxMessage : BaseEntity
 {

@@ -3,7 +3,7 @@ using SharedKernel;
 namespace Identity.Service.Domain.Entities;
 
 /// <summary>
-/// WorkspaceMember - join table with composite PK WorkspaceId+UserId, Role 6 values (Member 0, ProjectManager 1 can create projects, OrgAdmin 2, Client 3 external view+comment, Viewer 4, SuperAdmin 5), JoinedAt. Enforces one membership per workspace, drives JWT Role/workspace_id claims + controller [Authorize] checks (Invite requires OrgAdmin, CreateProject requires PM/OrgAdmin).
+/// Join table WorkspaceId+UserId with Role. Drives JWT claims and authorization checks.
 /// </summary>
 public class WorkspaceMember
 {

@@ -12,7 +12,7 @@ import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-quer
 import { ROLE_LABEL_MAP } from '../../shared/constants/roles';
 
 /**
- * WorkspaceComponent - MNC-grade: modals for Create/Update/Delete project + toast + dropdown.
+ * WorkspaceComponent - modals for Create/Update/Delete project + toast + dropdown.
  */
 @Component({
   selector: 'app-workspace',

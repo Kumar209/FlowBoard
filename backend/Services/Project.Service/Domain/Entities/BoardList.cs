@@ -8,7 +8,7 @@ namespace Project.Service.Domain.Entities;
 public class BoardList : BaseEntity
 {
     public Guid ProjectId { get; private set; }
-    public Guid? BoardId { get; private set; } // Column belongs to Board (Enterprise: Board → Columns)
+    public Guid? BoardId { get; private set; } // Column belongs to Board (Board → Columns)
     public string Name { get; private set; } = string.Empty;
     public int Position { get; private set; }
 

@@ -7,7 +7,7 @@ namespace Identity.Service.Infrastructure.Services;
 
 // Brevo Transactional API - sends invite emails (300/day free, same key local/prod)
 // Docs: https://developers.brevo.com/docs/transactional-emails
-// Enterprise: Implements IBrevoEmailService (Application interface) - DIP
+// Implements IBrevoEmailService (Application interface) - DIP
 public class BrevoEmailService : IBrevoEmailService
 {
     private readonly HttpClient _http;
@@ -19,6 +19,47 @@ public class BrevoEmailService : IBrevoEmailService
         _http = http;
         _config = config;
         _logger = logger;
+    }
+
+    public async Task<bool> SendEmailAsync(string toEmail, string subject, string htmlContent)
+    {
+        var apiKey = _config["Brevo:ApiKey"];
+        if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("PASTE_YOUR"))
+        {
+            _logger.LogWarning("Brevo ApiKey not configured - skipping email to {Email} subject {Subject}", toEmail, subject);
+            return false;
+        }
+        var payload = new
+        {
+            sender = new { name = "FlowBoard", email = "noreply@flowboard.local" },
+            to = new[] { new { email = toEmail } },
+            subject = subject,
+            htmlContent = htmlContent
+        };
+        var json = JsonSerializer.Serialize(payload);
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://api.brevo.com/v3/smtp/email")
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("api-key", apiKey);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        try
+        {
+            var response = await _http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Brevo email sent to {Email} subject {Subject}", toEmail, subject);
+                return true;
+            }
+            var body = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Brevo email failed for {Email}: {Status} {Body}", toEmail, response.StatusCode, body);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Brevo email exception for {Email}", toEmail);
+            return false;
+        }
     }
 
     public async Task<bool> SendInviteAsync(string toEmail, string inviteLink, string workspaceName, string inviterName)

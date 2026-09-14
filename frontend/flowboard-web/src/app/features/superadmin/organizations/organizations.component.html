@@ -1,0 +1,97 @@
+<div class="p-3 sm:p-4 space-y-4">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <h1 class="text-2xl font-bold">Organizations</h1>
+    <div class="flex gap-2">
+      <input class="input input-bordered input-sm w-64" placeholder="Search name or slug..." [(ngModel)]="searchInput" (keyup.enter)="onSearch()" />
+      <button class="btn btn-sm btn-primary" (click)="onSearch()">Search</button>
+      @if (search()) { <button class="btn btn-sm btn-ghost" (click)="clearSearch()">Clear</button> }
+    </div>
+  </div>
+
+  <div class="text-xs opacity-60">Lightweight tenant directory — counts only, no member browse. Plan badge Free visible for every new org.</div>
+
+  @if (query.isPending()) {
+    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
+  } <!-- error via toast --> @else {
+    <div class="card bg-base-100 shadow overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Organization</th>
+              <th>Owner</th>
+              <th>Plan</th>
+              <th>Status</th>
+              <th>Users</th>
+              <th>Workspaces</th>
+              <th>Projects</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (o of items; track o.id) {
+              <tr>
+                <td>
+                  <div class="font-medium">{{ o.name }}</div>
+                  <div class="text-xs opacity-50">{{ o.slug }}</div>
+                </td>
+                <td>
+                  <div class="text-sm">{{ o.ownerName }}</div>
+                  <div class="text-xs opacity-50">{{ o.ownerEmail }}</div>
+                </td>
+                <td><span class="badge badge-sm {{ planBadgeClass(o.planName) }}">{{ o.planName }}</span></td>
+                <td>
+                  @if (o.isActive) { <span class="badge badge-success badge-sm">Active</span> } @else { <span class="badge badge-error badge-sm">Suspended</span> }
+                </td>
+                <td><span class="font-mono text-sm">{{ o.users }}</span></td>
+                <td><span class="font-mono text-sm">{{ o.workspaces }}</span></td>
+                <td><span class="font-mono text-sm">{{ o.projects }}</span></td>
+                <td><span class="text-xs">{{ o.createdAt | date:'mediumDate' }}</span></td>
+                <td>
+                  <div class="flex gap-1 flex-wrap">
+                    <button class="btn btn-xs btn-ghost" (click)="viewMembers(o)">Members</button>
+                    @if (o.isActive) { <button class="btn btn-xs btn-warning" (click)="openSuspend(o)">Suspend</button> } @else { <button class="btn btn-xs btn-success" (click)="onActivate(o)">Reactivate</button> }
+                    <button class="btn btn-xs btn-error btn-outline" (click)="onDelete(o)">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            }
+            @if (items.length === 0) {
+              <tr><td colspan="9" class="text-center py-8 opacity-50">No organizations found</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="flex items-center justify-between p-3 border-t border-base-200">
+        <div class="text-xs opacity-60">Total {{ total }} · Page {{ page() }} / {{ totalPages }}</div>
+        <div class="flex gap-2">
+          <button class="btn btn-xs" [disabled]="page() <= 1" (click)="prevPage()">Prev</button>
+          <button class="btn btn-xs" [disabled]="page() >= totalPages" (click)="nextPage()">Next</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (suspendTarget()) {
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold">Suspend {{ suspendTarget()!.name }}</h3>
+        <p class="text-xs opacity-60 mt-1">This will block all users of this organization from logging in. They will see a contact support message.</p>
+        <div class="form-control mt-3">
+          <label class="label"><span class="label-text">Reason</span></label>
+          <input class="input input-bordered input-sm" [ngModel]="suspendReason()" (ngModelChange)="suspendReason.set($event)" placeholder="Reason for suspension" />
+        </div>
+        <div class="form-control mt-2">
+          <label class="label"><span class="label-text">Message to organization (email + banner)</span></label>
+          <textarea class="textarea textarea-bordered textarea-sm" [ngModel]="suspendMessage()" (ngModelChange)="suspendMessage.set($event)" rows="3"></textarea>
+        </div>
+        <div class="modal-action">
+          <button class="btn btn-ghost btn-sm" (click)="closeSuspend()">Cancel</button>
+          <button class="btn btn-warning btn-sm" [disabled]="suspendMutation.isPending()" (click)="confirmSuspend()">@if (suspendMutation.isPending()) { <span class="loading loading-spinner loading-xs"></span> } Suspend</button>
+        </div>
+      </div>
+      <div class="modal-backdrop" (click)="closeSuspend()"></div>
+    </div>
+  }
+</div>

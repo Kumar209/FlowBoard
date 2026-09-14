@@ -56,7 +56,7 @@ public class GenerateEnhanceHandler : IRequestHandler<GenerateEnhanceCommand, Re
             catch { }
         }
 
-        // MNC Jira: description optional — if empty, generate from title only
+        // Description optional — if empty, generate from title only
         string prompt;
         if (string.IsNullOrWhiteSpace(req.Description))
             prompt = $"Title: {req.Title}\nNo existing description. Generate clear description from title only (objective, steps, acceptance hints). Keep original intent.";

@@ -7,7 +7,7 @@ using Project.Service.Application.Interfaces;
 namespace Project.Service.Application.Queries;
 
 /// <summary>
-/// GetBoard - returns project with ordered lists and tasks grouped by ListId+Position. Cached as board:{projectId} TTL 5m via Upstash Redis (Task 2.3). Invalidated on task write.
+/// Returns project with ordered lists and tasks. Cached as board:{projectId} 5m via Redis, invalidated on task write.
 /// </summary>
 public record GetBoardQuery(Guid ProjectId, Guid? BoardId = null) : ICacheableRequest<BoardDto>
 {

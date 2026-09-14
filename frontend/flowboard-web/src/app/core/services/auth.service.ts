@@ -2,6 +2,7 @@ import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { ROLE_VALUE_MAP as SharedRoleMap } from '../../shared/constants/roles';
+import { Observable, shareReplay, finalize } from 'rxjs';
 
 export interface User {
   id: string;
@@ -39,7 +40,7 @@ export interface MeResponse {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  // Signals - client state (no NgRx, enterprise modern)
+  // Signals - client state (no NgRx, modern)
   currentUser = signal<User | null>(null);
   accessToken = signal<string | null>(null);
   memberships = signal<Membership[]>([]);
@@ -55,12 +56,12 @@ export class AuthService {
   isClient = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.Client || m.roleName === 'Client'));
   isViewer = computed(() => this.memberships().some(m => Number(m.role) === WorkspaceRole.Viewer || m.roleName === 'Viewer'));
 
-  // Enterprise: workspace-scoped checks
+  // Workspace-scoped checks
   isManagerFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && Number(m.role) === WorkspaceRole.ProjectManager);
   isOrgAdminFor = (workspaceId: string) => this.memberships().some(m => m.workspaceId === workspaceId && (Number(m.role) === WorkspaceRole.OrgAdmin || Number(m.role) === WorkspaceRole.SuperAdmin));
   canCreateProject = computed(() => this.isOrgAdmin() || this.isProjectManager() || this.isSuperAdmin());
   canCreateWorkspace = computed(() => this.isOrgAdmin() || this.isSuperAdmin());
-  canCreateTask = computed(() => !this.isClient() && !this.isViewer()); // Client 403, Viewer 403 per Task 1.5
+  canCreateTask = computed(() => !this.isClient() && !this.isViewer()); // Client 403, Viewer 403
   canComment = computed(() => !this.isViewer()); // Viewer no comment, Client can comment
 
   constructor(private http: HttpClient) {
@@ -69,16 +70,31 @@ export class AuthService {
   }
 
   register(email: string, password: string, fullName: string, companyName: string, companyDescription?: string) {
+    this.clearRefreshDedup();
     return this.http.post<AuthResponse>(`${environment.apiUrl}/api/auth/register`, { email, password, fullName, companyName, companyDescription }, { withCredentials: true });
   }
 
   login(email: string, password: string) {
+    this.clearRefreshDedup();
+    // Clear stale session when switching accounts (avoid sending old Bearer on login)
+    this.clearSession();
     return this.http.post<AuthResponse>(`${environment.apiUrl}/api/auth/login`, { email, password }, { withCredentials: true });
   }
 
+  // Deduped refresh — singleflight to avoid concurrent /refresh race that triggers reuse-revoke
+  private refreshInFlight: Observable<{ accessToken: string; accessTokenExpiresAt: string }> | null = null;
   refresh() {
     return this.http.post<{ accessToken: string; accessTokenExpiresAt: string }>(`${environment.apiUrl}/api/auth/refresh`, {}, { withCredentials: true });
   }
+  refreshDeduped(): Observable<{ accessToken: string; accessTokenExpiresAt: string }> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+    this.refreshInFlight = this.http.post<{ accessToken: string; accessTokenExpiresAt: string }>(`${environment.apiUrl}/api/auth/refresh`, {}, { withCredentials: true }).pipe(
+      shareReplay({ bufferSize: 1, refCount: true }),
+      finalize(() => setTimeout(() => (this.refreshInFlight = null), 5000))
+    );
+    return this.refreshInFlight;
+  }
+  clearRefreshDedup() { this.refreshInFlight = null; }
 
   me() {
     return this.http.get<MeResponse>(`${environment.apiUrl}/api/auth/me`, { withCredentials: true });

@@ -2,9 +2,12 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Identity.Service.Application.Commands;
 using Identity.Service.Application.Queries;
+using Identity.Service.Application.SuperAdmin.Interfaces;
 using Identity.Service.Infrastructure.Services;
+using SharedKernel;
 
 namespace Identity.Service.Api.Controllers;
 
@@ -140,6 +143,105 @@ public class OrganizationsController : ControllerBase
         }
     }
 
+    [HttpGet("{id}/notices")]
+    public async Task<IActionResult> GetNotices(Guid id)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var svc = HttpContext.RequestServices.GetRequiredService<ISuperAdminService>();
+        // Check membership or superadmin
+        var isSuper = Roles.IsSuperAdmin(GetRoles());
+        if (!isSuper)
+        {
+            var db = HttpContext.RequestServices.GetRequiredService<Identity.Service.Application.Interfaces.IApplicationDbContext>();
+            var isMember = await db.OrganizationMembers.AnyAsync(m => m.OrganizationId == id && m.UserId == callerId.Value) || await db.Organizations.AnyAsync(o => o.Id == id && o.OwnerId == callerId.Value) || await db.WorkspaceMembers.Join(db.Workspaces.Where(w => w.OrganizationId == id), wm => wm.WorkspaceId, w => w.Id, (wm, w) => wm).AnyAsync(x => x.UserId == callerId.Value);
+            if (!isMember) return StatusCode(403, new { error = "Forbidden - Not in organization" });
+        }
+        var notices = await svc.GetActiveNoticesAsync(id);
+        return Ok(notices);
+    }
+
+    [HttpGet("{id}/complaints")]
+    public async Task<IActionResult> GetComplaints(Guid id)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var isSuper = Roles.IsSuperAdmin(GetRoles());
+        if (!isSuper)
+        {
+            var db = HttpContext.RequestServices.GetRequiredService<Identity.Service.Application.Interfaces.IApplicationDbContext>();
+            var isMember = await db.OrganizationMembers.AnyAsync(m => m.OrganizationId == id && m.UserId == callerId.Value) || await db.Organizations.AnyAsync(o => o.Id == id && o.OwnerId == callerId.Value);
+            if (!isMember) return StatusCode(403, new { error = "Forbidden" });
+        }
+        var svc = HttpContext.RequestServices.GetRequiredService<ISuperAdminService>();
+        var list = await svc.GetComplaintsAsync(id);
+        return Ok(list);
+    }
+
+    [HttpPost("{id}/complaints")]
+    public async Task<IActionResult> CreateComplaint(Guid id, [FromBody] CreateComplaintRequest req)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var svc = HttpContext.RequestServices.GetRequiredService<ISuperAdminService>();
+        try
+        {
+            var c = await svc.CreateComplaintAsync(id, callerId.Value, req.Subject, req.Message);
+            return Ok(c);
+        }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
+    }
+
+    [HttpPost("{id}/complaints/{complaintId}/reply")]
+    public async Task<IActionResult> ReplyComplaint(Guid id, Guid complaintId, [FromBody] ReplyComplaintRequest req)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var isSuper = Roles.IsSuperAdmin(GetRoles());
+        var svc = HttpContext.RequestServices.GetRequiredService<ISuperAdminService>();
+        try
+        {
+            var r = await svc.ReplyToComplaintAsync(complaintId, callerId.Value, req.Message, isSuper);
+            return Ok(r);
+        }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
+    }
+
+    [HttpGet("{id}/complaints/{complaintId}")]
+    public async Task<IActionResult> GetComplaintDetail(Guid id, Guid complaintId)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var isSuper = Roles.IsSuperAdmin(GetRoles());
+        if (!isSuper)
+        {
+            var db = HttpContext.RequestServices.GetRequiredService<Identity.Service.Application.Interfaces.IApplicationDbContext>();
+            var isMember = await db.OrganizationMembers.AnyAsync(m => m.OrganizationId == id && m.UserId == callerId.Value) || await db.Organizations.AnyAsync(o => o.Id == id && o.OwnerId == callerId.Value);
+            if (!isMember) return StatusCode(403, new { error = "Forbidden" });
+        }
+        var svc = HttpContext.RequestServices.GetRequiredService<ISuperAdminService>();
+        try
+        {
+            var detail = await svc.GetComplaintDetailAsync(complaintId);
+            if (detail.Complaint.OrganizationId != id) return NotFound(new { error = "Complaint not in organization" });
+            return Ok(detail);
+        }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
+    }
+
+    [HttpDelete("{id}/complaints/{complaintId}")]
+    public async Task<IActionResult> DeleteComplaint(Guid id, Guid complaintId)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var isSuper = Roles.IsSuperAdmin(GetRoles());
+        if (!isSuper)
+        {
+            var db = HttpContext.RequestServices.GetRequiredService<Identity.Service.Application.Interfaces.IApplicationDbContext>();
+            var isMember = await db.OrganizationMembers.AnyAsync(m => m.OrganizationId == id && m.UserId == callerId.Value) || await db.Organizations.AnyAsync(o => o.Id == id && o.OwnerId == callerId.Value);
+            if (!isMember) return StatusCode(403, new { error = "Forbidden" });
+        }
+        var svc = HttpContext.RequestServices.GetRequiredService<ISuperAdminService>();
+        try { await svc.DeleteComplaintAsync(complaintId, callerId.Value); return Ok(new { message = "Deleted" }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
+    }
+
+    private string[] GetRoles() => User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).Concat(User.FindAll("role").Select(c => c.Value)).ToArray();
+
     private Guid? GetUserId()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
@@ -151,3 +253,5 @@ public record CreateOrgRequest(string Name, string? Description = null);
 public record UpdateOrgRequest(string Name, string? Description);
 public record CreateEmployeeRequest(string FullName, string Email, string Password, string Role, Guid? WorkspaceId = null, List<Guid>? WorkspaceIds = null, List<Identity.Service.Application.Interfaces.WorkspaceRoleAssignment>? WorkspaceRoles = null);
 public record UpdateEmployeeRequest(string? FullName = null, string? Email = null, string? Role = null, Guid? WorkspaceId = null, List<Guid>? WorkspaceIds = null, List<Identity.Service.Application.Interfaces.WorkspaceRoleAssignment>? WorkspaceRoles = null);
+public record CreateComplaintRequest(string Subject, string Message);
+public record ReplyComplaintRequest(string Message);

@@ -1,0 +1,112 @@
+<div class="p-3 sm:p-4 space-y-4">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <h1 class="text-2xl font-bold">Users — Org Admins</h1>
+    <div class="flex gap-2">
+      <input class="input input-bordered input-sm w-64" placeholder="Search name or email..." [(ngModel)]="searchInput" (keyup.enter)="onSearch()" />
+      <button class="btn btn-sm btn-primary" (click)="onSearch()">Search</button>
+      @if (search()) { <button class="btn btn-sm btn-ghost" (click)="clearSearch()">Clear</button> }
+    </div>
+  </div>
+  <div class="text-xs opacity-60">Shows only org admins who registered their company. Each row shows their organization and fixed org role. Drill into members for full roster.</div>
+
+  @if (query.isPending()) {
+    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
+  } <!-- error via toast --> @else {
+    <div class="card bg-base-100 shadow overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>Organization</th>
+              <th>Org Role</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Last Login</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (u of items; track u.id) {
+              <tr>
+                <td><div class="font-medium">{{ u.fullName }}</div><div class="text-xs opacity-50 mono">{{ u.id | slice:0:8 }}</div></td>
+                <td><span class="text-sm">{{ u.email }}</span></td>
+                <td><div class="text-sm font-medium">{{ u.organizationName }}</div><div class="text-xs opacity-50">{{ u.organizationId | slice:0:8 }}</div></td>
+                <td><span class="badge badge-sm badge-primary">{{ u.orgRole }}</span></td>
+                <td>
+                  @if (u.isPendingSuspension) { <span class="badge badge-warning badge-sm">Pending</span> <span class="text-xs opacity-60">{{ u.pendingDeadline | date:'shortDate' }}</span> }
+                  @else if (u.isActive) { <span class="badge badge-success badge-sm">Active</span> }
+                  @else { <span class="badge badge-error badge-sm">Suspended</span> }
+                </td>
+                <td><span class="text-xs">{{ u.createdAt | date:'mediumDate' }}</span></td>
+                <td><span class="text-xs">{{ u.lastLoginAt ? (u.lastLoginAt | date:'short') : '—' }}</span></td>
+                <td>
+                  <div class="flex gap-1 flex-wrap">
+                    <button class="btn btn-xs btn-ghost" (click)="viewMembers(u)">Members</button>
+                    @if (u.isPendingSuspension) { <button class="btn btn-xs btn-ghost" (click)="onActivate(u)">Cancel Suspension</button> }
+                    @else if (u.isActive) { <button class="btn btn-xs btn-warning" (click)="openSuspend(u)">Suspend</button> }
+                    @else { <button class="btn btn-xs btn-success" (click)="onActivate(u)">Reactivate</button> }
+                    <button class="btn btn-xs btn-error btn-outline" (click)="onDelete(u)">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            }
+            @if (items.length === 0) { <tr><td colspan="8" class="text-center py-8 opacity-50">No org admins found</td></tr> }
+          </tbody>
+        </table>
+      </div>
+      <div class="flex items-center justify-between p-3 border-t border-base-200">
+        <div class="text-xs opacity-60">Total {{ total }} · Page {{ page() }} / {{ totalPages }}</div>
+        <div class="flex gap-2">
+          <button class="btn btn-xs" [disabled]="page() <= 1" (click)="prevPage()">Prev</button>
+          <button class="btn btn-xs" [disabled]="page() >= totalPages" (click)="nextPage()">Next</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (suspendTarget()) {
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold">Suspend {{ suspendTarget()!.fullName }} with grace period</h3>
+        <p class="text-xs opacity-60 mt-1">If this is the only OrgAdmin of {{ suspendTarget()!.organizationName }}, the organization will also be suspended at deadline unless another OrgAdmin is promoted.</p>
+        <div class="form-control mt-3">
+          <label class="label"><span class="label-text">Reason</span></label>
+          <input class="input input-bordered input-sm" [ngModel]="suspendReason()" (ngModelChange)="suspendReason.set($event)" placeholder="Reason for suspension" />
+        </div>
+        <div class="form-control mt-2">
+          <label class="label"><span class="label-text">Message to organization (shown as banner + email)</span></label>
+          <textarea class="textarea textarea-bordered textarea-sm" [ngModel]="suspendMessage()" (ngModelChange)="suspendMessage.set($event)" rows="3"></textarea>
+        </div>
+        <div class="form-control mt-2">
+          <label class="label"><span class="label-text">Deadline days</span></label>
+          <input type="number" class="input input-bordered input-sm w-24" [ngModel]="suspendDays()" (ngModelChange)="suspendDays.set($event)" min="1" max="30" />
+        </div>
+        <div class="modal-action">
+          <button class="btn btn-ghost btn-sm" (click)="closeSuspend()">Cancel</button>
+          <button class="btn btn-warning btn-sm" [disabled]="suspendMutation.isPending()" (click)="confirmSuspend()">@if (suspendMutation.isPending()) { <span class="loading loading-spinner loading-xs"></span> } Schedule</button>
+        </div>
+      </div>
+      <div class="modal-backdrop" (click)="closeSuspend()"></div>
+    </div>
+  }
+
+  @if (deleteTarget()) {
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold">Delete {{ deleteTarget()!.fullName }}?</h3>
+        @if (deleteIsLastAdmin()) {
+          <div class="alert alert-error mt-3 text-sm">This is the last OrgAdmin of {{ deleteOrgName() }}. Deleting this user will also permanently delete the entire organization and all its workspaces, projects and tasks. This cannot be undone.</div>
+        } @else {
+          <p class="text-sm mt-2">This will delete the user and their memberships, but the organization and its data will remain because other orgadmins exist.</p>
+        }
+        <div class="modal-action">
+          <button class="btn btn-ghost btn-sm" (click)="closeDelete()">Cancel</button>
+          <button class="btn btn-error btn-sm" [disabled]="deleteMutation.isPending()" (click)="confirmDelete()">@if (deleteMutation.isPending()) { <span class="loading loading-spinner loading-xs"></span> } Delete</button>
+        </div>
+      </div>
+      <div class="modal-backdrop" (click)="closeDelete()"></div>
+    </div>
+  }
+</div>

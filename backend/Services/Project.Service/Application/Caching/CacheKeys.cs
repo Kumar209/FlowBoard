@@ -1,7 +1,7 @@
 namespace Project.Service.Application.Caching;
 
 /// <summary>
-/// CacheKeys - MNC-grade centralized key factory in Application layer (no Infra dependency). Keeps key format domain-owned, so Api/Application never reference concrete RedisCacheService. Used by controllers to build board:{projectId} 5m and tasks:{projectId}:{hash} 2m keys, and by handlers for invalidation. Single source for TTL constants too.
+/// Centralized cache key factory — board:{projectId} 5m, tasks:{hash} 2m. Keeps keys and TTLs in one place.
 /// </summary>
 public static class CacheKeys
 {

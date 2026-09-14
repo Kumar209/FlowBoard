@@ -9,7 +9,7 @@ using System.Text.Json;
 namespace Project.Service.Application.Commands;
 
 /// <summary>
-/// MoveTask - drag-drop between lists (CDK) or reorder inside same list. FromListId+ToListId+Position. Allowed Member+ (Client 403). Publishes TaskMoved via Outbox for realtime SignalR (Task 3.2) + invalidates Redis board:{projectId} (Task 2.3). Uses Position reordering.
+/// MoveTask - drag-drop between lists (CDK) or reorder inside same list. FromListId+ToListId+Position. Allowed Member+ (Client 403). Publishes TaskMoved via Outbox for realtime SignalR + invalidates Redis board:{projectId}. Uses Position reordering.
 /// </summary>
 public record MoveTaskCommand(Guid TaskId, Guid ToListId, int NewPosition, Guid CallerId, List<string> CallerRoles) : IRequest<Result>;
 

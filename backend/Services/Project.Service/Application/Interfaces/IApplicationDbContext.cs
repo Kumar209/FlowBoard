@@ -5,7 +5,7 @@ using ProjectEntity = Project.Service.Domain.Entities.Project;
 
 namespace Project.Service.Application.Interfaces;
 
-// Clean Architecture DIP - Application defines, Infrastructure implements (same as Identity Task 1.2.1)
+// Clean Architecture DIP - Application defines, Infrastructure implements (same as Identity)
 public interface IApplicationDbContext
 {
     DbSet<ProjectEntity> Projects { get; }

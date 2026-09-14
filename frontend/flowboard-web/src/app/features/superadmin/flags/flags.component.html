@@ -1,0 +1,75 @@
+<div class="p-3 sm:p-4 space-y-4">
+  <div>
+    <h1 class="text-2xl font-bold">Feature Flags</h1>
+    <div class="text-xs opacity-60 mt-1">Platform-level toggles — Global + Organization Overrides + Environments. Beta testing, gradual rollout, emergency disabling.</div>
+  </div>
+
+  <div class="tabs tabs-boxed bg-base-100 w-fit">
+    <a class="tab tab-sm" [class.tab-active]="tab()==='global'" (click)="tab.set('global')">Global</a>
+    <a class="tab tab-sm" [class.tab-active]="tab()==='overrides'" (click)="tab.set('overrides')">Organization Overrides</a>
+  </div>
+
+  @if (query.isPending()) {
+    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
+  } <!-- error via toast --> @else if (tab()==='global') {
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3">
+      @for (f of aiFlags; track f.key) {
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-bold">{{ f.name }}</span>
+              <input type="checkbox" class="toggle toggle-primary toggle-sm" [checked]="f.isEnabled" (change)="onToggle(f)" [disabled]="toggleMutation.isPending()" />
+            </div>
+            <div class="text-xs opacity-60 mt-1 font-mono">{{ f.key }}</div>
+            <div class="text-xs opacity-70 mt-2">{{ f.description }}</div>
+            <div class="text-[11px] opacity-50 mt-2">Updated {{ f.updatedAt | date:'medium' }} · <span class="badge badge-xs" [ngClass]="f.isEnabled?'badge-success':'badge-ghost'">{{ f.isEnabled ? 'Enabled' : 'Disabled' }}</span></div>
+          </div>
+        </div>
+      }
+    </div>
+    <div class="text-xs opacity-60 mt-2">Only AI issue flags used in SuperAdmin — Global controls all tenants.</div>
+  } @else {
+    <div class="space-y-3">
+      <div class="flex gap-2">
+        <input class="input input-bordered input-sm w-full sm:w-64" placeholder="Search organization..." [ngModel]="orgSearch()" (ngModelChange)="onOrgSearch($event)" />
+        <span class="badge badge-ghost badge-sm self-center">{{ orgTotal }} orgs</span>
+      </div>
+      @if (orgsQuery.isPending()) {
+        <div class="grid place-items-center py-8"><span class="loading loading-spinner"></span></div>
+      } @else if (orgs.length === 0) {
+        <div class="card bg-base-100 shadow p-8 text-center opacity-50 text-sm">No organizations</div>
+      } @else {
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-0">
+            <div class="overflow-x-auto">
+              <table class="table table-sm">
+                <thead><tr><th>Organization</th>@for (f of aiFlags; track f.key) { <th class="text-center font-mono text-xs">{{ f.key }}</th> }</tr></thead>
+                <tbody>
+                  @for (o of orgs; track o.id) {
+                    <tr class="hover">
+                      <td class="font-medium text-xs max-w-[180px] truncate" [title]="o.name">{{ o.name }}<div class="text-[10px] opacity-50 font-mono">{{ o.slug }}</div></td>
+                      @for (f of aiFlags; track f.key) {
+                        <td class="text-center">
+                          @let orgVal = getOrgFlag(o.id, f.key);
+                          <input type="checkbox" class="toggle toggle-primary toggle-xs" [checked]="orgVal !== null ? orgVal : f.isEnabled" (change)="onOrgToggle(o,f)" [disabled]="orgToggleMutation.isPending()" />
+                        </td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <div class="flex items-center justify-between p-3 border-t border-base-200">
+              <span class="text-xs opacity-60">Page {{ orgPage() }} of {{ orgTotalPages }} — {{ orgTotal }} orgs</span>
+              <div class="flex gap-2">
+                <button class="btn btn-ghost btn-xs" (click)="prevOrg()" [disabled]="orgPage()<=1">Prev</button>
+                <button class="btn btn-ghost btn-xs" (click)="nextOrg()" [disabled]="orgPage()>=orgTotalPages">Next</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="text-xs opacity-60">Searchable + paginated for 50+ orgs. Toggles mock — future per-org override.</div>
+      }
+    </div>
+  }
+</div>

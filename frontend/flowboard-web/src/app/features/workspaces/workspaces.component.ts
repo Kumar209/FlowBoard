@@ -10,7 +10,7 @@ import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-d
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**
- * WorkspacesComponent - MNC-grade: modals for Create/Update + Delete warning + hash gradient icon.
+ * WorkspacesComponent - modals for Create/Update + Delete warning + hash gradient icon.
  * OrgAdmin only sees ⋮ Edit/Delete; others view-only.
  */
 @Component({
@@ -30,6 +30,7 @@ export class WorkspacesComponent {
   page = signal(1);
   pageSize = 12;
   search = signal('');
+  private searchDebounce: any;
 
   workspacesQuery = injectQuery(() => ({
     queryKey: ['workspaces', this.page(), this.search()] as const,
@@ -111,6 +112,7 @@ export class WorkspacesComponent {
     onError: (err:any) => this.toast.error(err.error?.error || 'Delete failed'),
   }));
 
+   onSearch(val: string) { clearTimeout(this.searchDebounce); this.searchDebounce = setTimeout(() => { this.search.set(val); this.page.set(1); }, 300); }
   openCreate() { this.createError.set(null); this.createOpen.set(true); }
   openEdit(ws:any) { this.editing.set(ws); this.editOpen.set(true); }
   openDelete(ws:any) { this.editing.set(ws); this.deleteOpen.set(true); }

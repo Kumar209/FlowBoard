@@ -17,17 +17,19 @@ import { AttachmentService } from '../../../../core/services/attachment.service'
 import { AiService } from '../../../../core/services/ai.service';
 import { ConfirmDeleteComponent } from '../confirm-delete/confirm-delete.component';
 import { LoaderComponent } from '../../loader/loader.component';
+import { FeatureDisabledModalComponent } from '../../feature-disabled-modal/feature-disabled-modal.component';
+import { FeatureFlagService } from '../../../../core/services/feature-flag.service';
+import { WorkspaceService } from '../../../../core/services/workspace.service';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 /**
- * TaskDetailModal - Jira-grade: Subtasks CRUD, Comments CRUD, Assignee picker, Priority/Labels/Due editable, History.
- * MNC-grade: OnPush + input.required + signals + computed + firstValueFrom + injectQuery.
+ * Task detail modal — subtasks, comments, assignee, priority, labels, history.
  */
 @Component({
   selector: 'app-task-detail-modal',
   standalone: true,
-  imports: [CommonModule, ConfirmDeleteComponent, LoaderComponent],
+  imports: [CommonModule, ConfirmDeleteComponent, LoaderComponent, FeatureDisabledModalComponent],
   templateUrl: './task-detail-modal.component.html',
   styleUrls: ['./task-detail-modal.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -39,6 +41,7 @@ export class TaskDetailModalComponent {
   projectId = input<string>('');
   workspaceId = input<string>('');
   loading = input<boolean>(false);
+  featureFlags = input<Map<string, boolean> | null>(null);
   closed = output<void>();
   saved = output<{
     title: string;
@@ -70,8 +73,35 @@ export class TaskDetailModalComponent {
   private toast = inject(ToastService);
   attachmentService = inject(AttachmentService);
   private aiService = inject(AiService);
+  private flagService = inject(FeatureFlagService);
+  private workspaceService = inject(WorkspaceService);
   private sanitizer = inject(DomSanitizer);
   private queryClient = inject(QueryClient);
+  showFlagDisabled = signal(false);
+  flagDisabledName = signal('');
+  flagDisabledBy = signal('SuperAdmin or Organization Owner');
+  aiDraftEnabled = signal(true);
+  aiEnhanceEnabled = signal(true);
+  aiCriteriaEnabled = signal(true);
+  aiBreakdownEnabled = signal(true);
+
+  private async getCurrentOrgId(): Promise<string | undefined> {
+    try {
+      const orgs: any = await firstValueFrom(this.workspaceService.getMyOrganizations());
+      const arr = Array.isArray(orgs) ? orgs : (orgs?.items ?? []);
+      if (arr[0]?.id) return arr[0].id;
+    } catch {}
+    const wid = this.workspaceId() || (this.boardForTaskQuery.data() as any)?.project?.workspaceId || '';
+    if (!wid) return undefined;
+    try {
+      const res: any = await firstValueFrom(this.workspaceService.getMyWorkspaces());
+      const list = Array.isArray(res) ? res : (res?.items ?? res?.data ?? []);
+      const ws = list.find((w: any) => w.id === wid || w.workspaceId === wid);
+      if (ws?.organizationId) return ws.organizationId;
+      if (ws?.OrganizationId) return ws.OrganizationId;
+    } catch {}
+    return undefined;
+  }
 
   // Editable fields - Must add per user request: IssueType, Sprint, Epic, StoryPoints, StartDate, Environment, Watchers, LinkedIssues, Time Tracking, ParentIssue
   title = signal('');
@@ -271,7 +301,7 @@ export class TaskDetailModalComponent {
     );
   });
 
-  // Queries — MNC: assignee/watchers derive from Project Members (not workspace). WorkspaceMembers only used to populate Project Members.
+  // Org-level membership — assignee candidates come from project members
   effectiveProjectId = computed(() => this.projectId() || this.task()?.projectId || '');
 
 
@@ -380,8 +410,8 @@ export class TaskDetailModalComponent {
       this.open() && !!this.projectId() && !!this.task()?.id && this.activeTab() === 'history',
   }));
 
-  // Attachments Jira-style
-  attachmentsQuery = injectQuery(() => ({
+    // Attachments
+    attachmentsQuery = injectQuery(() => ({
     queryKey: ['attachments', this.task()?.id] as const,
     queryFn: () => firstValueFrom(this.attachmentService.getAttachments(this.task().id)),
     enabled: this.open() && !!this.task()?.id && this.activeTab() === 'attachments',
@@ -401,8 +431,31 @@ export class TaskDetailModalComponent {
     });
   });
 
+  uploadProgress = signal(0);
   uploadAttachmentMut = injectMutation(() => ({
-    mutationFn: (file: File) => firstValueFrom(this.attachmentService.upload(this.task().id, file)),
+    mutationFn: async (file: File) => {
+      // Use upload with progress — last event is AttachmentDto
+      const events: any = await new Promise((resolve, reject) => {
+        let last: any = null;
+        this.attachmentService.uploadWithProgress(this.task().id, file).subscribe({
+          next: (ev: any) => {
+            if (ev.type === 1 && ev.loaded && ev.total) { // HttpEventType.UploadProgress
+              const pct = Math.round(100 * ev.loaded / ev.total);
+              this.uploadProgress.set(pct);
+            } else if (ev.body) { last = ev.body; }
+            else if (ev.id) { last = ev; } // fallback body directly
+          },
+          error: reject,
+          complete: () => resolve(last)
+        });
+      });
+      this.uploadProgress.set(0);
+      if (!events) {
+        // Fallback — direct upload without progress events (if service returns body)
+        return firstValueFrom(this.attachmentService.upload(this.task().id, file) as any);
+      }
+      return events as any;
+    },
     onError: (err: any) => {
       const raw = err?.error?.error || err?.message || 'Upload failed';
       let msg = raw;
@@ -602,6 +655,40 @@ export class TaskDetailModalComponent {
       },
       { allowSignalWrites: true },
     );
+    effect(
+      () => {
+        if (!this.open()) return;
+        const passed = this.featureFlags();
+        if (passed && passed.size) {
+          const check = (key: string) => passed.has(key) ? !!passed.get(key) : true;
+          this.aiDraftEnabled.set(check('ai_draft'));
+          this.aiBreakdownEnabled.set(check('ai_breakdown'));
+          this.aiEnhanceEnabled.set(check('ai_enhance_description'));
+          this.aiCriteriaEnabled.set(check('ai_generate_criteria'));
+          return;
+        }
+        this.getCurrentOrgId().then(async orgId => {
+          let globalMap: Map<string, boolean> | null = null;
+          let orgMap: Map<string, boolean> | null = null;
+          try {
+            await this.flagService.load(true);
+            globalMap = (this.flagService as any).flags() as Map<string, boolean>;
+            if (orgId) orgMap = await this.flagService.loadForOrg(orgId);
+          } catch {}
+          const check = (key: string) => {
+            const globalOn = globalMap ? (globalMap.has(key) ? !!globalMap.get(key) : true) : true;
+            if (!globalOn) return false;
+            if (orgMap && orgMap.has(key)) return !!orgMap.get(key);
+            return true;
+          };
+          this.aiDraftEnabled.set(check('ai_draft'));
+          this.aiBreakdownEnabled.set(check('ai_breakdown'));
+          this.aiEnhanceEnabled.set(check('ai_enhance_description'));
+          this.aiCriteriaEnabled.set(check('ai_generate_criteria'));
+        });
+      },
+      { allowSignalWrites: true },
+    );
   }
 
   openParentIssue() {
@@ -669,9 +756,14 @@ export class TaskDetailModalComponent {
     );
   }
   async enhance() {
+    if (!this.aiEnhanceEnabled()) {
+      this.flagDisabledName.set('AI Enhance Description');
+      this.flagDisabledBy.set('SuperAdmin or Organization Owner');
+      this.showFlagDisabled.set(true);
+      return;
+    }
     const t = this.title().trim();
     if (!t) { this.toast.error('Title required for Enhance'); return; }
-    // MNC Jira: description optional — allow title-only enhance (backend generates from title)
     this.enhanceLoading.set(true);
     this.enhanceError.set(null);
     try {
@@ -733,6 +825,12 @@ export class TaskDetailModalComponent {
     this.editingCriteriaIndex.set(null);
   }
   async generateCriteria() {
+    if (!this.aiCriteriaEnabled()) {
+      this.flagDisabledName.set('AI Generate Criteria');
+      this.flagDisabledBy.set('SuperAdmin or Organization Owner');
+      this.showFlagDisabled.set(true);
+      return;
+    }
     const t = this.title().trim();
     if (!t) { this.toast.error('Title required for Criteria'); return; }
     this.criteriaGenerating.set(true);
@@ -775,6 +873,12 @@ export class TaskDetailModalComponent {
   }
   // Breakdown 7.5
   async generateBreakdown() {
+    if (!this.aiBreakdownEnabled()) {
+      this.flagDisabledName.set('AI Breakdown');
+      this.flagDisabledBy.set('SuperAdmin or Organization Owner');
+      this.showFlagDisabled.set(true);
+      return;
+    }
     const t = this.title().trim();
     if (!t) { this.toast.error('Title required for Breakdown'); return; }
     this.breakdownGenerating.set(true);
@@ -919,7 +1023,7 @@ export class TaskDetailModalComponent {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { this.toast.error('File too large >10MB'); input.value = ''; return; }
+    if (file.size > 25 * 1024 * 1024) { this.toast.error('File too large >25MB'); input.value = ''; return; }
     this.uploadAttachmentMut.mutate(file);
     input.value = '';
   }

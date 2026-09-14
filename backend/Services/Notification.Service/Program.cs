@@ -3,12 +3,20 @@ using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 using Notification.Service.Consumers;
 using Notification.Service.Hubs;
 using Notification.Service.Infrastructure.Persistence;
 using Shared.Contracts.Events;
 
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+    .WriteTo.File(new Serilog.Formatting.Json.JsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30, fileSizeLimitBytes: 10_000_000, rollOnFileSizeLimit: true)
+    .CreateLogger();
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog();
 
 var cs = builder.Configuration.GetConnectionString("Default") ?? "Server=localhost;Database=flowboard;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 builder.Services.AddDbContext<NotificationDbContext>(o => o.UseSqlServer(cs, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "notification")));
@@ -16,7 +24,7 @@ builder.Services.AddScoped<Notification.Service.Application.Interfaces.IApplicat
 builder.Services.AddScoped<Notification.Service.Application.Interfaces.INotificationService, Notification.Service.Infrastructure.Services.NotificationService>();
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256";
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key missing - set in appsettings.Development.json");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "FlowBoard.Identity";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "FlowBoard.Gateway";
 var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
@@ -26,7 +34,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         o.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true, ValidateAudience = true, ValidateLifetime = true, ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer, ValidAudience = jwtAudience, IssuerSigningKey = new SymmetricSecurityKey(keyBytes), ClockSkew = TimeSpan.Zero
+            ValidIssuer = jwtIssuer, ValidAudience = jwtAudience, IssuerSigningKey = new SymmetricSecurityKey(keyBytes), ClockSkew = TimeSpan.FromMinutes(2)
         };
         o.Events = new JwtBearerEvents
         {
@@ -40,7 +48,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-// SignalR 10.0 + Upstash Redis backplane (same rediss:// key local/prod) — best-effort with AbortOnConnectFail=false
+// SignalR backplane via Redis — best-effort
 var redisConn = builder.Configuration["Redis:Connection"] ?? builder.Configuration["Redis__Connection"] ?? "";
 if (!string.IsNullOrWhiteSpace(redisConn) && !redisConn.Contains("PASTE_"))
 {
@@ -56,7 +64,7 @@ else
     builder.Services.AddSignalR();
 }
 
-// MassTransit 8.3 + CloudAMQP same key local/prod + consumers (Task 3.2) + retry 3x + _error + quorum durable
+// MassTransit 8.3 + CloudAMQP same key local/prod + consumers + retry 3x + _error + quorum durable
 var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? builder.Configuration["RabbitMQ__Host"] ?? "";
 builder.Services.AddMassTransit(x =>
 {
@@ -80,7 +88,7 @@ builder.Services.AddMassTransit(x =>
         cfg.Publish<TaskMovedEvent>(c => c.ExchangeType = "fanout");
         cfg.Publish<TaskCommentedEvent>(c => c.ExchangeType = "fanout");
         cfg.UseMessageRetry(r => r.Immediate(3));
-        // Quorum durable queues per consumer (MNC-grade) — Durable must be set before ConfigureConsumer
+        // Quorum durable queues per consumer — Durable must be set before ConfigureConsumer
         cfg.ReceiveEndpoint("notification-task-created", e =>
         {
             e.Durable = true;
@@ -99,7 +107,7 @@ builder.Services.AddMassTransit(x =>
             e.ConfigureConsumer<TaskCommentedConsumer>(context);
             e.UseMessageRetry(r => r.Intervals(100, 500, 1000));
         });
-        // DLQ: consume Fault messages from _error queues for alerting (MNC-grade: CloudAMQP alarm on notification-task-*_error depth > 0)
+        // DLQ: consume Fault messages from _error queues for alerting (CloudAMQP alarm on notification-task-*_error depth > 0)
         cfg.ReceiveEndpoint("notification-faults", e =>
         {
             e.Durable = true;
@@ -137,6 +145,18 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Notification.Service v1"));
 }
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';";
+    ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+if (!app.Environment.IsDevelopment()) app.UseHsts();
+app.UseMiddleware<Notification.Service.Middleware.CorrelationIdMiddleware>();
+app.UseSerilogRequestLogging();
+app.UseMiddleware<Notification.Service.Middleware.MaintenanceMiddleware>();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

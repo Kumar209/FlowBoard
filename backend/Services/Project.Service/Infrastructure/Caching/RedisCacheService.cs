@@ -6,7 +6,7 @@ using Project.Service.Application.Interfaces;
 namespace Project.Service.Infrastructure.Caching;
 
 /// <summary>
-/// RedisCacheService - Upstash Redis (same rediss:// key local/prod) for board:{projectId} TTL 5m, tasks:{hash} TTL 2m. Implements IRedisCacheService (DIP - Application depends on abstraction, testable via mock without Redis). Best-effort: if Redis missing or PASTE_, cache is no-op.
+/// Redis cache for board:{projectId} 5m, tasks:{hash} 2m. Best-effort — no-op if no connection.
 /// </summary>
 public class RedisCacheService : IRedisCacheService
 {
@@ -106,7 +106,7 @@ public class RedisCacheService : IRedisCacheService
         catch { return true; }
     }
 
-    // Helpers moved to Application/Caching/CacheKeys for DIP (MNC grade) - keep obsolete for compat but delegate
+    // Helpers moved to Application/Caching/CacheKeys for DIP - keep obsolete for compat but delegate
     [Obsolete("Use CacheKeys.Board() from Application.Caching - do not reference Infra from Api")]
     public static string BoardKey(Guid projectId) => Application.Caching.CacheKeys.Board(projectId);
     [Obsolete("Use CacheKeys.Tasks() from Application.Caching")]

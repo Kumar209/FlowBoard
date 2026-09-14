@@ -1,0 +1,94 @@
+<div class="p-3 sm:p-4 space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">Support — Contact Platform</h1>
+      <div class="text-xs opacity-60 mt-1">Send a complaint to the platform admin. Replies via email and detail page.</div>
+    </div>
+    <button class="btn btn-primary btn-sm" (click)="showCreateModal.set(true)">+ New Complaint</button>
+  </div>
+
+  @if (orgsQuery.isPending()) {
+    <div class="grid place-items-center py-8"><span class="loading loading-spinner"></span></div>
+  } @else {
+    <div class="flex gap-2 items-center">
+      <label class="text-sm opacity-70">Organization</label>
+      <select class="select select-bordered select-sm" [ngModel]="orgId()" (ngModelChange)="orgId.set($event)">
+        @for (o of getOrgs(); track o.id) {
+          <option [value]="o.id">{{ o.name }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-0">
+        <div class="p-4 flex items-center justify-between">
+          <h3 class="font-semibold">Your Complaints</h3>
+          <span class="badge badge-ghost badge-sm">{{ complaints.length }} total</span>
+        </div>
+        @if (complaintsQuery.isPending()) { <div class="py-8 grid place-items-center"><span class="loading loading-spinner"></span></div> }
+        @else if (complaints.length === 0) { <div class="text-sm opacity-50 py-8 text-center">No complaints yet — create one</div> }
+        @else {
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr><th>#</th><th>Subject</th><th>Created By</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                @for (c of complaints; track c.id; let i = $index) {
+                  <tr class="hover">
+                    <td>{{ i + 1 }}</td>
+                    <td class="font-medium max-w-[260px] truncate">{{ c.subject }}</td>
+                    <td>
+                      <div class="flex flex-col">
+                        <span class="text-xs font-medium truncate max-w-[160px]" [title]="c.createdByEmail || c.createdByName">{{ c.createdByName || (c.createdByEmail || '-') }}</span>
+                        <span class="flex items-center gap-1">
+                          <span class="text-[10px] opacity-50 truncate max-w-[140px]" [title]="c.createdByEmail">{{ c.createdByEmail }}</span>
+                          <span class="badge badge-xs badge-ghost">{{ c.createdByRole || 'Member' }}</span>
+                        </span>
+                      </div>
+                    </td>
+                    <td><span class="badge badge-sm" [ngClass]="c.status === 'Replied' ? 'badge-success' : c.status === 'Closed' ? 'badge-ghost' : 'badge-warning'">{{ c.status }}</span></td>
+                    <td class="text-xs opacity-60">{{ c.createdAt | date:'mediumDate' }}</td>
+                    <td class="flex gap-1">
+                      <button class="btn btn-xs btn-ghost" (click)="onView(c)">View</button>
+                      <button class="btn btn-xs btn-error btn-outline" (click)="onDelete(c)">Delete</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  @if (showCreateModal()) {
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold">New Complaint</h3>
+        <input class="input input-bordered input-sm w-full mt-3" placeholder="Subject" [ngModel]="subject()" (ngModelChange)="subject.set($event)" />
+        <textarea class="textarea textarea-bordered textarea-sm w-full mt-3" rows="4" placeholder="Describe your issue..." [ngModel]="message()" (ngModelChange)="message.set($event)"></textarea>
+        <div class="modal-action">
+          <button class="btn btn-ghost btn-sm" (click)="showCreateModal.set(false)">Cancel</button>
+          <button class="btn btn-primary btn-sm" [disabled]="createMutation.isPending()" (click)="onCreate()">@if (createMutation.isPending()) { <span class="loading loading-spinner loading-xs"></span> } Send to Platform</button>
+        </div>
+      </div>
+      <div class="modal-backdrop" (click)="showCreateModal.set(false)"></div>
+    </div>
+  }
+
+  @if (deleteConfirmId()) {
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold">Delete complaint?</h3>
+        <p class="text-sm opacity-60 mt-2">This will permanently delete the complaint and its replies.</p>
+        <div class="modal-action">
+          <button class="btn btn-ghost btn-sm" (click)="deleteConfirmId.set(null)">Cancel</button>
+          <button class="btn btn-error btn-sm" [disabled]="deleteMutation.isPending()" (click)="confirmDelete()">Delete</button>
+        </div>
+      </div>
+      <div class="modal-backdrop" (click)="deleteConfirmId.set(null)"></div>
+    </div>
+  }
+</div>

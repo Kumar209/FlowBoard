@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Identity.Service.Application.SuperAdmin.Queries;
 using Identity.Service.Application.SuperAdmin.Interfaces;
+using Identity.Service.Infrastructure.Services;
 using SharedKernel;
 
 namespace Identity.Service.Api.Controllers;
@@ -71,7 +72,7 @@ public class SuperAdminController : ControllerBase
             return Ok(result);
         }
         catch (Exception ex) when (ex.Message.Contains("not found")) { return NotFound(new { error = ex.Message }); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpPut("organizations/{orgId}/suspend")]
@@ -80,7 +81,7 @@ public class SuperAdminController : ControllerBase
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
         var actor = GetUserId(); if (actor == null) return Unauthorized();
         try { await _superAdminService.SuspendOrganizationAsync(orgId, req.Reason ?? "Suspended by platform", req.Message, actor.Value); return Ok(new { message = "Organization suspended" }); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpPut("organizations/{orgId}/activate")]
@@ -89,7 +90,7 @@ public class SuperAdminController : ControllerBase
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
         var actor = GetUserId(); if (actor == null) return Unauthorized();
         try { await _superAdminService.ActivateOrganizationAsync(orgId, actor.Value); return Ok(new { message = "Organization activated" }); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpDelete("organizations/{orgId}")]
@@ -98,7 +99,7 @@ public class SuperAdminController : ControllerBase
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
         var actor = GetUserId(); if (actor == null) return Unauthorized();
         try { await _superAdminService.DeleteOrganizationAsync(orgId, actor.Value); return Ok(new { message = "Organization deleted" }); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpPost("users/{userId}/suspend")]
@@ -112,7 +113,7 @@ public class SuperAdminController : ControllerBase
             await _superAdminService.SuspendUserWithGraceAsync(userId, req.OrganizationId, req.Reason ?? "Suspended", req.Message ?? "Account suspension scheduled", deadline, actor.Value);
             return Ok(new { message = "Suspension scheduled", deadline });
         }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpPut("users/{userId}/activate")]
@@ -121,7 +122,7 @@ public class SuperAdminController : ControllerBase
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
         var actor = GetUserId(); if (actor == null) return Unauthorized();
         try { await _superAdminService.ReactivateUserAsync(userId, actor.Value); return Ok(new { message = "User reactivated" }); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpDelete("users/{userId}")]
@@ -130,7 +131,7 @@ public class SuperAdminController : ControllerBase
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
         var actor = GetUserId(); if (actor == null) return Unauthorized();
         try { await _superAdminService.DeleteUserAsync(userId, actor.Value); return Ok(new { message = "User deleted" }); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpGet("notices/{orgId}")]
@@ -156,7 +157,7 @@ public class SuperAdminController : ControllerBase
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
         var actor = GetUserId(); if (actor == null) return Unauthorized();
         try { var reply = await _superAdminService.ReplyToComplaintAsync(complaintId, actor.Value, req.Message, true); return Ok(reply); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpGet("complaints/{complaintId}")]
@@ -164,7 +165,7 @@ public class SuperAdminController : ControllerBase
     {
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
         try { var detail = await _superAdminService.GetComplaintDetailAsync(complaintId); return Ok(detail); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpDelete("complaints/{complaintId}")]
@@ -173,7 +174,7 @@ public class SuperAdminController : ControllerBase
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
         var actor = GetUserId(); if (actor == null) return Unauthorized();
         try { await _superAdminService.DeleteComplaintAsync(complaintId, actor.Value); return Ok(new { message = "Deleted" }); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpGet("activities")]
@@ -205,7 +206,7 @@ public class SuperAdminController : ControllerBase
     {
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
         try { var flag = await _superAdminService.ToggleFeatureFlagAsync(key); return Ok(flag); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpGet("flags/organizations/{orgId}")]
@@ -213,7 +214,7 @@ public class SuperAdminController : ControllerBase
     {
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
         try { var flags = await _superAdminService.GetOrganizationFeatureFlagsAsync(orgId); return Ok(flags); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpPut("flags/{key}/organizations/{orgId}/toggle")]
@@ -221,7 +222,7 @@ public class SuperAdminController : ControllerBase
     {
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
         try { var flag = await _superAdminService.ToggleOrganizationFeatureFlagAsync(orgId, key); return Ok(flag); }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpGet("ai-usage")]
@@ -325,7 +326,7 @@ public class SuperAdminController : ControllerBase
             await svc.SetGeneralAsync(updated, userId.Value);
             return Ok(new { logoUrl = url });
         }
-        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
     [HttpPut("subscriptions/plans/{planId}")]

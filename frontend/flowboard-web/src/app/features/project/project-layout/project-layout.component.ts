@@ -6,7 +6,7 @@ import { ProjectService } from '../../../core/services/project.service';
 import { injectQuery } from '@tanstack/angular-query-experimental';
 
 /**
- * ProjectLayout - Enterprise secondary sidebar for project module.
+ * ProjectLayout - secondary sidebar for project module.
  * Left nav: Overview, Boards (multi-view), Backlog, Sprints, Issues, Team, Docs, Settings.
  * Responsive: drawer on mobile, sticky sidebar desktop. Boards as views of same Project tasks.
  */
@@ -41,7 +41,7 @@ export class ProjectLayoutComponent {
     });
   }
 
-  // Boards as views - Enterprise: Project → Multiple Boards (Engineering/QA/Support) → Sprint → Column → Task → Subtasks
+  // Boards as views - Project → Multiple Boards (Engineering/QA/Support) → Sprint → Column → Task → Subtasks
   boardsQuery = injectQuery(() => ({
     queryKey: ['boards', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getBoards(this.projectId())),

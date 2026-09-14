@@ -50,7 +50,7 @@ export class TeamDetailComponent {
     enabled: !!this.teamId(),
   }));
 
-  // MNC: Teams derive from Project Members, not Workspace. Project Members is source for Teams/Assignee/Watchers.
+  // Teams derive from Project Members, not Workspace. Project Members is source for Teams/Assignee/Watchers.
   projectMembersQuery = injectQuery(() => ({
     queryKey: ['project-members', this.projectId(), this.addSearch(), this.addPage()] as const,
     queryFn: async () => {

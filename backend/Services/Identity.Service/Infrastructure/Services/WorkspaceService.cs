@@ -1,7 +1,7 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Identity.Service.Application.Interfaces;
 using Identity.Service.Domain.Entities;
-using SharedKernel;
 using SharedKernel;
 
 namespace Identity.Service.Infrastructure.Services;
@@ -15,6 +15,13 @@ public class WorkspaceService : IWorkspaceService
     {
         _db = db;
         _brevo = brevo;
+    }
+
+    private async Task<bool> IsOrganizationAdminAsync(Guid organizationId, Guid userId, CancellationToken ct)
+    {
+        if (await _db.Users.AnyAsync(u => u.Id == userId && u.IsSuperAdmin, ct)) return true;
+        if (await _db.Organizations.AnyAsync(o => o.Id == organizationId && o.OwnerId == userId, ct)) return true;
+        return await _db.OrganizationMembers.AnyAsync(m => m.OrganizationId == organizationId && m.UserId == userId && m.Role == Roles.OrgAdminValue, ct);
     }
 
     public async Task<(List<WorkspaceDto> Items, int Total)> GetMyWorkspacesAsync(Guid userId, int page, int pageSize, string? search, CancellationToken ct = default)
@@ -36,12 +43,14 @@ public class WorkspaceService : IWorkspaceService
     {
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org == null) throw new NotFoundException("Organization not found");
-        var isAuthorized = org.OwnerId == userId || await _db.WorkspaceMembers
+        var isOrganizationAdmin = await IsOrganizationAdminAsync(organizationId, userId, ct);
+        var isWorkspaceAdmin = await _db.WorkspaceMembers
             .Where(m => m.UserId == userId && m.Workspace!.OrganizationId == organizationId && (m.Role == Roles.OrgAdminValue || m.Role == Roles.SuperAdminValue))
             .AnyAsync(ct);
+        var isAuthorized = isOrganizationAdmin || isWorkspaceAdmin || org.OwnerId == userId;
         var hasWorkspaces = await _db.Workspaces.AnyAsync(w => w.OrganizationId == organizationId, ct);
         if (!hasWorkspaces) isAuthorized = true;
-        if (!isAuthorized) throw new ForbiddenException("Forbidden");
+        if (!isAuthorized) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         var slug = name.ToLowerInvariant().Replace(" ", "-") + "-" + Guid.NewGuid().ToString()[..4];
         var workspace = new Workspace(organizationId, name, slug);
         _db.Workspaces.Add(workspace);
@@ -49,17 +58,20 @@ public class WorkspaceService : IWorkspaceService
         var member = new WorkspaceMember(workspace.Id, userId, Roles.OrgAdminValue);
         _db.WorkspaceMembers.Add(member);
         await _db.SaveChangesAsync(ct);
+        try { _db.OrganizationActivities.Add(new OrganizationActivity(organizationId, userId, "WorkspaceCreated", JsonSerializer.Serialize(new { workspaceId = workspace.Id, name = workspace.Name, slug = workspace.Slug }))); await _db.SaveChangesAsync(ct); } catch { }
         return new WorkspaceDto(workspace.Id, workspace.Name, workspace.Slug, workspace.OrganizationId, Roles.OrgAdminValue.ToString());
     }
 
     public async Task<WorkspaceMemberDto> InviteAsync(Guid workspaceId, string email, string role, Guid callerId, CancellationToken ct = default)
     {
-        var membership = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == workspaceId && m.UserId == callerId, ct);
-        if (membership == null || (membership.Role != Roles.OrgAdminValue && membership.Role != Roles.SuperAdminValue)) throw new ForbiddenException("Forbidden");
-        if (!Enum.TryParse<int>(role, true, out var parsedRole)) throw new ValidationException("Invalid role");
-        if (parsedRole == Roles.SuperAdminValue) throw new ValidationException("Cannot invite as SuperAdmin");
         var workspace = await _db.Workspaces.FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
         if (workspace == null) throw new NotFoundException("Workspace not found");
+        var workspaceMembership = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == workspaceId && m.UserId == callerId, ct);
+        var isWorkspaceAdmin = workspaceMembership != null && (workspaceMembership.Role == Roles.OrgAdminValue || workspaceMembership.Role == Roles.SuperAdminValue);
+        var isOrgAdmin = await IsOrganizationAdminAsync(workspace.OrganizationId, callerId, ct);
+        if (!isWorkspaceAdmin && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin");
+        if (!Enum.TryParse<int>(role, true, out var parsedRole)) throw new ValidationException("Invalid role");
+        if (parsedRole == Roles.SuperAdminValue) throw new ValidationException("Cannot invite as SuperAdmin");
         var targetUser = await _db.Users.FirstOrDefaultAsync(u => u.Email == email.ToLowerInvariant(), ct);
         if (targetUser == null) throw new NotFoundException("User not found - they must register first");
         var exists = await _db.WorkspaceMembers.AnyAsync(m => m.WorkspaceId == workspaceId && m.UserId == targetUser.Id, ct);
@@ -80,13 +92,16 @@ public class WorkspaceService : IWorkspaceService
         var ws = await _db.Workspaces.FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
         if (ws == null) throw new NotFoundException("Workspace not found");
         var membership = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == workspaceId && m.UserId == callerId, ct);
-        if (membership == null || (membership.Role != Roles.OrgAdminValue && membership.Role != Roles.SuperAdminValue)) throw new ForbiddenException("Forbidden");
+        var isWorkspaceAdmin = membership != null && (membership.Role == Roles.OrgAdminValue || membership.Role == Roles.SuperAdminValue);
+        var isOrgAdmin = await IsOrganizationAdminAsync(ws.OrganizationId, callerId, ct);
+        if (!isWorkspaceAdmin && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         var newSlug = string.IsNullOrWhiteSpace(slug) ? ws.Slug : slug!.ToLowerInvariant();
         if (newSlug != ws.Slug && await _db.Workspaces.AnyAsync(w => w.OrganizationId == ws.OrganizationId && w.Slug == newSlug && w.Id != workspaceId, ct))
             throw new ConflictException("Slug already taken in this organization");
         ws.Update(name, newSlug);
         await _db.SaveChangesAsync(ct);
-        return new WorkspaceDto(ws.Id, ws.Name, ws.Slug, ws.OrganizationId, membership.Role.ToString());
+        try { _db.OrganizationActivities.Add(new OrganizationActivity(ws.OrganizationId, callerId, "WorkspaceUpdated", JsonSerializer.Serialize(new { workspaceId = ws.Id, name, slug = newSlug }))); await _db.SaveChangesAsync(ct); } catch { }
+        return new WorkspaceDto(ws.Id, ws.Name, ws.Slug, ws.OrganizationId, membership?.Role.ToString() ?? Roles.OrgAdmin);
     }
 
     public async Task DeleteWorkspaceAsync(Guid workspaceId, Guid callerId, CancellationToken ct = default)
@@ -94,16 +109,22 @@ public class WorkspaceService : IWorkspaceService
         var ws = await _db.Workspaces.FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
         if (ws == null) throw new NotFoundException("Workspace not found");
         var membership = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == workspaceId && m.UserId == callerId, ct);
-        if (membership == null || (membership.Role != Roles.OrgAdminValue && membership.Role != Roles.SuperAdminValue)) throw new ForbiddenException("Forbidden");
+        var isWorkspaceAdmin = membership != null && (membership.Role == Roles.OrgAdminValue || membership.Role == Roles.SuperAdminValue);
+        var isOrgAdmin = await IsOrganizationAdminAsync(ws.OrganizationId, callerId, ct);
+        if (!isWorkspaceAdmin && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         _db.WorkspaceMembers.RemoveRange(_db.WorkspaceMembers.Where(m => m.WorkspaceId == workspaceId));
         _db.Workspaces.Remove(ws);
         await _db.SaveChangesAsync(ct);
+        try { _db.OrganizationActivities.Add(new OrganizationActivity(ws.OrganizationId, callerId, "WorkspaceDeleted", JsonSerializer.Serialize(new { workspaceId, name = ws.Name }))); await _db.SaveChangesAsync(ct); } catch { }
     }
 
     public async Task<List<WorkspaceMemberDto>> GetMembersAsync(Guid workspaceId, Guid callerId, CancellationToken ct = default)
     {
+        var ws = await _db.Workspaces.FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
+        if (ws == null) throw new NotFoundException("Workspace not found");
         var isMember = await _db.WorkspaceMembers.AnyAsync(m => m.WorkspaceId == workspaceId && m.UserId == callerId, ct);
-        if (!isMember) throw new ForbiddenException("Forbidden");
+        var isOrgAdmin = await IsOrganizationAdminAsync(ws.OrganizationId, callerId, ct);
+        if (!isMember && !isOrgAdmin) throw new ForbiddenException("Forbidden");
         return await _db.WorkspaceMembers.Where(m => m.WorkspaceId == workspaceId).Include(m => m.User)
             .Select(m => new WorkspaceMemberDto(m.WorkspaceId, m.UserId, m.User!.Email, m.User.FullName, m.User.AvatarUrl, m.Role.ToString(), (int)m.Role, m.JoinedAt))
             .ToListAsync(ct);
@@ -111,8 +132,11 @@ public class WorkspaceService : IWorkspaceService
 
     public async Task<(List<WorkspaceMemberDto> Items, int Total)> GetMembersPagedAsync(Guid workspaceId, Guid callerId, int page, int pageSize, string? search, CancellationToken ct = default)
     {
+        var ws = await _db.Workspaces.FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
+        if (ws == null) throw new NotFoundException("Workspace not found");
         var isMember = await _db.WorkspaceMembers.AnyAsync(m => m.WorkspaceId == workspaceId && m.UserId == callerId, ct);
-        if (!isMember) throw new ForbiddenException("Forbidden");
+        var isOrgAdmin = await IsOrganizationAdminAsync(ws.OrganizationId, callerId, ct);
+        if (!isMember && !isOrgAdmin) throw new ForbiddenException("Forbidden");
         var query = _db.WorkspaceMembers.Where(m => m.WorkspaceId == workspaceId).Include(m => m.User).AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -128,8 +152,12 @@ public class WorkspaceService : IWorkspaceService
 
     public async Task<WorkspaceMemberDto> ChangeRoleAsync(Guid workspaceId, Guid userId, string role, Guid callerId, CancellationToken ct = default)
     {
+        var ws = await _db.Workspaces.FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
+        if (ws == null) throw new NotFoundException("Workspace not found");
         var callerMembership = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == workspaceId && m.UserId == callerId, ct);
-        if (callerMembership == null || (callerMembership.Role != Roles.OrgAdminValue && callerMembership.Role != Roles.SuperAdminValue)) throw new ForbiddenException("Forbidden");
+        var isWorkspaceAdmin = callerMembership != null && (callerMembership.Role == Roles.OrgAdminValue || callerMembership.Role == Roles.SuperAdminValue);
+        var isOrgAdmin = await IsOrganizationAdminAsync(ws.OrganizationId, callerId, ct);
+        if (!isWorkspaceAdmin && !isOrgAdmin) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         if (!Enum.TryParse<int>(role, true, out var newRole)) throw new ValidationException("Invalid role");
         var target = await _db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == workspaceId && m.UserId == userId, ct);
         if (target == null) throw new NotFoundException("Member not found");

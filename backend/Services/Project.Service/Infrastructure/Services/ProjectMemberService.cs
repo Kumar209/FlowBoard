@@ -13,7 +13,9 @@ public class ProjectMemberService : IProjectMemberService
 
     public async Task<PaginatedResult<ProjectMemberDto>> GetMembersAsync(Guid projectId, int page, int pageSize, string? search, CancellationToken ct = default)
     {
-        var q = _db.ProjectMembers.Where(pm => pm.ProjectId == projectId);
+        page = Math.Clamp(page, 1, 1000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var q = _db.ProjectMembers.AsNoTracking().Where(pm => pm.ProjectId == projectId);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.ToLower();
@@ -29,7 +31,7 @@ public class ProjectMemberService : IProjectMemberService
             try
             {
                 var placeholders = string.Join(",", userIds.Select((_, i) => $"@p{i}"));
-                // Use EF raw to fetch users - simplified via SqlQueryRaw per user? For MNC, batch via IN
+                // Use EF raw to fetch users - simplified via SqlQueryRaw per user? Batch via IN
                 var emails = await _db.Database.SqlQueryRaw<UserRow>($"SELECT Id as UserId, Email, FullName FROM [identity].[Users] WHERE Id IN ({placeholders})", userIds.Cast<object>().ToArray()).ToListAsync(ct);
                 // Fallback simple: query one by one if above fails due to param handling
             }

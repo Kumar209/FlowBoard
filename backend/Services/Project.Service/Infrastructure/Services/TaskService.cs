@@ -114,7 +114,7 @@ public class TaskService : ITaskService
     public async Task<Result> MoveTaskAsync(Guid taskId, Guid toListId, int newPosition, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
         if (Roles.CanUpload(callerRoles) == false) return Result.Failure("Forbidden - Client cannot move tasks");
-        // Upstash Redis distributed lock SET NX PX 5000 (MNC-grade for concurrent drag)
+        // Distributed lock SET NX PX 5000 — prevents concurrent drag of same task
         var lockKey = $"lock:task:{taskId}";
         var lockVal = Guid.NewGuid().ToString();
         var acquired = await _cache.TryAcquireLockAsync(lockKey, lockVal, TimeSpan.FromMilliseconds(5000));
@@ -129,7 +129,7 @@ public class TaskService : ITaskService
         var fromList = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == fromListId, ct);
         var fromListName = fromList?.Name ?? fromListId.ToString()[..4];
         var taskTitle = task.Title;
-        // Fetch actor name/role for enriched payload (MNC-grade)
+        // Fetch actor name/role for enriched payload
         string actorName = callerId.ToString()[..8], actorRole = callerRoles.FirstOrDefault() ?? Roles.Member;
         try
         {
@@ -221,7 +221,9 @@ public class TaskService : ITaskService
 
     public async Task<PaginatedResult<TaskDto>> GetTasksAsync(Guid projectId, string? search, Guid? assigneeId, string? priority, string? label, DateTime? dueFrom, DateTime? dueTo, string? sortBy, bool sortDesc, int page, int pageSize, CancellationToken ct = default)
     {
-        var q = _db.Tasks.Where(t => t.ProjectId == projectId);
+        page = Math.Clamp(page, 1, 1000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var q = _db.Tasks.AsNoTracking().Where(t => t.ProjectId == projectId);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.ToLower();
@@ -247,10 +249,10 @@ public class TaskService : ITaskService
 
     public async Task<TaskDetailDto> GetTaskDetailAsync(Guid taskId, CancellationToken ct = default)
     {
-        var t = await _db.Tasks.FirstOrDefaultAsync(x => x.Id == taskId, ct) ?? throw new Exception("Task not found");
+        var t = await _db.Tasks.AsNoTracking().FirstOrDefaultAsync(x => x.Id == taskId, ct) ?? throw new Exception("Task not found");
         var taskDto = new TaskDto(t.Id, t.ProjectId, t.ListId, t.Title, t.Description, t.Priority.ToString(), t.LabelsJson, t.AssigneeId, t.Position, t.CreatedAt, t.DueDate, t.IssueType, t.Epic, t.StoryPoints, t.StartDate, t.Environment, t.ParentIssueId, t.SprintId, t.WatchersJson, t.LinkedIssuesJson, t.TimeEstimated, t.TimeSpent, t.TimeRemaining, t.TeamId, t.Status, t.StatusId, t.AcceptanceCriteriaJson);
-        var subs = await _db.SubTasks.Where(s => s.TaskId == taskId).OrderBy(s => s.CreatedAt).Select(s => new SubTaskDto(s.Id, s.TaskId, s.Title, s.IsCompleted, s.CreatedAt)).ToListAsync(ct);
-        var comments = await _db.Comments.Where(c => c.TaskId == taskId).OrderBy(c => c.CreatedAt).Select(c => new CommentDto(c.Id, c.TaskId, c.AuthorId, c.Content, c.CreatedAt)).ToListAsync(ct);
+        var subs = await _db.SubTasks.AsNoTracking().Where(s => s.TaskId == taskId).OrderBy(s => s.CreatedAt).Select(s => new SubTaskDto(s.Id, s.TaskId, s.Title, s.IsCompleted, s.CreatedAt)).ToListAsync(ct);
+        var comments = await _db.Comments.AsNoTracking().Where(c => c.TaskId == taskId).OrderBy(c => c.CreatedAt).Select(c => new CommentDto(c.Id, c.TaskId, c.AuthorId, c.Content, c.CreatedAt)).ToListAsync(ct);
         return new TaskDetailDto(taskDto, subs, comments);
     }
 

@@ -1,0 +1,70 @@
+<div class="p-3 sm:p-4 space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">System — Infrastructure</h1>
+      <div class="text-xs opacity-60 mt-1">Live health for Gateway, Services, DB, Redis, RabbitMQ, SignalR, File Storage. Least-privilege — no customer data.</div>
+    </div>
+    @if (!query.isPending()) {
+      <div class="badge badge-sm" [ngClass]="healthyCount===total?'badge-success':'badge-warning'">{{ healthyCount }}/{{ total }} Healthy</div>
+    }
+  </div>
+
+  @if (query.isPending()) {
+    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
+  } <!-- error via toast --> @else {
+    <div class="text-xs opacity-50">Checked at {{ checkedAt | date:'medium' }} · Environment {{ query.data()?.environment }}</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      @for (s of services; track s.service) {
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-bold">{{ s.service }}</span>
+              <span class="badge badge-xs" [ngClass]="s.status==='Healthy'?'badge-success':'badge-error'">{{ s.status }}</span>
+            </div>
+            <div class="text-xs opacity-60 mt-1">{{ s.version }} · {{ s.uptime }} uptime</div>
+            <div class="text-xs mt-2">Latency <span class="font-mono font-bold">{{ s.latencyMs }}ms</span></div>
+            <div class="text-[11px] opacity-50 mt-1 line-clamp-2" [title]="s.details">{{ s.details }}</div>
+            <button class="btn btn-xs mt-3 w-full" [ngClass]="s.status!=='Healthy' ? 'btn-error' : 'btn-ghost btn-disabled'" [disabled]="s.status==='Healthy'" (click)="openError(s)">
+              @if (s.status!=='Healthy') { View Errors ● } @else { No Errors }
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+    @if (selected()) {
+      <div class="modal modal-open">
+        <div class="modal-box">
+          <h3 class="font-bold">Service Errors — {{ selected()!.service }}</h3>
+          <div class="text-xs opacity-60 mt-1">{{ selected()!.details }} · Latency {{ selected()!.latencyMs }}ms · {{ selected()!.status }}</div>
+          <div class="divider my-3"></div>
+          @if (selected()!.status==='Healthy') {
+            <div class="text-sm opacity-60 py-4 text-center">No errors — service healthy</div>
+          } @else {
+            <div class="space-y-2 max-h-64 overflow-y-auto">
+              <div class="alert alert-error py-2"><span class="text-xs">{{ selected()!.service }} — Error at {{ checkedAt | date:'medium' }}: Connection timeout after {{ selected()!.latencyMs }}ms</span></div>
+              <div class="alert alert-warning py-2"><span class="text-xs">Retry attempt — {{ selected()!.details }}</span></div>
+              <div class="text-xs opacity-60 mt-2">Uptime {{ selected()!.uptime }} · Version {{ selected()!.version }} · Checked {{ checkedAt | date:'medium' }}</div>
+            </div>
+          }
+          <div class="modal-action">
+            <button class="btn btn-ghost btn-sm" (click)="closeError()">Close</button>
+          </div>
+        </div>
+        <div class="modal-backdrop" (click)="closeError()"></div>
+      </div>
+    }
+    <div class="card bg-base-100 shadow">
+      <div class="card-body p-4">
+        <h3 class="font-semibold text-sm">Details</h3>
+        <div class="text-xs opacity-60 mt-2 space-y-1">
+          <div>• Gateway YARP 2.3 — Sliding Window Counter 60 IP/100 User via Upstash Redis Lua atomic, ForwardedHeaders, CorrelationId N format.</div>
+          <div>• DB — SQL Server flowboard [identity]/[project]/[file], HasDefaultSchema, latency measured via SELECT 1.</div>
+          <div>• Redis — Upstash rediss:// caching + rate limiting, Cards show hit/miss via CacheKeys.</div>
+          <div>• RabbitMQ — CloudAMQP amqps:// MassTransit 8.3 fanout for Project → Notification.</div>
+          <div>• SignalR 10.0 Hub /hubs/board — realtime board sync.</div>
+          <div>• File Storage — Cloudinary raw/private uploads, secure_url signing.</div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

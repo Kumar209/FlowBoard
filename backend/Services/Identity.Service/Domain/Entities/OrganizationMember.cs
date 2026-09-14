@@ -3,7 +3,7 @@ using SharedKernel;
 namespace Identity.Service.Domain.Entities;
 
 /// <summary>
-/// OrganizationMember - explicit org-level membership (MNC company-centric).
+/// OrganizationMember - explicit org-level membership (company-centric).
 /// Replaces derived via WorkspaceMembers join. Determines who belongs to org and org-level role (Member/OrgAdmin/Client).
 /// SuperAdmin is global via Users.IsSuperAdmin, not stored here.
 /// </summary>

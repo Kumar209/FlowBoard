@@ -10,10 +10,10 @@ using Shared.Contracts.Events;
 namespace Project.Service.Infrastructure.Messaging;
 
 /// <summary>
-/// OutboxBackgroundService - Transactional Outbox poller (Task 3.1).
+/// OutboxBackgroundService - Transactional Outbox poller.
 /// Polls [project].OutboxMessages every 2s, publishes via MassTransit to CloudAMQP (same amqps:// key local/prod),
 /// marks ProcessedAt on success, stores Error on failure for retry. Ensures no lost event on crash/restart.
-/// MNC-grade: IServiceScopeFactory per iteration (scoped DbContext + IPublishEndpoint), retry 3x immediate via MassTransit pipeline + _error queue.
+/// IServiceScopeFactory per iteration (scoped DbContext + IPublishEndpoint), retry 3x immediate via MassTransit pipeline + _error queue.
 /// </summary>
 public class OutboxBackgroundService : BackgroundService
 {

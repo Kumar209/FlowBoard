@@ -4,9 +4,7 @@
 
   @if (query.isPending()) {
     <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
-  } @else if (query.isError()) {
-    <div class="alert alert-error"><span>Failed to load subscriptions — please try again.</span></div>
-  } @else {
+  } <!-- error via toast --> @else {
     <!-- Overview MRR/ARR etc -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       <div class="card bg-base-100 shadow"><div class="card-body p-4"><div class="text-xs opacity-60">MRR</div><div class="text-2xl font-bold">${{ overview?.mrr }}</div><div class="text-xs opacity-50">Monthly Recurring</div></div></div>

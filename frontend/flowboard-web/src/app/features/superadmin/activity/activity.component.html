@@ -1,0 +1,57 @@
+<div class="p-3 sm:p-4 space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">Platform Activity — Audit Logs</h1>
+      <div class="text-xs opacity-60 mt-1">Global audit: organization created/suspended, member changes, suspensions. Time/Actor/Action/Resource/Result.</div>
+    </div>
+    <span class="badge badge-ghost badge-sm">{{ total }} total</span>
+  </div>
+
+  <div class="flex flex-wrap gap-2 items-center">
+    <input class="input input-bordered input-sm w-full sm:w-64" placeholder="Search action or payload..." [ngModel]="search()" (ngModelChange)="onSearch($event)" />
+    <select class="select select-bordered select-sm" [ngModel]="action()" (ngModelChange)="onAction($event)">
+      @for (a of actions; track a) { <option [value]="a">{{ a }}</option> }
+    </select>
+  </div>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body p-0">
+      @if (query.isPending()) {
+        <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
+      } <!-- error via toast --> @else if (items.length === 0) {
+        <div class="p-8 text-center opacity-50 text-sm">No activities found</div>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr><th>Time</th><th>Actor</th><th>Action</th><th>Resource</th><th>Result</th><th>Organization</th></tr>
+            </thead>
+            <tbody>
+              @for (row of items; track row.id) {
+                <tr class="hover">
+                  <td class="text-xs opacity-60 whitespace-nowrap">{{ row.occurredOn | date:'medium' }}</td>
+                  <td>
+                    <div class="text-xs font-medium truncate max-w-[150px]" [title]="row.actorEmail">{{ row.actorName }}</div>
+                    <div class="text-[10px] opacity-50 truncate max-w-[150px]">{{ row.actorEmail }}</div>
+                    <span class="badge badge-xs badge-ghost mt-0.5">{{ row.actorRole }}</span>
+                  </td>
+                  <td><span class="badge badge-sm badge-primary badge-outline">{{ row.action }}</span></td>
+                  <td class="text-xs">{{ row.resource }}</td>
+                  <td><span class="badge badge-sm" [ngClass]="row.result==='Suspended'?'badge-warning': row.result==='Deleted'?'badge-error':'badge-success'">{{ row.result }}</span></td>
+                  <td class="text-xs truncate max-w-[160px]" [title]="row.organizationId">{{ row.organizationName }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="flex items-center justify-between p-3 border-t border-base-200">
+          <span class="text-xs opacity-60">Page {{ query.data()?.page }} of {{ totalPages }} — {{ total }} records</span>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost btn-xs" (click)="prev()" [disabled]="page()<=1">Prev</button>
+            <button class="btn btn-ghost btn-xs" (click)="next()" [disabled]="page()>=totalPages">Next</button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

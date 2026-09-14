@@ -40,7 +40,11 @@
       </div>
     </section>
 
-    @if (org(); as o) {
+     @if (orgId()) {
+       <app-platform-notice [orgId]="orgId()!"></app-platform-notice>
+     }
+
+     @if (org(); as o) {
       <section class="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
         <div class="flex flex-wrap justify-between gap-3 items-center">
           <div>
@@ -241,7 +245,7 @@
       <span class="badge badge-ghost badge-sm">Cloud Native</span>
     </div>
 
-    <!-- Org Health KPIs + Charts (Task 4.3) — keep existing above, only add below -->
+    <!-- Org Health KPIs + Charts — keep existing above, only add below -->
     @if (orgId()) {
       <section class="mt-6">
         <div class="mb-3 flex items-end justify-between gap-3">
@@ -289,18 +293,14 @@
           <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             @for (i of [1,2,3,4,5,6]; track i) { <div class="card bg-base-100 rounded-2xl p-4 h-24 animate-pulse border"></div> }
           </div>
-        } @else if (orgStatsQuery.isError()) {
-          <div class="alert alert-error rounded-xl text-sm">Failed to load organization stats — {{ $any(orgStatsQuery.error)?.error?.error || 'please try again' }}</div>
-        }
+        } <!-- error via toast -->
 
         <div class="mt-4">
           @if (orgChartQuery.isPending()) {
             <div class="grid gap-3 lg:grid-cols-2">
               @for (i of [1,2,3,4,5]; track i) { <div class="card bg-base-100 rounded-2xl p-4 h-[340px] animate-pulse border"></div> }
             </div>
-          } @else if (orgChartQuery.isError()) {
-            <div class="alert alert-error rounded-xl text-sm">Failed to load charts — {{ $any(orgChartQuery.error)?.error?.error || 'please try again' }}</div>
-          } @else {
+          } <!-- error via toast --> @else {
             <app-org-charts [chartData]="orgChartQuery.data() ?? null"></app-org-charts>
           }
         </div>

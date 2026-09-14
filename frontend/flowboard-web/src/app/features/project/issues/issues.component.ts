@@ -4,15 +4,18 @@ import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { WorkspaceService } from '../../../core/services/workspace.service';
+import { FeatureFlagService } from '../../../core/services/feature-flag.service';
 import { TaskDetailModalComponent } from '../../../shared/components/modals/task-detail-modal/task-detail-modal.component';
 import { TaskCreateModalComponent } from '../../../shared/components/modals/task-create-modal/task-create-modal.component';
 import { AiDraftModalComponent } from '../../../shared/components/modals/ai-draft-modal/ai-draft-modal.component';
+import { FeatureDisabledModalComponent } from '../../../shared/components/feature-disabled-modal/feature-disabled-modal.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
   selector: 'app-issues',
   standalone: true,
-  imports: [CommonModule, TaskDetailModalComponent, TaskCreateModalComponent, AiDraftModalComponent],
+  imports: [CommonModule, TaskDetailModalComponent, TaskCreateModalComponent, AiDraftModalComponent, FeatureDisabledModalComponent],
   templateUrl: './issues.component.html',
   styleUrls: ['./issues.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -22,8 +25,46 @@ export class IssuesComponent {
   private ps = inject(ProjectService);
   private toast = inject(ToastService);
   private qc = inject(QueryClient);
+  private flagService = inject(FeatureFlagService);
+  private ws = inject(WorkspaceService);
   projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || '');
   workspaceId = signal(this.route.parent?.snapshot.paramMap.get('wid') || '');
+  aiDraftEnabled = signal(true);
+  orgFlags = signal<Map<string, boolean>>(new Map());
+  private currentOrgId: string | undefined;
+
+  private async loadOrgFlags() {
+    let orgId: string | undefined;
+    try {
+      const orgs: any = await firstValueFrom(this.ws.getMyOrganizations());
+      const arr = Array.isArray(orgs) ? orgs : (orgs?.items ?? []);
+      orgId = arr[0]?.id;
+      if (!orgId) {
+        const res: any = await firstValueFrom(this.ws.getMyWorkspaces());
+        const list = Array.isArray(res) ? res : (res?.items ?? []);
+        const ws = list.find((w:any) => w.id === this.workspaceId() || w.workspaceId === this.workspaceId());
+        orgId = ws?.organizationId || ws?.OrganizationId;
+      }
+    } catch {}
+    this.currentOrgId = orgId;
+    if (!orgId) return;
+    try {
+      const map = await this.flagService.loadForOrg(orgId);
+      this.orgFlags.set(new Map(map));
+      // Update AI draft enabled from same map to avoid extra call
+      const chkDraft = map.get('ai_draft');
+      if (chkDraft !== undefined) this.aiDraftEnabled.set(!!chkDraft);
+      else {
+        const chk = await this.flagService.isEnabledForOrg('ai_draft', orgId);
+        this.aiDraftEnabled.set(chk.enabled);
+      }
+    } catch {
+      const chk = await this.flagService.isEnabledForOrg('ai_draft', orgId);
+      this.aiDraftEnabled.set(chk.enabled);
+    }
+  }
+  showFlagDisabled = signal(false);
+  flagDisabledBy = signal('SuperAdmin or Organization Owner');
 
   constructor() {
     queueMicrotask(() => {
@@ -38,6 +79,7 @@ export class IssuesComponent {
     });
     const initialTask = this.route.snapshot.queryParamMap.get('task') || this.route.parent?.snapshot.queryParamMap.get('task');
     if (initialTask) queueMicrotask(() => this.openTaskFromQuery(initialTask));
+    queueMicrotask(() => this.loadOrgFlags());
   }
 
   private async openTaskFromQuery(taskId: string) {
@@ -139,7 +181,29 @@ export class IssuesComponent {
     this.createStatusId.set(statuses[0].id);
     this.createOpen.set(true);
   }
-  openAiDraft(){
+  async openAiDraft(){
+    const cached = this.orgFlags().get('ai_draft');
+    if (cached === false) {
+      this.flagDisabledBy.set('SuperAdmin or Organization Owner');
+      this.showFlagDisabled.set(true);
+      return;
+    }
+    if (cached === undefined) {
+      let orgId = this.currentOrgId;
+      if (!orgId) {
+        try {
+          const orgs: any = await firstValueFrom(this.ws.getMyOrganizations());
+          const arr = Array.isArray(orgs) ? orgs : (orgs?.items ?? []);
+          orgId = arr[0]?.id;
+        } catch {}
+      }
+      const chk = await this.flagService.isEnabledForOrg('ai_draft', orgId);
+      if (!chk.enabled) {
+        this.flagDisabledBy.set(chk.by);
+        this.showFlagDisabled.set(true);
+        return;
+      }
+    }
     const statuses = this.statusesQuery.data() || [];
     if(statuses.length===0) {
       this.toast.error('Create a Status first — go to Project → Statuses → + New Status.');

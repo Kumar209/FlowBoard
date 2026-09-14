@@ -10,7 +10,7 @@ import { NotificationDetailModalComponent } from '../../../features/notification
 import { injectQuery, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**
- * HeaderComponent - MNC-grade: OnPush + inject() + signal mobileOpen + computed theme.
+ * HeaderComponent - OnPush + inject() + signal mobileOpen + computed theme.
  * OnPush + signals gives fine-grained updates (only when mobileOpen/theme/currentUser changes), not full app tick.
  */
 @Component({

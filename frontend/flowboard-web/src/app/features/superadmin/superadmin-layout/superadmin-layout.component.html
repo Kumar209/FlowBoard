@@ -1,0 +1,45 @@
+<app-header (click)="close()" />
+<app-toast />
+
+<div class="drawer lg:drawer-open min-h-[calc(100vh-64px)]">
+  <input id="sa-drawer" type="checkbox" class="drawer-toggle" [checked]="sidebarOpen()" (change)="toggle()" />
+  <div class="drawer-content flex flex-col bg-base-200">
+    <label for="sa-drawer" class="btn btn-ghost btn-sm lg:hidden m-2 self-start">☰ Menu</label>
+    <main class="flex-1">
+      <router-outlet />
+    </main>
+  </div>
+  <div class="drawer-side z-30">
+    <label for="sa-drawer" aria-label="close sidebar" class="drawer-overlay" (click)="close()"></label>
+    <aside [ngClass]="mainCollapsed() ? 'w-72 lg:w-16' : 'w-72 lg:w-72'" class="bg-base-100 border-r border-base-200 flex flex-col h-[calc(100vh-64px)] lg:sticky lg:top-[64px] lg:overflow-y-auto self-start transition-all duration-200 overflow-hidden">
+      <div class="p-2 border-b border-base-200 hidden lg:flex" [class.justify-end]="mainCollapsed()" [class.justify-between]="!mainCollapsed()">
+        @if (!mainCollapsed()) { <span class="text-xs font-semibold opacity-60 px-2 self-center">SuperAdmin</span> }
+        <button class="btn btn-ghost btn-xs btn-circle" (click)="toggleMainCollapse()" [title]="mainCollapsed() ? 'Expand' : 'Collapse'">
+          {{ mainCollapsed() ? '→' : '←' }}
+        </button>
+      </div>
+      <ul class="menu gap-1 flex-1" [class.p-4]="!mainCollapsed()" [class.p-1]="mainCollapsed()" [class.lg:p-4]="!mainCollapsed()" [class.lg:p-1]="mainCollapsed()">
+        <li><a routerLink="/superadmin" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}" (click)="close()" class="rounded-xl"><span class="w-6 text-center">◈</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Dashboard</span></a></li>
+        <li><a routerLink="/superadmin/organizations" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">▦</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Organizations</span></a></li>
+        <li><a routerLink="/superadmin/users" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">◐</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Users</span></a></li>
+        <li><a routerLink="/superadmin/subscriptions" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">💳</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Subscriptions</span></a></li>
+        <li><a routerLink="/superadmin/activity" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">◎</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Platform Activity</span></a></li>
+        <li><a routerLink="/superadmin/system" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">●</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">System</span></a></li>
+        <li><a routerLink="/superadmin/support" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">?</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Support</span> @if (!mainCollapsed()) { <span class="badge badge-error badge-xs" id="sa-support-badge"></span> }</a></li>
+        <li><a routerLink="/superadmin/flags" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">⚑</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Feature Flags</span></a></li>
+        <li><a routerLink="/superadmin/ai-usage" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">✦</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">AI Usage</span></a></li>
+        <li><a routerLink="/superadmin/settings" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">⚙</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Settings</span></a></li>
+        <li class="mt-4"><a routerLink="/" (click)="close()" class="opacity-60 rounded-xl"><span class="w-6 text-center">←</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Back to App</span></a></li>
+      </ul>
+      <div class="p-4 border-t border-base-200" [class.lg:p-1]="mainCollapsed()">
+        <div class="flex items-center gap-3 bg-base-200/50 rounded-xl p-3" [class.lg:p-2]="mainCollapsed()" [class.lg:justify-center]="mainCollapsed()">
+          <div class="w-8 h-8 rounded-full bg-error text-error-content flex items-center justify-center text-xs font-bold shrink-0">{{ (auth.currentUser()?.fullName || 'S').charAt(0) }}</div>
+          <div class="min-w-0 flex-1" [class.lg:hidden]="mainCollapsed()">
+            <div class="text-sm font-semibold truncate">{{ auth.currentUser()?.fullName }}</div>
+            <div class="text-xs opacity-50 truncate">FlowBoard SuperAdmin</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>

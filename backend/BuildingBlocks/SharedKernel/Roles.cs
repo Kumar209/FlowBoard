@@ -1,16 +1,12 @@
 namespace SharedKernel;
 
 /// <summary>
-/// Single source of truth for ALL roles — compact 0-3 (SuperAdmin 0, Member 1, OrgAdmin 2, Client 3).
-/// Org roles are FIXED (Member/OrgAdmin/Client) — stored in [identity].OrganizationMembers.Role (1/2/3) + OwnerId.
-/// Workspace roles are DYNAMIC via [identity].OrganizationWorkspaceRoles (custom e.g., Developer, QA) + WorkspaceMembers.CustomRoleId FK.
-/// System role SuperAdmin is global (Users.IsSuperAdmin + WorkspaceMembers Role 0 for FlowBoard System org, not in OrganizationMembers).
+/// Single source for role names and values — compact 0-3 (SuperAdmin 0, Member 1, OrgAdmin 2, Client 3).
 /// Keep in sync with frontend src/app/shared/constants/roles.ts
-/// History: previously 0/2/3/5 with gaps (ProjectManager 1, Viewer 4) — compacted 2026-09-10 to 0-3 via DB drop + reseed.
 /// </summary>
 public static class Roles
 {
-    // Fixed org-level roles (3 only) + system SuperAdmin — compact 0-3
+    // Fixed org-level roles + system SuperAdmin
     public const string SuperAdmin = "SuperAdmin"; // 0 — system global, manages all orgs/billing, not in OrganizationMembers
     public const string Member = "Member";       // 1 — org Member, project/workspace member, can view/comment/move own, upload
     public const string OrgAdmin = "OrgAdmin";   // 2 — org admin, manages workspaces/members/roles, can delete own org, manage roles/permissions
@@ -46,7 +42,7 @@ public static class Roles
     public static bool IsFixedOrgRole(string role) => FixedOrgRoles.Contains(role);
     public static bool IsValidOrgRole(string role) => AllFixed.Contains(role);
 
-    // Common checks — use everywhere instead of hardcoded new[] { "OrgAdmin", "ProjectManager" ... }
+    // Common role checks
     private static string NormalizeRole(string r) {
         if (int.TryParse(r, out var iv)) return GetLabel(iv);
         return r;
@@ -56,6 +52,6 @@ public static class Roles
     public static bool IsOrgAdmin(IEnumerable<string> roles) => Normalized(roles).Contains(OrgAdmin);
     public static bool IsPrivilegedForManage(IEnumerable<string> roles) => Normalized(roles).Any(r => r == OrgAdmin || r == SuperAdmin);
     public static bool CanManageRoles(IEnumerable<string> roles) => IsPrivilegedForManage(roles);
-    public static bool CanManageProjects(IEnumerable<string> roles) => IsPrivilegedForManage(roles); // only OrgAdmin/SuperAdmin can create projects (custom workspace roles like ProjectManager are now custom, not fixed)
-    public static bool CanUpload(IEnumerable<string> roles) => !Normalized(roles).Contains(Client); // Client cannot upload (View+comment only), Member/OrgAdmin/SuperAdmin can
+    public static bool CanManageProjects(IEnumerable<string> roles) => IsPrivilegedForManage(roles);
+    public static bool CanUpload(IEnumerable<string> roles) => !Normalized(roles).Contains(Client);
 }

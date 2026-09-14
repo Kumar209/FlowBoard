@@ -126,7 +126,7 @@ public class PlatformSettingsService : IPlatformSettingsService
         SetAsync("ai", dto, updatedBy, ct);
 
     public Task<RateLimitsSettingsDto> GetRateLimitsAsync(CancellationToken ct = default) =>
-        GetOrSeedAsync("rateLimits", new RateLimitsSettingsDto(60, 200, 3, 30, 100, "Redis Sliding Window Counter via Upstash Lua (IP 200/min, User 300/min)"), ct);
+        GetOrSeedAsync("rateLimits", new RateLimitsSettingsDto(60, 200, 3, 30, 100, "Redis Sliding Window Counter (IP 200/min, User 300/min)"), ct);
 
     public Task SetRateLimitsAsync(RateLimitsSettingsDto dto, Guid updatedBy, CancellationToken ct = default) =>
         SetAsync("rateLimits", dto, updatedBy, ct);

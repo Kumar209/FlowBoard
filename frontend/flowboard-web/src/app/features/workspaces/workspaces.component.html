@@ -15,7 +15,7 @@
     </div>
 
     <div class="flex flex-col sm:flex-row gap-2 mb-4">
-      <input type="text" placeholder="Search workspaces..." class="input input-bordered input-sm rounded-full max-w-xs" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
+      <input type="text" placeholder="Search workspaces..." class="input input-bordered input-sm rounded-full max-w-xs" [value]="search()" (input)="onSearch($any($event.target).value)" />
       <div class="text-xs opacity-40 self-center">Page {{ page() }} / {{ totalPages() }}</div>
     </div>
 
@@ -27,9 +27,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @for (i of [1,2,3,4,5,6]; track i) { <div class="card bg-base-100 border p-6 animate-pulse"><div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div><div class="h-3 bg-base-200 rounded w-1/2"></div></div> }
       </div>
-    } @else if (workspacesQuery.isError()) {
-      <div class="alert alert-error rounded-xl">Failed to load workspaces - check Identity :5001 + JWT</div>
-    } @else {
+    } <!-- error via toast --> @else {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         @for (ws of workspacesQuery.data()?.items || []; track ws.id) {
           <div class="card bg-base-100 rounded-2xl shadow border border-base-200 hover:shadow-xl hover:-translate-y-1 transition-all group">

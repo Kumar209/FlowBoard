@@ -3,7 +3,7 @@ using Identity.Service.Application.Interfaces;
 namespace Identity.Service.Infrastructure.Services;
 
 // Wrapper around BCrypt for password hashing (cost 12)
-// Enterprise: Implements IPasswordHasher for DIP + testability (was static, now instance)
+// Implements IPasswordHasher for DIP + testability (was static, now instance)
 public class PasswordHasher : IPasswordHasher
 {
     public string Hash(string password) => BCrypt.Net.BCrypt.HashPassword(password, 12);

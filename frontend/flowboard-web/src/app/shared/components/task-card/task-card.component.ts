@@ -2,9 +2,9 @@ import { Component, input, computed, ChangeDetectionStrategy } from '@angular/co
 import { CommonModule } from '@angular/common';
 
 /**
- * TaskCardComponent - MNC-grade: signal inputs (input.required) + computed() + OnPush.
+ * TaskCardComponent - signal inputs (input.required) + computed() + OnPush.
  * Why not @Input() title = ''? That is anemic, not type-safe, getter recomputes on every change detection (no memoization),
- * and allows parent to pass undefined without compile error. MNC uses input.required<string>() (compile-time required),
+ * and allows parent to pass undefined without compile error. Uses input.required<string>() (compile-time required),
  * input<string>('Medium') with default + transform, and computed() memoized derived state (priorityColor/labels parsed once per change).
  * ChangeDetectionStrategy.OnPush + signals gives fine-grained updates (only when input signal changes), not full zone tick.
  * Boilerplate increase is intentional for prod-grade.

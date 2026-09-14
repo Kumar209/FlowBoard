@@ -12,9 +12,7 @@
       <div class="mt-6 space-y-2">
         @for (i of [1,2,3]; track i) { <div class="card bg-base-100 border p-4 animate-pulse"><div class="h-3 bg-base-300 rounded w-1/4 mb-2"></div><div class="h-4 bg-base-200 rounded w-3/4"></div></div> }
       </div>
-    } @else if (orgActivitiesQuery.isError()) {
-      <div class="alert alert-error mt-6 rounded-xl">Failed to load org activities</div>
-    } @else if ((orgActivitiesQuery.data()?.items?.length || 0) === 0 && !orgActivitiesQuery.isPending()) {
+    } <!-- error via toast --> @else if ((orgActivitiesQuery.data()?.items?.length || 0) === 0 && !orgActivitiesQuery.isPending()) {
       <div class="mt-6 card bg-base-100 rounded-2xl border border-dashed p-8 text-center">
         <p class="font-semibold">No activity yet</p>
         <p class="text-sm opacity-60 mt-1">Unified audit empty — add a member, create a workspace/project, or create/move a task.</p>

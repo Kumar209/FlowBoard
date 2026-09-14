@@ -3,19 +3,29 @@ using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 using File.Service.Application.Interfaces;
 using File.Service.Infrastructure.Persistence;
 using File.Service.Infrastructure.Services;
 using File.Service.Infrastructure.Messaging;
 using Shared.Contracts.Events;
 
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+    .WriteTo.File(new Serilog.Formatting.Json.JsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30, fileSizeLimitBytes: 10_000_000, rollOnFileSizeLimit: true)
+    .CreateLogger();
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog();
 
 var cs = builder.Configuration.GetConnectionString("Default") ?? "Server=localhost;Database=flowboard;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 builder.Services.AddDbContext<FileDbContext>(o => o.UseSqlServer(cs, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "file")));
 builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<FileDbContext>());
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<File.Service.Application.Interfaces.IRedisCacheService, File.Service.Infrastructure.Caching.RedisCacheService>();
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
@@ -41,7 +51,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(o =>
 {
-    o.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "FlowBoard File.Service", Version = "v1", Description = "Cloudinary attachments - POST /api/files/upload + GET /api/tasks/{id}/attachments + DELETE /api/files/{id} - Task 4.1 with strict org/workspace/project permission checks" });
+    o.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "FlowBoard File.Service", Version = "v1", Description = "Cloudinary attachments - POST /api/files/upload + GET /api/tasks/{id}/attachments + DELETE /api/files/{id} - with strict org/workspace/project permission checks" });
     o.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Description = "JWT Bearer. Enter 'Bearer {token}'",
@@ -58,7 +68,7 @@ builder.Services.AddSwaggerGen(o =>
 builder.Services.AddHealthChecks();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins("http://localhost:4200","https://flowboard.vercel.app").AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "PASTE_SUPER_SECRET_32_CHARS_MINIMUM_FOR_HS256";
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key missing - set in appsettings.Development.json");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "FlowBoard.Identity";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "FlowBoard.Gateway";
 var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
@@ -74,7 +84,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.FromMinutes(2)
         };
     });
 builder.Services.AddAuthorization();
@@ -85,6 +95,18 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "File.Service v1"));
 }
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';";
+    ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+if (!app.Environment.IsDevelopment()) app.UseHsts();
+app.UseMiddleware<File.Service.Middleware.CorrelationIdMiddleware>();
+app.UseSerilogRequestLogging();
+app.UseMiddleware<File.Service.Middleware.MaintenanceMiddleware>();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

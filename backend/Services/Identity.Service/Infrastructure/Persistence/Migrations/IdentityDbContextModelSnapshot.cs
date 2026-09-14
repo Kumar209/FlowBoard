@@ -23,6 +23,125 @@ namespace Identity.Service.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Identity.Service.Domain.Entities.Complaint", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("Complaints", "identity");
+                });
+
+            modelBuilder.Entity("Identity.Service.Domain.Entities.ComplaintReply", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AuthorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ComplaintId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsSuperAdminReply")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorUserId");
+
+                    b.HasIndex("ComplaintId");
+
+                    b.ToTable("ComplaintReplies", "identity");
+                });
+
+            modelBuilder.Entity("Identity.Service.Domain.Entities.FeatureFlag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("OrgOverridesJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("FeatureFlags", "identity");
+                });
+
             modelBuilder.Entity("Identity.Service.Domain.Entities.Organization", b =>
                 {
                     b.Property<Guid>("Id")
@@ -52,6 +171,9 @@ namespace Identity.Service.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<Guid>("SubscriptionPlanId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -61,6 +183,8 @@ namespace Identity.Service.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Slug")
                         .IsUnique();
+
+                    b.HasIndex("SubscriptionPlanId");
 
                     b.ToTable("Organizations", "identity");
                 });
@@ -104,6 +228,39 @@ namespace Identity.Service.Infrastructure.Persistence.Migrations
                     b.HasIndex("OrganizationId");
 
                     b.ToTable("OrganizationActivities", "identity");
+                });
+
+            modelBuilder.Entity("Identity.Service.Domain.Entities.OrganizationFeatureFlag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FlagKey")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("OrganizationId", "FlagKey")
+                        .IsUnique();
+
+                    b.ToTable("OrganizationFeatureFlags", "identity");
                 });
 
             modelBuilder.Entity("Identity.Service.Domain.Entities.OrganizationMember", b =>
@@ -176,6 +333,56 @@ namespace Identity.Service.Infrastructure.Persistence.Migrations
                     b.ToTable("OrganizationWorkspaceRoles", "identity");
                 });
 
+            modelBuilder.Entity("Identity.Service.Domain.Entities.PendingUserSuspension", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("DeadlineAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PendingUserSuspensions", "identity");
+                });
+
             modelBuilder.Entity("Identity.Service.Domain.Entities.Permission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -215,6 +422,80 @@ namespace Identity.Service.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Permissions", "identity");
+                });
+
+            modelBuilder.Entity("Identity.Service.Domain.Entities.PlatformNotice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeadlineAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TargetUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("PlatformNotices", "identity");
+                });
+
+            modelBuilder.Entity("Identity.Service.Domain.Entities.PlatformSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ValueJson")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("PlatformSettings", "identity");
                 });
 
             modelBuilder.Entity("Identity.Service.Domain.Entities.RefreshToken", b =>
@@ -275,6 +556,57 @@ namespace Identity.Service.Infrastructure.Persistence.Migrations
                     b.ToTable("RolePermissions", "identity");
                 });
 
+            modelBuilder.Entity("Identity.Service.Domain.Entities.SubscriptionPlanEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AiRequests")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ApiLimit")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FeaturesJson")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("MaxProjects")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxUsers")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxWorkspaces")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("StorageGB")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionPlans", "identity");
+                });
+
             modelBuilder.Entity("Identity.Service.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -299,6 +631,9 @@ namespace Identity.Service.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSuperAdmin")
                         .HasColumnType("bit");
 
                     b.Property<string>("PasswordHash")
@@ -381,7 +716,59 @@ namespace Identity.Service.Infrastructure.Persistence.Migrations
                     b.ToTable("WorkspaceMembers", "identity");
                 });
 
+            modelBuilder.Entity("Identity.Service.Domain.Entities.Complaint", b =>
+                {
+                    b.HasOne("Identity.Service.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Identity.Service.Domain.Entities.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Identity.Service.Domain.Entities.ComplaintReply", b =>
+                {
+                    b.HasOne("Identity.Service.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Identity.Service.Domain.Entities.Complaint", "Complaint")
+                        .WithMany()
+                        .HasForeignKey("ComplaintId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Complaint");
+                });
+
+            modelBuilder.Entity("Identity.Service.Domain.Entities.Organization", b =>
+                {
+                    b.HasOne("Identity.Service.Domain.Entities.SubscriptionPlanEntity", "SubscriptionPlan")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionPlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("SubscriptionPlan");
+                });
+
             modelBuilder.Entity("Identity.Service.Domain.Entities.OrganizationActivity", b =>
+                {
+                    b.HasOne("Identity.Service.Domain.Entities.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Identity.Service.Domain.Entities.OrganizationFeatureFlag", b =>
                 {
                     b.HasOne("Identity.Service.Domain.Entities.Organization", null)
                         .WithMany()
@@ -406,6 +793,30 @@ namespace Identity.Service.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("Identity.Service.Domain.Entities.OrganizationWorkspaceRole", b =>
+                {
+                    b.HasOne("Identity.Service.Domain.Entities.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Identity.Service.Domain.Entities.PendingUserSuspension", b =>
+                {
+                    b.HasOne("Identity.Service.Domain.Entities.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Identity.Service.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Identity.Service.Domain.Entities.PlatformNotice", b =>
                 {
                     b.HasOne("Identity.Service.Domain.Entities.Organization", null)
                         .WithMany()

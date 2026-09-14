@@ -9,7 +9,7 @@ import { injectQuery } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 
 /**
- * RegisterComponent - MNC-grade: OnPush + signals + ReactiveForms typed + always-enabled button + input-error below.
+ * RegisterComponent - OnPush + signals + ReactiveForms typed + always-enabled button + input-error below.
  * Boilerplate (hasError with touched||dirty||submitted, markAllAsTouched on submit) is intentional for production UX (a11y, not disabled).
  */
 @Component({

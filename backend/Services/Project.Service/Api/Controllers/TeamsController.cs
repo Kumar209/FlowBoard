@@ -24,9 +24,10 @@ public class TeamsController : ControllerBase
     [HttpPost("api/projects/{projectId}/teams")]
     public async Task<IActionResult> Create(Guid projectId, [FromBody] CreateTeamBody body)
     {
+        if (string.IsNullOrWhiteSpace(body.Name) || body.Name.Length < 2 || body.Name.Length > 100) return BadRequest(new { error = "Name required (2-100 chars)" });
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var result = await _mediator.Send(new CreateTeamCommand(projectId, body.Name, body.Description, userId.Value));
-        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : BadRequest(new { error = result.Error });
         return StatusCode(201, result.Value);
     }
 
@@ -58,9 +59,10 @@ public class TeamsController : ControllerBase
     [HttpPost("api/teams/{teamId}/members")]
     public async Task<IActionResult> AddMember(Guid teamId, [FromBody] AddMemberBody body)
     {
+        if (body.UserId == Guid.Empty) return BadRequest(new { error = "UserId required" });
         var userId = GetUserId(); if (userId == null) return Unauthorized();
         var result = await _mediator.Send(new AddTeamMemberCommand(teamId, body.UserId, userId.Value));
-        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        if (!result.IsSuccess) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
         return StatusCode(201, result.Value);
     }
 

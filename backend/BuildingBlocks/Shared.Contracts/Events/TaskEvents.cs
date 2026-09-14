@@ -5,7 +5,7 @@ namespace Shared.Contracts.Events;
 /// </summary>
 
 /// <summary>
-/// TaskCreated - fired when TaskItem created in Project. Consumers: Notification.Service persists Notification + SignalR group workspace:{id} sendAsync. Used in Task 3.1 Outbox.
+/// TaskCreated - fired when TaskItem created in Project. Consumers: Notification.Service persists Notification + SignalR group workspace:{id} sendAsync. Used in Outbox.
 /// </summary>
 public record TaskCreatedEvent(
     Guid TaskId = default,
@@ -24,7 +24,7 @@ public record TaskCreatedEvent(
     string CorrelationId = "") : IIntegrationEvent;
 
 /// <summary>
-/// TaskMoved - fired when TaskItem dragged between lists (CDK drag-drop). Carries FromListId/ToListId/Position. Consumer updates board cache (Upstash invalidation) + live sync.
+/// TaskMoved - fired when TaskItem dragged between lists. Carries FromListId/ToListId/Position. Consumer invalidates board cache + live sync.
 /// </summary>
 public record TaskMovedEvent(
     Guid TaskId = default,

@@ -12,6 +12,7 @@ public class User : BaseEntity, IAggregateRoot
     public string FullName { get; private set; } = string.Empty;
     public string? AvatarUrl { get; private set; }
     public bool IsActive { get; private set; } = true;
+    public bool IsSuperAdmin { get; private set; } = false;
 
     private User() { } // EF Core
 
@@ -32,5 +33,8 @@ public class User : BaseEntity, IAggregateRoot
     public void UpdateFullName(string fullName) { FullName = fullName; Touch(); }
     public void UpdateEmail(string email) { Email = email.ToLowerInvariant(); Touch(); }
 
-    public void Deactivate() => IsActive = false;
+    public void Deactivate() { IsActive = false; Touch(); }
+    public void Activate() { IsActive = true; Touch(); }
+    public void PromoteToSuperAdmin() => IsSuperAdmin = true;
+    public void DemoteFromSuperAdmin() => IsSuperAdmin = false;
 }

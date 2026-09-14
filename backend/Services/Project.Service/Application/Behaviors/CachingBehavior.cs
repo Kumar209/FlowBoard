@@ -25,7 +25,7 @@ namespace Project.Service.Application.Behaviors;
  *           SKIP calling the handler (no SQL). ~4ms.
  *   2. MISS: GetAsync returns null -> call next() which runs the real handler (SQL
  *           SELECT Projects+BoardLists+Tasks) -> get BoardDto -> SetAsync(CacheKey, BoardDto, Expiration 5m/2m) -> return.
- *   If Redis is disabled (PASTE_ or Upstash down), it just calls next() (DB fallback) and never throws - best-effort.
+ *   If Redis is disabled or unavailable, it just calls next() (DB fallback) and never throws — best-effort.
  *
  * Why concrete class not interface: MediatR defines interface IPipelineBehavior<,> (abstraction). We ALWAYS write a CONCRETE class
  *   CachingBehavior<TRequest,TResponse> that IMPLEMENTS that interface. Program.cs registers it as

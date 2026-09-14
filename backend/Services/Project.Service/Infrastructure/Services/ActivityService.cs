@@ -11,7 +11,9 @@ public class ActivityService : IActivityService
 
     public async Task<(List<ActivityDto> Items, int Total)> GetActivitiesAsync(Guid projectId, int page, int pageSize, Guid? taskId, CancellationToken ct = default)
     {
-        var q = _db.ActivityLogs.Where(a => a.ProjectId == projectId);
+        page = Math.Clamp(page, 1, 1000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var q = _db.ActivityLogs.AsNoTracking().Where(a => a.ProjectId == projectId);
         if (taskId != null && taskId != Guid.Empty) q = q.Where(a => a.TaskId == taskId);
         var total = await q.CountAsync(ct);
         var items = await q.OrderByDescending(a => a.OccurredAt).Skip((page - 1) * pageSize).Take(pageSize)

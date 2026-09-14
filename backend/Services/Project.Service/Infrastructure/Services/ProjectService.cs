@@ -23,8 +23,7 @@ public class ProjectService : IProjectService
 
     public async Task<Result<ProjectDto>> CreateProjectAsync(Guid workspaceId, string name, string? description, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        var allowed = new[] { Roles.OrgAdmin, Roles.SuperAdmin };
-        if (!callerRoles.Any(r => allowed.Contains(r)))
+        if (!Roles.IsPrivilegedForManage(callerRoles))
             return Result<ProjectDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin. Your roles: " + string.Join(",", callerRoles));
         var prefix = new string(name.Where(char.IsLetter).Take(3).ToArray()).ToUpperInvariant();
         if (prefix.Length < 2) prefix = "PRJ";
@@ -43,8 +42,7 @@ public class ProjectService : IProjectService
 
     public async Task<Result<ProjectDto>> UpdateProjectAsync(Guid projectId, string name, string? description, string? slug, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        var allowed = new[] { Roles.OrgAdmin, Roles.SuperAdmin };
-        if (!callerRoles.Any(r => allowed.Contains(r)))
+        if (!Roles.IsPrivilegedForManage(callerRoles))
             return Result<ProjectDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin");
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return Result<ProjectDto>.Failure("Project not found");
@@ -57,8 +55,7 @@ public class ProjectService : IProjectService
 
     public async Task<Result<bool>> DeleteProjectAsync(Guid projectId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        var allowed = new[] { Roles.OrgAdmin, Roles.SuperAdmin };
-        if (!callerRoles.Any(r => allowed.Contains(r)))
+        if (!Roles.IsPrivilegedForManage(callerRoles))
             return Result<bool>.Failure("Forbidden - Need OrgAdmin/SuperAdmin");
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return Result<bool>.Failure("Project not found");
@@ -71,7 +68,9 @@ public class ProjectService : IProjectService
 
     public async Task<PaginatedResult<ProjectDto>> GetProjectsAsync(Guid workspaceId, int page, int pageSize, CancellationToken ct = default)
     {
-        var q = _db.Projects.Where(p => p.WorkspaceId == workspaceId);
+        page = Math.Clamp(page, 1, 1000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var q = _db.Projects.AsNoTracking().Where(p => p.WorkspaceId == workspaceId);
         var total = await q.CountAsync(ct);
         var items = await q.OrderByDescending(p => p.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize)
             .Select(p => new ProjectDto(p.Id, p.WorkspaceId, p.Name, p.Key, p.Description, p.OwnerId, p.CreatedAt))
@@ -81,18 +80,18 @@ public class ProjectService : IProjectService
 
     public async Task<BoardDto> GetBoardAsync(Guid projectId, Guid? boardId, CancellationToken ct = default)
     {
-        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct) ?? throw new Exception("Project not found");
+        var project = await _db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId, ct) ?? throw new Exception("Project not found");
         Domain.Entities.Board? board = null;
         if (boardId.HasValue && boardId.Value != Guid.Empty)
             board = await _db.Boards.FirstOrDefaultAsync(b => b.Id == boardId.Value, ct);
-        var listsQuery = _db.BoardLists.Where(b => b.ProjectId == projectId);
+        var listsQuery = _db.BoardLists.AsNoTracking().Where(b => b.ProjectId == projectId);
         if (boardId.HasValue && boardId.Value != Guid.Empty)
             listsQuery = listsQuery.Where(b => b.BoardId == boardId.Value);
         var listsRaw = await listsQuery.OrderBy(b => b.Position).ToListAsync(ct);
         var columnIds = listsRaw.Select(l => l.Id).ToList();
-        var mappings = await _db.BoardColumnStatuses.Where(bcs => columnIds.Contains(bcs.ColumnId)).ToListAsync(ct);
+        var mappings = await _db.BoardColumnStatuses.AsNoTracking().Where(bcs => columnIds.Contains(bcs.ColumnId)).ToListAsync(ct);
         var lists = listsRaw.Select(l => new BoardListDto(l.Id, l.ProjectId, l.Name, l.Position, mappings.Where(m => m.ColumnId == l.Id).Select(m => m.StatusId).ToList())).ToList();
-        var tasksQuery = _db.Tasks.Where(t => t.ProjectId == projectId);
+        var tasksQuery = _db.Tasks.AsNoTracking().Where(t => t.ProjectId == projectId);
         // Jira-like: board is a view — return all project tasks, frontend filters by Status == column name (via BoardColumnStatus). No ListId filtering for backlog.
         if (board?.FilterJson != null)
         {
