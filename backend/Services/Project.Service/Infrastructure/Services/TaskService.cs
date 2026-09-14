@@ -127,7 +127,7 @@ public class TaskService : ITaskService
             if (targetList == null) return Result.Failure("Target list not found");
         var fromListId = task.ListId;
         var fromList = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == fromListId, ct);
-        var fromListName = fromList?.Name ?? fromListId.ToString()[..4];
+        var fromListName = fromList?.Name ?? (fromListId.HasValue ? fromListId.Value.ToString()[..4] : "Backlog");
         var taskTitle = task.Title;
         // Fetch actor name/role for enriched payload
         string actorName = callerId.ToString()[..8], actorRole = callerRoles.FirstOrDefault() ?? Roles.Member;
