@@ -16,6 +16,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { AttachmentService } from '../../../../core/services/attachment.service';
 import { AiService } from '../../../../core/services/ai.service';
 import { LoaderComponent } from '../../loader/loader.component';
+import { ConfirmDeleteComponent } from '../confirm-delete/confirm-delete.component';
 import { FeatureDisabledModalComponent } from '../../feature-disabled-modal/feature-disabled-modal.component';
 import { FeatureFlagService } from '../../../../core/services/feature-flag.service';
 import { WorkspaceService } from '../../../../core/services/workspace.service';
@@ -28,7 +29,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 @Component({
   selector: 'app-task-detail-modal',
   standalone: true,
-  imports: [CommonModule, LoaderComponent, FeatureDisabledModalComponent],
+  imports: [CommonModule, LoaderComponent, ConfirmDeleteComponent, FeatureDisabledModalComponent],
   templateUrl: './task-detail-modal.component.html',
   styleUrls: ['./task-detail-modal.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -370,16 +371,8 @@ export class TaskDetailModalComponent {
     const detailTask = (this.taskDetailQuery.data() as any)?.task;
     const t = detailTask ?? this.task();
     if (!t) return false;
-    if (this.taskDetailQuery.isPending() || this.statusesQuery.isPending()) return false;
-    if (this.membersQuery.isPending() || this.teamsQuery.isPending() || this.sprintsForTaskQuery.isPending()) return false;
-    const teamId = (t.teamId || '').toString().toLowerCase();
-    const sprintId = (t.sprintId || '').toString().toLowerCase();
-    const assigneeId = (t.assigneeId || '').toString().toLowerCase();
-    const statusId = (t.statusId || '').toString().toLowerCase();
-    if (teamId && !this.teamsQuery.data()?.some((x: any) => (x.id || '').toString().toLowerCase() === teamId)) return false;
-    if (sprintId && !this.sprintsForTaskQuery.data()?.some((x: any) => (x.id || '').toString().toLowerCase() === sprintId)) return false;
-    if (assigneeId && !this.projectMembersList().some((m: any) => (m.userId || '').toString().toLowerCase() === assigneeId)) return false;
-    if (statusId && !this.statusesQuery.data()?.some((x: any) => (x.id || '').toString().toLowerCase() === statusId)) return false;
+    if (this.taskDetailQuery.isPending()) return false;
+    // Don't block on ancillary lookups — teams/sprints/members/status can load async and show fallback selects
     return true;
   });
   isScrumBoard = computed(() => {
