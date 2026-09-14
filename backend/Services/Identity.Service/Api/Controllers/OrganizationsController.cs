@@ -240,6 +240,40 @@ public class OrganizationsController : ControllerBase
         catch (Exception ex) { if (ex is ForbiddenException || ex is NotFoundException || ex is ValidationException) return BadRequest(new { error = ex.Message }); return BadRequest(new { error = "Something went wrong \u2014 please try again." }); }
     }
 
+    [HttpGet("{id}/my-permissions")]
+    public async Task<IActionResult> MyPermissions(Guid id)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var db = HttpContext.RequestServices.GetRequiredService<Identity.Service.Application.Interfaces.IApplicationDbContext>();
+        var org = await db.Organizations.FirstOrDefaultAsync(o => o.Id == id);
+        if (org == null) return NotFound(new { error = "Organization not found" });
+        var isSuper = await db.WorkspaceMembers.AnyAsync(m => m.UserId == callerId.Value && m.Role == Roles.SuperAdminValue);
+        if (isSuper) { var all = await db.Permissions.Select(p => p.Key).ToListAsync(); return Ok(new { permissions = all }); }
+        var isOwner = org.OwnerId == callerId.Value;
+        var orgMember = await db.OrganizationMembers.FirstOrDefaultAsync(m => m.OrganizationId == id && m.UserId == callerId.Value);
+        if (isOwner || orgMember?.Role == Roles.OrgAdminValue)
+        {
+            var all = await db.Permissions.Select(p => p.Key).ToListAsync();
+            return Ok(new { permissions = all });
+        }
+        // Collect custom role permissions from all workspaces in org where user has CustomRoleId
+        var wsIds = await db.Workspaces.Where(w => w.OrganizationId == id).Select(w => w.Id).ToListAsync();
+        var customRoleIds = await db.WorkspaceMembers.Where(m => wsIds.Contains(m.WorkspaceId) && m.UserId == callerId.Value && m.CustomRoleId != null).Select(m => m.CustomRoleId!.Value).Distinct().ToListAsync();
+        HashSet<string> perms = new();
+        if (customRoleIds.Any())
+        {
+            var permIds = await db.RolePermissions.Where(rp => customRoleIds.Contains(rp.RoleId)).Select(rp => rp.PermissionId).Distinct().ToListAsync();
+            var keys = await db.Permissions.Where(p => permIds.Contains(p.Id)).Select(p => p.Key).ToListAsync();
+            foreach (var k in keys) perms.Add(k);
+        }
+        // Add fixed Member/Client base perms
+        int? fixedRole = orgMember?.Role;
+        if (fixedRole == Roles.MemberValue) foreach (var k in new[] { "org:view","workspace:view","project:view","board:view","status:view","task:view","task:create","task:update","task:move","task:assign","comment:view","comment:create","activity:view:project","attachment:view","attachment:create" }) perms.Add(k);
+        else if (fixedRole == Roles.ClientValue) foreach (var k in new[] { "org:view","workspace:view","project:view","board:view","status:view","task:view","comment:view","comment:create","attachment:view" }) perms.Add(k);
+        else if (fixedRole == null) perms.Add("org:view");
+        return Ok(new { permissions = perms.ToList() });
+    }
+
     private string[] GetRoles() => User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).Concat(User.FindAll("role").Select(c => c.Value)).ToArray();
 
     private Guid? GetUserId()

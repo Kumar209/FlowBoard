@@ -1,10 +1,11 @@
-import { Component, inject, ChangeDetectionStrategy, computed, signal } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, computed, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
+import { PermissionService } from '../../core/services/permission.service';
 import { WorkspaceModalComponent } from '../../shared/components/modals/workspace-modal/workspace-modal.component';
 import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
@@ -27,6 +28,7 @@ export class WorkspacesComponent {
   auth = inject(AuthService);
   private toast = inject(ToastService);
   private queryClient = inject(QueryClient);
+  private perm = inject(PermissionService);
 
   page = signal(1);
   pageSize = 12;
@@ -50,7 +52,21 @@ export class WorkspacesComponent {
   }));
 
   canCreateWorkspace = computed(() => this.auth.canCreateWorkspace());
+  hasCustomCreate = signal(false);
+  canCreateWorkspaceEffective = computed(() => this.canCreateWorkspace() || this.hasCustomCreate());
   total = computed(() => this.workspacesQuery.data()?.total || 0);
+
+  constructor() {
+    effect(async () => {
+      const orgs: any = this.orgsQuery.data();
+      if (!orgs || !Array.isArray(orgs) || orgs.length === 0) return;
+      for (const org of orgs) {
+        try {
+          if (await this.perm.hasOrgPermission(org.id, 'workspace:create')) { this.hasCustomCreate.set(true); break; }
+        } catch {}
+      }
+    }, { allowSignalWrites: true });
+  }
   totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
 
   // Modals signals

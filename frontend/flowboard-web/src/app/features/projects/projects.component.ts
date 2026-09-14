@@ -1,4 +1,4 @@
-import { Component, inject, signal, ChangeDetectionStrategy, computed } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -6,6 +6,7 @@ import { ProjectService } from '../../core/services/project.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
+import { PermissionService } from '../../core/services/permission.service';
 import { ProjectModalComponent } from '../../shared/components/modals/project-modal/project-modal.component';
 import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
@@ -27,6 +28,7 @@ export class ProjectsComponent {
   private auth = inject(AuthService);
   private toast = inject(ToastService);
   private queryClient = inject(QueryClient);
+  private perm = inject(PermissionService);
 
   selectedWorkspaceId = signal<string>('all');
   wsSearch = signal<string>('');
@@ -35,6 +37,8 @@ export class ProjectsComponent {
   page = signal(1);
   pageSize = 12;
   canCreateProject = computed(() => this.auth.canCreateProject());
+  hasCustomProjectCreate = signal(false);
+  canCreateProjectEffective = computed(() => this.canCreateProject() || this.hasCustomProjectCreate());
   selectedWorkspaceName = computed(() => {
     if (this.selectedWorkspaceId()==='all') return `All workspaces (${this.workspacesQuery.data()?.length||0})`;
     return this.workspacesQuery.data()?.find(w=>w.id===this.selectedWorkspaceId())?.name || 'Select workspace';
@@ -50,6 +54,18 @@ export class ProjectsComponent {
     queryKey: ['workspaces'] as const,
     queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspaces()),
   }));
+  constructor() {
+    effect(async () => {
+      const wsId = this.selectedWorkspaceId();
+      const wss: any = this.workspacesQuery.data();
+      if (!wss) return;
+      const ids = wsId === 'all' ? (wss as any[]).map(w => w.id) : [wsId];
+      for (const id of ids) {
+        try { if (await this.perm.hasPermission(id, 'project:create')) { this.hasCustomProjectCreate.set(true); return; } } catch {}
+      }
+      this.hasCustomProjectCreate.set(false);
+    }, { allowSignalWrites: true });
+  }
   filteredWorkspaces = computed(() => {
     const s = this.wsSearch().toLowerCase().trim();
     const ws = this.workspacesQuery.data() || [];

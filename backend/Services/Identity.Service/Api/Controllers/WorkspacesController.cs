@@ -2,7 +2,10 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Identity.Service.Application.Commands;
+using Identity.Service.Application.Interfaces;
+using SharedKernel;
 
 namespace Identity.Service.Api.Controllers;
 
@@ -84,6 +87,42 @@ public class WorkspacesController : ControllerBase
         var result = await _mediator.Send(new ChangeMemberRoleCommand(id, userId, request.Role, callerId.Value));
         if (result.IsFailure) return result.Error!.Contains("Forbidden") ? StatusCode(403, new { error = result.Error }) : BadRequest(new { error = result.Error });
         return Ok(result.Value);
+    }
+
+    [HttpGet("{id}/my-permissions")]
+    public async Task<IActionResult> MyPermissions(Guid id)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var db = HttpContext.RequestServices.GetRequiredService<IApplicationDbContext>();
+        var ws = await db.Workspaces.FirstOrDefaultAsync(w => w.Id == id);
+        if (ws == null) return NotFound(new { error = "Workspace not found" });
+        var isSuper = await db.WorkspaceMembers.AnyAsync(m => m.UserId == callerId.Value && m.Role == Roles.SuperAdminValue);
+        if (isSuper) { var all = await db.Permissions.Select(p => p.Key).ToListAsync(); return Ok(new { permissions = all }); }
+        var orgMember = await db.OrganizationMembers.FirstOrDefaultAsync(m => m.OrganizationId == ws.OrganizationId && m.UserId == callerId.Value);
+        var isOwner = await db.Organizations.AnyAsync(o => o.Id == ws.OrganizationId && o.OwnerId == callerId.Value);
+        var wsMember = await db.WorkspaceMembers.FirstOrDefaultAsync(m => m.WorkspaceId == id && m.UserId == callerId.Value);
+        if (wsMember == null && orgMember == null && !isOwner) return StatusCode(403, new { error = "Not a member" });
+        // Fixed role implicit permissions
+        int? fixedRole = wsMember?.Role ?? orgMember?.Role;
+        // If user is OrgAdmin via orgMember or owner, they have all
+        if (isOwner || orgMember?.Role == Roles.OrgAdminValue || wsMember?.Role == Roles.OrgAdminValue)
+        {
+            var all = await db.Permissions.Select(p => p.Key).ToListAsync();
+            return Ok(new { permissions = all, role = Roles.OrgAdmin, customRoleId = wsMember?.CustomRoleId });
+        }
+        if (wsMember?.CustomRoleId != null && wsMember.CustomRoleId != Guid.Empty)
+        {
+            var permIds = await db.RolePermissions.Where(rp => rp.RoleId == wsMember.CustomRoleId.Value).Select(rp => rp.PermissionId).ToListAsync();
+            var keys = await db.Permissions.Where(p => permIds.Contains(p.Id)).Select(p => p.Key).ToListAsync();
+            return Ok(new { permissions = keys, role = wsMember.Role, customRoleId = wsMember.CustomRoleId, customRoleName = (await db.OrganizationWorkspaceRoles.FirstOrDefaultAsync(r => r.Id == wsMember.CustomRoleId.Value))?.Name });
+        }
+        // Fixed role mapping
+        List<string> keysFixed = new();
+        if (fixedRole == Roles.MemberValue) keysFixed = new List<string> { "org:view","workspace:view","project:view","board:view","status:view","task:view","task:create","task:update","task:move","task:assign","comment:view","comment:create","activity:view:project","attachment:view","attachment:create" };
+        else if (fixedRole == Roles.ClientValue) keysFixed = new List<string> { "org:view","workspace:view","project:view","board:view","status:view","task:view","comment:view","comment:create","attachment:view" };
+        else if (fixedRole == null) keysFixed = new List<string> { "org:view" };
+        else keysFixed = await db.Permissions.Select(p => p.Key).ToListAsync();
+        return Ok(new { permissions = keysFixed, role = fixedRole, customRoleId = wsMember?.CustomRoleId });
     }
 
     private Guid? GetUserId()

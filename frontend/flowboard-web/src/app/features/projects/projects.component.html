@@ -4,10 +4,10 @@
       <div>
         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Projects</h1>
         <p class="text-sm opacity-60 mt-1">All projects across your assigned workspaces — Manager sees allotted workspaces only, filtered by role.</p>
-        @if (!canCreateProject()) { <span class="badge badge-ghost badge-xs mt-1">View only — PM/OrgAdmin can create</span> }
+        @if (!canCreateProjectEffective()) { <span class="badge badge-ghost badge-xs mt-1">View only — missing project:create</span> }
       </div>
       <div class="flex gap-2 self-start sm:self-auto items-center">
-        @if (canCreateProject()) { <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md" (click)="openCreate()">+ New Project</button> }
+        @if (canCreateProjectEffective()) { <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md" (click)="openCreate()">+ New Project</button> }
         <span class="badge badge-ghost badge-sm">Total {{ total() }}</span>
       </div>
     </div>
@@ -49,7 +49,7 @@
               <div class="flex justify-between items-start gap-2">
                 <span class="badge badge-primary badge-sm rounded-full">{{ project.key }}</span>
                 <div class="flex gap-1 items-center">
-                  @if (canCreateProject()) {
+                  @if (canCreateProjectEffective()) {
                     <div class="dropdown dropdown-end">
                       <div tabindex="0" role="button" class="btn btn-ghost btn-xs rounded-full">⋮</div>
                       <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-xl z-10 w-36 p-2 shadow border">
