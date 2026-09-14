@@ -81,9 +81,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("RequireOrgAdmin", policy => policy.RequireRole("OrgAdmin", "SuperAdmin"));
-    options.AddPolicy("RequireProjectManager", policy => policy.RequireRole("ProjectManager", "OrgAdmin", "SuperAdmin"));
-    options.AddPolicy("RequireMember", policy => policy.RequireRole("Member", "ProjectManager", "OrgAdmin", "SuperAdmin", "Client", "Viewer"));
     options.AddPolicy("RequireSuperAdmin", policy => policy.RequireRole("SuperAdmin"));
+    // Fixed roles only — custom workspace roles (OrganizationWorkspaceRoles) are checked via RolePermissions (permission keys like project:create) in services, not via JWT role policy
 });
 
 builder.Services.AddControllers();

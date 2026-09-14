@@ -24,7 +24,11 @@ public class ProjectService : IProjectService
     public async Task<Result<ProjectDto>> CreateProjectAsync(Guid workspaceId, string name, string? description, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
         if (!Roles.IsPrivilegedForManage(callerRoles))
-            return Result<ProjectDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin. Your roles: " + string.Join(",", callerRoles));
+        {
+            // Check custom workspace role permission project:create via RolePermissions
+            if (!await HasCustomPermissionAsync(callerId, workspaceId, "project:create", ct))
+                return Result<ProjectDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin or custom role with project:create. Your roles: " + string.Join(",", callerRoles));
+        }
         var prefix = new string(name.Where(char.IsLetter).Take(3).ToArray()).ToUpperInvariant();
         if (prefix.Length < 2) prefix = "PRJ";
         var count = await _db.Projects.CountAsync(p => p.WorkspaceId == workspaceId, ct);
@@ -42,10 +46,10 @@ public class ProjectService : IProjectService
 
     public async Task<Result<ProjectDto>> UpdateProjectAsync(Guid projectId, string name, string? description, string? slug, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (!Roles.IsPrivilegedForManage(callerRoles))
-            return Result<ProjectDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin");
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return Result<ProjectDto>.Failure("Project not found");
+        if (!Roles.IsPrivilegedForManage(callerRoles) && !await HasCustomPermissionAsync(callerId, project.WorkspaceId, "project:update", ct))
+            return Result<ProjectDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin or project:update");
         project.Update(name, description);
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveByPrefixAsync($"projects:{project.WorkspaceId}:");
@@ -55,10 +59,10 @@ public class ProjectService : IProjectService
 
     public async Task<Result<bool>> DeleteProjectAsync(Guid projectId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (!Roles.IsPrivilegedForManage(callerRoles))
-            return Result<bool>.Failure("Forbidden - Need OrgAdmin/SuperAdmin");
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return Result<bool>.Failure("Project not found");
+        if (!Roles.IsPrivilegedForManage(callerRoles) && !await HasCustomPermissionAsync(callerId, project.WorkspaceId, "project:delete", ct))
+            return Result<bool>.Failure("Forbidden - Need OrgAdmin/SuperAdmin or project:delete");
         _db.Projects.Remove(project);
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveByPrefixAsync($"projects:{project.WorkspaceId}:");
@@ -111,5 +115,19 @@ public class ProjectService : IProjectService
             .ToListAsync(ct);
         var dto = new ProjectDto(project.Id, project.WorkspaceId, project.Name, project.Key, project.Description, project.OwnerId, project.CreatedAt);
         return new BoardDto(dto, lists, tasks);
+    }
+
+    private async Task<bool> HasCustomPermissionAsync(Guid callerId, Guid workspaceId, string permKey, CancellationToken ct)
+    {
+        try
+        {
+            var customRoleId = await _db.Database.SqlQueryRaw<Guid?>("SELECT CustomRoleId as Value FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1}", workspaceId, callerId).FirstOrDefaultAsync(ct);
+            if (customRoleId == null || customRoleId == Guid.Empty) return false;
+            var permId = await _db.Database.SqlQueryRaw<Guid>("SELECT Id as Value FROM [identity].[Permissions] WHERE [Key] = {0}", permKey).FirstOrDefaultAsync(ct);
+            if (permId == Guid.Empty) return false;
+            var has = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[RolePermissions] WHERE RoleId = {0} AND PermissionId = {1}", customRoleId.Value, permId).FirstOrDefaultAsync(ct) > 0;
+            return has;
+        }
+        catch { return false; }
     }
 }

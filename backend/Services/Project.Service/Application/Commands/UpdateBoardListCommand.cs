@@ -9,7 +9,7 @@ using Project.Service.Application.Interfaces;
 namespace Project.Service.Application.Commands;
 
 /// <summary>
-/// UpdateBoardList - Rename list (Jira Kanban). Viewer/Client 403.
+/// UpdateBoardList - Rename list. Client 403; custom roles require permission board:update.
 /// </summary>
 public record UpdateBoardListCommand(Guid ProjectId, Guid ListId, string Name, int? Position, Guid CallerId, List<string> CallerRoles, List<Guid>? StatusIds = null) : IRequest<Result<BoardListDto>>;
 

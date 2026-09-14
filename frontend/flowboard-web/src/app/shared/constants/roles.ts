@@ -1,20 +1,18 @@
 /**
- * Shared roles - Single source of truth for frontend.
- * Org roles: 3 fixed (Member 1, OrgAdmin 2, Client 3) — stored in [identity].OrganizationMembers
- * Workspace roles: DYNAMIC per-org via [identity].OrganizationWorkspaceRoles (e.g., Developer, QA) — NOT hardcoded.
- * System: SuperAdmin 0 (global, not in OrganizationMembers, Users.IsSuperAdmin)
- * Keep in sync with backend BuildingBlocks/SharedKernel/Roles.cs (single shared file)
- * Compact 0-3 (2026-09-10) — SuperAdmin 0, Member 1, OrgAdmin 2, Client 3 (legacy 1,4 gaps removed via DB drop)
- * Backward compat: WorkspaceRole enum kept for existing guards/services (maps ProjectManager/Viewer to Member)
+ * Shared roles - Single source of truth for frontend. Fixed organization roles only.
+ * Org roles: 3 fixed (Member 1, OrgAdmin 2, Client 3) — stored in [identity].OrganizationMembers.Role + OwnerId
+ * Workspace membership: WorkspaceMembers.WorkspaceId+UserId with Role (0-3) + CustomRoleId FK → OrganizationWorkspaceRoles (dynamic per-org, e.g., Developer, QA)
+ * System: SuperAdmin 0 (global, Users.IsSuperAdmin, not in OrganizationMembers)
+ * Keep in sync with backend BuildingBlocks/SharedKernel/Roles.cs
+ * Compact 0-3 — SuperAdmin 0, Member 1, OrgAdmin 2, Client 3
+ * Custom workspace roles are NOT in this enum — fetched via GET /api/organizations/{orgId}/workspace-roles and checked via RolePermissions (permission keys like project:create, task:create, comment:create)
  */
 
 export enum WorkspaceRole {
   SuperAdmin = 0,
   Member = 1,
-  ProjectManager = 1, // legacy custom — now maps to custom OrganizationWorkspaceRoles, kept for compat
   OrgAdmin = 2,
   Client = 3,
-  Viewer = 1, // legacy custom — maps to custom (Member fallback)
 }
 
 export type OrgRole = 'Member' | 'OrgAdmin' | 'Client';
@@ -47,9 +45,6 @@ export const ROLE_VALUE_MAP: Record<string, number> = {
   'Member': 1,
   'OrgAdmin': 2,
   'Client': 3,
-  // legacy aliases
-  'ProjectManager': 1,
-  'Viewer': 1,
 };
 
 export function getRoleLabel(value: string | number): string {

@@ -8,7 +8,7 @@ using Project.Service.Application.Interfaces;
 namespace Project.Service.Application.Commands;
 
 /// <summary>
-/// UpdateProject - PM/OrgAdmin/SuperAdmin can update name/description. Member/Client/Viewer 403.
+/// UpdateProject - only OrgAdmin/SuperAdmin (fixed) or custom role with permission project:update can update; Member/Client 403.
 /// </summary>
 public record UpdateProjectCommand(Guid ProjectId, string Name, string? Description, string? Slug, Guid CallerId, List<string> CallerRoles) : IRequest<Result<ProjectDto>>;
 

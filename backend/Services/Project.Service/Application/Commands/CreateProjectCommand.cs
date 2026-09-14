@@ -10,7 +10,7 @@ using ProjectEntity = Project.Service.Domain.Entities.Project;
 namespace Project.Service.Application.Commands;
 
 /// <summary>
-/// CreateProject - only OrgAdmin/ProjectManager/SuperAdmin can create (PM 201). Member/Client/Viewer gets 403 via handler Role check (not just OrgAdmin). Uses JWT CallerRoles from controller (ClaimTypes.Role).
+/// CreateProject - only OrgAdmin/SuperAdmin (fixed) can create; custom workspace roles require permission project:create via RolePermissions. Member/Client gets 403 via service check.
 /// </summary>
 public record CreateProjectCommand(Guid WorkspaceId, string Name, string? Description, Guid CallerId, List<string> CallerRoles) : IRequest<Result<ProjectDto>>;
 

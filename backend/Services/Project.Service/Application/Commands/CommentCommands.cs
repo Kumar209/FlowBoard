@@ -7,7 +7,7 @@ using Project.Service.Application.Interfaces;
 namespace Project.Service.Application.Commands;
 
 /// <summary>
-/// Comments CRUD - Viewer cannot comment, Client can. Update/Delete only author or OrgAdmin. Co-located in 1 file like SprintCommands.cs:13 (Create/Update/Delete) - 1 aggregate, N commands, not 1 God command.
+/// Comments CRUD - Client can comment; custom workspace roles require permission comment:create. Update/Delete only author or OrgAdmin.
 /// </summary>
 public record AddCommentCommand(Guid TaskId, string Content, Guid CallerId, List<string> CallerRoles) : IRequest<Result<CommentDto>>;
 public record UpdateCommentCommand(Guid CommentId, string Content, Guid CallerId, List<string> CallerRoles) : IRequest<Result<CommentDto>>;

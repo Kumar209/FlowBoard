@@ -9,7 +9,7 @@ using Project.Service.Application.Interfaces;
 namespace Project.Service.Application.Commands;
 
 /// <summary>
-/// CreateBoardList - column in Project board (To Do/In Progress/Done). Position = max+1. Allowed for Member+ (any workspace member) - Viewer read-only check at controller if needed.
+/// CreateBoardList - column in Project board. Position = max+1. Allowed for Member+ (any workspace member); custom roles via permission board:create.
 /// </summary>
 public record CreateBoardListCommand(Guid ProjectId, string Name, Guid CallerId, List<string> CallerRoles, Guid? BoardId = null, int? Position = null, List<Guid>? StatusIds = null) : IRequest<Result<BoardListDto>>;
 
