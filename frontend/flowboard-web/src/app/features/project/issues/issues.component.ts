@@ -34,24 +34,34 @@ export class IssuesComponent {
   private currentOrgId: string | undefined;
 
   private async loadOrgFlags() {
+    const wid = this.workspaceId();
     let orgId: string | undefined;
-    try {
-      const orgs: any = await firstValueFrom(this.ws.getMyOrganizations());
-      const arr = Array.isArray(orgs) ? orgs : (orgs?.items ?? []);
-      orgId = arr[0]?.id;
-      if (!orgId) {
-        const res: any = await firstValueFrom(this.ws.getMyWorkspaces());
-        const list = Array.isArray(res) ? res : (res?.items ?? []);
-        const ws = list.find((w:any) => w.id === this.workspaceId() || w.workspaceId === this.workspaceId());
-        orgId = ws?.organizationId || ws?.OrganizationId;
-      }
-    } catch {}
+    if (wid) {
+      try {
+        const res: any = await firstValueFrom(this.ws.getMyWorkspacesPaginated(1, 100));
+        const list = res?.items ?? (Array.isArray(res) ? res : []);
+        const ws = list.find((w:any) => w.id === wid);
+        if (ws?.organizationId) orgId = ws.organizationId;
+        if (!orgId) {
+          const all: any = await firstValueFrom(this.ws.getMyWorkspaces());
+          const allList = Array.isArray(all) ? all : (all?.items ?? []);
+          const ws2 = allList.find((w:any) => w.id === wid);
+          orgId = ws2?.organizationId || ws2?.OrganizationId;
+        }
+      } catch {}
+    }
+    if (!orgId) {
+      try {
+        const orgs: any = await firstValueFrom(this.ws.getMyOrganizations());
+        const arr = Array.isArray(orgs) ? orgs : (orgs?.items ?? []);
+        orgId = arr[0]?.id;
+      } catch {}
+    }
     this.currentOrgId = orgId;
     if (!orgId) return;
     try {
       const map = await this.flagService.loadForOrg(orgId);
       this.orgFlags.set(new Map(map));
-      // Update AI draft enabled from same map to avoid extra call
       const chkDraft = map.get('ai_draft');
       if (chkDraft !== undefined) this.aiDraftEnabled.set(!!chkDraft);
       else {

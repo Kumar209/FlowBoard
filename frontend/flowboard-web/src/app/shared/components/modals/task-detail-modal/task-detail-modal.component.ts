@@ -86,19 +86,36 @@ export class TaskDetailModalComponent {
   aiBreakdownEnabled = signal(true);
 
   private async getCurrentOrgId(): Promise<string | undefined> {
+    const wid = this.workspaceId() || (this.boardForTaskQuery.data() as any)?.project?.workspaceId || (this.task() as any)?.workspaceId || '';
+    if (wid) {
+      try {
+        // Try to find workspace's org via paginated workspaces (may be paginated, so fetch 100)
+        const res: any = await firstValueFrom(this.workspaceService.getMyWorkspacesPaginated(1, 100));
+        const list = res?.items ?? (Array.isArray(res) ? res : []);
+        const ws = list.find((w: any) => w.id === wid || w.workspaceId === wid);
+        if (ws?.organizationId) return ws.organizationId;
+        if (ws?.OrganizationId) return ws.OrganizationId;
+        // Fallback: try all workspaces unpaginated
+        const all: any = await firstValueFrom(this.workspaceService.getMyWorkspaces());
+        const allList = Array.isArray(all) ? all : (all?.items ?? []);
+        const ws2 = allList.find((w: any) => w.id === wid);
+        if (ws2?.organizationId) return ws2.organizationId;
+      } catch {}
+    }
     try {
       const orgs: any = await firstValueFrom(this.workspaceService.getMyOrganizations());
       const arr = Array.isArray(orgs) ? orgs : (orgs?.items ?? []);
+      // Find org that contains this workspace
+      if (wid && arr.length) {
+        for (const org of arr) {
+          try {
+            const wsForOrg: any = await firstValueFrom(this.workspaceService.getMyWorkspacesPaginated(1, 100));
+            const list = wsForOrg?.items ?? [];
+            if (list.some((w: any) => w.id === wid && w.organizationId === org.id)) return org.id;
+          } catch {}
+        }
+      }
       if (arr[0]?.id) return arr[0].id;
-    } catch {}
-    const wid = this.workspaceId() || (this.boardForTaskQuery.data() as any)?.project?.workspaceId || '';
-    if (!wid) return undefined;
-    try {
-      const res: any = await firstValueFrom(this.workspaceService.getMyWorkspaces());
-      const list = Array.isArray(res) ? res : (res?.items ?? res?.data ?? []);
-      const ws = list.find((w: any) => w.id === wid || w.workspaceId === wid);
-      if (ws?.organizationId) return ws.organizationId;
-      if (ws?.OrganizationId) return ws.OrganizationId;
     } catch {}
     return undefined;
   }
