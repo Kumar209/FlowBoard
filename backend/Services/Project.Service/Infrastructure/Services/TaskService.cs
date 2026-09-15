@@ -219,11 +219,18 @@ public class TaskService : ITaskService
         return Result.Success();
     }
 
-    public async Task<PaginatedResult<TaskDto>> GetTasksAsync(Guid projectId, string? search, Guid? assigneeId, string? priority, string? label, DateTime? dueFrom, DateTime? dueTo, string? sortBy, bool sortDesc, int page, int pageSize, CancellationToken ct = default)
+    public async Task<PaginatedResult<TaskDto>> GetTasksAsync(Guid projectId, string? search, Guid? assigneeId, string? priority, string? label, DateTime? dueFrom, DateTime? dueTo, string? sortBy, bool sortDesc, int page, int pageSize, string? sprintId = null, CancellationToken ct = default)
     {
         page = Math.Clamp(page, 1, 1000);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var q = _db.Tasks.AsNoTracking().Where(t => t.ProjectId == projectId);
+        if (!string.IsNullOrWhiteSpace(sprintId))
+        {
+            if (sprintId == "null" || sprintId == "backlog")
+                q = q.Where(t => t.SprintId == null);
+            else if (Guid.TryParse(sprintId, out var sid))
+                q = q.Where(t => t.SprintId == sid);
+        }
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.ToLower();

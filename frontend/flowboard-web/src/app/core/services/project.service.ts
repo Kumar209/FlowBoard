@@ -114,8 +114,8 @@ export class ProjectService {
     return this.http.delete(`${environment.apiUrl}/api/environments/${environmentId}`, { withCredentials: true });
   }
 
-  // Tasks with filtering
-  getTasks(projectId: string, opts: { search?: string; assigneeId?: string; priority?: string; label?: string; page?: number; pageSize?: number } = {}) {
+  // Tasks with filtering + sprintId (null -> backlog)
+  getTasks(projectId: string, opts: { search?: string; assigneeId?: string; priority?: string; label?: string; page?: number; pageSize?: number; sprintId?: string | null } = {}) {
     let params = new HttpParams().set('projectId', projectId);
     if (opts.search) params = params.set('search', opts.search);
     if (opts.assigneeId) params = params.set('assigneeId', opts.assigneeId);
@@ -123,7 +123,9 @@ export class ProjectService {
     if (opts.label) params = params.set('label', opts.label);
     if (opts.page) params = params.set('page', opts.page);
     if (opts.pageSize) params = params.set('pageSize', opts.pageSize);
-    return this.http.get<{ items: TaskItem[]; total: number }>(`${environment.apiUrl}/api/tasks`, { params, withCredentials: true });
+    if (opts.sprintId !== undefined && opts.sprintId !== null) params = params.set('sprintId', opts.sprintId);
+    else if (opts.sprintId === null) params = params.set('sprintId', 'null');
+    return this.http.get<{ items: TaskItem[]; total: number; page: number; pageSize: number }>(`${environment.apiUrl}/api/tasks`, { params, withCredentials: true });
   }
 
   // Statuses — explicit, created via project settings

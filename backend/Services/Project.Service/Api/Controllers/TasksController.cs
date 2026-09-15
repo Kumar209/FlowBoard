@@ -32,12 +32,12 @@ public class TasksController : ControllerBase
     }
 
     [HttpGet("api/tasks")]
-    public async Task<IActionResult> Get([FromQuery] Guid projectId, [FromQuery] string? search, [FromQuery] Guid? assigneeId, [FromQuery] string? priority, [FromQuery] string? label, [FromQuery] DateTime? dueFrom, [FromQuery] DateTime? dueTo, [FromQuery] string? sortBy, [FromQuery] bool sortDesc = false, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> Get([FromQuery] Guid projectId, [FromQuery] string? search, [FromQuery] Guid? assigneeId, [FromQuery] string? priority, [FromQuery] string? label, [FromQuery] DateTime? dueFrom, [FromQuery] DateTime? dueTo, [FromQuery] string? sortBy, [FromQuery] bool sortDesc = false, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? sprintId = null)
     {
         if (projectId == Guid.Empty) return BadRequest(new { error = "projectId query required (?projectId=...)" });
         page = Math.Clamp(page, 1, 1000);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var result = await _mediator.Send(new GetTasksQuery(projectId, search, assigneeId, priority, label, dueFrom, dueTo, sortBy, sortDesc, page, pageSize));
+        var result = await _mediator.Send(new GetTasksQuery(projectId, search, assigneeId, priority, label, dueFrom, dueTo, sortBy, sortDesc, page, pageSize, sprintId));
         var etag = GenerateETag(result);
         Response.Headers["ETag"] = etag;
         if (Request.Headers.TryGetValue("If-None-Match", out var inm) && inm == etag) return StatusCode(304);
@@ -47,9 +47,9 @@ public class TasksController : ControllerBase
     private static string GenerateETag(object obj) { var json = System.Text.Json.JsonSerializer.Serialize(obj); var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(json)); return "\"" + Convert.ToHexString(hash)[..16] + "\""; }
 
     [HttpGet("api/projects/{projectId}/tasks")]
-    public async Task<IActionResult> GetByProject(Guid projectId, [FromQuery] string? search, [FromQuery] Guid? assigneeId, [FromQuery] string? priority, [FromQuery] string? label, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> GetByProject(Guid projectId, [FromQuery] string? search, [FromQuery] Guid? assigneeId, [FromQuery] string? priority, [FromQuery] string? label, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? sprintId = null)
     {
-        return await Get(projectId, search, assigneeId, priority, label, null, null, null, false, page, pageSize);
+        return await Get(projectId, search, assigneeId, priority, label, null, null, null, false, page, pageSize, sprintId);
     }
 
     [HttpPut("api/tasks/{taskId}/move")]
