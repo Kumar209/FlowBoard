@@ -117,11 +117,11 @@ using (var scope = app.Services.CreateScope())
     await IdentitySeeder.SeedSuperAdminAsync(db);
     try
     {
-        // Backfill B: OrgAdmin promoted from Member retains CustomRoleId — clear for complete authority
-        await db.Database.ExecuteSqlRawAsync("UPDATE [identity].[WorkspaceMembers] SET CustomRoleId = NULL WHERE UserId IN (SELECT UserId FROM [identity].[OrganizationMembers] WHERE Role = 2)");
-        Log.Logger.Information("Backfill OrgAdmin CustomRoleId cleared for existing promoted users");
+        // Backfill: OrgAdmin should have no workspace rows (org-level only) — delete old synthetic workspace memberships
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM [identity].[WorkspaceMembers] WHERE UserId IN (SELECT UserId FROM [identity].[OrganizationMembers] WHERE Role = 2)");
+        Log.Logger.Information("Backfill OrgAdmin workspace memberships deleted for org-authoritative");
     }
-    catch (Exception ex) { Log.Logger.Warning(ex, "Backfill OrgAdmin CustomRoleId failed"); }
+    catch (Exception ex) { Log.Logger.Warning(ex, "Backfill OrgAdmin workspace delete failed"); }
 }
 
 if (app.Environment.IsDevelopment())
