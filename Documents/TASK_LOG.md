@@ -27,13 +27,15 @@
 | 6: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
 | 7: SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
 | 8: Polish & Production Deploy | 5.1 - 5.5 | 5/5 | Completed |
+| R: Rework Org-Authoritative | R1 - R7 | 0/7 | Pending |
 | 9: Production Deployment | 5.4 | 0/1 | Pending |
-| **Total** | **0.1 - 7.7 + SA.1-SA.10 (50)** | **49/50** | **In Progress — only Deploy pending + bug fixes (pre-deploy)** |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 (57)** | **49/57** | **In Progress — rework before Deploy** |
 
 > **New Order Note (2026-09-14):** Phases reordered as per 0,1,2(Phase6),3(Project Core),4(Realtime),5(Files),6(AI),7(SuperAdmin),8(Polish),9(Production) — task sections below follow this new phase order as per table.
 > **Update (2026-09-15):** Realtime 3.1-3.3 verified completed via codebase audit (Outbox 2s, SignalR Hub, CDK Lock) — see Tasks 3.1-3.3 entries below. Polish 5.2 Tests (40 unit+15 integration) + 5.3 Docs (README v1.3) marked completed. Only **5.4 Deploy (MonsterASP.net + Vercel)** remains per `FlowBoard_Tasks_Plan.docx` + bug fixes pre-deploy (you will provide list).
+> **Update (2026-09-15 R):** Approved to **drop DB and recreate** with org-authoritative. Added **R1-R7** 7 tasks (9h) before `5.4 Deploy`. Old workspace-synthetic approach will be deleted. See `Rework Phase R` below.
 | SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
-| **Total** | **0.1 - 7.7 + SA.1-SA.10 (50)** | **49/50** | **In Progress — only Deploy pending** |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 (57)** | **49/57** | **In Progress — rework before Deploy** |
 
 ---
 
@@ -3142,6 +3144,50 @@ MNC docs-first — SDD `32 sections 11 diagrams` + Tasks Plan `10 Phases 50 Task
 | 10 | Environment not attaching in task-detail | **Recommended A + B** | No new API | No UI (already `e.name`) | `A`: Debug `effectiveProjectId` vs `projectId` passed to `task-detail-modal` (`board.component.html:157 [projectId]=projectId()` ensure correct pid), `environmentsQuery` enabled `!!pid`. `B`: Ensure `onDetailSave($event)` forwards `event.environment` to `TaskService.UpdateTaskAsync` `body.Environment` (persist `TaskItem.Environment` string `name` not `id`). Verify `GET /api/projects/{pid}/environments` returns `[{id,name,url}]` and `GET /api/tasks/{id}` returns `environment:"Staging"`. |
 
 > **Execution Order:** Fix one at a time per your test flow: `1 → 2 → ... → 10`. After each fix, you will test in UI, reply `Fixed confirm next`, then I commit `fix: bug #N ...` + update this table `Status`. No fix will be pushed without your approval.
+
+---
+
+## Rework Phase R: Org-Authoritative Multi-Tenant — Full DB Recreate (7 Tasks) — Pre-Deploy 2026-09-15
+
+> Approved by you to **drop whole DB and recreate** and implement org-authoritative on all layers. Old workspace-synthetic approach will be deleted completely. This phase sits **before `5.4 Deploy`** and is tracked like a normal phase with 8-section logs per task.
+
+| Task | Title | Status | Hours |
+|------|-------|--------|-------|
+| R1 | DB Drop & Recreate — clean org-authoritative schema (identity 4 schemas + project 7 + file + notification) + seed SuperAdmin + Plans | Pending | 1h |
+| R2 | Backend Identity — GetMyOrganizations / GetMyWorkspaces / Auth Me / JWT org-first (no synthetic) | Pending | 2h |
+| R3 | Backend Project/Board/Task/Sprint/Team — permission checks org-first via OrganizationMembers | Pending | 2h |
+| R4 | Frontend Auth/Layout — isOrgAdmin from org role, Dashboard org/workspaces for OrgAdmin 0 workspaces | Pending | 1.5h |
+| R5 | Frontend Members — int Role (1/2/3) synchronized, OrgAdmin 0 workspaces Full access, hard delete | Pending | 1h |
+| R6 | Remove Old Synthetic Approach — delete WorkspaceMembers CustomRoleId clearing, synthetic Me, IsPrivileged fallback, etc. | Pending | 0.5h |
+| R7 | Verify — Register → Add OrgAdmin (0 workspaces) → Promote → Dashboard/Workspaces/Projects/Tasks all show data, no skeleton | Pending | 1h |
+| **Total** | **R1-R7** | **0/7** | **9h** |
+
+> **New Progress:** `49/50 (old) + 7 rework = 49/57` before deploy. `5.4 Deploy` now after `R7`.
+
+### R1. DB Drop & Recreate — Flow
+- `dotnet ef database drop --project Services/Identity.Service --force` + `dotnet ef database update` for Identity, Project, File, Notification (all 4 schemas same DB `flowboard` `HasDefaultSchema` `MigrationsHistoryTable` per schema) — clean, no backfill needed.
+- Seed `IdentitySeeder.SeedSuperAdminAsync` + `SeedSubscriptionPlans` (Free/Pro/Business/Enterprise) via `dotnet run` startup (already in `Program.cs:114`).
+
+### R2. Backend Identity — Org-First
+- `GetMyOrganizationsAsync` union `WorkspaceMembers` + `OrganizationMembers` + `OwnerId` (already partially, now fix to include OrgAdmin 0 workspaces).
+- `GetMyWorkspacesAsync` if `IsOrgAdminInDb` for any org → return all `Workspaces Where OrganizationId In orgIds`, else only assigned.
+- `AuthService.GetMeAsync` build `memberships` from `OrganizationMembers` for org role + `WorkspaceMembers` for custom only, no synthetic `first workspace` — `isOrgAdmin` from `OrganizationMembers Role=2` directly.
+- `JwtProvider.GenerateAccessToken` include `org_role` claim + `workspace_id/role` for Member/Client only.
+
+### R3. Backend Project/Board/Task — Org-First
+- `IsOrgAdminInDbAsync` helper already for `ProjectService` — extend to `BoardService`, `TaskService`, `SprintService`, `TeamService`, `ProjectStatsService`, `OrganizationStatsService` — `if OrgAdminInDb → allow` before `HasCustomPermission`.
+
+### R4. Frontend Auth/Layout/Dashboard — Org-First
+- `AuthService.isOrgAdmin` from `OrganizationMembers` role (via `Me` `workspaces` now includes org role), `Layout` poll `me` already, `Dashboard` `orgId` from `getMyOrganizations[0]` now returns for OrgAdmin 0 workspaces.
+
+### R5. Frontend Members — Int Sync
+- Already `int Role 1/2/3` synchronized — keep, ensure `Full access` badge for `Role=2`.
+
+### R6. Remove Old
+- Delete `CustomRoleId` clearing for OrgAdmin as synthetic, delete `IsOrgAdmin` synthetic `Me` fallback, delete `Program.cs` backfill `UPDATE WorkspaceMembers SET CustomRoleId=NULL WHERE Role=2` (no longer needed after DB recreate).
+
+### R7. Verify
+- Same as bug 8 verify but now on clean DB: `Register` → `Add OrgAdmin` → `Login as new OrgAdmin` → `Dashboard` 6 KPIs, `Workspaces` 2, `Projects` list, `Board` drag.
 
 ---
 
