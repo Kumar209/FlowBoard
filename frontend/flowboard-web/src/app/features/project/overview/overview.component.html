@@ -245,7 +245,19 @@
       </section>
 
       <section class="mb-6">
-        @if (burndownQuery.isPending()) {
+        @if (sprintsQuery.isPending()) {
+          <div class="h-[320px] animate-pulse rounded-2xl border border-base-300 bg-base-100"></div>
+        } @else if (!selectedSprintId()) {
+          <div class="rounded-xl border border-warning/25 bg-warning/10 px-4 py-3 text-sm text-base-content">
+            <div class="flex items-start gap-2">
+              <svg class="mt-0.5 h-4 w-4 shrink-0 text-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4M12 17h.01"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m10.3 4.7-7 12.1A2 2 0 0 0 5 19.8h14a2 2 0 0 0 1.7-3L13.7 4.7a2 2 0 0 0-3.4 0Z"></path>
+              </svg>
+              <span>No sprints yet — create a sprint in Boards → Sprints to see burndown.</span>
+            </div>
+          </div>
+        } @else if (burndownQuery.isPending()) {
           <div class="h-[320px] animate-pulse rounded-2xl border border-base-300 bg-base-100"></div>
         } @else if (burndownQuery.isError()) {
           <div class="rounded-xl border border-warning/25 bg-warning/10 px-4 py-3 text-sm text-base-content">

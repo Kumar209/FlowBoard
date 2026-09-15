@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -81,10 +81,19 @@ export class OverviewComponent {
     enabled: !!this.projectId()
   }));
 
+  selectedSprintId = computed(() => {
+    const sprints = this.sprintsQuery.data() as any[] | undefined;
+    if (!sprints?.length) return null;
+    const active = sprints.find((s: any) => (s.status || '').toLowerCase() === 'active');
+    if (active) return active.id;
+    const sorted = [...sprints].sort((a: any, b: any) => new Date(b.createdAt || b.startDate).getTime() - new Date(a.createdAt || a.startDate).getTime());
+    return sorted[0]?.id || null;
+  });
+
   burndownQuery = injectQuery(() => ({
-    queryKey: ['burndown', this.projectId()] as const,
-    queryFn: () => firstValueFrom(this.stats.getBurndown(this.projectId())),
-    enabled: !!this.projectId()
+    queryKey: ['burndown', this.projectId(), this.selectedSprintId()] as const,
+    queryFn: () => firstValueFrom(this.stats.getBurndown(this.projectId(), this.selectedSprintId()!)),
+    enabled: !!this.projectId() && !!this.selectedSprintId(),
   }));
 
   workStatus(b: any): { name: string; count: number }[] {
