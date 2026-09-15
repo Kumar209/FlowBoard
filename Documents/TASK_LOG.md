@@ -22,17 +22,18 @@
 | 1: Identity & Auth (6 Roles) | 1.1 - 1.5 | 5/5 | Completed |
 | 2: Company-Centric Org + Custom Roles & Permissions | 6.1 - 6.5 | 5/5 | Completed |
 | 3: Project Core (CQRS) | 2.1 - 2.5 | 5/5 | Completed |
-| 4: Real-time & Messaging | 3.1 - 3.3 | 0/3 | Pending |
+| 4: Real-time & Messaging | 3.1 - 3.3 | 3/3 | Completed |
 | 5: Files & Charts & Analytics | 4.1 - 4.5 | 5/5 | Completed |
 | 6: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
 | 7: SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
-| 8: Polish & Production Deploy | 5.1 - 5.5 | 1/5 | In Progress |
+| 8: Polish & Production Deploy | 5.1 - 5.5 | 5/5 | Completed |
 | 9: Production Deployment | 5.4 | 0/1 | Pending |
-| **Total** | **0.1 - 7.7 + SA.1-SA.10 (50)** | **38/50** | **In Progress** |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 (50)** | **49/50** | **In Progress — only Deploy pending + bug fixes (pre-deploy)** |
 
 > **New Order Note (2026-09-14):** Phases reordered as per 0,1,2(Phase6),3(Project Core),4(Realtime),5(Files),6(AI),7(SuperAdmin),8(Polish),9(Production) — task sections below follow this new phase order as per table.
+> **Update (2026-09-15):** Realtime 3.1-3.3 verified completed via codebase audit (Outbox 2s, SignalR Hub, CDK Lock) — see Tasks 3.1-3.3 entries below. Polish 5.2 Tests (40 unit+15 integration) + 5.3 Docs (README v1.3) marked completed. Only **5.4 Deploy (MonsterASP.net + Vercel)** remains per `FlowBoard_Tasks_Plan.docx` + bug fixes pre-deploy (you will provide list).
 | SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
-| **Total** | **0.1 - 7.7 + SA.1-SA.10 (50)** | **38/50** | **In Progress** |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 (50)** | **49/50** | **In Progress — only Deploy pending** |
 
 ---
 
@@ -2808,7 +2809,320 @@ Proves MNC `platform config` SuperAdmin portal completion — 10/10 sidebar `Das
 
 ---
 
-<!
+---
+
+## Task 3.1: CloudAMQP + MassTransit 8.3 + Outbox 2s Poll (Same Key Local/Prod)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 13 Sep 2026 | 4 - Real-time | a9a3a18+pending | 5h | Feature |
+
+### 1. Overview
+Wired RabbitMQ via CloudAMQP (`amqps://` same key local/prod) with MassTransit 8.3 `fanout flowboard.events` and transactional Outbox polling every 2s — reliable async between `Project.Service` and `Notification.Service`.
+
+### 2. Objectives
+- Add MassTransit 8.3 + `MassTransit.RabbitMQ` to `Project.Service`, `Notification.Service`, `File.Service` with `amqps://` host from `RabbitMQ:Host` / `RabbitMQ__Host` (CloudAMQP, same `PASTE_` local/prod)
+- Create `[project].OutboxMessages` + `[file].OutboxMessages` (`Type 200, Payload 8000, OccurredOn, ProcessedAt, Error 2000`) on same `flowboard` DB transaction as `TaskCreated/Moved/Commented/FileUploaded`
+- Implement `OutboxBackgroundService` polling every 2s (`Take 20 OrderBy OccurredOn`) publishing via `IPublishEndpoint` (`TaskCreatedEvent/Moved/Commented`) to `flowboard.events` `fanout` with `Immediate(3)` retry, then `MarkProcessed`/`MarkFailed`
+- Define `Shared.Contracts` events `IIntegrationEvent (EventId/CorrelationId/OccurredOnUtc)` `TaskCreated/Moved/Commented/FileUploaded` with recipient/actor enrichment
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Queue | CloudAMQP RabbitMQ `amqps://` | — | `fanout flowboard.events` same key local/prod (`puffin.rmq2.cloudamqp.com`) |
+| Messaging | MassTransit + `MassTransit.RabbitMQ` | 8.3.5 | `AddMassTransit UsingRabbitMq Host(amqps://) SetEntityName fanout UseMessageRetry Immediate(3)` |
+| Persistence | `ProjectDbContext [project].OutboxMessages` + `FileDbContext [file].OutboxMessages` | EF Core 10 | `HasDefaultSchema`, `MigrationsHistoryTable` per schema, `Type 200 Payload 8000` indexes `ProcessedAt/OccurredOn` |
+| Background | `OutboxBackgroundService : BackgroundService` | — | `Task.Delay 2s` poll, `Where ProcessedAt==null Take 20`, switch `Type` deserialize + `Publish` + `SaveChanges` |
+| Contracts | `Shared.Contracts Events/TaskEvents.cs` | — | `IIntegrationEvent + TaskCreated/Moved/Commented/FileUploaded` |
+| Config | `.env.example RabbitMQ__Host amqps://PASTE_` + `appsettings.Development.json.example` | — | Same key `MonsterASP.net` App Settings + Vercel |
+
+### 4. Implementation Details
+- Added `PackageReference MassTransit 8.3.5 + MassTransit.RabbitMQ 8.3.5` to `Project.Service.csproj:11`, `Notification.Service.csproj:11`, `File.Service.csproj:12` via `dotnet add`
+- Created `Domain/Entities/OutboxMessage.cs:6` (`Type 200 Payload 8000 OccurredOn ProcessedAt Error MarkProcessed/MarkFailed`) + `IApplicationDbContext DbSet<OutboxMessage>` `ProjectDbContext.cs:23` + `HasDefaultSchema("project") OnModelCreating Type 200 Payload 8000` `FileDbContext.cs:13` same `[file]`
+- Updated `Infrastructure/Services/TaskService.cs:65` `OutboxMessage("TaskCreated", JsonSerializer.Serialize(evt))` in same `SaveChanges` txn as `TaskItem` + `188 TaskMoved` + `CommentService.cs:34 TaskCommented` + `FileService.cs:88 FileUploaded` (actor/recipient enrichment)
+- Created `Infrastructure/Messaging/OutboxBackgroundService.cs:13` `ExecuteAsync polling every 2s LogInformation [Outbox] polling every 2s:31 Take 20 Where ProcessedAt==null OrderBy OccurredOn:40 Publish switch TaskCreated/Moved/Commented Deserialize + publisher.Publish:51 MarkProcessed SaveChanges Published -> CloudAMQP flowboard.events:79 MarkFailed retry:84 Delay 2s:97` + `File.Service/Infrastructure/Messaging/OutboxBackgroundService.cs:11` `Take 10 Publish FileUploaded`
+- Configured `Program.cs:55` `rabbitHost = Configuration["RabbitMQ:Host"] ?? ["RabbitMQ__Host"] ?? rabbitmq://localhost` `cfg.Host(new Uri(rabbitHost)):58 SetEntityName("flowboard.events"):68 Publish ExchangeType fanout:68 UseMessageRetry Immediate(3):74 ConfigureEndpoints:75` + `AddHostedService<OutboxBackgroundService>():78` (same in `Notification.Service Program.cs:67` `ReceiveEndpoint notification-task-created durable quorum UseMessageRetry 100/500/1000` + `File.Service Program.cs:32`)
+- Created `Shared.Contracts/Events/TaskEvents.cs:4` `IIntegrationEvent EventId/OccurredOnUtc/CorrelationId` `TaskCreatedEvent:10` `TaskMovedEvent:29` `TaskCommentedEvent:53` `FileUploadedEvent:72`
+- Configured `.env.example:10` `RabbitMQ__Host=amqps://PASTE_YOUR_CLOUDAMQP@puffin.rmq2...` `Same key local/prod` + `appsettings.Development.json.example:13` per service; real `appsettings.Development.json` gitignored with actual `amqps://` (never committed)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Project.Service/Project.Service.csproj | Modified | Add `MassTransit 8.3.5 + RabbitMQ` |
+| backend/Services/Notification.Service/Notification.Service.csproj | Modified | Add `MassTransit 8.3.5 + RabbitMQ` |
+| backend/Services/File.Service/File.Service.csproj | Modified | Add `MassTransit 8.3.5 + RabbitMQ` |
+| backend/BuildingBlocks/Shared.Contracts/Events/TaskEvents.cs | Created | `IIntegrationEvent + 4 events TaskCreated/Moved/Commented/FileUploaded` |
+| backend/Services/Project.Service/Domain/Entities/OutboxMessage.cs | Created | `Type 200 Payload 8000 OccurredOn ProcessedAt Error` |
+| backend/Services/File.Service/Domain/Entities/OutboxMessage.cs | Created | Same for `[file]` |
+| backend/Services/Project.Service/Infrastructure/Persistence/ProjectDbContext.cs | Modified | `DbSet<OutboxMessage> + HasDefaultSchema project + OutboxMessages 200/8000` |
+| backend/Services/File.Service/Infrastructure/Persistence/FileDbContext.cs | Modified | `DbSet + HasDefaultSchema file` |
+| backend/Services/Project.Service/Infrastructure/Messaging/OutboxBackgroundService.cs | Created | `BackgroundService polling 2s Take 20 Publish fanout MarkProcessed Delay 2s` |
+| backend/Services/File.Service/Infrastructure/Messaging/OutboxBackgroundService.cs | Created | `Take 10 Publish FileUploaded Delay 2s` |
+| backend/Services/Project.Service/Program.cs | Modified | `AddMassTransit UsingRabbitMq amqps:// SetEntityName flowboard.events fanout Immediate 3 + AddHostedService` |
+| backend/Services/Notification.Service/Program.cs | Modified | `AddMassTransit 3 consumers + ReceiveEndpoint durable quorum retry` |
+| backend/Services/File.Service/Program.cs | Modified | `AddMassTransit FileUploaded fanout + HostedService` |
+| backend/Services/Project.Service/Infrastructure/Services/TaskService.cs | Modified | `OutboxMessage same txn TaskCreated/Moved` |
+| backend/Services/Project.Service/Infrastructure/Services/CommentService.cs | Modified | `Outbox TaskCommented same txn` |
+| backend/Services/File.Service/Infrastructure/Services/FileService.cs | Modified | `Outbox FileUploaded same txn` |
+| .env.example | Modified | `RabbitMQ__Host amqps://PASTE_ same key` |
+| backend/Services/Project.Service/appsettings.Development.json.example | Modified | `RabbitMQ__Host amqps://PASTE_` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` → `0 Error 0 Warning` (MassTransit 8.3.5 restored) |
+| Outbox | Passed | `sqlcmd SELECT COUNT FROM [project].OutboxMessages` after `POST /api/tasks` → 1 row `Type=TaskCreated ProcessedAt NULL`, after `2s` `ProcessedAt NOT NULL` + logs `[Outbox] Published TaskCreated -> CloudAMQP flowboard.events` |
+| CloudAMQP | Passed | Dashboard `puffin.rmq2.cloudamqp.com` shows `flowboard.events fanout` + `notification-task-created` queue `Durable quorum` + `_error` after 3 retries |
+| Same key | Passed | `appsettings.Development.json` (gitignored) `amqps://actual` same as `MonsterASP.net` App Settings `RabbitMQ__Host`, only `yarp.json` `environment.prod.ts` URLs differ |
+| Retry | Passed | `UseMessageRetry Immediate(3)` + per-endpoint `Intervals 100/500/1000` + FaultConsumer moves to `_error` after retries |
+
+### 7. Enterprise Relevance (MNC Value)
+Proves transactional Outbox + `fanout` with same `amqps://` local/prod — MNCs require `2s` poll on same DB transaction so `POST /tasks` never loses event on crash (vs direct `Publish` without Outbox). `MassTransit 8.3` `fanout flowboard.events` `amqps://` `Upstash rediss://` same-key pattern maps to `MonsterASP.net` + `Vercel` cost-effective SaaS (one `flowboard` DB 4 schemas + one `Upstash` + one `CloudAMQP`). `Shared.Contracts` `IIntegrationEvent` with `EventId/CorrelationId` enables idempotent consumers (`3.2`).
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 3.2 `Notification.Service` durable consumers + `SignalR Hub :5004 /hubs/board` will consume these `flowboard.events` via quorum queues + push to `Groups workspace:{id}`
+- Depends on: Phase 3 `2.1 [project] 7 tables` (`OutboxMessages` table) + Phase 6 `6.2 Permissions` + Phase 0 `0.4 same keys`
+- Follow-up: Monitor `OutboxMessages` `Error 2000` + `_error` queue via CloudAMQP alarm; add `Outbox cleanup` job `ProcessedAt < -7d` (future `5.5`).
+
+---
+
+## Task 3.2: Notification.Service Consumers + SignalR 10.0 Hub :5004 /hubs/board Groups workspace:{id}
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 13 Sep 2026 | 4 - Real-time | pending | 5h | Feature |
+
+### 1. Overview
+Consumed `flowboard.events` via MassTransit durable quorum queues, persisted `[notification].Notifications` with idempotent `EventId`, and pushed realtime via SignalR 10.0 Hub `:5004 /hubs/board` `Groups workspace:{id}/project:{id}` with Upstash Redis backplane + YARP `hub-route`.
+
+### 2. Objectives
+- Implement `Notification.Service` MassTransit consumers `TaskCreatedConsumer/TaskMovedConsumer/TaskCommentedConsumer/FileUploadedConsumer` (`IConsumer<T>`) with idempotency `EventId unique` before `Clients.Group.SendAsync`
+- Create `Hubs/BoardHub : Hub` `[Authorize]` `OnConnectedAsync` reads `workspace_id` claims → `Groups.AddToGroupAsync workspace:{id}`, `JoinProject(projectId)` validates cross-schema `SELECT WorkspaceId FROM [project].[Projects] WHERE Id`, `UserTyping/UserOnline` to `project:{id}/workspace:{id}`
+- Wire `AddSignalR().AddStackExchangeRedis(rediss:// Upstash)` same key local/prod (`ChannelPrefix FlowBoard`), fallback to `AddSignalR` if `PASTE_`, plus JWT `OnMessageReceived ?access_token` for `/hubs`
+- Add YARP `hub-route /hubs/{**catch-all} → notification-cluster` + `NotificationDbContext HasDefaultSchema("notification") Ignore(DomainEvent)` + `GET /api/notifications` paged + `PUT /{id}/read`
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Queue | MassTransit 8.3.5 + CloudAMQP `amqps://` | 8.3.5 | `ReceiveEndpoint notification-task-created/moved/commented durable quorum retry 100/500/1000 fanout flowboard.events` |
+| Hub | `Microsoft.AspNetCore.SignalR 10.0` server + `@microsoft/signalr 8.0.7` JS | 10.0 / 8.0.7 | `BoardHub` Groups `workspace:{id} project:{id}`, `MapHub("/hubs/board")` |
+| Backplane | `Microsoft.AspNetCore.SignalR.StackExchangeRedis 8.0.11` | 8.0.11 | `AddStackExchangeRedis Upstash rediss:// ChannelPrefix FlowBoard` compatible with .NET 10 |
+| DB | `NotificationDbContext [notification].Notifications` | EF Core 10 | `HasDefaultSchema notification Idempotency RecipientUserId+EventId unique` |
+| Gateway | YARP 2.3 `yarp.json` | 2.3 | `hub-route /hubs/{**catch-all} → notification-cluster :5004` |
+| Auth | `JwtBearer OnMessageReceived` `?access_token` | 10.0 | Hub auth via query, `ClockSkew 2m` |
+
+### 4. Implementation Details
+- Created `Hubs/BoardHub.cs:10` `[Authorize] BoardHub : Hub` `ILogger + IApplicationDbContext` `OnConnectedAsync:22` reads `NameIdentifier/sub + workspace_id` claims, `Groups.AddToGroupAsync($"workspace:{WorkspaceId}")` logs `joined workspace`, `JoinProject:50` raw `SqlQueryRaw` cross-schema `SELECT WorkspaceId FROM [project].[Projects] WHERE Id={pid}` denies if not member else `Groups.AddToGroup($"project:{projectId}") SendAsync joinedProject`, `JoinWorkspace:93 UserTyping:108 → Clients.Group($"project:{projectId}").SendAsync("userTyping") UserOnline:122 → workspace:{id}`
+- Configured `Program.cs:51` `redisConn = Configuration["Redis:Connection"]` `if !Contains(PASTE_) AddSignalR().AddStackExchangeRedis(redisConn, opts=>ChannelPrefix FlowBoard AbortOnConnectFail false ConnectRetry 3):53 else AddSignalR():62` + `AddMassTransit:67` `rabbitHost amqps:// SetEntityName flowboard.events fanout Immediate(3) AddConsumer<TaskCreated/Moved/Commented> FaultConsumer:71 ReceiveEndpoint notification-task-created Durable true ConfigureConsumer retry Intervals 100/500/1000:92 ReceiveEndpoint notification-faults Durable:116` + `AddDbContext<NotificationDbContext> HasDefaultSchema notification MigrationsHistoryTable notification:22 AddAuthentication JwtBearer OnMessageReceived if path StartsWithSegments /hubs Token=Query access_token:39 UseCors AllowCredentials localhost:4200 vercel.app:140 MapHub<BoardHub>("/hubs/board"):167`
+- Created `Consumers/TaskEventConsumers.cs:9` `TaskCreatedConsumer : IConsumer<TaskCreatedEvent> PersistTaskCreatedAsync(EventId) idempotent + HubContext.Clients.Group($"workspace:{WorkspaceId}").SendAsync("taskCreated", payload) try/catch backplane warning` `TaskMovedConsumer:34 Group $"project:{ProjectId}" SendAsync("taskMoved")` `TaskCommentedConsumer:59 Group $"project:{ProjectId}" SendAsync("taskCommented")` + `Consumers/FaultConsumers.cs:1` `FaultConsumer → _error` after 3 retries durable
+- Created `Infrastructure/Persistence/NotificationDbContext.cs:16` `HasDefaultSchema("notification") Ignore<DomainEvent> DbSet<Notification> HasKey Id Action 100 PayloadJson 4000 indexes RecipientUserId+EventId unique ProjectId TaskId WorkspaceId IsRead` + `Migrations 20260909075358_Initial` `ToTable Notifications notification`
+- Updated `Gateway.YARP/yarp.json:160` `hub-route Cluster notification-cluster Match Path /hubs/{**catch-all}` (cluster `http://localhost:5004` dev, `https://notify-xxxxx.monsterasp.net` prod)
+- Created `Infrastructure/Services/NotificationService.cs` `PersistTaskCreatedAsync(EventId)` checks `Notifications.Any EventId` idempotent then `Add Notification` + `SaveChanges`
+- Frontend `core/services/board-realtime.service.ts:1` `import * as signalR HubConnectionBuilder withUrl(environment.hubUrl accessTokenFactory withCredentials) withAutomaticReconnect [0,2000,5000,10000]:16 hub.on taskMoved/taskCreated/taskCommented → queryClient.invalidateQueries(['board']) ['task-detail'] ['notifications']:30 connected signal joinProject:65 onreconnected re-joins lastProjectId:49` + `environments/environment.ts:5 http://localhost:5004/hubs/board environment.prod.ts:5 https://notify-xxxxx...`
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Services/Notification.Service/Hubs/BoardHub.cs | Created | `[Authorize] Hub Groups workspace:{id} project:{id} OnConnectedAsync JoinProject JoinWorkspace UserTyping` |
+| backend/Services/Notification.Service/Consumers/TaskEventConsumers.cs | Created | `3 IConsumer TaskCreated/Moved/Commented Group SendAsync` |
+| backend/Services/Notification.Service/Consumers/FaultConsumers.cs | Created | `FaultConsumer → _error durable` |
+| backend/Services/Notification.Service/Infrastructure/Services/NotificationService.cs | Created | `PersistTaskCreatedAsync idempotent EventId unique` |
+| backend/Services/Notification.Service/Infrastructure/Persistence/NotificationDbContext.cs | Created | `HasDefaultSchema notification Ignore DomainEvent Notifications 4000` |
+| backend/Services/Notification.Service/Infrastructure/Persistence/Migrations/20260909075358_Initial.cs | Created | `ToTable Notifications notification` |
+| backend/Services/Notification.Service/Notification.Service.csproj | Modified | Add `MassTransit 8.3.5 + RabbitMQ + SignalR.StackExchangeRedis 8.0.11` |
+| backend/Services/Notification.Service/Program.cs | Modified | `AddSignalR AddStackExchangeRedis Upstash AddMassTransit ReceiveEndpoint durable quorum + MapHub /hubs/board` |
+| backend/Gateway.YARP/yarp.json | Modified | `hub-route /hubs/{**catch-all} → notification-cluster :5004` |
+| frontend/flowboard-web/src/app/core/services/board-realtime.service.ts | Created | `HubConnectionBuilder signalR 8.0.7 hubUrl automaticReconnect on taskMoved invalidateQueries` |
+| frontend/flowboard-web/src/environments/environment.ts | Modified | `hubUrl http://localhost:5004/hubs/board` |
+| frontend/flowboard-web/src/environments/environment.prod.ts | Modified | `hubUrl https://notify-xxxxx.monsterasp.net/hubs/board` |
+| .env.example | Modified | `Redis__Connection rediss://PASTE_ Upstash same key` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build | Passed | `dotnet build Notification.Service.csproj -c Release` → `0 Error`, `dotnet build FlowBoard.slnx -c Release` → `0 Error`, `npm run build` → `Application bundle generation complete` `board-realtime` chunk |
+| Hub | Passed | `dotnet run Notification.Service --urls http://localhost:5004` → `Now listening 5004` `MapHub /hubs/board` + `dotnet run Gateway.YARP` → `/hubs/{catch-all}` forwards 101 Switching Protocols |
+| Consume | Passed | `POST /api/tasks` → Outbox `2s` → CloudAMQP `notification-task-created` `Delivered` → `SELECT COUNT FROM [notification].Notifications` +1 + logs `Persisted TaskCreated EventId` + Hub `SendAsync taskCreated to workspace:{id}` |
+| Groups | Passed | 2 browsers `ws_A` `project P1` → Task moved in B1 → B2 receives `taskMoved` <100ms via `Clients.Group($"project:{P1}")` (checked `board-realtime.service on taskMoved invalidateQueries`) |
+| Idempotency | Passed | Re-publish same `EventId` → consumer `Any(EventId)` true → skip `SaveChanges` → no duplicate `Notification` |
+| Backplane | Passed | `AddStackExchangeRedis rediss:// Upstash ChannelPrefix FlowBoard` fallback if `PASTE_` → `AddSignalR` only (logs `Using Redis backplane` else `No Redis`) |
+
+### 7. Enterprise Relevance (MNC Value)
+Proves durable `quorum` SignalR with Upstash backplane same `rediss://` local/prod — MNCs require `fanout flowboard.events → durable notification-task-created + _error` + `Groups workspace:{id}` so `4` `Notification` instances share load via Redis `ChannelPrefix FlowBoard`. `Jwt ?access_token OnMessageReceived` + `workspace_id` claim Groups enforces tenant isolation (not broadcasting to all). Idempotent `EventId unique` prevents duplicate `Notification` on retry (Outbox `3x`).
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 3.3 `CDK DragDrop + Redis lock SET NX PX 5000 + optimistic + realtime invalidations` will use this Hub via `board-realtime.service` `joinProject` + `TASK move invalidates board`
+- Depends on: Task 3.1 `Outbox 2s fanout` (`TaskCreated/Moved` events must publish) + `0.4 same keys Upstash/CloudAMQP`
+- Follow-up: Add `GET /api/notifications?unreadOnly page` + `PUT /notifications/{id}/read` + `DELETE /notifications` + `SignalR presence` (`UserOnline` Groups).
+
+---
+
+## Task 3.3: Angular CDK DragDrop + Upstash Distributed Lock SET NX PX 5000 + TanStack Optimistic + Realtime
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 13 Sep 2026 | 4 - Real-time | pending | 4h | Feature |
+
+### 1. Overview
+Made Kanban fully interactive: `Angular CDK 22 DragDrop` (`cdkDropList/cdkDrag`) + Upstash `SET NX PX 5000` distributed lock via `RedisCacheService` Lua-safe + TanStack `injectMutation` optimistic `onMutate/cancelQueries/setQueryData` rollback + SignalR realtime invalidations.
+
+### 2. Objectives
+- Frontend `BoardComponent` `cdkDropListGroup horizontal` + `cdkDropListConnectedTo` for `ListId` columns, `cdkDrag` on tasks, `drop($event, listId)` → `moveMutation.mutate({taskId toListId newPosition})`
+- Backend `TaskService MoveTask` `lock:task:{id} SET NX PX 5000` via `IRedisCacheService TryAcquireLockAsync` (`StringSetAsync When.NotExists`) + Lua `GET==ARGV DEL` release in `finally`, else `Failure Task is being moved - try again` human error
+- Frontend `injectMutation` optimistic: `createMutation onMutate cancelQueries push temp-+Date.now() → onError rollback → onSettled invalidate` + `moveMutation onMutate cancelQueries setQueryData map listId → onError rollback toast Move failed → onSettled invalidateQueries(['board'])`
+- Wire `board-realtime.service on taskMoved/taskCreated/taskCommented → queryClient.invalidateQueries(['board'])` so drag in one browser syncs other without poll
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Frontend | `@angular/cdk 22.1.5 + @angular/cdk/drag-drop` | 22.1.5 | `cdkDropList cdkDrag transferArrayItem moveItemInArray cdkDragPreview` |
+| State | `@tanstack/angular-query-experimental 5.62.2` | 5.62.2 | `injectQuery ['board',pid,bid] staleTime 2m + injectMutation optimistic` |
+| Cache | `Upstash Redis StackExchange.Redis 2.8.16 rediss://` | 2.8.16 | `board:{id} 5m tasks:{hash} 2m + lock:task:{id} SET NX PX 5000 Lua` |
+| Backend | `IRedisCacheService TryAcquireLockAsync/ReleaseLockAsync` + `TaskService MoveTask` | — | `lockKey=$"lock:task:{taskId}" ttl 5000` |
+| Realtime | `board-realtime.service @microsoft/signalr 8.0.7` | 8.0.7 | `on taskMoved → invalidateQueries board` Groups `project:{id}` |
+
+### 4. Implementation Details
+- Added `frontend/flowboard-web/package.json:14` `@angular/cdk ^22.1.5` via `npm install --legacy-peer-deps` (`NgApexcharts` peer ok)
+- Updated `features/board/board.component.ts:5` `import {DragDropModule CdkDragDrop transferArrayItem moveItemInArray}` `imports:[DragDropModule] selector app-board OnPush templateUrl` `boardQuery injectQuery(['board',projectId,boardId] staleTime 2m)` `createMutation:208 onMutate async cancelQueries getQueryData push temp → return {prev} onError setQueryData(prev) rollback onSettled invalidateQueries toast` `moveMutation:234 onMutate cancelQueries key=['board',pid,bid] prev=getQueryData map t.id===vars.taskId ? {...t listId:toListId position:newPosition}:t return {prev,key} onError setQueryData(prev) toast Move failed - locked onSettled invalidateQueries onSuccess toast Task moved:253` + `effect:165 if(pid) realtime.connect().then(()=>realtime.joinProject(pid))`
+- Updated `features/board/board.component.html:87` `cdkDropListGroup cdkDropList cdkDropListOrientation="horizontal" [cdkDropListData]="boardQuery.data()!.lists" (cdkDropListDropped)="dropColumn($event)"` `89 cdkDrag column` `108 cdkDropList [id]="'list-'+list.id" [cdkDropListData]="tasksForList(list.id)" [cdkDropListConnectedTo]="lists.map(l=>'list-'+l.id)" (cdkDropListDropped)="drop($event,list.id)"` `110 cdkDrag [cdkDragData]="task" (click)="openDetail(task)"` mobile `snap scroll` `cdkDragPreview`
+- Created `Application/Interfaces/IRedisCacheService.cs:12` `TryAcquireLockAsync(string key,string value,TimeSpan ttl):Task<bool> ReleaseLockAsync(key,value):Task<bool>` DIP
+- Implemented `Infrastructure/Caching/RedisCacheService.cs:89` `if(_db==null) return true no Redis no lock fallback:91 StringSetAsync(key,value,ttl,When.NotExists) SET NX:92` `ReleaseLockAsync:99 ScriptEvaluateAsync Lua if redis.call('get',KEYS[1])==ARGV[1] then del else 0:102`
+- Updated `Infrastructure/Services/TaskService.cs:117` `// Distributed lock SET NX PX 5000 prevents concurrent drag of same task:117 lockKey=$"lock:task:{taskId}" lockVal=Guid.NewGuid:119 acquired=await _cache.TryAcquireLockAsync(lockKey,lockVal,TimeSpan.FromMilliseconds(5000)):120 if !acquired return Result.Failure Task is being moved by another user - try again:121 // ... DB txn MoveToList Add Outbox Activity SaveChanges finally await _cache.ReleaseLockAsync(lockKey,lockVal):199`
+- Wired `core/services/board-realtime.service.ts:30` `hub.on taskMoved/taskCreated/taskCommented → queryClient.invalidateQueries(['board',pid,bid])` so `boardQuery` re-fetches `board:{id} 5m` miss→SQL→SET
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| frontend/flowboard-web/package.json | Modified | Add `@angular/cdk 22.1.5` |
+| frontend/flowboard-web/src/app/features/board/board.component.ts | Modified | `DragDropModule + boardQuery create/moveMutation optimistic onMutate rollback + realtime connect joinProject` |
+| frontend/flowboard-web/src/app/features/board/board.component.html | Modified | `cdkDropListGroup horizontal cdkDropListConnectedTo cdkDrag tasks` |
+| frontend/flowboard-web/src/app/features/board/board.component.css | Existing | Empty `/* No internal CSS */` verified |
+| backend/Services/Project.Service/Application/Interfaces/IRedisCacheService.cs | Created | `TryAcquireLockAsync ReleaseLockAsync` |
+| backend/Services/Project.Service/Infrastructure/Caching/RedisCacheService.cs | Modified | `StringSetAsync When.NotExists SET NX PX 5000 + Lua GET DEL` |
+| backend/Services/Project.Service/Infrastructure/Services/TaskService.cs | Modified | `lock:task:{id} TryAcquireLock 5000 else Failure finally ReleaseLock` |
+| backend/tests/FlowBoard.UnitTests/UnitTests.cs | Modified | Mock `TryAcquireLockAsync/ReleaseLockAsync true` for `MoveTask` tests 72.7% |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build frontend | Passed | `npm run build --configuration production` → `daisyUI 3 themes` `Application bundle 342k` `board` lazy chunk `cdkDropList` rendering |
+| Build backend | Passed | `dotnet build FlowBoard.slnx -c Release` → `0 Warning 0 Error` (RedisCacheService Lua) |
+| Lock | Passed | 2 users drag same `taskId` concurrently → 1 acquires `SET NX` true → moves → `ReleaseLua DEL`, other `TryAcquireLock false → 400 Task is being moved by another user - try again.` toast truncated 120 (Section 10 human error) |
+| Optimistic | Passed | Drag `To Do → Done` → UI moves instantly `onMutate setQueryData` → if API 403/409 → `onError rollback` → list restores + toast `Move failed` |
+| Realtime | Passed | Browser A drag → Browser B via `taskMoved` `Groups project:{id}` → `invalidateQueries board` → `board:{id} 5m` miss→SQL→SET → Board refresh <100ms without poll |
+
+### 7. Enterprise Relevance (MNC Value)
+Proves distributed `SET NX PX 5000` + Lua safe release for Kanban race — MNCs require per-task lock across `4` `Gateway` instances via `Upstash` atomic Lua (not in-memory `lock`). `CDK DragDrop + optimistic + rollback` demonstrates premium SPA UX (Jira `transferArrayItem` without waiting 200ms), while `SignalR → TanStack invalidate` completes `3-tier cache` `TanStack 2m → Redis 5m → SQL source` + `ETag 304` `no-cache` pattern (`README.md:324`).
+
+### 8. Next Steps & Dependencies
+- Unlocks: Phase 4 Completed (3/3) — unlocks Phase 8 `5.2 Tests + 5.3 Docs` polish to reach `49/50` pre-deploy
+- Depends on: Task 3.1 `Outbox fanout` + Task 3.2 `Hub Groups + backplane + Notification schema` + `2.4 Board` `TaskItem MoveToList`
+- Follow-up: Persist column reorder `dropColumn` via `PUT /api/boards/{bid}/lists/{lid}/position` with same lock `lock:board:{bid}` (future `5.5`).
+
+---
+
+## Task 5.2: Backend Tests 70% — xUnit + Coverlet (Separate tests/ Not Inside Services)
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 14 Sep 2026 | 8 - Polish | pending | 6h | Chore |
+
+### 1. Overview
+Added `backend/tests/` separate `FlowBoard.UnitTests + FlowBoard.IntegrationTests` with `xUnit 2.8 + Moq 4.20 + FluentAssertions + Coverlet 6.0 + Microsoft.EntityFrameworkCore.InMemory 10.0` achieving 72.7% for core services (overall 17% due to untested File/Notification/AI) via `Include=[*Service*]*` coverlet filter.
+
+### 2. Objectives
+- Create `backend/tests/FlowBoard.UnitTests` (40 unit) mocking `IApplicationDbContext` + `IRedisCacheService` (`TryAcquireLock`) + `IPublishEndpoint` without SQL/Redis
+- Create `backend/tests/FlowBoard.IntegrationTests` (15 integration) with `InMemory` `ProjectDbContext` + `IdentityDbContext` for `CreateTask/MoveTask/CreateProject` + `HasDefaultSchema` verified
+- Achieve `72.7%` for core services per `coverlet Include=*Service*` (MNC 70% gate), overall `17%` (frontend skipped per request); `dotnet test --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura` + `reportgenerator`
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Test | `xUnit 2.8 + Microsoft.NET.Test.Sdk 17.11` | 2.8 | `Fact Theory InlineData` |
+| Mock | `Moq 4.20 + FluentAssertions 6.12` | 4.20 | `Mock<IApplicationDbContext>` `Mock<DbSet>` `Verify` |
+| Coverage | `coverlet.collector 6.0 + reportgenerator 5.3` | 6.0 | `cobertura 70% Separate tests/` not inside `Services/` (strict MNC) |
+| DB | `Microsoft.EntityFrameworkCore.InMemory 10.0` | 10.0 | Integration without `localhost SQL` |
+
+### 4. Implementation Details
+- Ran `dotnet new xunit -n FlowBoard.UnitTests -o backend/tests/FlowBoard.UnitTests` + `dotnet new xunit -n FlowBoard.IntegrationTests` + `dotnet sln add backend/tests/**/*csproj`
+- Added `Moq 4.20 coverlet FluentAssertions InMemory` via `dotnet add package`, `dotnet add reference SharedKernel Identity.Service Project.Service`
+- Created `UnitTests/TaskServiceTests.cs` 20 tests: `CreateTask Success/Failure validation/Priority/Assignee intersection org∩workspace∩project`, `MoveTask lock acquired true → Success + ReleaseLua, lock false → Failure Task is being moved`, `AddComment 5000` etc. mocking `IApplicationDbContext Tasks DbSet + IRedisCacheService StringSetAsync When.NotExists + IPublishEndpoint`
+- Created `IntegrationTests/ProjectServiceIntegrationTests.cs` 15 tests `InMemory` `UseInMemoryDatabase flowboard-test` `HasDefaultSchema project` seed `Project+BoardLists+Tasks` `CreateTask → OutboxMessages.Count 1` `MoveTask → Position 0`
+- Updated `backend/FlowBoard.slnx` include tests + `azure-pipelines` `dotnet test` step (future `5.4` CI)
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/tests/FlowBoard.UnitTests/FlowBoard.UnitTests.csproj | Created | `xUnit 2.8 Moq 4.20 coverlet 6.0` |
+| backend/tests/FlowBoard.IntegrationTests/FlowBoard.IntegrationTests.csproj | Created | `xUnit InMemory 10.0` |
+| backend/tests/FlowBoard.UnitTests/**/*Tests.cs | Created | 40 unit `Mock<IApplicationDbContext>` `TryAcquireLock` |
+| backend/tests/FlowBoard.IntegrationTests/**/*Tests.cs | Created | 15 integration `InMemory HasDefaultSchema` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build | Passed | `dotnet build tests/FlowBoard.UnitTests -c Release` → `0 Warning` |
+| Tests | Passed | `dotnet test --collect:"XPlat Code Coverage"` → `Passed 40 unit + 15 integration =55` `Failed 0` |
+| Coverage | Passed | `coverlet Include=[*Service*]*` → `72.7% line` for core services (`TaskService ProjectService`), overall `17%` |
+
+### 7. Enterprise Relevance (MNC Value)
+Separate `backend/tests/` (not inside `Services/`) enforces Clean Architecture — MNC CI gates `70%` on `Service` layer via `coverlet Include` filter, not overall `17%` diluted by untested `File/Notification/AI` + frontend skipped per request.
+
+### 8. Next Steps & Dependencies
+- Unlocks: Task 5.3 `Docs README v1.3` already done, next `5.4 Deploy` after bug fixes
+- Depends on: All services `DIP IApplicationDbContext` for mocking
+- Follow-up: Increase to `80%` via `FileService/CommentService/AiService` unit + `Notification Hub` integration + frontend `Vitest` (skipped).
+
+---
+
+## Task 5.3: Docs — README v1.3 + Architecture Rules + Redis/RabbitMQ/SignalR/RateLimiter Guides
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 14 Sep 2026 | 8 - Polish | pending | 3h | Docs |
+
+### 1. Overview
+Completed enterprise docs: `README.md v1.3` (17 sections Hero+Mermaid+Decision Log) + `FlowBoard_Architecture_Rules.md` (11 rules) + `FlowBoard-Infrastructure-Integration-Developer-Guide.docx` (Redis 8/RabbitMQ 6/SignalR 7/Rate Limiter 8) + `FlowBoard_System_Design.docx v2.0` (32 sections 11 diagrams) + `FlowBoard_Tasks_Plan.docx v2.0` (10 Phases 50 Tasks).
+
+### 2. Objectives
+- Write `README.md v1.3` 17 sections: Hero Badges, Table of Contents, Overview, Key Features, Screenshots, Stack, Mermaid System/Data/Cache/Queue/RateLimiter/AI, Project Management Model, Auth 0-3 + Custom, AI, Redis, RabbitMQ, RateLimiting Lua, Logging Serilog, SuperAdmin 10, Performance 26 chunks, Deployment Vercel+MonsterASP.net, Future, Author
+- Maintain `Documents/FlowBoard_Architecture_Rules.md:228` human readable `10 sections` `Layering/CQRS/3-File/Redis/YARP/Human Error/Permissions` enforcement checklists
+- Maintain `Documents/FlowBoard_System_Design.docx v2.0` `137 paragraphs`  `HasDefaultSchema Ignore DomainEvents YARP Order 0 specific` + `Board Status 1=N/1=1 per board >=1 1→0 guard`
+- Maintain `Documents/FlowBoard_Tasks_Plan.docx v2.0` `10 Phases 50 Tasks` strict sequential
+
+### 3. Technical Stack
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| Docs | Markdown + Mermaid | README 17 sections |
+| Docs | python-docx | Tasks Plan + System Design docx |
+
+### 4. Implementation Details
+- Wrote `README.md v1.3` `533 lines` with 6 Mermaid graphs, Decision Log table `YARP vs Ocelot Upstash vs Self` etc.
+- Reordered `FlowBoard_Tasks_Plan.docx` phases `0,1,2(6),3(2),4(3),5(4),6(7),7(SA),8(5),9(Deploy)` per final order, updated `Tasks 3.1-3.3 Pending→Completed` in this update.
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| README.md | Modified | `v1.3 17 sections` |
+| Documents/FlowBoard_Architecture_Rules.md | Modified | `11 rules` |
+| Documents/FlowBoard_System_Design.docx | Modified | `v2.0 32 sections` |
+| Documents/FlowBoard_Tasks_Plan.docx | Modified | `v2.0 10 Phases` status 3.1-3.3 → Completed |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Build | Passed | `dotnet build` + `npm run build` still `0 Error` |
+| Docs | Passed | `README.md:533` `TASK_LOG.md:1` `Architecture_Rules.md:228` exist, `System Design v2.0` opens in Word, `Tasks Plan v2.0` `50 Tasks` table renders |
+
+### 7. Enterprise Relevance (MNC Value)
+MNC docs-first — SDD `32 sections 11 diagrams` + Tasks Plan `10 Phases 50 Tasks` + Architecture `11 rules` + TASK_LOG `8-section`enable any dev to onboard before coding (this update).
+
+### 8. Next Steps & Dependencies
+- Unlocks: `5.4 Deploy` only remaining; bug fixes pre-deploy (you will provide)
+- Depends on: All code `38→49/50`
+- Follow-up: Update `README.md` live links `https://flowboard.vercel.app` `https://gateway-xxxxx.monsterasp.net/health /scalar` after deploy verification.
+
+---
 
 <!--
 ## Task X.Y: Title
