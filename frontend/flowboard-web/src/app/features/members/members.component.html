@@ -128,7 +128,7 @@
                 </button>
               </label>
             </label>
-            <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="inviteRole()" (change)="inviteRole.set(+$any($event.target).value)"><option [value]="1">Member</option><option [value]="2">OrgAdmin</option><option [value]="3">Client</option></select></label>
+            <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="inviteRole().toString()" (change)="inviteRole.set(+$any($event.target).value)"><option value="1">Member</option><option value="2">OrgAdmin</option><option value="3">Client</option></select></label>
             @if (inviteRole()===2) {
               <div class="alert alert-info py-2 px-3 rounded-xl text-xs">
                 <span>OrgAdmin has <b>full authority</b> over the organization — all workspaces, members, roles, projects. No workspace assignment needed.</span>
@@ -182,7 +182,7 @@
           <div class="mt-4 space-y-3">
             <label class="form-control"><span class="label-text text-xs">Full Name</span><input type="text" class="input input-bordered rounded-xl" [value]="editName()" (input)="editName.set($any($event.target).value)" /></label>
             <label class="form-control"><span class="label-text text-xs">Email</span><input type="email" class="input input-bordered rounded-xl" [value]="editEmail()" (input)="editEmail.set($any($event.target).value)" /></label>
-            <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="editRole()" (change)="editRole.set(+$any($event.target).value)"><option [value]="1">Member</option><option [value]="2">OrgAdmin</option><option [value]="3">Client</option></select></label>
+            <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="editRole().toString()" (change)="editRole.set(+$any($event.target).value)"><option value="1">Member</option><option value="2">OrgAdmin</option><option value="3">Client</option></select></label>
             @if (editRole()===2) {
               <div class="alert alert-info py-2 px-3 rounded-xl text-xs">
                 <span>OrgAdmin has <b>full authority</b> — all workspaces, members, roles, projects. No workspace assignment needed.</span>
