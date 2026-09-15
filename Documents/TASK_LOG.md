@@ -3191,6 +3191,23 @@ MNC docs-first — SDD `32 sections 11 diagrams` + Tasks Plan `10 Phases 50 Task
 
 ---
 
+## Bug Fix W1: Workspace Per-Workspace Custom Role (Developer vs View) — Approach 2026-09-15
+
+> **Problem:** Edit member with `Development=Developer` `Marketing=View` shows `Developer` for both after save/reopen. Root is dialog prefill fallback to first custom role and save array with duplicate role.
+
+**Approach (MNC grade, no new API):**
+1. **Prefill:** `openEdit(m)` must read `m.workspaceRoleMap` per workspace id exactly as returned by `GET /api/organizations/{id}/members` (`workspaceRoleMap: {workspaceId: customRoleName}`) — no fallback to `customRoles[0]`. If a workspace entry is missing, leave dropdown empty with placeholder `Select role`, not default `Developer`.
+2. **Save:** `updateMutation` must build `WorkspaceRoles` array with distinct `customRoleId` per workspace: `Development → Developer id`, `Marketing → View id` by `customRoles.find(c=>c.name===selectedName).id`. Backend `UpdateEmployeeWithRoles` already loops per `WorkspaceId` and updates `CustomRoleId` individually — keep, just ensure frontend sends different ids.
+3. **List:** `GetOrgMembers` already returns `workspaceRoleMap` per workspace via `CustomRoleId → Name` lookup — keep, verify it includes both entries, not one.
+4. **UI:** Keep `Role (org level)` int `1/2/3` separate; per-workspace dropdowns remain string custom role names. No extra `GET /statuses`.
+
+**Tasks:**
+- W1.1 Fix `openEdit` prefill (no default fallback)
+- W1.2 Fix `onEditRoleChange` and save mapping
+- W1.3 Verify `GET /members` map has two entries
+
+---
+
 <!--
 ## Task X.Y: Title
 

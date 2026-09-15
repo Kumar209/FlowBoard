@@ -247,12 +247,11 @@ export class MembersComponent {
     const customRoles = (this.customRolesQuery.data() as any[]) || [];
     this.editWorkspaceIds.set(customRoles.length ? ids : []);
     const map: Record<string,string> = {};
-    // Use per-workspace custom role from API if available, else fallback to custom default
+    // Use per-workspace custom role from API if available — no fallback to first custom role, keep empty if missing
     const wsRoleMap = (m as any).workspaceRoleMap as Record<string,string> | undefined;
-    const defaultCr = customRoles[0]?.name || '';
     ids.forEach(id => {
       const perWsRole = wsRoleMap?.[id] || wsRoleMap?.[id.toLowerCase()] || '';
-      map[id] = perWsRole || defaultCr || m.role;
+      map[id] = perWsRole; // keep empty if no role, don't default to Developer
     });
     if (!customRoles.length) this.editWorkspaceIds.set([]);
     this.editWorkspaceRoles.set(map);
