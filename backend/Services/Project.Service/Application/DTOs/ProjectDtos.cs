@@ -5,7 +5,7 @@ namespace Project.Service.Application.DTOs;
 /// </summary>
 public record ProjectDto(Guid Id, Guid WorkspaceId, string Name, string Key, string? Description, Guid OwnerId, DateTime CreatedAt);
 public record BoardListDto(Guid Id, Guid ProjectId, string Name, int Position, List<Guid>? StatusIds = null);
-public record BoardInfoDto(Guid Id, Guid ProjectId, string Name, string Type, string? Description, int Position, DateTime CreatedAt, string? FilterJson = null);
+public record BoardInfoDto(Guid Id, Guid ProjectId, string Name, string Type, string? Description, int Position, DateTime CreatedAt, string? FilterJson = null, int TaskCount = 0);
 public record SprintDto(Guid Id, Guid ProjectId, Guid? BoardId, string Name, DateTime StartDate, DateTime EndDate, string Status, DateTime CreatedAt);
 public record ProjectEnvironmentDto(Guid Id, Guid ProjectId, string Name, string Url, string? Description, string Status, DateTime CreatedAt);
 public record TaskDto(Guid Id, Guid ProjectId, Guid? ListId, string Title, string? Description, string Priority, string? LabelsJson, Guid? AssigneeId, int Position, DateTime CreatedAt, DateTime? DueDate = null, string IssueType = "Task", string? Epic = null, int? StoryPoints = null, DateTime? StartDate = null, string? Environment = null, Guid? ParentIssueId = null, Guid? SprintId = null, string? WatchersJson = null, string? LinkedIssuesJson = null, int? TimeEstimated = null, int? TimeSpent = null, int? TimeRemaining = null, Guid? TeamId = null, string Status = "To Do", Guid? StatusId = null, string? AcceptanceCriteriaJson = null);

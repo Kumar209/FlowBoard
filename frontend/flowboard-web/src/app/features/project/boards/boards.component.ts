@@ -90,7 +90,7 @@ export class BoardsComponent {
           id: b.id,
           name: b.name,
           desc: `${b.type} • ${b.description || ''}${filterInfo}`,
-          tasks: 0,
+          tasks: (b.taskCount ?? (b as any).TaskCount ?? 0),
           type: b.type,
           filterJson: b.filterJson
         };

@@ -53,9 +53,32 @@ public class BoardService : IBoardService
     }
 
     public async Task<List<BoardInfoDto>> GetBoardsAsync(Guid projectId, CancellationToken ct = default)
-        => await _db.Boards.Where(b => b.ProjectId == projectId).OrderBy(b => b.Position)
-            .Select(b => new BoardInfoDto(b.Id, b.ProjectId, b.Name, b.Type, b.Description, b.Position, b.CreatedAt, b.FilterJson))
-            .ToListAsync(ct);
+    {
+        var boards = await _db.Boards.Where(b => b.ProjectId == projectId).OrderBy(b => b.Position).ToListAsync(ct);
+        var result = new List<BoardInfoDto>();
+        foreach (var b in boards)
+        {
+            int count = 0;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(b.FilterJson))
+                {
+                    count = await _db.Tasks.CountAsync(t => t.ProjectId == projectId, ct);
+                }
+                else
+                {
+                    var filter = System.Text.Json.JsonSerializer.Deserialize<BoardFilterDto>(b.FilterJson);
+                    if (filter?.TeamIds != null && filter.TeamIds.Any())
+                        count = await _db.Tasks.CountAsync(t => t.ProjectId == projectId && t.TeamId != null && filter.TeamIds.Contains(t.TeamId.Value), ct);
+                    else
+                        count = await _db.Tasks.CountAsync(t => t.ProjectId == projectId, ct);
+                }
+            }
+            catch { count = await _db.Tasks.CountAsync(t => t.ProjectId == projectId, ct); }
+            result.Add(new BoardInfoDto(b.Id, b.ProjectId, b.Name, b.Type, b.Description, b.Position, b.CreatedAt, b.FilterJson, count));
+        }
+        return result;
+    }
 
     public async Task<Result<BoardListDto>> CreateBoardListAsync(Guid projectId, string name, Guid callerId, List<string> callerRoles, Guid? boardId, int? position, List<Guid>? statusIds = null, CancellationToken ct = default)
     {
