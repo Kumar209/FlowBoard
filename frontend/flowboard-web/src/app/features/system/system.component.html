@@ -1,13 +1,49 @@
 <div class="bg-base-200 min-h-full">
   <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
-    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">System</h1>
-    <p class="text-sm opacity-60 mt-1">Health — OrgAdmin/SuperAdmin only. Others are redirected.</p>
-    <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div class="card bg-base-100 rounded-2xl shadow border p-5"><h3 class="font-semibold">Gateway YARP</h3><p class="text-xs opacity-60">:5000 /health → 5001-5004</p><span class="badge badge-success badge-xs mt-2">2.3.0</span></div>
-      <div class="card bg-base-100 rounded-2xl shadow border p-5"><h3 class="font-semibold">Identity :5001</h3><p class="text-xs opacity-60">JWT 15m + Brevo 300/day</p><span class="badge badge-success badge-xs mt-2">DB flowboard [identity]</span></div>
-      <div class="card bg-base-100 rounded-2xl shadow border p-5"><h3 class="font-semibold">Project :5002</h3><p class="text-xs opacity-60">Redis board 5m / tasks 2m</p><span class="badge badge-success badge-xs mt-2">[project] FB-3</span></div>
-      <div class="card bg-base-100 rounded-2xl shadow border p-5"><h3 class="font-semibold">SignalR :5004</h3><p class="text-xs opacity-60">BoardHub realtime</p><span class="badge badge-ghost badge-xs mt-2">10.0 / JS 8.0.7</span></div>
-      <div class="card bg-base-100 rounded-2xl shadow border p-5"><h3 class="font-semibold">User</h3><p class="text-xs opacity-60 truncate">{{ auth.currentUser()?.email }} • {{ auth.memberships().length }} memberships</p></div>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">System — Infrastructure</h1>
+        <p class="text-sm opacity-60 mt-1">Live health for Gateway, Services, DB, Redis, RabbitMQ, SignalR, File Storage. OrgAdmin proxy to SuperAdmin health.</p>
+      </div>
+      @if (!query.isPending() && total) {
+        <div class="badge badge-sm" [ngClass]="healthyCount===total?'badge-success':'badge-warning'">{{ healthyCount }}/{{ total }} Healthy</div>
+      }
     </div>
+
+    @if (query.isPending() || orgsQuery.isPending()) {
+      <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
+    } @else if (query.isError()) {
+      <div class="alert alert-error mt-6"><span class="text-sm">Failed to load system health — please try again.</span></div>
+    } @else {
+      <div class="text-xs opacity-50 mt-3">Checked at {{ checkedAt | date:'medium' }} · Environment {{ query.data()?.environment }} · Org {{ orgId().slice(0,8) }}</div>
+      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        @for (s of services; track s.service) {
+          <div class="card bg-base-100 shadow">
+            <div class="card-body p-4">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-bold">{{ s.service }}</span>
+                <span class="badge badge-xs" [ngClass]="s.status==='Healthy'?'badge-success':'badge-error'">{{ s.status === 'Healthy' ? 'Up' : 'Down' }}</span>
+              </div>
+              <div class="text-xs opacity-60 mt-1">{{ s.version }} · {{ s.uptime }} uptime</div>
+              <div class="text-xs mt-2">Latency <span class="font-mono font-bold">{{ s.latencyMs }}ms</span></div>
+              <div class="text-[11px] opacity-50 mt-1 line-clamp-2" [title]="s.details">{{ s.details }}</div>
+            </div>
+          </div>
+        }
+      </div>
+      <div class="card bg-base-100 shadow mt-6">
+        <div class="card-body p-4">
+          <h3 class="font-semibold text-sm">Details</h3>
+          <div class="text-xs opacity-60 mt-2 space-y-1">
+            <div>• Gateway YARP 2.3 — Sliding Window Counter 60 IP/100 User via Upstash Redis Lua atomic, ForwardedHeaders, CorrelationId N format.</div>
+            <div>• DB — SQL Server flowboard [identity]/[project]/[file], HasDefaultSchema, latency measured via SELECT 1.</div>
+            <div>• Redis — Upstash rediss:// caching + rate limiting, Cards show hit/miss via CacheKeys.</div>
+            <div>• RabbitMQ — CloudAMQP amqps:// MassTransit 8.3 fanout for Project → Notification.</div>
+            <div>• SignalR 10.0 Hub /hubs/board — realtime board sync.</div>
+            <div>• File Storage — Cloudinary raw/private uploads, secure_url signing.</div>
+          </div>
+        </div>
+      </div>
+    }
   </div>
 </div>

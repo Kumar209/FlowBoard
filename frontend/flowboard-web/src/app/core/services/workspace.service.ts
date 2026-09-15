@@ -62,4 +62,7 @@ export class WorkspaceService {
   deleteWorkspace(id: string) {
     return this.http.delete(`${environment.apiUrl}/api/workspaces/${id}`, { withCredentials: true });
   }
+  getSystem(orgId: string) {
+    return this.http.get<any>(`${environment.apiUrl}/api/organizations/${orgId}/system`, { withCredentials: true });
+  }
 }

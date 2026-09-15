@@ -274,6 +274,26 @@ public class OrganizationsController : ControllerBase
         return Ok(new { permissions = perms.ToList() });
     }
 
+    [HttpGet("{id}/system")]
+    public async Task<IActionResult> GetSystem(Guid id)
+    {
+        var callerId = GetUserId(); if (callerId == null) return Unauthorized();
+        var roles = GetRoles();
+        if (!Roles.IsSuperAdmin(roles))
+        {
+            var db = HttpContext.RequestServices.GetRequiredService<Identity.Service.Application.Interfaces.IApplicationDbContext>();
+            var org = await db.Organizations.FirstOrDefaultAsync(o => o.Id == id);
+            if (org == null) return NotFound(new { error = "Organization not found" });
+            var isOwner = org.OwnerId == callerId.Value;
+            var orgMember = await db.OrganizationMembers.FirstOrDefaultAsync(m => m.OrganizationId == id && m.UserId == callerId.Value);
+            var isOrgAdmin = isOwner || orgMember?.Role == Roles.OrgAdminValue;
+            if (!isOrgAdmin) return StatusCode(403, new { error = "Forbidden - OrgAdmin only" });
+        }
+        var svc = HttpContext.RequestServices.GetRequiredService<ISuperAdminService>();
+        var status = await svc.GetSystemStatusAsync();
+        return Ok(status);
+    }
+
     private string[] GetRoles() => User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).Concat(User.FindAll("role").Select(c => c.Value)).ToArray();
 
     private Guid? GetUserId()
