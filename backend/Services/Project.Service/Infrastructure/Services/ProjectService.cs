@@ -21,9 +21,26 @@ public class ProjectService : IProjectService
         _cache = cache;
     }
 
+    private async Task<bool> IsOrgAdminInDbAsync(Guid workspaceId, Guid callerId, CancellationToken ct)
+    {
+        try
+        {
+            var orgIdRow = await _db.Database.SqlQueryRaw<GuidRow>("SELECT OrganizationId as Value FROM [identity].[Workspaces] WHERE Id = {0}", workspaceId).ToListAsync(ct);
+            var orgId = orgIdRow.FirstOrDefault()?.Value ?? Guid.Empty;
+            if (orgId == Guid.Empty) return false;
+            var ownerList = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[Organizations] WHERE Id = {0} AND OwnerId = {1}", orgId, callerId).ToListAsync(ct);
+            var isOwner = ownerList.FirstOrDefault() > 0;
+            if (isOwner) return true;
+            var cntList = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[OrganizationMembers] WHERE OrganizationId = {0} AND UserId = {1} AND Role = {2}", orgId, callerId, Roles.OrgAdminValue).ToListAsync(ct);
+            return cntList.FirstOrDefault() > 0;
+        }
+        catch { return false; }
+    }
+    private class GuidRow { public Guid Value { get; set; } }
+
     public async Task<Result<ProjectDto>> CreateProjectAsync(Guid workspaceId, string name, string? description, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (!Roles.IsPrivilegedForManage(callerRoles))
+        if (!Roles.IsPrivilegedForManage(callerRoles) && !await IsOrgAdminInDbAsync(workspaceId, callerId, ct))
         {
             // Check custom workspace role permission project:create via RolePermissions
             if (!await HasCustomPermissionAsync(callerId, workspaceId, "project:create", ct))
@@ -48,7 +65,7 @@ public class ProjectService : IProjectService
     {
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return Result<ProjectDto>.Failure("Project not found");
-        if (!Roles.IsPrivilegedForManage(callerRoles) && !await HasCustomPermissionAsync(callerId, project.WorkspaceId, "project:update", ct))
+        if (!Roles.IsPrivilegedForManage(callerRoles) && !await IsOrgAdminInDbAsync(project.WorkspaceId, callerId, ct) && !await HasCustomPermissionAsync(callerId, project.WorkspaceId, "project:update", ct))
             return Result<ProjectDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin or project:update");
         project.Update(name, description);
         await _db.SaveChangesAsync(ct);
@@ -61,7 +78,7 @@ public class ProjectService : IProjectService
     {
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return Result<bool>.Failure("Project not found");
-        if (!Roles.IsPrivilegedForManage(callerRoles) && !await HasCustomPermissionAsync(callerId, project.WorkspaceId, "project:delete", ct))
+        if (!Roles.IsPrivilegedForManage(callerRoles) && !await IsOrgAdminInDbAsync(project.WorkspaceId, callerId, ct) && !await HasCustomPermissionAsync(callerId, project.WorkspaceId, "project:delete", ct))
             return Result<bool>.Failure("Forbidden - Need OrgAdmin/SuperAdmin or project:delete");
         _db.Projects.Remove(project);
         await _db.SaveChangesAsync(ct);

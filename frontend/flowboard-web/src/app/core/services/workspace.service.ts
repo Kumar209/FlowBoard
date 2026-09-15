@@ -36,10 +36,10 @@ export class WorkspaceService {
   getOrganizationMembers(organizationId: string) {
     return this.http.get<any[]>(`${environment.apiUrl}/api/organizations/${organizationId}/members`, { withCredentials: true });
   }
-  createOrganizationMember(organizationId: string, fullName: string, email: string, password: string, workspaceRoles: {workspaceId: string, role: string, customRoleId?: string}[], orgRole: string = ROLE_LABEL_MAP[String(OrgRoleValues.Member)]) {
+  createOrganizationMember(organizationId: string, fullName: string, email: string, password: string, workspaceRoles: {workspaceId: string, role: string, customRoleId?: string}[], orgRole: number = OrgRoleValues.Member) {
     return this.http.post(`${environment.apiUrl}/api/organizations/${organizationId}/employees`, { FullName: fullName, Email: email, Password: password, Role: orgRole, WorkspaceIds: workspaceRoles.map(r=>r.workspaceId), WorkspaceRoles: workspaceRoles }, { withCredentials: true });
   }
-  updateOrganizationMember(organizationId: string, userId: string, fullName?: string, email?: string, workspaceRoles?: {workspaceId: string, role: string, customRoleId?: string}[], orgRole?: string) {
+  updateOrganizationMember(organizationId: string, userId: string, fullName?: string, email?: string, workspaceRoles?: {workspaceId: string, role: string, customRoleId?: string}[], orgRole?: number) {
     return this.http.put(`${environment.apiUrl}/api/organizations/${organizationId}/employees/${userId}`, { FullName: fullName, Email: email, Role: orgRole, WorkspaceIds: workspaceRoles?.map(r=>r.workspaceId), WorkspaceRoles: workspaceRoles }, { withCredentials: true });
   }
   deleteOrganizationMember(organizationId: string, userId: string) {

@@ -128,18 +128,18 @@
                 </button>
               </label>
             </label>
-            <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="inviteRole()" (change)="inviteRole.set($any($event.target).value)"><option>Member</option><option>OrgAdmin</option><option>Client</option></select></label>
-            @if (inviteRole()==='OrgAdmin') {
+            <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="inviteRole()" (change)="inviteRole.set(+$any($event.target).value)"><option [value]="1">Member</option><option [value]="2">OrgAdmin</option><option [value]="3">Client</option></select></label>
+            @if (inviteRole()===2) {
               <div class="alert alert-info py-2 px-3 rounded-xl text-xs">
                 <span>OrgAdmin has <b>full authority</b> over the organization — all workspaces, members, roles, projects. No workspace assignment needed.</span>
               </div>
             }
-            @if ((customRolesQuery.data()?.length||0)===0 && inviteRole()!=='OrgAdmin') {
+            @if ((customRolesQuery.data()?.length||0)===0 && inviteRole()!==2) {
               <div class="alert alert-warning py-2 px-3 rounded-xl text-xs">
                 <span>No custom roles created yet — <a routerLink="/roles" class="link link-primary" (click)="showInvite.set(false)">Go to Roles</a> to create (e.g., Developer, QA). You can still add employee at organization level with role above; workspace assignment requires a custom role.</span>
               </div>
             }
-            @if (inviteRole()!=='OrgAdmin') {
+            @if (inviteRole()!==2) {
             <label class="form-control"><span class="label-text text-xs">Workspaces (per-workspace custom role — only custom roles)</span>
               <div class="border rounded-xl p-3 max-h-40 overflow-y-auto space-y-2" [class.opacity-60]="(customRolesQuery.data()?.length||0)===0">
                 @for (ws of workspacesQuery.data() || []; track ws.id) {
@@ -182,18 +182,18 @@
           <div class="mt-4 space-y-3">
             <label class="form-control"><span class="label-text text-xs">Full Name</span><input type="text" class="input input-bordered rounded-xl" [value]="editName()" (input)="editName.set($any($event.target).value)" /></label>
             <label class="form-control"><span class="label-text text-xs">Email</span><input type="email" class="input input-bordered rounded-xl" [value]="editEmail()" (input)="editEmail.set($any($event.target).value)" /></label>
-            <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="editRole()" (change)="editRole.set($any($event.target).value)"><option>Member</option><option>OrgAdmin</option><option>Client</option></select></label>
-            @if (editRole()==='OrgAdmin') {
+            <label class="form-control"><span class="label-text text-xs">Role (org level 3 — Member / OrgAdmin / Client)</span><select class="select select-bordered rounded-xl" [value]="editRole()" (change)="editRole.set(+$any($event.target).value)"><option [value]="1">Member</option><option [value]="2">OrgAdmin</option><option [value]="3">Client</option></select></label>
+            @if (editRole()===2) {
               <div class="alert alert-info py-2 px-3 rounded-xl text-xs">
                 <span>OrgAdmin has <b>full authority</b> — all workspaces, members, roles, projects. No workspace assignment needed.</span>
               </div>
             }
-            @if ((customRolesQuery.data()?.length||0)===0 && editRole()!=='OrgAdmin') {
+            @if ((customRolesQuery.data()?.length||0)===0 && editRole()!==2) {
               <div class="alert alert-warning py-2 px-3 rounded-xl text-xs">
                 <span>No custom roles — <a routerLink="/roles" class="link link-primary" (click)="editTarget.set(null)">Manage Roles</a> to add Developer/QA. Workspace assignment disabled.</span>
               </div>
             }
-            @if (editRole()!=='OrgAdmin') {
+            @if (editRole()!==2) {
             <label class="form-control"><span class="label-text text-xs">Workspaces (per-workspace custom role — only custom roles)</span>
               <div class="border rounded-xl p-3 max-h-40 overflow-y-auto space-y-2" [class.opacity-60]="(customRolesQuery.data()?.length||0)===0">
                 @for (ws of workspacesQuery.data() || []; track ws.id) {

@@ -115,6 +115,13 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
     await IdentitySeeder.SeedSuperAdminAsync(db);
+    try
+    {
+        // Backfill B: OrgAdmin promoted from Member retains CustomRoleId — clear for complete authority
+        await db.Database.ExecuteSqlRawAsync("UPDATE [identity].[WorkspaceMembers] SET CustomRoleId = NULL WHERE UserId IN (SELECT UserId FROM [identity].[OrganizationMembers] WHERE Role = 2)");
+        Log.Logger.Information("Backfill OrgAdmin CustomRoleId cleared for existing promoted users");
+    }
+    catch (Exception ex) { Log.Logger.Warning(ex, "Backfill OrgAdmin CustomRoleId failed"); }
 }
 
 if (app.Environment.IsDevelopment())

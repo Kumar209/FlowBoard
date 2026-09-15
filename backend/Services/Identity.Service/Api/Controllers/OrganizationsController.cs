@@ -305,7 +305,7 @@ public class OrganizationsController : ControllerBase
 
 public record CreateOrgRequest(string Name, string? Description = null);
 public record UpdateOrgRequest(string Name, string? Description);
-public record CreateEmployeeRequest(string FullName, string Email, string Password, string Role, Guid? WorkspaceId = null, List<Guid>? WorkspaceIds = null, List<Identity.Service.Application.Interfaces.WorkspaceRoleAssignment>? WorkspaceRoles = null);
-public record UpdateEmployeeRequest(string? FullName = null, string? Email = null, string? Role = null, Guid? WorkspaceId = null, List<Guid>? WorkspaceIds = null, List<Identity.Service.Application.Interfaces.WorkspaceRoleAssignment>? WorkspaceRoles = null);
+public record CreateEmployeeRequest(string FullName, string Email, string Password, int Role, Guid? WorkspaceId = null, List<Guid>? WorkspaceIds = null, List<Identity.Service.Application.Interfaces.WorkspaceRoleAssignment>? WorkspaceRoles = null);
+public record UpdateEmployeeRequest(string? FullName = null, string? Email = null, int? Role = null, Guid? WorkspaceId = null, List<Guid>? WorkspaceIds = null, List<Identity.Service.Application.Interfaces.WorkspaceRoleAssignment>? WorkspaceRoles = null);
 public record CreateComplaintRequest(string Subject, string Message);
 public record ReplyComplaintRequest(string Message);

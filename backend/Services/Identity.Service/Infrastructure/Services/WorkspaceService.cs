@@ -26,17 +26,32 @@ public class WorkspaceService : IWorkspaceService
 
     public async Task<(List<WorkspaceDto> Items, int Total)> GetMyWorkspacesAsync(Guid userId, int page, int pageSize, string? search, CancellationToken ct = default)
     {
-        var query = _db.WorkspaceMembers.Where(m => m.UserId == userId).Include(m => m.Workspace).AsQueryable();
+        // OrgAdmin sees all workspaces in orgs where they are OrgAdmin/Owner, even with 0 WorkspaceMembers (org-authoritative)
+        var adminOrgIds = await _db.OrganizationMembers.Where(m => m.UserId == userId && m.Role == Roles.OrgAdminValue).Select(m => m.OrganizationId).ToListAsync(ct);
+        var ownedOrgIds = await _db.Organizations.Where(o => o.OwnerId == userId).Select(o => o.Id).ToListAsync(ct);
+        var allAdminOrgIds = adminOrgIds.Union(ownedOrgIds).Distinct().ToList();
+        var adminWorkspaces = allAdminOrgIds.Any() ? await _db.Workspaces.Where(w => allAdminOrgIds.Contains(w.OrganizationId)).ToListAsync(ct) : new List<Workspace>();
+        var memberWorkspaces = await _db.WorkspaceMembers.Where(m => m.UserId == userId).Include(m => m.Workspace).Select(m => m.Workspace!).ToListAsync(ct);
+        var combined = adminWorkspaces.Union(memberWorkspaces).GroupBy(w => w.Id).Select(g => g.First()).ToList();
+        // Search
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.ToLowerInvariant();
-            query = query.Where(m => m.Workspace!.Name.ToLower().Contains(s) || m.Workspace!.Slug.ToLower().Contains(s));
+            combined = combined.Where(w => w.Name.ToLower().Contains(s) || w.Slug.ToLower().Contains(s)).ToList();
         }
-        var total = await query.CountAsync(ct);
-        var workspaces = await query.OrderBy(m => m.Workspace!.Name).Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(m => new WorkspaceDto(m.Workspace!.Id, m.Workspace.Name, m.Workspace.Slug, m.Workspace.OrganizationId, m.Role.ToString()))
-            .ToListAsync(ct);
-        return (workspaces, total);
+        var total = combined.Count;
+        var paged = combined.OrderBy(w => w.Name).Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        // Determine role per workspace: if admin org, OrgAdmin else from membership
+        var memberMap = await _db.WorkspaceMembers.Where(m => m.UserId == userId).ToDictionaryAsync(m => m.WorkspaceId, m => m.Role, ct);
+        var result = paged.Select(w =>
+        {
+            string roleStr;
+            if (allAdminOrgIds.Contains(w.OrganizationId)) roleStr = Roles.OrgAdmin.ToString();
+            else if (memberMap.TryGetValue(w.Id, out var r)) roleStr = r.ToString();
+            else roleStr = Roles.Member.ToString();
+            return new WorkspaceDto(w.Id, w.Name, w.Slug, w.OrganizationId, roleStr);
+        }).ToList();
+        return (result, total);
     }
 
     public async Task<WorkspaceDto> CreateWorkspaceAsync(Guid organizationId, string name, Guid userId, CancellationToken ct = default)
