@@ -98,31 +98,24 @@
           <p class="mt-0.5 text-xs text-base-content/50">Current task distribution across the workflow</p>
         </div>
 
-        <div class="grid grid-cols-3 gap-2 sm:gap-3">
-          <div class="rounded-xl border border-info/20 bg-base-100 p-3 sm:p-4">
-            <div class="flex items-center gap-2">
-              <span class="h-2 w-2 rounded-full bg-info"></span>
-              <span class="text-xs font-medium text-base-content/60">To Do</span>
-            </div>
-            <p class="mt-2 text-xl font-semibold text-base-content sm:text-2xl">{{ todoCount(b) }}</p>
+        @if (workStatus(b).length === 0) {
+          <div class="rounded-xl border border-dashed border-base-300 bg-base-100 p-6 text-center">
+            <p class="text-sm font-medium text-base-content">No tasks yet</p>
+            <p class="mt-1 text-xs text-base-content/60">Create issues to see distribution.</p>
           </div>
-
-          <div class="rounded-xl border border-warning/20 bg-base-100 p-3 sm:p-4">
-            <div class="flex items-center gap-2">
-              <span class="h-2 w-2 rounded-full bg-warning"></span>
-              <span class="text-xs font-medium text-base-content/60">In Review</span>
-            </div>
-            <p class="mt-2 text-xl font-semibold text-base-content sm:text-2xl">{{ inReviewCount(b) }}</p>
+        } @else {
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
+            @for (ws of workStatus(b); track ws.name) {
+              <div class="rounded-xl border bg-base-100 p-3 sm:p-4" [ngClass]="ws.name.toLowerCase().includes('done') ? 'border-success/20' : ws.name.toLowerCase().includes('review') || ws.name.toLowerCase().includes('progress') ? 'border-warning/20' : ws.name.toLowerCase().includes('todo') ? 'border-info/20' : 'border-base-300'">
+                <div class="flex items-center gap-2">
+                  <span class="h-2 w-2 rounded-full" [ngClass]="ws.name.toLowerCase().includes('done') ? 'bg-success' : ws.name.toLowerCase().includes('review') || ws.name.toLowerCase().includes('progress') ? 'bg-warning' : ws.name.toLowerCase().includes('todo') ? 'bg-info' : 'bg-primary'"></span>
+                  <span class="truncate text-xs font-medium text-base-content/60">{{ ws.name }}</span>
+                </div>
+                <p class="mt-2 text-xl font-semibold text-base-content sm:text-2xl">{{ ws.count }}</p>
+              </div>
+            }
           </div>
-
-          <div class="rounded-xl border border-success/20 bg-base-100 p-3 sm:p-4">
-            <div class="flex items-center gap-2">
-              <span class="h-2 w-2 rounded-full bg-success"></span>
-              <span class="text-xs font-medium text-base-content/60">Done</span>
-            </div>
-            <p class="mt-2 text-xl font-semibold text-base-content sm:text-2xl">{{ doneCount(b) }}</p>
-          </div>
-        </div>
+        }
       </section>
 
       <section class="mb-6 grid gap-4 lg:grid-cols-3">

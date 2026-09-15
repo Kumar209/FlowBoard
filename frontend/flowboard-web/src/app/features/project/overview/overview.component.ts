@@ -87,6 +87,16 @@ export class OverviewComponent {
     enabled: !!this.projectId()
   }));
 
+  workStatus(b: any): { name: string; count: number }[] {
+    if (!b?.tasks?.length) return [];
+    const map = new Map<string, number>();
+    for (const t of b.tasks) {
+      const key = (t.status || 'Unknown') as string;
+      map.set(key, (map.get(key) || 0) + 1);
+    }
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  }
+
   todoCount(b: any) {
     return b?.tasks?.filter((t: any) => b.lists[0] && t.listId === b.lists[0].id).length || 0;
   }
