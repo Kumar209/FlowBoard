@@ -273,9 +273,45 @@ public class OrganizationService : IOrganizationService
         if (org == null) throw new NotFoundException("Organization not found");
         if (!await IsOrgAdminAsync(organizationId, callerId, ct)) throw new ForbiddenException("Forbidden - Need OrgAdmin");
         if (userId == org.OwnerId) throw new ValidationException("Cannot remove organization owner");
+        // 1. Remove OrganizationMember row (org-level)
+        var orgMember = await _db.OrganizationMembers.FirstOrDefaultAsync(m => m.OrganizationId == organizationId && m.UserId == userId, ct);
+        if (orgMember != null) _db.OrganizationMembers.Remove(orgMember);
+        // 2. Remove all WorkspaceMembers in this org
         var workspaceIds = await _db.Workspaces.Where(w => w.OrganizationId == organizationId).Select(w => w.Id).ToListAsync(ct);
-        var memberships = await _db.WorkspaceMembers.Where(m => m.UserId == userId && workspaceIds.Contains(m.WorkspaceId)).ToListAsync(ct);
-        _db.WorkspaceMembers.RemoveRange(memberships);
+        if (workspaceIds.Any())
+        {
+            var memberships = await _db.WorkspaceMembers.Where(m => m.UserId == userId && workspaceIds.Contains(m.WorkspaceId)).ToListAsync(ct);
+            if (memberships.Any()) _db.WorkspaceMembers.RemoveRange(memberships);
+        }
+        // 3. Cross-schema: ProjectMembers, Tasks AssigneeId, TeamMembers — same physical DB flowboard, different schemas
+        if (workspaceIds.Any())
+        {
+            var wsList = string.Join(",", workspaceIds.Select(id => $"'{id}'"));
+            try
+            {
+                var conn = _db.Database.GetDbConnection();
+                if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync(ct);
+                // ProjectMembers
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = $"DELETE FROM [project].[ProjectMembers] WHERE UserId = '{userId}' AND ProjectId IN (SELECT Id FROM [project].[Projects] WHERE WorkspaceId IN ({wsList}))";
+                    await cmd.ExecuteNonQueryAsync(ct);
+                }
+                // Tasks assignee -> NULL
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = $"UPDATE [project].[Tasks] SET AssigneeId = NULL WHERE AssigneeId = '{userId}' AND ProjectId IN (SELECT Id FROM [project].[Projects] WHERE WorkspaceId IN ({wsList}))";
+                    await cmd.ExecuteNonQueryAsync(ct);
+                }
+                // TeamMembers
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = $"DELETE FROM [project].[TeamMembers] WHERE UserId = '{userId}' AND TeamId IN (SELECT Id FROM [project].[Teams] WHERE ProjectId IN (SELECT Id FROM [project].[Projects] WHERE WorkspaceId IN ({wsList})))";
+                    await cmd.ExecuteNonQueryAsync(ct);
+                }
+            }
+            catch { /* cross-schema best-effort, Identity SaveChanges still proceeds */ }
+        }
         await _db.SaveChangesAsync(ct);
     }
 }

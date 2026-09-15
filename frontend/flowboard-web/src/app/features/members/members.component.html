@@ -60,7 +60,7 @@
                   <td>
                     <div class="flex gap-1">
                       <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(m)">Edit</button>
-                      @if (canInvite()) { <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmRemove(m)">Remove</button> }
+                      @if (canInvite()) { <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmRemove(m)">Delete</button> }
                     </div>
                   </td>
                 </tr>
@@ -92,7 +92,7 @@
             </div>
             <div class="flex gap-1 mt-2">
               <button class="btn btn-ghost btn-xs rounded-full flex-1" (click)="openEdit(m)">Edit</button>
-              @if (canInvite()) { <button class="btn btn-ghost btn-xs rounded-full text-error flex-1" (click)="confirmRemove(m)">Remove</button> }
+              @if (canInvite()) { <button class="btn btn-ghost btn-xs rounded-full text-error flex-1" (click)="confirmRemove(m)">Delete</button> }
             </div>
           </div>
         }
@@ -219,6 +219,20 @@
           <div class="flex justify-end gap-2 mt-6">
             <button class="btn btn-ghost rounded-xl" (click)="editTarget.set(null)">Cancel</button>
             <button class="btn btn-primary rounded-xl" (click)="saveEdit()" [class.loading]="updateMutation.isPending()">Save</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (deleteConfirmMember()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="cancelDelete()"></div>
+        <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
+          <h3 class="font-bold text-error">Delete member?</h3>
+          <p class="text-sm opacity-70 mt-2">This will permanently delete <span class="font-semibold">{{ deleteConfirmMember()!.fullName }}</span> ({{ deleteConfirmMember()!.email }}) from the organization and <b>deallocate from all workspaces, projects, issues (assignee), teams and roles</b>. This cannot be undone.</p>
+          <div class="flex justify-end gap-2 mt-6">
+            <button class="btn btn-ghost rounded-xl" (click)="cancelDelete()">Cancel</button>
+            <button class="btn btn-error rounded-xl" (click)="doDelete()" [class.loading]="removeMutation.isPending()">Delete</button>
           </div>
         </div>
       </div>

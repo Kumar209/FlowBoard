@@ -179,7 +179,15 @@ export class MembersComponent {
     this.showInvite.set(true);
   }
   doInvite(){ if(!this.inviteFullName().trim() || !this.inviteEmail().trim() || !this.invitePassword().trim()) return; this.inviteMutation.mutate(); }
-  confirmRemove(m:any){ this.removeMutation.mutate(m.userId); }
+  deleteConfirmMember = signal<any | null>(null);
+  confirmRemove(m:any){ this.deleteConfirmMember.set(m); }
+  cancelDelete(){ this.deleteConfirmMember.set(null); }
+  doDelete(){
+    const m = this.deleteConfirmMember();
+    if (!m) return;
+    this.removeMutation.mutate(m.userId);
+    this.deleteConfirmMember.set(null);
+  }
   onInviteWorkspaceChecked(workspaceId: string, checked: boolean){
     if(checked){
       const customRoles = (this.customRolesQuery.data() as any[]) || [];
