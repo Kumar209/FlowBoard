@@ -170,6 +170,13 @@ export interface AiPlatformUsage {
   operations: AiOperationUsage[];
   failures: AiFailure[];
 }
+export interface ComplaintsResponse {
+  items: any[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface PlatformSettings {
   general: { platformName: string; logoUrl: string; supportEmail: string; language: string; timezone: string };
   security: { mfaEnabled: boolean; sessionTimeout: string; passwordPolicy: string; maxLoginAttempts: number; lockoutMinutes: number };
@@ -228,8 +235,8 @@ export class SuperAdminService {
   getNotices(orgId: string) {
     return this.http.get<any[]>(`${environment.apiUrl}/api/organizations/${orgId}/notices`, { withCredentials: true });
   }
-  getComplaints(orgId: string) {
-    return this.http.get<any[]>(`${environment.apiUrl}/api/organizations/${orgId}/complaints`, { withCredentials: true });
+  getComplaints(orgId: string, page = 1, pageSize = 10) {
+    return this.http.get<ComplaintsResponse>(`${environment.apiUrl}/api/organizations/${orgId}/complaints`, { params: { page, pageSize } as any, withCredentials: true });
   }
   createComplaint(orgId: string, subject: string, message: string) {
     return this.http.post(`${environment.apiUrl}/api/organizations/${orgId}/complaints`, { subject, message }, { withCredentials: true });
@@ -237,10 +244,10 @@ export class SuperAdminService {
   replyComplaint(orgId: string, complaintId: string, message: string) {
     return this.http.post(`${environment.apiUrl}/api/organizations/${orgId}/complaints/${complaintId}/reply`, { message }, { withCredentials: true });
   }
-  getSuperAdminComplaints(orgId?: string) {
-    let params: any = {};
+  getSuperAdminComplaints(orgId?: string, page = 1, pageSize = 10) {
+    let params: any = { page, pageSize };
     if (orgId) params.organizationId = orgId;
-    return this.http.get<any[]>(`${environment.apiUrl}/api/superadmin/complaints`, { params, withCredentials: true });
+    return this.http.get<ComplaintsResponse>(`${environment.apiUrl}/api/superadmin/complaints`, { params, withCredentials: true });
   }
   replyAsSuperAdmin(complaintId: string, message: string) {
     return this.http.post(`${environment.apiUrl}/api/superadmin/complaints/${complaintId}/reply`, { message }, { withCredentials: true });

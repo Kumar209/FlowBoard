@@ -161,7 +161,7 @@ public class OrganizationsController : ControllerBase
     }
 
     [HttpGet("{id}/complaints")]
-    public async Task<IActionResult> GetComplaints(Guid id)
+    public async Task<IActionResult> GetComplaints(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var callerId = GetUserId(); if (callerId == null) return Unauthorized();
         var isSuper = Roles.IsSuperAdmin(GetRoles());
@@ -172,8 +172,8 @@ public class OrganizationsController : ControllerBase
             if (!isMember) return StatusCode(403, new { error = "Forbidden" });
         }
         var svc = HttpContext.RequestServices.GetRequiredService<ISuperAdminService>();
-        var list = await svc.GetComplaintsAsync(id);
-        return Ok(list);
+        var result = await svc.GetComplaintsAsync(id, page, pageSize);
+        return Ok(result);
     }
 
     [HttpPost("{id}/complaints")]

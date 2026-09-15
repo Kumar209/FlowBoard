@@ -80,9 +80,9 @@
               </div>
 
               @if (auth.isSuperAdmin()) {
-                @if (complaintsQuery.data(); as list) {
+                @if (complaintsQuery.data(); as _raw) {
                   <div class="max-h-80 overflow-y-auto p-2">
-                    @for (c of list.slice(0,5); track c.id) {
+                    @for (c of getComplaintsList().slice(0,5); track c.id) {
                       <div class="flex cursor-pointer items-start gap-2.5 rounded-xl p-2.5 transition-colors hover:bg-base-200" [class.bg-warning/10]="c.status==='Open'" (click)="closeNotif(); router.navigate(['/superadmin/support', c.id])">
                         <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" [ngClass]="c.status==='Open'?'bg-warning':c.status==='Replied'?'bg-success':'bg-base-content/20'"></span>
                         <div class="min-w-0 flex-1">
@@ -92,7 +92,7 @@
                         <span class="shrink-0 text-[9px] opacity-40">{{ c.createdByName | slice:0:12 }}</span>
                       </div>
                     }
-                    @if (list.length===0) {
+                    @if (getComplaintsList().length===0) {
                       <p class="py-8 text-center text-xs opacity-40">No complaints</p>
                     }
                   </div>

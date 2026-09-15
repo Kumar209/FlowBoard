@@ -12,7 +12,7 @@
   } @else {
     <div class="flex gap-2 items-center">
       <label class="text-sm opacity-70">Organization</label>
-      <select class="select select-bordered select-sm" [ngModel]="orgId()" (ngModelChange)="orgId.set($event)">
+      <select class="select select-bordered select-sm" [ngModel]="orgId()" (ngModelChange)="orgId.set($event); page.set(1)">
         @for (o of getOrgs(); track o.id) {
           <option [value]="o.id">{{ o.name }}</option>
         }
@@ -23,7 +23,7 @@
       <div class="card-body p-0">
         <div class="p-4 flex items-center justify-between">
           <h3 class="font-semibold">Your Complaints</h3>
-          <span class="badge badge-ghost badge-sm">{{ complaints.length }} total</span>
+          <span class="badge badge-ghost badge-sm">{{ total }} total</span>
         </div>
         @if (complaintsQuery.isPending()) { <div class="py-8 grid place-items-center"><span class="loading loading-spinner"></span></div> }
         @else if (complaints.length === 0) { <div class="text-sm opacity-50 py-8 text-center">No complaints yet — create one</div> }
@@ -36,7 +36,7 @@
               <tbody>
                 @for (c of complaints; track c.id; let i = $index) {
                   <tr class="hover">
-                    <td>{{ i + 1 }}</td>
+                    <td>{{ (page() - 1) * pageSize() + i + 1 }}</td>
                     <td class="font-medium max-w-[260px] truncate">{{ c.subject }}</td>
                     <td>
                       <div class="flex flex-col">
@@ -57,6 +57,27 @@
                 }
               </tbody>
             </table>
+          </div>
+          <div class="px-3 py-4 sm:px-4 border-t border-base-200">
+            <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+              <div class="text-xs text-base-content/70 text-center sm:text-left">
+                Showing <span class="font-medium text-base-content">{{ showingFrom }}</span> to <span class="font-medium text-base-content">{{ showingTo }}</span> of <span class="font-medium text-base-content">{{ total }}</span> complaints
+              </div>
+              <div class="flex w-full items-center justify-center gap-1 sm:gap-1.5">
+                <button class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30" [disabled]="page() <= 1" (click)="firstPage()" aria-label="First page">«</button>
+                <button class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30" [disabled]="page() <= 1" (click)="previousPage()" aria-label="Previous page">‹</button>
+                @for (p of visiblePages(); track p) {
+                  <button class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium" [class.btn-primary]="page() === p" [class.btn-ghost]="page() !== p" [class.text-base-content]="page() !== p" (click)="page.set(p)">{{ p }}</button>
+                }
+                <button class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30" [disabled]="page() >= totalPages" (click)="nextPage()" aria-label="Next page">›</button>
+                <button class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30" [disabled]="page() >= totalPages" (click)="lastPage()" aria-label="Last page">»</button>
+              </div>
+              <div class="flex items-center justify-center gap-2 text-xs sm:justify-end">
+                <span>Rows</span>
+                <select class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm" [value]="pageSize()" (change)="onPageSizeChange($any($event.target).value)"><option value="10">10</option><option value="20">20</option><option value="50">50</option></select>
+                <span>per page</span>
+              </div>
+            </div>
           </div>
         }
       </div>

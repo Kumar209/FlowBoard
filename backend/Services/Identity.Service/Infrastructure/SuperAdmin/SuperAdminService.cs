@@ -497,12 +497,15 @@ public class SuperAdminService : ISuperAdminService
         return await _db.PlatformNotices.Where(n => n.OrganizationId == organizationId && n.IsActive).OrderByDescending(n => n.CreatedAt).ToListAsync(ct);
     }
 
-    public async Task<List<ComplaintDto>> GetComplaintsAsync(Guid? organizationId, CancellationToken ct = default)
+    public async Task<ComplaintsResponse> GetComplaintsAsync(Guid? organizationId, int page = 1, int pageSize = 10, CancellationToken ct = default)
     {
+        page = Math.Clamp(page, 1, 1000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
         var q = _db.Complaints.AsQueryable();
         if (organizationId.HasValue) q = q.Where(c => c.OrganizationId == organizationId.Value);
-        var complaints = await q.OrderByDescending(c => c.CreatedAt).ToListAsync(ct);
-        if (!complaints.Any()) return new List<ComplaintDto>();
+        var total = await q.CountAsync(ct);
+        var complaints = await q.OrderByDescending(c => c.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        if (!complaints.Any()) return new ComplaintsResponse(new List<ComplaintDto>(), total, page, pageSize);
         var orgIds = complaints.Select(c => c.OrganizationId).Distinct().ToList();
         var orgMap = await _db.Organizations.Where(o => orgIds.Contains(o.Id)).ToDictionaryAsync(o => o.Id, o => o.Name, ct);
         var userIds = complaints.Select(c => c.CreatedByUserId).Distinct().ToList();
@@ -527,7 +530,7 @@ public class SuperAdminService : ISuperAdminService
             var roleLabel = roleVal >= 0 ? Roles.GetLabel(roleVal) : "Member";
             list.Add(new ComplaintDto(c.Id, c.OrganizationId, orgName ?? c.OrganizationId.ToString()[..8], c.CreatedByUserId, user?.FullName ?? "Unknown", user?.Email ?? "-", roleLabel, c.Subject, c.Message, c.Status, c.CreatedAt));
         }
-        return list;
+        return new ComplaintsResponse(list, total, page, pageSize);
     }
 
     public async Task<ComplaintDto> CreateComplaintAsync(Guid organizationId, Guid userId, string subject, string message, CancellationToken ct = default)

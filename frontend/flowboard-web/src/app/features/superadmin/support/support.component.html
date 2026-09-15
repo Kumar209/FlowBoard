@@ -4,7 +4,7 @@
       <h1 class="text-2xl font-bold">Support — Complaints</h1>
       <div class="text-xs opacity-60 mt-1">All organization complaints. Click view to see threaded replies and respond.</div>
     </div>
-    <span class="badge badge-ghost badge-sm">{{ complaints.length }} total</span>
+    <span class="badge badge-ghost badge-sm">{{ total }} total</span>
   </div>
 
   @if (query.isPending()) {
@@ -22,7 +22,7 @@
             <tbody>
               @for (c of complaints; track c.id; let i = $index) {
                 <tr class="hover">
-                  <td>{{ i + 1 }}</td>
+                  <td>{{ (page() - 1) * pageSize() + i + 1 }}</td>
                   <td class="font-medium max-w-[260px] truncate">{{ c.subject }}</td>
                   <td class="text-sm" [title]="c.organizationId">{{ c.organizationName || (c.organizationId | slice:0:8) }}</td>
                   <td><span class="badge badge-sm" [ngClass]="c.status === 'Replied' ? 'badge-success' : c.status === 'Closed' ? 'badge-ghost' : 'badge-warning'">{{ c.status }}</span></td>
@@ -35,6 +35,27 @@
               }
             </tbody>
           </table>
+        </div>
+        <div class="px-3 py-4 sm:px-4 border-t border-base-200">
+          <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+            <div class="text-xs text-base-content/70 text-center sm:text-left">
+              Showing <span class="font-medium text-base-content">{{ showingFrom }}</span> to <span class="font-medium text-base-content">{{ showingTo }}</span> of <span class="font-medium text-base-content">{{ total }}</span> complaints
+            </div>
+            <div class="flex w-full items-center justify-center gap-1 sm:gap-1.5">
+              <button class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30" [disabled]="page() <= 1" (click)="firstPage()" aria-label="First page">«</button>
+              <button class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30" [disabled]="page() <= 1" (click)="previousPage()" aria-label="Previous page">‹</button>
+              @for (p of visiblePages(); track p) {
+                <button class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium" [class.btn-primary]="page() === p" [class.btn-ghost]="page() !== p" [class.text-base-content]="page() !== p" (click)="page.set(p)">{{ p }}</button>
+              }
+              <button class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30" [disabled]="page() >= totalPages" (click)="nextPage()" aria-label="Next page">›</button>
+              <button class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30" [disabled]="page() >= totalPages" (click)="lastPage()" aria-label="Last page">»</button>
+            </div>
+            <div class="flex items-center justify-center gap-2 text-xs sm:justify-end">
+              <span>Rows</span>
+              <select class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm" [value]="pageSize()" (change)="onPageSizeChange($any($event.target).value)"><option value="10">10</option><option value="20">20</option><option value="50">50</option></select>
+              <span>per page</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

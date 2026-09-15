@@ -55,10 +55,15 @@ export class HeaderComponent {
     staleTime: 30 * 1000,
   }));
 
+  getComplaintsList(): any[] {
+    const d: any = this.complaintsQuery.data();
+    if (!d) return [];
+    if (Array.isArray(d)) return d;
+    return d.items ?? [];
+  }
   unread = computed(() => {
     if (this.auth.isSuperAdmin()) {
-      const list: any = this.complaintsQuery.data();
-      if (!Array.isArray(list)) return 0;
+      const list: any = this.getComplaintsList();
       return list.filter((c: any) => c.status === 'Open').length;
     }
     const d: any = this.notificationsQuery.data();

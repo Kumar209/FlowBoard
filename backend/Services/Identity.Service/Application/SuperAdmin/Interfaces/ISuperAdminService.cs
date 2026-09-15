@@ -17,7 +17,7 @@ public interface ISuperAdminService
     Task ReactivateUserAsync(Guid userId, Guid actorId, CancellationToken ct = default);
     Task DeleteUserAsync(Guid userId, Guid actorId, CancellationToken ct = default);
     Task<List<PlatformNotice>> GetActiveNoticesAsync(Guid organizationId, CancellationToken ct = default);
-    Task<List<ComplaintDto>> GetComplaintsAsync(Guid? organizationId, CancellationToken ct = default);
+    Task<ComplaintsResponse> GetComplaintsAsync(Guid? organizationId, int page = 1, int pageSize = 10, CancellationToken ct = default);
     Task<ComplaintDto> CreateComplaintAsync(Guid organizationId, Guid userId, string subject, string message, CancellationToken ct = default);
     Task<ComplaintReplyDto> ReplyToComplaintAsync(Guid complaintId, Guid authorId, string message, bool isSuperAdmin, CancellationToken ct = default);
     Task<ComplaintDetailDto> GetComplaintDetailAsync(Guid complaintId, CancellationToken ct = default);

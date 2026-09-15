@@ -144,11 +144,11 @@ public class SuperAdminController : ControllerBase
     }
 
     [HttpGet("complaints")]
-    public async Task<IActionResult> GetComplaints([FromQuery] Guid? organizationId)
+    public async Task<IActionResult> GetComplaints([FromQuery] Guid? organizationId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
-        var list = await _superAdminService.GetComplaintsAsync(organizationId);
-        return Ok(list);
+        var result = await _superAdminService.GetComplaintsAsync(organizationId, page, pageSize);
+        return Ok(result);
     }
 
     [HttpPost("complaints/{complaintId}/reply")]

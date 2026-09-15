@@ -27,6 +27,8 @@ export class SupportComponent {
   message = signal('');
   showCreateModal = signal(false);
   deleteConfirmId = signal<string | null>(null);
+  page = signal(1);
+  pageSize = signal(10);
 
   orgsQuery = injectQuery(() => ({
     queryKey: ['organizations'] as const,
@@ -34,12 +36,38 @@ export class SupportComponent {
   }));
 
   complaintsQuery = injectQuery(() => ({
-    queryKey: ['complaints', this.orgId()] as const,
-    queryFn: () => firstValueFrom(this.sa.getComplaints(this.orgId())),
+    queryKey: ['complaints', this.orgId(), this.page(), this.pageSize()] as const,
+    queryFn: () => firstValueFrom(this.sa.getComplaints(this.orgId(), this.page(), this.pageSize())),
     enabled: !!this.orgId(),
   }));
 
-  get complaints() { return this.complaintsQuery.data() ?? []; }
+  get complaints() {
+    const d: any = this.complaintsQuery.data();
+    if (!d) return [];
+    if (Array.isArray(d)) return d;
+    return d.items ?? [];
+  }
+  get total() {
+    const d: any = this.complaintsQuery.data();
+    if (!d) return 0;
+    if (Array.isArray(d)) return d.length;
+    return d.total ?? 0;
+  }
+  get totalPages() { return Math.max(1, Math.ceil(this.total / this.pageSize())); }
+  get showingFrom() { return this.total === 0 ? 0 : (this.page() - 1) * this.pageSize() + 1; }
+  get showingTo() { return Math.min(this.page() * this.pageSize(), this.total); }
+  visiblePages(): number[] {
+    const total = this.totalPages; const cur = this.page(); const range = 2;
+    let start = Math.max(1, cur - range), end = Math.min(total, cur + range);
+    if (cur <= 3) end = Math.min(total, 5);
+    if (cur >= total - 2) start = Math.max(1, total - 4);
+    const pages: number[] = []; for (let i = start; i <= end; i++) pages.push(i); return pages;
+  }
+  previousPage() { if (this.page() > 1) this.page.set(this.page() - 1); }
+  nextPage() { if (this.page() < this.totalPages) this.page.set(this.page() + 1); }
+  firstPage() { this.page.set(1); }
+  lastPage() { this.page.set(this.totalPages); }
+  onPageSizeChange(v: any) { this.pageSize.set(Number(v) || 10); this.page.set(1); }
 
   getOrgs(): any[] {
     const data: any = this.orgsQuery.data();
@@ -59,13 +87,13 @@ export class SupportComponent {
 
   createMutation = injectMutation(() => ({
     mutationFn: () => firstValueFrom(this.sa.createComplaint(this.orgId(), this.subject().trim(), this.message().trim())),
-    onSuccess: () => { this.toast.success('Complaint sent to platform'); this.subject.set(''); this.message.set(''); this.showCreateModal.set(false); this.qc.invalidateQueries({ queryKey: ['complaints', this.orgId()] }); },
+    onSuccess: () => { this.toast.success('Complaint sent to platform'); this.subject.set(''); this.message.set(''); this.showCreateModal.set(false); this.page.set(1); this.qc.invalidateQueries({ queryKey: ['complaints'] }); },
     onError: (e: any) => this.toast.error(e.error?.error || 'Failed to send')
   }));
 
   deleteMutation = injectMutation(() => ({
     mutationFn: (complaintId: string) => firstValueFrom(this.sa.deleteComplaint(this.orgId(), complaintId)),
-    onSuccess: () => { this.toast.success('Complaint deleted'); this.deleteConfirmId.set(null); this.qc.invalidateQueries({ queryKey: ['complaints', this.orgId()] }); },
+    onSuccess: () => { this.toast.success('Complaint deleted'); this.deleteConfirmId.set(null); this.qc.invalidateQueries({ queryKey: ['complaints'] }); },
     onError: (e: any) => this.toast.error(e.error?.error || 'Delete failed')
   }));
 

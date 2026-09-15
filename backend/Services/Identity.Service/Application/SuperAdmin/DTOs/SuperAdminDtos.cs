@@ -157,6 +157,13 @@ public record ComplaintDetailDto(
     List<ComplaintReplyDto> Replies
 );
 
+public record ComplaintsResponse(
+    List<ComplaintDto> Items,
+    int Total,
+    int Page,
+    int PageSize
+);
+
 public record PlatformActivityDto(
     Guid Id,
     DateTime OccurredOn,
