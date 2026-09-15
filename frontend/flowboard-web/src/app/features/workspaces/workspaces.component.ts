@@ -11,16 +11,11 @@ import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-d
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { getRoleLabel } from '../../shared/constants/roles';
 
-/**
- * WorkspacesComponent - modals for Create/Update + Delete warning + hash gradient icon.
- * OrgAdmin only sees ⋮ Edit/Delete; others view-only.
- */
 @Component({
   selector: 'app-workspaces',
   standalone: true,
   imports: [CommonModule, RouterLink, WorkspaceModalComponent, ConfirmDeleteComponent],
   templateUrl: './workspaces.component.html',
-  styleUrls: ['./workspaces.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class WorkspacesComponent {
@@ -31,57 +26,74 @@ export class WorkspacesComponent {
   private perm = inject(PermissionService);
 
   page = signal(1);
-  pageSize = 12;
+  pageSize = signal(10);
   search = signal('');
   private searchDebounce: any;
 
   workspacesQuery = injectQuery(() => ({
-    queryKey: ['workspaces', this.page(), this.search()] as const,
-    queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspacesPaginated(this.page(), this.pageSize, this.search() || undefined)),
+    queryKey: ['workspaces', this.page(), this.pageSize(), this.search()] as const,
+    queryFn: () => firstValueFrom(
+      this.workspaceService.getMyWorkspacesPaginated(
+        this.page(),
+        this.pageSize(),
+        this.search() || undefined
+      )
+    )
   }));
 
-  // For dropdown modals (create workspace needs orgs, not paginated workspaces)
   allWorkspacesQuery = injectQuery(() => ({
     queryKey: ['workspaces-all'] as const,
-    queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspaces()),
+    queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspaces())
   }));
 
   orgsQuery = injectQuery(() => ({
     queryKey: ['organizations'] as const,
-    queryFn: () => firstValueFrom(this.workspaceService.getMyOrganizations()),
+    queryFn: () => firstValueFrom(this.workspaceService.getMyOrganizations())
   }));
 
   canCreateWorkspace = computed(() => this.auth.canCreateWorkspace());
   hasCustomCreate = signal(false);
   canCreateWorkspaceEffective = computed(() => this.canCreateWorkspace() || this.hasCustomCreate());
+
   total = computed(() => this.workspacesQuery.data()?.total || 0);
 
-  constructor() {
-    effect(async () => {
-      const orgs: any = this.orgsQuery.data();
-      if (!orgs || !Array.isArray(orgs) || orgs.length === 0) return;
-      for (const org of orgs) {
-        try {
-          if (await this.perm.hasOrgPermission(org.id, 'workspace:create')) { this.hasCustomCreate.set(true); break; }
-        } catch {}
-      }
-    }, { allowSignalWrites: true });
-  }
-  totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
+  totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
 
-  // Modals signals
+  showingFrom = computed(() => {
+    if (this.total() === 0) return 0;
+    return (this.page() - 1) * this.pageSize() + 1;
+  });
+
+  showingTo = computed(() => {
+    if (this.total() === 0) return 0;
+    return Math.min(this.page() * this.pageSize(), this.total());
+  });
+
   createOpen = signal(false);
   editOpen = signal(false);
   deleteOpen = signal(false);
   editing = signal<any>(null);
   createError = signal<string | null>(null);
 
-  gradientFor(slug: string) {
-    const grads = ['from-violet-600 to-primary', 'from-cyan-500 to-blue-500', 'from-emerald-500 to-teal-500', 'from-amber-500 to-orange-500', 'from-pink-500 to-rose-500', 'from-indigo-500 to-purple-500'];
-    let h = 0; for (let i=0;i<slug.length;i++) h = (h*31 + slug.charCodeAt(i)) >>>0;
-    return grads[h % grads.length];
+  constructor() {
+    effect(async () => {
+      const orgs: any = this.orgsQuery.data();
+      if (!orgs || !Array.isArray(orgs) || orgs.length === 0) return;
+
+      for (const org of orgs) {
+        try {
+          if (await this.perm.hasOrgPermission(org.id, 'workspace:create')) {
+            this.hasCustomCreate.set(true);
+            break;
+          }
+        } catch {}
+      }
+    }, { allowSignalWrites: true });
   }
-  getRoleLabel(v: any) { return getRoleLabel(v); }
+
+  getRoleLabel(v: any) {
+    return getRoleLabel(v);
+  }
 
   createMutation = injectMutation(() => ({
     mutationFn: (vars: { organizationId: string; name: string }) =>
@@ -93,22 +105,32 @@ export class WorkspacesComponent {
       this.createOpen.set(false);
       this.createError.set(null);
       this.toast.success('Workspace created');
-      // Refresh token + memberships so new workspace_id appears in JWT (Image 2 fix: avoid Forbidden on next project create)
+
       this.auth.refresh().subscribe({
         next: res => {
           this.auth.accessToken.set(res.accessToken);
-          this.auth.me().subscribe({ next: m => this.auth.hydrateFromMe(m as any), error: () => {} });
+          this.auth.me().subscribe({
+            next: m => this.auth.hydrateFromMe(m as any),
+            error: () => {}
+          });
         },
         error: () => {
-          this.auth.me().subscribe({ next: m => this.auth.hydrateFromMe(m as any), error: () => {} });
+          this.auth.me().subscribe({
+            next: m => this.auth.hydrateFromMe(m as any),
+            error: () => {}
+          });
         }
       });
     },
-    onError: (err: any) => { const m = err.error?.error || 'Create failed'; this.createError.set(m); this.toast.error(m); },
+    onError: (err: any) => {
+      const m = err.error?.error || 'Create failed';
+      this.createError.set(m);
+      this.toast.error(m);
+    }
   }));
 
   updateMutation = injectMutation(() => ({
-    mutationFn: (vars: { id:string; name:string; slug:string }) =>
+    mutationFn: (vars: { id: string; name: string; slug: string }) =>
       firstValueFrom(this.workspaceService.updateWorkspace(vars.id, vars.name, vars.slug)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['workspaces'] });
@@ -116,26 +138,65 @@ export class WorkspacesComponent {
       this.editOpen.set(false);
       this.toast.success('Workspace updated');
     },
-    onError: (err: any) => this.toast.error(err.error?.error || 'Update failed'),
+    onError: (err: any) => this.toast.error(err.error?.error || 'Update failed')
   }));
 
   deleteMutation = injectMutation(() => ({
-    mutationFn: (id:string) => firstValueFrom(this.workspaceService.deleteWorkspace(id)),
+    mutationFn: (id: string) =>
+      firstValueFrom(this.workspaceService.deleteWorkspace(id)),
     onSuccess: () => {
       this.queryClient.invalidateQueries({ queryKey: ['workspaces'] });
       this.queryClient.invalidateQueries({ queryKey: ['workspaces-all'] });
       this.deleteOpen.set(false);
       this.toast.success('Workspace deleted');
     },
-    onError: (err:any) => this.toast.error(err.error?.error || 'Delete failed'),
+    onError: (err: any) => this.toast.error(err.error?.error || 'Delete failed')
   }));
 
-   onSearch(val: string) { clearTimeout(this.searchDebounce); this.searchDebounce = setTimeout(() => { this.search.set(val); this.page.set(1); }, 300); }
-  openCreate() { this.createError.set(null); this.createOpen.set(true); }
-  openEdit(ws:any) { this.editing.set(ws); this.editOpen.set(true); }
-  openDelete(ws:any) { this.editing.set(ws); this.deleteOpen.set(true); }
+  onSearch(val: string) {
+    clearTimeout(this.searchDebounce);
+    this.searchDebounce = setTimeout(() => {
+      this.search.set(val);
+      this.page.set(1);
+    }, 300);
+  }
 
-  onCreateSubmit(e:{name:string; slug:string; organizationId:string}) { this.createMutation.mutate({ organizationId: e.organizationId, name: e.name }); }
-  onEditSubmit(e:{name:string; slug:string}) { this.updateMutation.mutate({ id: this.editing().id, name: e.name, slug: e.slug }); }
-  onDeleteConfirm() { this.deleteMutation.mutate(this.editing().id); }
+  onPageSizeChange(value: string) {
+    this.pageSize.set(Number(value));
+    this.page.set(1);
+  }
+
+  openCreate() {
+    this.createError.set(null);
+    this.createOpen.set(true);
+  }
+
+  openEdit(ws: any) {
+    this.editing.set(ws);
+    this.editOpen.set(true);
+  }
+
+  openDelete(ws: any) {
+    this.editing.set(ws);
+    this.deleteOpen.set(true);
+  }
+
+  onCreateSubmit(e: { name: string; slug: string; organizationId: string }) {
+    this.createMutation.mutate({
+      organizationId: e.organizationId,
+      name: e.name
+    });
+  }
+
+  onEditSubmit(e: { name: string; slug: string }) {
+    this.updateMutation.mutate({
+      id: this.editing().id,
+      name: e.name,
+      slug: e.slug
+    });
+  }
+
+  onDeleteConfirm() {
+    this.deleteMutation.mutate(this.editing().id);
+  }
 }

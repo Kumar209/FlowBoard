@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, input } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { injectQuery } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
@@ -10,12 +10,12 @@ import { AuthService } from '../../../core/services/auth.service';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './platform-notice.component.html',
-  styleUrls: ['./platform-notice.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PlatformNoticeComponent {
   private sa = inject(SuperAdminService);
   private auth = inject(AuthService);
+
   orgId = input.required<string>();
 
   query = injectQuery(() => ({
@@ -24,7 +24,10 @@ export class PlatformNoticeComponent {
     enabled: !!this.orgId(),
   }));
 
-  get notices() { return this.query.data() ?? []; }
+  get notices() {
+    return this.query.data() ?? [];
+  }
+
   isOwnNotice(n: any) {
     const currentId = this.auth.currentUser()?.id;
     return n.targetUserId && currentId && n.targetUserId.toLowerCase() === currentId.toLowerCase();

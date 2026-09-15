@@ -20,7 +20,6 @@ import { environment } from '../../../../environments/environment';
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, HeaderComponent, ToastComponent, LoaderComponent],
   templateUrl: './layout.component.html',
-  styleUrls: ['./layout.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class LayoutComponent implements OnInit {
@@ -28,6 +27,7 @@ export class LayoutComponent implements OnInit {
   loading = inject(LoadingService);
   private router = inject(Router);
   private http = inject(HttpClient);
+
   sidebarOpen = signal(false);
   mainCollapsed = signal(localStorage.getItem('mainSidebarCollapsed') === '1');
   isProjectRoute = signal(this.router.url.includes('/p/'));
@@ -40,31 +40,57 @@ export class LayoutComponent implements OnInit {
         error: () => {}
       });
     }
-    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe((e:any) => {
+
+    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe((e: any) => {
       const isProj = e.urlAfterRedirects.includes('/p/');
       this.isProjectRoute.set(isProj);
+
       if (!isProj && this.mainCollapsed()) {
         this.mainCollapsed.set(false);
         localStorage.setItem('mainSidebarCollapsed', '0');
       }
+
+      this.sidebarOpen.set(false);
     });
-    // Maintenance banner — single fetch on load, then 5m poll only when tab visible (minimized, silent)
+
     const poll = () => {
       if (document.visibilityState !== 'visible') return;
-      this.http.get<any>(`${environment.apiUrl}/api/platform/maintenance`, { withCredentials: false, headers: { 'X-Silent': 'true' } as any }).subscribe({
-        next: (res:any) => { if (res?.isActive) this.globalNotice.set(res); else this.globalNotice.set(null); },
+
+      this.http.get<any>(`${environment.apiUrl}/api/platform/maintenance`, {
+        withCredentials: false,
+        headers: { 'X-Silent': 'true' } as any
+      }).subscribe({
+        next: (res: any) => {
+          if (res?.isActive) this.globalNotice.set(res);
+          else this.globalNotice.set(null);
+        },
         error: () => {}
       });
     };
+
     poll();
+
     let timer: any;
-    const schedule = () => { clearInterval(timer); timer = setInterval(poll, 300000); }; // 5m, not 30s
+    const schedule = () => {
+      clearInterval(timer);
+      timer = setInterval(poll, 300000);
+    };
+
     schedule();
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') poll(); });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') poll();
+    });
   }
 
-  toggle() { this.sidebarOpen.update(v => !v); }
-  close() { this.sidebarOpen.set(false); }
+  toggle() {
+    this.sidebarOpen.update(v => !v);
+  }
+
+  close() {
+    this.sidebarOpen.set(false);
+  }
+
   toggleMainCollapse() {
     const v = !this.mainCollapsed();
     this.mainCollapsed.set(v);

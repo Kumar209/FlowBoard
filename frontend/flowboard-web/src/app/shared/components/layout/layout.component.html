@@ -1,66 +1,257 @@
-<app-header (click)="close()" />
+<app-header (mobileMenuRequested)="toggle()" (click)="close()" />
 <app-toast />
+
 @if (loading.isLoading()) {
-  <div class="fixed inset-0 z-[100] bg-base-100/50 backdrop-blur-sm grid place-items-center">
+  <div class="fixed inset-0 z-[100] grid place-items-center bg-base-100/50 backdrop-blur-sm">
     <app-loader text="Loading..." />
   </div>
 }
+
 @if (globalNotice(); as n) {
-  <div class="alert alert-warning rounded-none justify-center text-sm">
-    <span>⚠️ {{ n.announcement || 'Platform under maintenance — please try again later.' }}</span>
-    <a routerLink="/maintenance" class="link link-hover text-xs">Details</a>
+  <div class="fixed left-0 right-0 top-16 z-[70] flex min-h-9 items-center justify-center gap-2 border-b border-warning/20 bg-warning/10 px-4 py-2 text-center text-xs text-warning-content backdrop-blur-xl">
+    <span class="truncate">⚠️ {{ n.announcement || 'Platform under maintenance — please try again later.' }}</span>
+    <a routerLink="/maintenance" class="link link-hover shrink-0 text-[10px] font-semibold">Details</a>
   </div>
 }
-<!-- Global platform notices for current org (poll 30s fallback via maintenance check above) -->
 
-<div class="drawer lg:drawer-open min-h-[calc(100vh-64px)]">
-  <input id="sidebar-drawer" type="checkbox" class="drawer-toggle" [checked]="sidebarOpen()" (change)="toggle()" />
-  <div class="drawer-content flex flex-col bg-base-200">
-    <!-- Mobile toggle handled by Header hamburger via layout signal - also allow swipe -->
-    <label for="sidebar-drawer" class="btn btn-ghost btn-sm lg:hidden m-2 self-start">☰ Menu</label>
-    <main class="flex-1">
-      <router-outlet />
-    </main>
-  </div>
-  <div class="drawer-side z-30">
-    <label for="sidebar-drawer" aria-label="close sidebar" class="drawer-overlay" (click)="close()"></label>
-    <aside [ngClass]="mainCollapsed() ? 'w-72 lg:w-16' : 'w-72 lg:w-72'" class="bg-base-100 border-r border-base-200 flex flex-col h-[calc(100vh-64px)] lg:sticky lg:top-[64px] lg:overflow-y-auto self-start transition-all duration-200 overflow-hidden">
-      <!-- Collapse toggle - only when project sidebar present -->
-      @if (isProjectRoute()) {
-        <div class="p-2 border-b border-base-200 hidden lg:flex" [class.justify-end]="mainCollapsed()" [class.justify-between]="!mainCollapsed()">
-          @if (!mainCollapsed()) { <span class="text-xs font-semibold opacity-60 px-2 self-center">Main</span> }
-          <button class="btn btn-ghost btn-xs btn-circle" (click)="toggleMainCollapse()" [title]="mainCollapsed() ? 'Expand main sidebar' : 'Collapse main sidebar'">
-            {{ mainCollapsed() ? '→' : '←' }}
+<div class="min-h-screen bg-base-200 pt-16">
+  <div class="flex min-h-[calc(100vh-4rem)]">
+    @if (sidebarOpen()) {
+      <div class="fixed inset-0 z-[69] bg-black/40 backdrop-blur-[2px] lg:hidden" (click)="close()"></div>
+    }
+
+    <aside [class.w-72]="!mainCollapsed()" [class.w-16]="mainCollapsed()" class="fixed bottom-0 left-0 top-16 z-[70] hidden border-r border-base-300/60 bg-base-100 lg:flex">
+      <div class="flex min-h-0 w-full flex-col">
+        <div class="flex h-14 shrink-0 items-center border-b border-base-300/50 px-3" [class.justify-between]="!mainCollapsed()" [class.justify-center]="mainCollapsed()">
+          @if (!mainCollapsed()) {
+            <div class="flex items-center gap-2 px-1">
+              <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/>
+                </svg>
+              </div>
+              <span class="text-[11px] font-bold uppercase tracking-[0.14em] opacity-50">Navigation</span>
+            </div>
+          }
+
+          <button type="button" class="btn btn-ghost btn-sm btn-square rounded-xl" (click)="toggleMainCollapse()" [attr.aria-label]="mainCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'" [title]="mainCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
+            @if (mainCollapsed()) {
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/>
+              </svg>
+            } @else {
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/>
+              </svg>
+            }
           </button>
         </div>
-      }
 
-      <ul class="menu gap-1 flex-1" [class.p-4]="!mainCollapsed()" [class.p-1]="mainCollapsed()" [class.lg:p-4]="!mainCollapsed()" [class.lg:p-1]="mainCollapsed()">
-        <li><a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" (click)="close()" class="rounded-xl"><span class="w-6 text-center">◈</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Dashboard</span></a></li>
-        <li><a routerLink="/w" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">▦</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Workspaces</span></a></li>
-        <li><a routerLink="/projects" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">▦</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Projects</span></a></li>
-        @if (auth.isOrgAdmin() || auth.isSuperAdmin()) {
-          <li><a routerLink="/activity" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">◎</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Activity</span></a></li>
-          <li><a routerLink="/members" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">◐</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Members</span></a></li>
-          <li><a routerLink="/roles" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">⬡</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Roles</span></a></li>
-          <li><a routerLink="/ai-usage" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">✦</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">AI Usage</span></a></li>
-        }
-        @if (auth.isOrgAdmin() || auth.isSuperAdmin()) {
-          <li class="menu-title mt-4" [class.lg:hidden]="mainCollapsed()"><span>System</span></li>
-          <li><a routerLink="/system" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">●</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">System</span> @if (!mainCollapsed()) { <span class="badge badge-success badge-xs">Health</span> }</a></li>
-          <li><a routerLink="/support" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">?</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Support</span></a></li>
-        }
-      </ul>
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+          <ul class="menu gap-1 p-0" [class.items-center]="mainCollapsed()">
+            <li class="w-full">
+              <a routerLink="/" routerLinkActive="bg-primary text-primary-content shadow-sm" [routerLinkActiveOptions]="{exact:true}" (click)="close()" class="group flex min-h-10 rounded-xl px-3 transition-all hover:bg-base-200" [class.justify-center]="mainCollapsed()" [title]="mainCollapsed() ? 'Dashboard' : ''">
+                <svg class="h-[18px] w-[18px] shrink-0 opacity-70 group-[.bg-primary]:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m4 11 8-7 8 7v8a1 1 0 01-1 1h-4v-5H9v5H5a1 1 0 01-1-1v-8z"/>
+                </svg>
+                @if (!mainCollapsed()) {
+                  <span class="text-[13px] font-semibold">Dashboard</span>
+                }
+              </a>
+            </li>
 
-      <div class="p-4 border-t border-base-200" [class.lg:p-1]="mainCollapsed()">
-        <div class="flex items-center gap-3 bg-base-200/50 rounded-xl p-3" [class.lg:p-2]="mainCollapsed()" [class.lg:justify-center]="mainCollapsed()">
-          <div class="w-8 h-8 rounded-full bg-primary text-primary-content flex items-center justify-center text-xs font-bold shrink-0">{{ (auth.currentUser()?.fullName || 'U').charAt(0) }}</div>
-          <div class="min-w-0 flex-1" [class.lg:hidden]="mainCollapsed()">
-            <div class="text-sm font-semibold truncate">{{ auth.currentUser()?.fullName }}</div>
-            <div class="text-xs opacity-50 truncate">{{ auth.currentUser()?.email }}</div>
+            <li class="w-full">
+              <a routerLink="/w" routerLinkActive="bg-primary text-primary-content shadow-sm" (click)="close()" class="group flex min-h-10 rounded-xl px-3 transition-all hover:bg-base-200" [class.justify-center]="mainCollapsed()" [title]="mainCollapsed() ? 'Workspaces' : ''">
+                <svg class="h-[18px] w-[18px] shrink-0 opacity-70 group-[.bg-primary]:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <rect x="4" y="4" width="7" height="7" rx="1.5"/>
+                  <rect x="13" y="4" width="7" height="7" rx="1.5"/>
+                  <rect x="4" y="13" width="7" height="7" rx="1.5"/>
+                  <rect x="13" y="13" width="7" height="7" rx="1.5"/>
+                </svg>
+                @if (!mainCollapsed()) {
+                  <span class="text-[13px] font-semibold">Workspaces</span>
+                }
+              </a>
+            </li>
+
+            <li class="w-full">
+              <a routerLink="/projects" routerLinkActive="bg-primary text-primary-content shadow-sm" (click)="close()" class="group flex min-h-10 rounded-xl px-3 transition-all hover:bg-base-200" [class.justify-center]="mainCollapsed()" [title]="mainCollapsed() ? 'Projects' : ''">
+                <svg class="h-[18px] w-[18px] shrink-0 opacity-70 group-[.bg-primary]:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 5.5A2.5 2.5 0 017.5 3h3a2.5 2.5 0 012.5 2.5v3a2.5 2.5 0 01-2.5 2.5h-3A2.5 2.5 0 015 8.5v-3zM13 15.5a2.5 2.5 0 012.5-2.5h3a2.5 2.5 0 012.5 2.5v3a2.5 2.5 0 01-2.5 2.5h-3a2.5 2.5 0 01-2.5-2.5v-3zM13 5h8M17 3v4M5 17h8"/>
+                </svg>
+                @if (!mainCollapsed()) {
+                  <span class="text-[13px] font-semibold">Projects</span>
+                }
+              </a>
+            </li>
+
+            @if (auth.isOrgAdmin() || auth.isSuperAdmin()) {
+              <li class="my-3 px-3" [class.lg:hidden]="mainCollapsed()">
+                <div class="h-px bg-base-300/60"></div>
+              </li>
+
+              @if (!mainCollapsed()) {
+                <li class="menu-title px-3 pb-1 pt-0">
+                  <span class="text-[9px] font-bold uppercase tracking-[0.16em] opacity-35">Organization</span>
+                </li>
+              }
+
+              <li class="w-full">
+                <a routerLink="/activity" routerLinkActive="bg-primary text-primary-content shadow-sm" (click)="close()" class="group flex min-h-10 rounded-xl px-3 transition-all hover:bg-base-200" [class.justify-center]="mainCollapsed()" [title]="mainCollapsed() ? 'Activity' : ''">
+                  <svg class="h-[18px] w-[18px] shrink-0 opacity-70 group-[.bg-primary]:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3"/>
+                  </svg>
+                  @if (!mainCollapsed()) {
+                    <span class="text-[13px] font-semibold">Activity</span>
+                  }
+                </a>
+              </li>
+
+              <li class="w-full">
+                <a routerLink="/members" routerLinkActive="bg-primary text-primary-content shadow-sm" (click)="close()" class="group flex min-h-10 rounded-xl px-3 transition-all hover:bg-base-200" [class.justify-center]="mainCollapsed()" [title]="mainCollapsed() ? 'Members' : ''">
+                  <svg class="h-[18px] w-[18px] shrink-0 opacity-70 group-[.bg-primary]:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 19v-1.5A3.5 3.5 0 0012.5 14h-5A3.5 3.5 0 004 17.5V19m6-9a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm6-1a3 3 0 100-6m2 16v-1.5a3.5 3.5 0 00-2.5-3.35"/>
+                  </svg>
+                  @if (!mainCollapsed()) {
+                    <span class="text-[13px] font-semibold">Members</span>
+                  }
+                </a>
+              </li>
+
+              <li class="w-full">
+                <a routerLink="/roles" routerLinkActive="bg-primary text-primary-content shadow-sm" (click)="close()" class="group flex min-h-10 rounded-xl px-3 transition-all hover:bg-base-200" [class.justify-center]="mainCollapsed()" [title]="mainCollapsed() ? 'Roles' : ''">
+                  <svg class="h-[18px] w-[18px] shrink-0 opacity-70 group-[.bg-primary]:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 3v5c0 4.4-2.9 8.4-7 10-4.1-1.6-7-5.6-7-10V6l7-3z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m9 12 2 2 4-4"/>
+                  </svg>
+                  @if (!mainCollapsed()) {
+                    <span class="text-[13px] font-semibold">Roles</span>
+                  }
+                </a>
+              </li>
+
+              <li class="w-full">
+                <a routerLink="/ai-usage" routerLinkActive="bg-primary text-primary-content shadow-sm" (click)="close()" class="group flex min-h-10 rounded-xl px-3 transition-all hover:bg-base-200" [class.justify-center]="mainCollapsed()" [title]="mainCollapsed() ? 'AI Usage' : ''">
+                  <svg class="h-[18px] w-[18px] shrink-0 opacity-70 group-[.bg-primary]:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m12 3 1.4 4.1L17.5 9l-4.1 1.4L12 14.5l-1.4-4.1L6.5 9l4.1-1.9L12 3zM18.5 14l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7.7-2.3z"/>
+                  </svg>
+                  @if (!mainCollapsed()) {
+                    <span class="text-[13px] font-semibold">AI Usage</span>
+                  }
+                </a>
+              </li>
+
+              <li class="my-3 px-3" [class.lg:hidden]="mainCollapsed()">
+                <div class="h-px bg-base-300/60"></div>
+              </li>
+
+              @if (!mainCollapsed()) {
+                <li class="menu-title px-3 pb-1 pt-0">
+                  <span class="text-[9px] font-bold uppercase tracking-[0.16em] opacity-35">System</span>
+                </li>
+              }
+
+              <li class="w-full">
+                <a routerLink="/system" routerLinkActive="bg-primary text-primary-content shadow-sm" (click)="close()" class="group flex min-h-10 rounded-xl px-3 transition-all hover:bg-base-200" [class.justify-center]="mainCollapsed()" [title]="mainCollapsed() ? 'System' : ''">
+                  <svg class="h-[18px] w-[18px] shrink-0 opacity-70 group-[.bg-primary]:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="8"/>
+                    <path stroke-linecap="round" d="M12 8v4l2.5 2"/>
+                  </svg>
+                  @if (!mainCollapsed()) {
+                    <span class="flex-1 text-[13px] font-semibold">System</span>
+                    <span class="badge badge-success badge-xs">Health</span>
+                  }
+                </a>
+              </li>
+
+              <li class="w-full">
+                <a routerLink="/support" routerLinkActive="bg-primary text-primary-content shadow-sm" (click)="close()" class="group flex min-h-10 rounded-xl px-3 transition-all hover:bg-base-200" [class.justify-center]="mainCollapsed()" [title]="mainCollapsed() ? 'Support' : ''">
+                  <svg class="h-[18px] w-[18px] shrink-0 opacity-70 group-[.bg-primary]:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="9"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 9a2.5 2.5 0 115 0c0 1.5-2.5 2-2.5 3.5m0 3h.01"/>
+                  </svg>
+                  @if (!mainCollapsed()) {
+                    <span class="text-[13px] font-semibold">Support</span>
+                  }
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+
+        <div class="shrink-0 border-t border-base-300/60 p-2">
+          <div class="rounded-xl bg-base-200/70 p-2.5" [class.justify-center]="mainCollapsed()" [class.flex]="mainCollapsed()">
+            <div class="flex items-center gap-2.5" [class.justify-center]="mainCollapsed()">
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-black text-primary-content">
+                {{ (auth.currentUser()?.fullName || 'U').charAt(0).toUpperCase() }}
+              </div>
+              @if (!mainCollapsed()) {
+                <div class="min-w-0">
+                  <div class="truncate text-[11px] font-bold">{{ auth.currentUser()?.fullName }}</div>
+                  <div class="truncate text-[9px] opacity-45">{{ auth.currentUser()?.email }}</div>
+                </div>
+              }
+            </div>
           </div>
         </div>
       </div>
     </aside>
+
+    @if (sidebarOpen()) {
+      <aside class="fixed bottom-0 left-0 top-16 z-[75] flex w-[min(19rem,88vw)] flex-col border-r border-base-300/70 bg-base-100 shadow-2xl lg:hidden">
+        <div class="flex h-14 shrink-0 items-center justify-between border-b border-base-300/60 px-4">
+          <div class="flex items-center gap-2.5">
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-content">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <rect x="4" y="4" width="16" height="16" rx="3"/>
+                <path d="M8 9h8M8 12h5M8 15h8"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-xs font-black">FlowBoard</div>
+              <div class="text-[8px] font-bold uppercase tracking-widest opacity-40">Navigation</div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm btn-circle" (click)="close()">✕</button>
+        </div>
+
+        <div class="min-h-0 flex-1 overflow-y-auto p-3">
+          <ul class="menu gap-1 p-0">
+            <li><a routerLink="/" routerLinkActive="bg-primary text-primary-content" [routerLinkActiveOptions]="{exact:true}" (click)="close()" class="rounded-xl font-semibold">Dashboard</a></li>
+            <li><a routerLink="/w" routerLinkActive="bg-primary text-primary-content" (click)="close()" class="rounded-xl font-semibold">Workspaces</a></li>
+            <li><a routerLink="/projects" routerLinkActive="bg-primary text-primary-content" (click)="close()" class="rounded-xl font-semibold">Projects</a></li>
+
+            @if (auth.isOrgAdmin() || auth.isSuperAdmin()) {
+              <li class="menu-title mt-4"><span>Organization</span></li>
+              <li><a routerLink="/activity" routerLinkActive="bg-primary text-primary-content" (click)="close()" class="rounded-xl font-semibold">Activity</a></li>
+              <li><a routerLink="/members" routerLinkActive="bg-primary text-primary-content" (click)="close()" class="rounded-xl font-semibold">Members</a></li>
+              <li><a routerLink="/roles" routerLinkActive="bg-primary text-primary-content" (click)="close()" class="rounded-xl font-semibold">Roles</a></li>
+              <li><a routerLink="/ai-usage" routerLinkActive="bg-primary text-primary-content" (click)="close()" class="rounded-xl font-semibold">AI Usage</a></li>
+              <li class="menu-title mt-4"><span>System</span></li>
+              <li><a routerLink="/system" routerLinkActive="bg-primary text-primary-content" (click)="close()" class="rounded-xl font-semibold">System</a></li>
+              <li><a routerLink="/support" routerLinkActive="bg-primary text-primary-content" (click)="close()" class="rounded-xl font-semibold">Support</a></li>
+            }
+          </ul>
+        </div>
+
+        <div class="shrink-0 border-t border-base-300/60 p-3">
+          <div class="flex items-center gap-2.5 rounded-xl bg-base-200 p-3">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-content">
+              {{ (auth.currentUser()?.fullName || 'U').charAt(0).toUpperCase() }}
+            </div>
+            <div class="min-w-0">
+              <div class="truncate text-xs font-bold">{{ auth.currentUser()?.fullName }}</div>
+              <div class="truncate text-[10px] opacity-50">{{ auth.currentUser()?.email }}</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    }
+
+    <main [class.lg:ml-72]="!mainCollapsed()" [class.lg:ml-16]="mainCollapsed()" class="min-w-0 flex-1 transition-[margin] duration-200">
+      <div class="min-h-[calc(100vh-4rem)]">
+        <router-outlet />
+      </div>
+    </main>
   </div>
 </div>

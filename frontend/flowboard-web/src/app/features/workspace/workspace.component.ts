@@ -11,15 +11,11 @@ import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-d
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { ROLE_LABEL_MAP, OrgRoleValues } from '../../shared/constants/roles';
 
-/**
- * WorkspaceComponent - modals for Create/Update/Delete project + toast + dropdown.
- */
 @Component({
   selector: 'app-workspace',
   standalone: true,
   imports: [CommonModule, RouterLink, ProjectModalComponent, ConfirmDeleteComponent],
   templateUrl: './workspace.component.html',
-  styleUrls: ['./workspace.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkspaceComponent {
@@ -33,21 +29,21 @@ export class WorkspaceComponent {
   workspaceId = signal<string>(
     this.route.snapshot.paramMap.get('wid') || '11111111-1111-1111-1111-111111111111',
   );
+
   createOpen = signal(false);
   editOpen = signal(false);
   deleteOpen = signal(false);
   editing = signal<any>(null);
   createError = signal<string | null>(null);
-
   search = signal('');
   page = signal(1);
-  pageSize = 12;
+  pageSize = signal(10);
 
-  // Fetch workspace name for title (Image 3 fix: show Marketing not generic Workspace)
   workspacesQuery = injectQuery(() => ({
     queryKey: ['workspaces'] as const,
     queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspaces()),
   }));
+
   workspaceName = computed(() => {
     const ws = this.workspacesQuery.data()?.find((w) => w.id === this.workspaceId());
     return ws?.name || 'Workspace';
@@ -63,13 +59,22 @@ export class WorkspaceComponent {
       this.auth.canCreateProject()
     );
   });
+
   roleLabel = computed(() => {
     const wid = this.workspaceId();
     const m = this.auth.memberships().find((x) => x.workspaceId === wid);
     const raw = m?.roleName ?? m?.role;
-    if (raw !== undefined) return (ROLE_LABEL_MAP as any)[String(raw)] ?? String(raw);
+
+    if (raw !== undefined) {
+      return (ROLE_LABEL_MAP as any)[String(raw)] ?? String(raw);
+    }
+
     const ws = this.workspacesQuery.data()?.find((w) => w.id === wid);
-    if (ws?.role !== undefined) return (ROLE_LABEL_MAP as any)[String(ws.role)] ?? String(ws.role);
+
+    if (ws?.role !== undefined) {
+      return (ROLE_LABEL_MAP as any)[String(ws.role)] ?? String(ws.role);
+    }
+
     return ROLE_LABEL_MAP[String(OrgRoleValues.Member)];
   });
 
@@ -77,27 +82,73 @@ export class WorkspaceComponent {
     queryKey: ['projects', this.workspaceId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getProjects(this.workspaceId())),
   }));
+
   filteredProjects = computed(() => {
-    const s = this.search().toLowerCase();
+    const s = this.search().toLowerCase().trim();
     const items = this.projectsQuery.data()?.items || [];
+
     return s
       ? items.filter(
-          (p: any) => p.name.toLowerCase().includes(s) || p.key.toLowerCase().includes(s),
+          (p: any) =>
+            p.name.toLowerCase().includes(s) ||
+            p.key.toLowerCase().includes(s),
         )
       : items;
   });
+
   total = computed(() => this.filteredProjects().length);
-  totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
+
+  totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.total() / this.pageSize()))
+  );
+
   paginatedProjects = computed(() => {
-    const start = (this.page() - 1) * this.pageSize;
-    return this.filteredProjects().slice(start, start + this.pageSize);
+    const start = (this.page() - 1) * this.pageSize();
+    return this.filteredProjects().slice(start, start + this.pageSize());
+  });
+
+  showingFrom = computed(() => {
+    const total = this.total();
+    if (!total) return 0;
+    return (this.page() - 1) * this.pageSize() + 1;
+  });
+
+  showingTo = computed(() =>
+    Math.min(this.page() * this.pageSize(), this.total())
+  );
+
+  visiblePages = computed(() => {
+    const total = this.totalPages();
+    const current = this.page();
+
+    if (total <= 3) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    if (current === 1) {
+      return [1, 2, 3];
+    }
+
+    if (current === total) {
+      return [total - 2, total - 1, total];
+    }
+
+    return [current - 1, current, current + 1];
   });
 
   createMutation = injectMutation(() => ({
     mutationFn: (vars: { name: string; description?: string }) =>
-      firstValueFrom(this.projectService.createProject(this.workspaceId(), vars.name, vars.description)),
+      firstValueFrom(
+        this.projectService.createProject(
+          this.workspaceId(),
+          vars.name,
+          vars.description,
+        ),
+      ),
     onSuccess: () => {
-      this.queryClient.invalidateQueries({ queryKey: ['projects', this.workspaceId()] });
+      this.queryClient.invalidateQueries({
+        queryKey: ['projects', this.workspaceId()],
+      });
       this.queryClient.invalidateQueries({ queryKey: ['projects-global'] });
       this.queryClient.invalidateQueries({ queryKey: ['board'] });
       this.createOpen.set(false);
@@ -110,48 +161,110 @@ export class WorkspaceComponent {
       this.toast.error(m);
     },
   }));
+
   updateMutation = injectMutation(() => ({
     mutationFn: (vars: { id: string; name: string; description?: string }) =>
-      firstValueFrom(this.projectService.updateProject(vars.id, vars.name, vars.description)),
+      firstValueFrom(
+        this.projectService.updateProject(
+          vars.id,
+          vars.name,
+          vars.description,
+        ),
+      ),
     onSuccess: () => {
-      this.queryClient.invalidateQueries({ queryKey: ['projects', this.workspaceId()] });
+      this.queryClient.invalidateQueries({
+        queryKey: ['projects', this.workspaceId()],
+      });
       this.queryClient.invalidateQueries({ queryKey: ['projects-global'] });
       this.queryClient.invalidateQueries({ queryKey: ['board'] });
       this.editOpen.set(false);
       this.toast.success('Project updated');
     },
-    onError: (err: any) => this.toast.error(err.error?.error || 'Update failed'),
+    onError: (err: any) =>
+      this.toast.error(err.error?.error || 'Update failed'),
   }));
+
   deleteMutation = injectMutation(() => ({
-    mutationFn: (id: string) => firstValueFrom(this.projectService.deleteProject(id)),
+    mutationFn: (id: string) =>
+      firstValueFrom(this.projectService.deleteProject(id)),
     onSuccess: () => {
-      this.queryClient.invalidateQueries({ queryKey: ['projects', this.workspaceId()] });
+      this.queryClient.invalidateQueries({
+        queryKey: ['projects', this.workspaceId()],
+      });
       this.queryClient.invalidateQueries({ queryKey: ['projects-global'] });
       this.deleteOpen.set(false);
       this.toast.success('Project deleted');
     },
-    onError: (err: any) => this.toast.error(err.error?.error || 'Delete failed'),
+    onError: (err: any) =>
+      this.toast.error(err.error?.error || 'Delete failed'),
   }));
 
   openCreate() {
     this.createError.set(null);
     this.createOpen.set(true);
   }
+
   openEdit(p: any) {
     this.editing.set(p);
     this.editOpen.set(true);
   }
+
   openDelete(p: any) {
     this.editing.set(p);
     this.deleteOpen.set(true);
   }
+
   onCreateSubmit(e: { name: string; description: string }) {
-    this.createMutation.mutate({ name: e.name, description: e.description });
+    this.createMutation.mutate({
+      name: e.name,
+      description: e.description,
+    });
   }
+
   onEditSubmit(e: { name: string; description: string }) {
-    this.updateMutation.mutate({ id: this.editing().id, name: e.name, description: e.description });
+    const project = this.editing();
+    if (!project) return;
+
+    this.updateMutation.mutate({
+      id: project.id,
+      name: e.name,
+      description: e.description,
+    });
   }
+
   onDeleteConfirm() {
-    this.deleteMutation.mutate(this.editing().id);
+    const project = this.editing();
+    if (!project) return;
+
+    this.deleteMutation.mutate(project.id);
+  }
+
+  firstPage() {
+    this.page.set(1);
+  }
+
+  previousPage() {
+    if (this.page() > 1) {
+      this.page.set(this.page() - 1);
+    }
+  }
+
+  nextPage() {
+    if (this.page() < this.totalPages()) {
+      this.page.set(this.page() + 1);
+    }
+  }
+
+  lastPage() {
+    this.page.set(this.totalPages());
+  }
+
+  onPageSizeChange(value: string) {
+    const size = Number(value);
+
+    if (!Number.isFinite(size) || size <= 0) return;
+
+    this.pageSize.set(size);
+    this.page.set(1);
   }
 }

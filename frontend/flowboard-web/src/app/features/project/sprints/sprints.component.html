@@ -1,174 +1,494 @@
-<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto space-y-4">
-  <div class="flex flex-wrap justify-between gap-2 items-center">
-    <div>
-      <h1 class="text-xl font-bold">Sprints</h1>
-      <p class="text-xs opacity-60">Time-boxed iterations — assign Backlog tasks to Sprint. Boards filter by Sprint (view, not copy).</p>
-    </div>
-    <div class="flex items-center gap-2">
-      @if (displaySprints().length) {
-        <select class="select select-bordered select-sm rounded-full max-w-[180px]" [value]="selectedSprintId()" (change)="selectedSprintId.set($any($event.target).value)">
-          @for (s of displaySprints(); track s.id) {
-            <option [value]="s.id">{{ s.name }} {{ s.status==='Active' ? '• Active' : '' }}</option>
-          }
-        </select>
-      }
-      <button class="btn btn-primary btn-sm rounded-full" (click)="openCreate()">+ New Sprint</button>
-    </div>
-  </div>
-
-  @if (displaySprints().length) {
-    <section class="space-y-3">
-      @if (burndownQuery.isPending()) {
-        <div class="card bg-base-100 rounded-2xl p-4 h-[340px] animate-pulse border"></div>
-      } @else if (burndownQuery.isError()) {
-        <div class="alert alert-warning rounded-xl text-sm">Burndown unavailable — {{ $any(burndownQuery.error)?.error?.error || 'create a sprint first' }}</div>
-      } @else {
-        <app-burndown [data]="burndownQuery.data() ?? null"></app-burndown>
-      }
-      @if (selectedSprintStats(); as st) {
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div class="card bg-base-100 rounded-2xl border p-3 text-center shadow-sm">
-            <p class="text-[10px] font-semibold uppercase opacity-45">Issues</p>
-            <p class="text-xl font-bold">{{ st.issues }}</p>
-            <p class="text-xs opacity-40">Total</p>
+<div class="min-h-full bg-base-200">
+  <div class="max-w-[1400px] mx-auto p-3 sm:p-4 md:p-6 space-y-4">
+    <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-primary text-primary-content flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+              <path d="M8 2v4M16 2v4M3 10h18"></path>
+            </svg>
           </div>
-          <div class="card bg-base-100 rounded-2xl border p-3 text-center shadow-sm">
-            <p class="text-[10px] font-semibold uppercase opacity-45">Story Points</p>
-            <p class="text-xl font-bold text-primary">{{ st.sp }}</p>
-            <p class="text-xs opacity-40">Total SP</p>
+          <div class="min-w-0">
+            <h1 class="text-lg sm:text-xl font-semibold tracking-tight truncate">Sprints</h1>
+            <p class="text-xs text-base-content/65 mt-0.5">Plan time-boxed iterations and track sprint progress.</p>
           </div>
-          <div class="card bg-base-100 rounded-2xl border p-3 text-center shadow-sm">
-            <p class="text-[10px] font-semibold uppercase opacity-45">Completed</p>
-            <p class="text-xl font-bold text-success">{{ st.completed }} <span class="text-xs font-normal opacity-60">({{ st.completedSp }} SP)</span></p>
-            <p class="text-xs opacity-40">{{ st.remaining }} remaining</p>
-          </div>
-          <div class="card bg-base-100 rounded-2xl border p-3 text-center shadow-sm">
-            <p class="text-[10px] font-semibold uppercase opacity-45">Remaining</p>
-            <p class="text-xl font-bold text-warning">{{ st.remaining }} <span class="text-xs font-normal opacity-60">({{ st.remainingSp }} SP)</span></p>
-            <p class="text-xs opacity-40">Issues / SP</p>
-          </div>
-        </div>
-      }
-    </section>
-  }
-
-  <div class="flex flex-col sm:flex-row gap-2">
-    <input type="text" placeholder="Search sprints..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
-    <span class="text-xs opacity-40 self-center">Found {{ filtered().length }} / {{ displaySprints().length }}</span>
-  </div>
-
-  @if (showCreate()) {
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="showCreate.set(false); editingSprint.set(null)"></div>
-      <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
-        <h3 class="font-bold text-lg">{{ editingSprint() ? 'Update Sprint' : 'Create Sprint' }}</h3>
-        <p class="text-xs opacity-60 mt-1">{{ editingSprint() ? 'Edit sprint dates/name' : 'Sprint groups issues for a time-box (Board → Sprint → Column)' }}</p>
-        <div class="mt-4 space-y-3">
-          <label class="form-control"><span class="label-text text-xs font-semibold">Sprint name *</span><input type="text" placeholder="Sprint 26" class="input input-bordered rounded-xl" [value]="newName()" (input)="newName.set($any($event.target).value)" /></label>
-          <div class="grid grid-cols-2 gap-3">
-            <label class="form-control"><span class="label-text text-xs">Start</span><input type="date" class="input input-bordered rounded-xl" [value]="newStart()" (input)="newStart.set($any($event.target).value)" /></label>
-            <label class="form-control"><span class="label-text text-xs">End</span><input type="date" class="input input-bordered rounded-xl" [value]="newEnd()" (input)="newEnd.set($any($event.target).value)" /></label>
-          </div>
-        </div>
-        <div class="flex justify-end gap-2 mt-6">
-          <button class="btn btn-ghost rounded-xl" (click)="showCreate.set(false); editingSprint.set(null)">Cancel</button>
-          <button class="btn btn-primary rounded-xl" (click)="create()" [disabled]="!newName().trim()" [class.loading]="createMutation.isPending() || updateMutation.isPending()">{{ editingSprint() ? 'Update' : 'Create' }}</button>
         </div>
       </div>
-    </div>
-  }
 
-  @if (sprintsQuery.isPending()) { <div class="flex justify-center py-8"><span class="loading loading-spinner loading-sm"></span></div> }
-  @else if (filtered().length===0) { <p class="text-center py-8 opacity-40">No sprints match — try search or create one</p> }
-  @else {
-    <!-- Desktop table -->
-    <div class="hidden md:block card bg-base-100 rounded-2xl shadow border overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="table table-sm">
-          <thead><tr><th>Name</th><th>Start</th><th>End</th><th>Status</th><th>Issues</th><th>Progress</th><th>Actions</th></tr></thead>
-          <tbody>
-            @for (s of paginated(); track s.id) {
-              <tr class="hover:bg-base-200">
-                <td class="font-bold">{{ s.name }}</td>
-                <td class="text-xs">{{ s.start }}</td>
-                <td class="text-xs">{{ s.end }}</td>
-                <td><span class="badge badge-sm rounded-full" [ngClass]="s.status==='Active'?'badge-success':'badge-ghost'">{{ s.status }}</span></td>
-                <td><span class="badge badge-primary badge-xs rounded-full">{{ s.done }}/{{ s.tasks }}</span></td>
-                <td class="w-[160px]"><progress class="progress progress-primary w-full h-2" [value]="s.done" [max]="s.tasks || 1"></progress></td>
-                <td>
-                  <div class="flex gap-1 flex-wrap">
-                    @if (scrumBoardId()) {
-                      <a [routerLink]="['../board']" [queryParams]="{sprint: s.id, view: scrumBoardId()}" class="btn btn-ghost btn-xs rounded-full">View Board</a>
-                    } @else {
-                      <span class="btn btn-ghost btn-xs rounded-full opacity-30 cursor-not-allowed" title="Create a Scrum board in Boards first">View Board</span>
-                    }
-                    <a [routerLink]="['../backlog']" class="btn btn-ghost btn-xs rounded-full">Backlog</a>
-                    <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(s)">Edit</button>
-                    <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(s)">Delete</button>
-                  </div>
-                  @if (!scrumBoardId()) { <div class="text-[10px] opacity-50 mt-1">Scrum board missing — <a routerLink="../boards" class="link link-primary">Go to Boards</a></div> }
-                </td>
-              </tr>
+      <div class="flex items-center gap-2 w-full sm:w-auto">
+        @if (displaySprints().length) {
+          <select class="select select-bordered select-sm rounded-lg w-full sm:w-[210px] border-base-content/20 focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="selectedSprintId()" (change)="selectedSprintId.set($any($event.target).value)">
+            @for (s of displaySprints(); track s.id) {
+              <option [value]="s.id">{{ s.name }}{{ s.status === 'Active' ? ' • Active' : '' }}</option>
             }
-          </tbody>
-        </table>
+          </select>
+        }
+        <button class="btn btn-primary btn-sm rounded-lg shrink-0" (click)="openCreate()">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"></path>
+          </svg>
+          <span class="hidden xs:inline">New Sprint</span>
+          <span class="xs:hidden">New</span>
+        </button>
       </div>
-      <div class="flex justify-between items-center p-3 border-t border-base-200">
-        <span class="text-xs opacity-40">Page {{ page() }} / {{ totalPages() }} • Total {{ filtered().length }}</span>
-        <div class="flex gap-1">
-          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
-          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
-        </div>
-      </div>
-    </div>
-    <!-- Mobile cards -->
-    <div class="md:hidden space-y-3">
-      @for (s of paginated(); track s.id) {
-        <div class="card bg-base-100 rounded-2xl shadow border p-4">
-          <div class="flex justify-between gap-2">
-            <div>
-              <p class="font-bold">{{ s.name }}</p>
-              <p class="text-xs opacity-60">{{ s.start }} → {{ s.end }} • {{ s.status }}</p>
+    </header>
+
+    @if (displaySprints().length) {
+      <section class="space-y-3">
+        @if (burndownQuery.isPending()) {
+          <div class="card bg-base-100 rounded-2xl border border-base-200 shadow-sm p-4 h-[320px] animate-pulse"></div>
+        } @else if (burndownQuery.isError()) {
+          <div class="card bg-base-100 rounded-2xl border border-warning/30 shadow-sm p-4">
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 rounded-lg bg-warning/15 text-warning flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 9v4M12 17h.01"></path>
+                  <path d="M10.3 3.7 2.8 17a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z"></path>
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-semibold">Burndown unavailable</p>
+                <p class="text-xs text-base-content/65 mt-0.5">{{ $any(burndownQuery.error)?.error?.error || 'Create a sprint first to view its burndown.' }}</p>
+              </div>
             </div>
-            <span class="badge badge-primary badge-sm rounded-full">{{ s.done }}/{{ s.tasks }}</span>
           </div>
-          <progress class="progress progress-primary w-full mt-3 h-2" [value]="s.done" [max]="s.tasks || 1"></progress>
-          <div class="mt-3 flex flex-wrap gap-1">
-            @if (scrumBoardId()) {
-              <a [routerLink]="['../board']" [queryParams]="{sprint: s.id, view: scrumBoardId()}" class="btn btn-ghost btn-xs rounded-full">View Board</a>
-            } @else {
-              <span class="btn btn-ghost btn-xs rounded-full opacity-30 cursor-not-allowed">View Board</span>
-            }
-            <button class="btn btn-ghost btn-xs rounded-full" (click)="openEdit(s)">Edit</button>
-            <button class="btn btn-ghost btn-xs rounded-full text-error" (click)="confirmDelete(s)">Delete</button>
+        } @else {
+          <app-burndown [data]="burndownQuery.data() ?? null"></app-burndown>
+        }
+
+        @if (selectedSprintStats(); as st) {
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="card bg-base-100 rounded-2xl border border-base-200 shadow-sm">
+              <div class="p-4">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[11px] font-medium uppercase tracking-wide text-base-content/60">Issues</span>
+                  <div class="w-7 h-7 rounded-lg bg-base-200 flex items-center justify-center text-base-content/70">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                      <path d="M8 9h8M8 13h5"></path>
+                    </svg>
+                  </div>
+                </div>
+                <p class="text-2xl font-semibold mt-3">{{ st.issues }}</p>
+                <p class="text-xs text-base-content/60 mt-0.5">Total issues</p>
+              </div>
+            </div>
+
+            <div class="card bg-base-100 rounded-2xl border border-base-200 shadow-sm">
+              <div class="p-4">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[11px] font-medium uppercase tracking-wide text-base-content/60">Story Points</span>
+                  <div class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 3v18M5 8h9a4 4 0 0 1 0 8H5"></path>
+                    </svg>
+                  </div>
+                </div>
+                <p class="text-2xl font-semibold text-primary mt-3">{{ st.sp }}</p>
+                <p class="text-xs text-base-content/60 mt-0.5">Committed points</p>
+              </div>
+            </div>
+
+            <div class="card bg-base-100 rounded-2xl border border-base-200 shadow-sm">
+              <div class="p-4">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[11px] font-medium uppercase tracking-wide text-base-content/60">Completed</span>
+                  <div class="w-7 h-7 rounded-lg bg-success/10 text-success flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="m5 12 4 4L19 6"></path>
+                    </svg>
+                  </div>
+                </div>
+                <p class="text-2xl font-semibold text-success mt-3">
+                  {{ st.completed }}
+                  <span class="text-xs font-normal text-base-content/60">({{ st.completedSp }} SP)</span>
+                </p>
+                <p class="text-xs text-base-content/60 mt-0.5">{{ st.remaining }} remaining</p>
+              </div>
+            </div>
+
+            <div class="card bg-base-100 rounded-2xl border border-base-200 shadow-sm">
+              <div class="p-4">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[11px] font-medium uppercase tracking-wide text-base-content/60">Remaining</span>
+                  <div class="w-7 h-7 rounded-lg bg-warning/10 text-warning flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 7v5l3 2"></path>
+                      <circle cx="12" cy="12" r="9"></circle>
+                    </svg>
+                  </div>
+                </div>
+                <p class="text-2xl font-semibold text-warning mt-3">
+                  {{ st.remaining }}
+                  <span class="text-xs font-normal text-base-content/60">({{ st.remainingSp }} SP)</span>
+                </p>
+                <p class="text-xs text-base-content/60 mt-0.5">Issues still open</p>
+              </div>
+            </div>
           </div>
-        </div>
-      }
-      <div class="flex justify-between items-center mt-2">
-        <span class="text-xs opacity-40">Page {{ page() }} / {{ totalPages() }}</span>
-        <div class="flex gap-1">
-          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Prev</button>
-          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+        }
+      </section>
+    }
+
+    <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+      <div class="relative flex-1 max-w-md">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-base-content/55 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-4-4"></path>
+        </svg>
+        <input type="text" placeholder="Search sprints..." class="input input-bordered input-sm rounded-lg w-full pl-9 border-base-content/20 focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
+      </div>
+      <span class="text-xs text-base-content/65">{{ filtered().length }} sprint{{ filtered().length === 1 ? '' : 's' }}</span>
+    </div>
+
+    @if (showCreate()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/45 backdrop-blur-sm" (click)="showCreate.set(false); editingSprint.set(null)"></div>
+        <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full relative z-10 border border-base-200">
+          <div class="p-5 sm:p-6">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h3 class="text-base font-semibold">{{ editingSprint() ? 'Update Sprint' : 'Create Sprint' }}</h3>
+                <p class="text-xs text-base-content/65 mt-1">{{ editingSprint() ? 'Edit sprint dates and name.' : 'Create a time-box for organizing project issues.' }}</p>
+              </div>
+              <button class="btn btn-ghost btn-sm btn-square rounded-lg" (click)="showCreate.set(false); editingSprint.set(null)" aria-label="Close">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m6 6 12 12M18 6 6 18"></path>
+                </svg>
+              </button>
+            </div>
+
+            <div class="mt-5 space-y-4">
+              <label class="form-control">
+                <span class="label-text text-xs font-semibold">Sprint name <span class="text-error">*</span></span>
+                <input type="text" placeholder="Sprint 26" class="input input-bordered input-sm rounded-lg border-base-content/20 focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="newName()" (input)="newName.set($any($event.target).value)" />
+              </label>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label class="form-control">
+                  <span class="label-text text-xs font-semibold">Start</span>
+                  <input type="date" class="input input-bordered input-sm rounded-lg border-base-content/20 focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="newStart()" (input)="newStart.set($any($event.target).value)" />
+                </label>
+                <label class="form-control">
+                  <span class="label-text text-xs font-semibold">End</span>
+                  <input type="date" class="input input-bordered input-sm rounded-lg border-base-content/20 focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="newEnd()" (input)="newEnd.set($any($event.target).value)" />
+                </label>
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-6">
+              <button class="btn btn-ghost btn-sm rounded-lg" (click)="showCreate.set(false); editingSprint.set(null)">Cancel</button>
+              <button class="btn btn-primary btn-sm rounded-lg" (click)="create()" [disabled]="!newName().trim()" [class.loading]="createMutation.isPending() || updateMutation.isPending()">
+                {{ editingSprint() ? 'Update Sprint' : 'Create Sprint' }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  }
+    }
 
-  @if (deleteTarget()) {
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="deleteTarget.set(null)"></div>
-      <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-10 border">
-        <h3 class="font-bold">Delete sprint "{{ deleteTarget().name }}"?</h3>
-        <p class="text-sm opacity-60 mt-2">Sprint will be removed. Tasks will move to Backlog. Cannot be undone.</p>
-        <div class="flex justify-end gap-2 mt-6">
-          <button class="btn btn-ghost rounded-xl" (click)="deleteTarget.set(null)">Cancel</button>
-          <button class="btn btn-error rounded-xl text-white" (click)="deleteConfirm()" [class.loading]="deleteMutation.isPending()">Delete</button>
+    @if (sprintsQuery.isPending()) {
+      <div class="card bg-base-100 rounded-2xl border border-base-200 shadow-sm flex justify-center py-12">
+        <span class="loading loading-spinner loading-sm"></span>
+      </div>
+    } @else if (filtered().length === 0) {
+      <div class="card bg-base-100 rounded-2xl border border-base-200 shadow-sm">
+        <div class="p-10 text-center">
+          <div class="w-10 h-10 rounded-xl bg-base-200 mx-auto flex items-center justify-center text-base-content/60">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m20 20-4-4"></path>
+            </svg>
+          </div>
+          <p class="text-sm font-semibold mt-3">No sprints found</p>
+          <p class="text-xs text-base-content/60 mt-1">Try another search or create a new sprint.</p>
         </div>
       </div>
-    </div>
-  }
+    } @else {
+      <div class="hidden md:block card bg-base-100 rounded-2xl shadow-sm border border-base-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr class="text-xs text-base-content/70">
+                <th class="font-semibold">Sprint</th>
+                <th class="font-semibold">Start</th>
+                <th class="font-semibold">End</th>
+                <th class="font-semibold">Status</th>
+                <th class="font-semibold">Issues</th>
+                <th class="font-semibold w-[170px]">Progress</th>
+                <th class="font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (s of paginated(); track s.id) {
+                <tr class="hover:bg-base-200/70">
+                  <td class="max-w-[280px]">
+                    <div class="font-medium truncate" [title]="s.name">{{ s.name }}</div>
+                  </td>
+                  <td class="text-xs text-base-content/75 whitespace-nowrap">{{ s.start }}</td>
+                  <td class="text-xs text-base-content/75 whitespace-nowrap">{{ s.end }}</td>
+                  <td>
+                    <span class="badge badge-sm rounded-lg" [ngClass]="s.status === 'Active' ? 'badge-success' : 'badge-ghost'">{{ s.status }}</span>
+                  </td>
+                  <td>
+                    <span class="text-xs font-medium">{{ s.done }} / {{ s.tasks }}</span>
+                  </td>
+                  <td>
+                    <progress class="progress progress-primary w-full h-1.5" [value]="s.done" [max]="s.tasks || 1"></progress>
+                  </td>
+                  <td>
+                    <div class="flex items-center gap-1 flex-wrap">
+                      @if (scrumBoardId()) {
+                        <a [routerLink]="['../board']" [queryParams]="{sprint: s.id, view: scrumBoardId()}" class="btn btn-ghost btn-xs rounded-lg">View Board</a>
+                      } @else {
+                        <span class="btn btn-ghost btn-xs rounded-lg text-base-content/50 cursor-not-allowed" title="Create a Scrum board in Boards first">View Board</span>
+                      }
+                      <a [routerLink]="['../backlog']" class="btn btn-ghost btn-xs rounded-lg">Backlog</a>
+                      <button class="btn btn-ghost btn-xs rounded-lg" (click)="openEdit(s)">Edit</button>
+                      <button class="btn btn-ghost btn-xs rounded-lg text-error" (click)="confirmDelete(s)">Delete</button>
+                    </div>
+                    @if (!scrumBoardId()) {
+                      <div class="text-[10px] text-base-content/60 mt-1">Scrum board missing — <a routerLink="../boards" class="link link-primary">Go to Boards</a></div>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
 
-  <div class="card bg-info/10 rounded-2xl border border-info/20 p-4">
-    <p class="text-sm font-semibold">Future DB: <code class="bg-base-100 px-1 rounded">Sprints</code> table (projectId, name, start, end) + <code class="bg-base-100 px-1 rounded">TaskItem.SprintId</code> FK. Boards read SprintId filter, no task duplication.</p>
+        <div class="border-t border-base-300 px-3 py-4 sm:px-4">
+          <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+            <div class="text-xs text-base-content/70 text-center sm:text-left">
+              Showing
+              <span class="font-medium text-base-content">{{ pageStart() }}</span>
+              to
+              <span class="font-medium text-base-content">{{ pageEnd() }}</span>
+              of
+              <span class="font-medium text-base-content">{{ filtered().length }}</span>
+              {{ filtered().length === 1 ? 'sprint' : 'sprints' }}
+            </div>
+
+            <div class="flex w-full items-center justify-center gap-1 sm:gap-1.5">
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() <= 1"
+                (click)="setPage(1)"
+                aria-label="First page"
+              >
+                «
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() <= 1"
+                (click)="setPage(page() - 1)"
+                aria-label="Previous page"
+              >
+                ‹
+              </button>
+
+              @for (p of visiblePages(); track p) {
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                  [class.btn-primary]="page() === p"
+                  [class.btn-ghost]="page() !== p"
+                  [class.text-base-content]="page() !== p"
+                  (click)="setPage(p)"
+                  [attr.aria-current]="page() === p ? 'page' : null"
+                >
+                  {{ p }}
+                </button>
+              }
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() >= totalPages()"
+                (click)="setPage(page() + 1)"
+                aria-label="Next page"
+              >
+                ›
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() >= totalPages()"
+                (click)="setPage(totalPages())"
+                aria-label="Last page"
+              >
+                »
+              </button>
+            </div>
+
+            <div class="flex items-center justify-center gap-2 text-xs text-base-content/70 sm:justify-end">
+              <span>Rows</span>
+
+              <select
+                class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0 sm:h-10 sm:min-h-10 sm:w-[76px]"
+                [value]="pageSize()"
+                (change)="setPageSize(+$any($event.target).value)"
+                aria-label="Items per page"
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+              </select>
+
+              <span>per page</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="md:hidden space-y-3">
+        @for (s of paginated(); track s.id) {
+          <div class="card bg-base-100 rounded-2xl shadow-sm border border-base-200">
+            <div class="p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="font-medium text-sm truncate" [title]="s.name">{{ s.name }}</p>
+                  <p class="text-xs text-base-content/65 mt-1">{{ s.start }} → {{ s.end }}</p>
+                </div>
+                <span class="badge badge-sm rounded-lg shrink-0" [ngClass]="s.status === 'Active' ? 'badge-success' : 'badge-ghost'">{{ s.status }}</span>
+              </div>
+
+              <div class="mt-4">
+                <div class="flex items-center justify-between text-xs mb-1.5">
+                  <span class="text-base-content/65">Progress</span>
+                  <span class="font-medium">{{ s.done }} / {{ s.tasks }} issues</span>
+                </div>
+                <progress class="progress progress-primary w-full h-1.5" [value]="s.done" [max]="s.tasks || 1"></progress>
+              </div>
+
+              <div class="mt-4 flex flex-wrap gap-1.5">
+                @if (scrumBoardId()) {
+                  <a [routerLink]="['../board']" [queryParams]="{sprint: s.id, view: scrumBoardId()}" class="btn btn-ghost btn-xs rounded-lg">View Board</a>
+                } @else {
+                  <span class="btn btn-ghost btn-xs rounded-lg text-base-content/50 cursor-not-allowed">View Board</span>
+                }
+                <a [routerLink]="['../backlog']" class="btn btn-ghost btn-xs rounded-lg">Backlog</a>
+                <button class="btn btn-ghost btn-xs rounded-lg" (click)="openEdit(s)">Edit</button>
+                <button class="btn btn-ghost btn-xs rounded-lg text-error" (click)="confirmDelete(s)">Delete</button>
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="rounded-2xl bg-base-100 border border-base-300 overflow-hidden">
+          <div class="border-t border-base-300 px-3 py-4 sm:px-4">
+            <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+              <div class="text-xs text-base-content/70 text-center sm:text-left">
+                Showing
+                <span class="font-medium text-base-content">{{ pageStart() }}</span>
+                to
+                <span class="font-medium text-base-content">{{ pageEnd() }}</span>
+                of
+                <span class="font-medium text-base-content">{{ filtered().length }}</span>
+                {{ filtered().length === 1 ? 'sprint' : 'sprints' }}
+              </div>
+
+              <div class="flex w-full items-center justify-center gap-1 sm:gap-1.5">
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                  [disabled]="page() <= 1"
+                  (click)="setPage(1)"
+                  aria-label="First page"
+                >
+                  «
+                </button>
+
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                  [disabled]="page() <= 1"
+                  (click)="setPage(page() - 1)"
+                  aria-label="Previous page"
+                >
+                  ‹
+                </button>
+
+                @for (p of visiblePages(); track p) {
+                  <button
+                    class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                    [class.btn-primary]="page() === p"
+                    [class.btn-ghost]="page() !== p"
+                    [class.text-base-content]="page() !== p"
+                    (click)="setPage(p)"
+                    [attr.aria-current]="page() === p ? 'page' : null"
+                  >
+                    {{ p }}
+                  </button>
+                }
+
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                  [disabled]="page() >= totalPages()"
+                  (click)="setPage(page() + 1)"
+                  aria-label="Next page"
+                >
+                  ›
+                </button>
+
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                  [disabled]="page() >= totalPages()"
+                  (click)="setPage(totalPages())"
+                  aria-label="Last page"
+                >
+                  »
+                </button>
+              </div>
+
+              <div class="flex items-center justify-center gap-2 text-xs text-base-content/70 sm:justify-end">
+                <span>Rows</span>
+
+                <select
+                  class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0 sm:h-10 sm:min-h-10 sm:w-[76px]"
+                  [value]="pageSize()"
+                  (change)="setPageSize(+$any($event.target).value)"
+                  aria-label="Items per page"
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="30">30</option>
+                  <option value="50">50</option>
+                </select>
+
+                <span>per page</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (deleteTarget()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/45 backdrop-blur-sm" (click)="deleteTarget.set(null)"></div>
+        <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full relative z-10 border border-base-200">
+          <div class="p-5 sm:p-6">
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-lg bg-error/10 text-error flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-sm font-semibold">Delete sprint?</h3>
+                <p class="text-xs text-base-content/65 mt-1">{{ deleteTarget().name }}</p>
+              </div>
+            </div>
+
+            <p class="text-sm text-base-content/75 mt-4">The sprint will be removed and its tasks will move to Backlog. This cannot be undone.</p>
+
+            <div class="flex justify-end gap-2 mt-6">
+              <button class="btn btn-ghost btn-sm rounded-lg" (click)="deleteTarget.set(null)">Cancel</button>
+              <button class="btn btn-error btn-sm rounded-lg text-white" (click)="deleteConfirm()" [class.loading]="deleteMutation.isPending()">Delete Sprint</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
   </div>
 </div>

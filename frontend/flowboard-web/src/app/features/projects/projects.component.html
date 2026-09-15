@@ -1,53 +1,159 @@
-<div class="bg-base-200 min-h-full">
-  <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
-    <div class="flex flex-col sm:flex-row justify-between gap-3 mb-6">
-      <div>
-        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Projects</h1>
-        <p class="text-sm opacity-60 mt-1">All projects across your assigned workspaces — Manager sees allotted workspaces only, filtered by role.</p>
-        @if (!canCreateProjectEffective()) { <span class="badge badge-ghost badge-xs mt-1">View only — missing project:create</span> }
+<div class="min-h-full bg-base-200">
+  <div class="mx-auto max-w-7xl p-3 sm:p-4 md:p-6 lg:p-8">
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div class="min-w-0">
+        <div class="mb-1.5 flex items-center gap-2">
+          <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+              <path stroke-linecap="round" d="M8 8h8M8 12h5M8 16h3"></path>
+            </svg>
+          </div>
+          <span class="text-[11px] font-medium uppercase tracking-wider text-base-content/55">Organization</span>
+        </div>
+
+        <h1 class="text-2xl font-semibold tracking-tight text-base-content sm:text-3xl">Projects</h1>
+        <p class="mt-1 text-sm text-base-content/60">All projects across your assigned workspaces and teams.</p>
+
+        @if (!canCreateProjectEffective()) {
+          <span class="badge badge-ghost badge-sm mt-2 rounded-lg border border-base-content/15 text-base-content/65">
+            View only — missing project:create
+          </span>
+        }
       </div>
-      <div class="flex gap-2 self-start sm:self-auto items-center">
-        @if (canCreateProjectEffective()) { <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md" (click)="openCreate()">+ New Project</button> }
-        <span class="badge badge-ghost badge-sm">Total {{ total() }}</span>
-      </div>
+
+      @if (canCreateProjectEffective()) {
+        <button class="btn btn-primary btn-sm h-9 shrink-0 rounded-lg px-4 shadow-sm" (click)="openCreate()">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" d="M12 5v14M5 12h14"></path>
+          </svg>
+          New Project
+        </button>
+      }
     </div>
 
-    <app-project-modal [open]="createOpen()" mode="create" [workspaces]="filteredWorkspaces().length? filteredWorkspaces() : workspacesQuery.data() || []" [initialWorkspaceId]="selectedWorkspaceId()!=='all'? selectedWorkspaceId() : ''" [error]="createError()" [loading]="createMutation.isPending()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
-    <app-project-modal [open]="editOpen()" mode="update" [initialName]="editing()?.name || ''" [initialDescription]="editing()?.description || ''" [loading]="updateMutation.isPending()" (closed)="editOpen.set(false)" (submitted)="onEditSubmit($event)" />
-    <app-confirm-delete [open]="deleteOpen()" [title]="'Delete project &quot;'+(editing()?.name||'')+'&quot;?'" message="This will delete the project and its board. Cannot be undone." [loading]="deleteMutation.isPending()" (cancelled)="deleteOpen.set(false)" (confirmed)="onDeleteConfirm()" />
+    <app-project-modal
+      [open]="createOpen()"
+      mode="create"
+      [workspaces]="filteredWorkspaces().length ? filteredWorkspaces() : workspacesQuery.data() || []"
+      [initialWorkspaceId]="selectedWorkspaceId() !== 'all' ? selectedWorkspaceId() : ''"
+      [error]="createError()"
+      [loading]="createMutation.isPending()"
+      (closed)="createOpen.set(false)"
+      (submitted)="onCreateSubmit($event)"
+    />
 
-    <div class="flex flex-col sm:flex-row gap-2 mb-6">
-      <div class="flex flex-wrap gap-2 items-center">
-        <span class="text-xs opacity-40">Workspace:</span>
-        <div class="dropdown">
-          <div tabindex="0" role="button" class="input input-bordered input-sm rounded-full min-w-[180px] flex items-center justify-between cursor-pointer" (click)="wsDropdownOpen.set(!wsDropdownOpen())">
-            <span>{{ selectedWorkspaceName() }}</span>
-            <span>▼</span>
+    <app-project-modal
+      [open]="editOpen()"
+      mode="update"
+      [initialName]="editing()?.name || ''"
+      [initialDescription]="editing()?.description || ''"
+      [loading]="updateMutation.isPending()"
+      (closed)="editOpen.set(false)"
+      (submitted)="onEditSubmit($event)"
+    />
+
+    <app-confirm-delete
+      [open]="deleteOpen()"
+      [title]="'Delete project &quot;' + (editing()?.name || '') + '&quot;?'"
+      message="This will delete the project and its board. Cannot be undone."
+      [loading]="deleteMutation.isPending()"
+      (cancelled)="deleteOpen.set(false)"
+      (confirmed)="onDeleteConfirm()"
+    />
+    
+    <div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div class="dropdown w-full sm:w-auto">
+        <button
+          type="button"
+          class="input input-bordered flex h-9 w-full items-center justify-between gap-4 rounded-lg border-base-content/20 bg-base-100 px-3 text-left text-sm text-base-content shadow-none transition-colors hover:border-base-content/35 focus:border-base-content/40 focus:outline-none focus:ring-0 sm:min-w-[210px]"
+          (click)="wsDropdownOpen.set(!wsDropdownOpen())"
+        >
+          <span class="truncate">{{ selectedWorkspaceName() }}</span>
+          <svg class="h-4 w-4 shrink-0 text-base-content/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"></path>
+          </svg>
+        </button>
+
+        @if (wsDropdownOpen()) {
+          <div class="dropdown-content menu z-20 mt-1 w-[min(20rem,calc(100vw-1.5rem))] rounded-xl border border-base-300 bg-base-100 p-2 shadow-xl">
+            <input
+              type="text"
+              placeholder="Search workspace..."
+              class="input input-bordered input-sm mb-2 h-9 rounded-lg border-base-content/20 bg-base-100 text-xs text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0"
+              [value]="wsSearch()"
+              (input)="wsSearch.set($any($event.target).value)"
+            />
+
+            <li>
+              <a
+                class="rounded-lg text-xs text-base-content"
+                (click)="selectWorkspace('all')"
+                [class.active]="selectedWorkspaceId() === 'all'"
+              >
+                All workspaces ({{ workspacesQuery.data()?.length || 0 }})
+              </a>
+            </li>
+
+            @for (ws of filteredWorkspaces(); track ws.id) {
+              <li>
+                <a
+                  class="rounded-lg text-xs text-base-content"
+                  (click)="selectWorkspace(ws.id)"
+                  [class.active]="selectedWorkspaceId() === ws.id"
+                >
+                  {{ ws.name }}
+                </a>
+              </li>
+            }
+
+            @if (filteredWorkspaces().length === 0) {
+              <li class="p-2 text-xs text-base-content/50">No match</li>
+            }
           </div>
-          @if (wsDropdownOpen()) {
-            <div class="dropdown-content menu bg-base-100 rounded-xl z-20 w-64 p-2 shadow border mt-1">
-              <input type="text" placeholder="Search workspace..." class="input input-bordered input-sm rounded-xl mb-2" [value]="wsSearch()" (input)="wsSearch.set($any($event.target).value)" />
-              <li><a (click)="selectedWorkspaceId.set('all'); wsDropdownOpen.set(false); page.set(1)" [class.active]="selectedWorkspaceId()==='all'">All workspaces ({{ workspacesQuery.data()?.length||0 }})</a></li>
-              @for (ws of filteredWorkspaces(); track ws.id) { <li><a (click)="selectedWorkspaceId.set(ws.id); wsDropdownOpen.set(false); page.set(1)" [class.active]="selectedWorkspaceId()===ws.id">{{ ws.name }}</a></li> }
-              @if (filteredWorkspaces().length===0) { <li class="text-xs opacity-40 p-2">No match</li> }
-            </div>
-          }
-        </div>
+        }
       </div>
-      <input type="text" placeholder="Search projects by name/key..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="projectSearch()" (input)="projectSearch.set($any($event.target).value); page.set(1)" />
+
+      <div class="relative min-w-0 flex-1">
+        <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-base-content/45" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path stroke-linecap="round" d="m16.5 16.5 4 4"></path>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search projects by name or key..."
+          class="input input-bordered input-sm h-9 w-full rounded-lg border-base-content/20 bg-base-100 pl-9 text-sm text-base-content shadow-none outline-none transition-colors focus:border-base-content/50 focus:outline-none focus:ring-0"
+          [value]="projectSearch()"
+          (input)="onProjectSearch($any($event.target).value)"
+        />
+      </div>
+
+      <div class="flex shrink-0 items-center gap-1.5 text-xs text-base-content/65 sm:px-1">
+        <span class="font-medium text-base-content">{{ total() }}</span>
+        <span>{{ total() === 1 ? 'project' : 'projects' }}</span>
+      </div>
     </div>
 
     @if (projectsQuery.isPending()) {
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        @for (i of [1,2,3,4,5,6]; track i) { <div class="card bg-base-100 border p-6 animate-pulse"><div class="h-4 bg-base-300 rounded w-3/4"></div></div> }
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="card rounded-2xl border border-base-200 bg-base-100 p-6 shadow animate-pulse">
+            <div class="h-5 w-16 rounded-full bg-base-300"></div>
+            <div class="mt-5 h-5 w-3/4 rounded bg-base-300"></div>
+            <div class="mt-2 h-4 w-full rounded bg-base-200"></div>
+            <div class="mt-5 h-9 w-full rounded-full bg-base-200"></div>
+          </div>
+        }
       </div>
-    } <!-- error via toast --> @else {
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+    } @else {
+      <!-- PROJECT CARDS — intentionally unchanged -->
+      <div class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 md:gap-6">
         @for (project of paginated(); track project.id) {
           <div class="card bg-base-100 rounded-2xl shadow border border-base-200 hover:shadow-xl hover:-translate-y-1 transition-all group">
             <div class="card-body p-5 sm:p-6">
               <div class="flex justify-between items-start gap-2">
                 <span class="badge badge-primary badge-sm rounded-full">{{ project.key }}</span>
+
                 <div class="flex gap-1 items-center">
                   @if (canCreateProjectEffective()) {
                     <div class="dropdown dropdown-end">
@@ -58,29 +164,128 @@
                       </ul>
                     </div>
                   }
+
                   <span class="badge badge-ghost badge-xs">{{ project.workspaceId.slice(0,4) }}</span>
                 </div>
               </div>
+
               <h2 class="card-title text-lg mt-2 line-clamp-1">{{ project.name }}</h2>
               <p class="text-sm opacity-60 line-clamp-2">{{ project.description || 'No description' }}</p>
+
               <div class="card-actions justify-end mt-4">
-                <a [routerLink]="['/w', project.workspaceId, 'p', project.id, 'boards']" class="btn btn-primary btn-sm rounded-full px-4">Open Boards →</a>
+                <a
+                  [routerLink]="['/w', project.workspaceId, 'p', project.id, 'boards']"
+                  class="btn btn-primary btn-sm rounded-full px-4"
+                >
+                  Open Boards →
+                </a>
               </div>
             </div>
           </div>
         }
       </div>
-      @if (filtered().length===0) {
-        <div class="text-center py-16 bg-base-100 rounded-2xl border border-dashed mt-6">
-          <p class="font-semibold">No projects</p>
-          <p class="text-sm opacity-60">Select a workspace and create a project (PM/OrgAdmin only)</p>
+
+      @if (filtered().length === 0) {
+        <div class="mt-6 rounded-2xl border border-dashed border-base-300 bg-base-100 px-6 py-14 text-center">
+          <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-base-200 text-base-content/60">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="4" y="4" width="6" height="6" rx="1"></rect>
+              <rect x="14" y="4" width="6" height="6" rx="1"></rect>
+              <rect x="4" y="14" width="6" height="6" rx="1"></rect>
+              <rect x="14" y="14" width="6" height="6" rx="1"></rect>
+            </svg>
+          </div>
+          <p class="mt-3 text-sm font-semibold text-base-content">No projects found</p>
+          <p class="mt-1 text-sm text-base-content/60">
+            Try changing the workspace or search criteria.
+          </p>
         </div>
       }
-      <div class="flex justify-center gap-2 mt-6">
-        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
-        @for (p of [].constructor(totalPages()); track $index) { @if ($index < 7) { <button class="btn btn-sm rounded-full" [class.btn-primary]="page()===$index+1" [class.btn-ghost]="page()!==$index+1" (click)="page.set($index+1)">{{ $index+1 }}</button> } }
-        @if (totalPages()>7) { <span class="self-center opacity-40">...</span> <button class="btn btn-sm rounded-full" [class.btn-primary]="page()===totalPages()" [class.btn-ghost]="page()!==totalPages()" (click)="page.set(totalPages())">{{ totalPages() }}</button> }
-        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+
+      <div class="mt-6 border-t border-base-300 pt-4">
+        <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+          <div class="text-center text-xs text-base-content/70 sm:text-left">
+            Showing
+            <span class="font-medium text-base-content">{{ showingFrom() }}</span>
+            to
+            <span class="font-medium text-base-content">{{ showingTo() }}</span>
+            of
+            <span class="font-medium text-base-content">{{ total() }}</span>
+            {{ total() === 1 ? 'project' : 'projects' }}
+          </div>
+
+          <div class="order-first flex w-full items-center justify-center gap-1 sm:order-none sm:gap-1.5">
+            <button
+              class="btn btn-ghost btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() <= 1"
+              (click)="page.set(1)"
+              aria-label="First page"
+            >«</button>
+
+            <button
+              class="btn btn-ghost btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() <= 1"
+              (click)="page.set(page() - 1)"
+              aria-label="Previous page"
+            >‹</button>
+
+            @if (totalPages() <= 3) {
+              @for (p of [].constructor(totalPages()); track $index) {
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                  [class.btn-primary]="page() === $index + 1"
+                  [class.btn-ghost]="page() !== $index + 1"
+                  [class.text-base-content]="page() !== $index + 1"
+                  (click)="page.set($index + 1)"
+                >
+                  {{ $index + 1 }}
+                </button>
+              }
+            } @else {
+              @for (p of visiblePages(); track p) {
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                  [class.btn-primary]="page() === p"
+                  [class.btn-ghost]="page() !== p"
+                  [class.text-base-content]="page() !== p"
+                  (click)="page.set(p)"
+                >
+                  {{ p }}
+                </button>
+              }
+            }
+
+            <button
+              class="btn btn-ghost btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() >= totalPages()"
+              (click)="page.set(page() + 1)"
+              aria-label="Next page"
+            >›</button>
+
+            <button
+              class="btn btn-ghost btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() >= totalPages()"
+              (click)="page.set(totalPages())"
+              aria-label="Last page"
+            >»</button>
+          </div>
+
+          <div class="flex items-center justify-center gap-2 text-xs text-base-content/70 sm:justify-end">
+            <span>Rows</span>
+            <select
+              class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0 sm:h-10 sm:min-h-10 sm:w-[76px]"
+              [value]="pageSize()"
+              (change)="onPageSizeChange($any($event.target).value)"
+              aria-label="Items per page"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+              <option value="50">50</option>
+            </select>
+            <span>per page</span>
+          </div>
+        </div>
       </div>
     }
   </div>

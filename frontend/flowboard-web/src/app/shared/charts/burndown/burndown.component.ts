@@ -9,7 +9,6 @@ import type { BurndownData } from '../../../core/services/stats.service';
   standalone: true,
   imports: [CommonModule, NgApexchartsModule],
   templateUrl: './burndown.component.html',
-  styleUrls: ['./burndown.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class BurndownComponent {
@@ -21,20 +20,56 @@ export class BurndownComponent {
     const remaining = d?.points.map(p => p.remaining) ?? [];
     const ideal = d?.points.map(p => p.ideal) ?? [];
     const total = d?.points[0]?.total ?? 0;
+
     return {
-      chart: { type: 'area', height: 320, toolbar: { show: false } },
+      chart: {
+        type: 'area',
+        height: 290,
+        toolbar: { show: false },
+        parentHeightOffset: 0
+      },
       series: [
         { name: 'Remaining', data: remaining.length ? remaining : [0] },
         { name: 'Ideal', data: ideal.length ? ideal : [0] }
       ],
-      xaxis: { categories: cats.length ? cats : ['No data'] },
-      yaxis: { min: 0, max: total || undefined },
-      stroke: { curve: 'smooth', width: 2, dashArray: [0, 6] },
+      xaxis: {
+        categories: cats.length ? cats : ['No data'],
+        labels: { trim: true }
+      },
+      yaxis: {
+        min: 0,
+        max: total || undefined
+      },
+      stroke: {
+        curve: 'smooth',
+        width: 2,
+        dashArray: [0, 6]
+      },
       colors: ['#6366f1', '#94a3b8'],
-      fill: { type: 'gradient', gradient: { opacityFrom: 0.45, opacityTo: 0.05 } },
+      fill: {
+        type: 'gradient',
+        gradient: {
+          opacityFrom: 0.35,
+          opacityTo: 0.03
+        }
+      },
       dataLabels: { enabled: false },
-      legend: { position: 'top' },
-      grid: { borderColor: '#e5e7eb' }
+      legend: {
+        position: 'top',
+        horizontalAlign: 'left'
+      },
+      grid: {
+        borderColor: '#d1d5db'
+      },
+      responsive: [
+        {
+          breakpoint: 640,
+          options: {
+            chart: { height: 250 },
+            legend: { position: 'bottom' }
+          }
+        }
+      ]
     };
   });
 }

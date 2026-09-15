@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, ChangeDetectionStrategy, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -18,7 +18,6 @@ import { injectQuery, QueryClient } from '@tanstack/angular-query-experimental';
   standalone: true,
   imports: [CommonModule, RouterLink, NotificationDetailModalComponent],
   templateUrl: './header.component.html',
-  styleUrls: ['./header.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HeaderComponent {
@@ -29,11 +28,14 @@ export class HeaderComponent {
   private superAdminService = inject(SuperAdminService);
   private queryClient = inject(QueryClient);
 
+  mobileMenuRequested = output<void>();
+
   platformQuery = injectQuery(() => ({
     queryKey: ['platform-general'] as const,
     queryFn: () => firstValueFrom(this.superAdminService.getPlatformGeneral()),
     staleTime: 5 * 60 * 1000,
   }));
+
   mobileOpen = signal(false);
   notifOpen = signal(false);
   selectedNotif = signal<any>(null);
@@ -52,7 +54,7 @@ export class HeaderComponent {
     enabled: this.auth.isAuthenticated() && this.auth.isSuperAdmin(),
     staleTime: 30 * 1000,
   }));
-  
+
   unread = computed(() => {
     if (this.auth.isSuperAdmin()) {
       const list: any = this.complaintsQuery.data();
@@ -70,10 +72,27 @@ export class HeaderComponent {
     return n > 9 ? '9+' : String(n);
   });
 
-  toggleMobile() { this.mobileOpen.update(v => !v); }
-  closeMobile() { this.mobileOpen.set(false); }
-  toggleNotif() { this.notifOpen.update(v => !v); }
-  closeNotif() { this.notifOpen.set(false); }
+  requestMobileMenu() {
+    this.mobileOpen.update(v => !v);
+    this.mobileMenuRequested.emit();
+  }
+
+  toggleMobile() {
+    this.mobileOpen.update(v => !v);
+    this.mobileMenuRequested.emit();
+  }
+
+  closeMobile() {
+    this.mobileOpen.set(false);
+  }
+
+  toggleNotif() {
+    this.notifOpen.update(v => !v);
+  }
+
+  closeNotif() {
+    this.notifOpen.set(false);
+  }
 
   formatNotif(n: any): string {
     try {
@@ -85,22 +104,26 @@ export class HeaderComponent {
       const actor = n.actorName || p.ActorName || '';
       const boardPart = board ? ` in ${board}` : '';
       const displayAction = (n.action || '').replace(/^Task/, 'Issue');
+
       if (n.action === 'TaskMoved' && title) return `${actor ? actor + ' ' : ''}moved "${title}" ${from ? 'from ' + from : ''} → ${to}${boardPart}`;
       if (n.action === 'TaskCreated' && title) return `${actor ? actor + ' ' : ''}created an issue "${title}"${boardPart}`;
       if (n.action === 'TaskCommented' && title) {
         const preview = p.CommentContent || p.commentPreview || '';
-        if (preview) return `${actor ? actor + ' ' : ''}commented on "${title}": "${preview.slice(0,30)}"`;
+        if (preview) return `${actor ? actor + ' ' : ''}commented on "${title}": "${preview.slice(0, 30)}"`;
         return `${actor ? actor + ' ' : ''}commented on "${title}"`;
       }
       if (title) return title;
       return displayAction;
-    } catch { return (n.action || '').replace(/^Task/, 'Issue'); }
+    } catch {
+      return (n.action || '').replace(/^Task/, 'Issue');
+    }
   }
 
   openNotifDetail(n: any) {
     this.selectedNotif.set(n);
     this.notifDetailOpen.set(true);
     this.notifOpen.set(false);
+
     if (!n.isRead) {
       firstValueFrom(this.notificationService.markRead(n.id)).then(() => {
         this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -117,8 +140,14 @@ export class HeaderComponent {
   logout() {
     this.closeMobile();
     this.auth.logout().subscribe({
-      complete: () => { this.auth.clearSession(); this.router.navigate(['/login']); },
-      error: () => { this.auth.clearSession(); this.router.navigate(['/login']); }
+      complete: () => {
+        this.auth.clearSession();
+        this.router.navigate(['/login']);
+      },
+      error: () => {
+        this.auth.clearSession();
+        this.router.navigate(['/login']);
+      }
     });
   }
 }

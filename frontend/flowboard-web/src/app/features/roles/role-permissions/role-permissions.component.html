@@ -1,22 +1,40 @@
 <div class="bg-base-200 min-h-full">
   <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
-    <div class="flex items-center gap-2 text-sm">
-      <a routerLink="/roles" class="btn btn-ghost btn-xs rounded-full">← Back to Roles</a>
+    <div class="flex items-center gap-2 text-sm min-w-0">
+      <a routerLink="/roles" class="btn btn-ghost btn-xs rounded-full shrink-0">← Back to Roles</a>
       <span class="opacity-30">/</span>
-      <span class="font-semibold">Permissions</span>
-      @if (roleDto()) { <span class="badge badge-ghost badge-sm rounded-full">{{ roleDto().name }}</span> }
+      <span class="font-semibold truncate">Permissions</span>
+      @if (roleDto()) {
+        <span class="badge badge-ghost badge-sm rounded-full max-w-[140px] truncate">{{ roleDto().name }}</span>
+      }
     </div>
 
     <div class="mt-4">
-      <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Permissions Matrix — {{ roleDto()?.name || 'Role' }}</h1>
-      <p class="text-sm opacity-60 mt-1">Toggle permissions for this role. Grouped by resource. Changes are saved per role via PUT permissions.</p>
-      @if (roleDto()?.description) { <p class="text-xs opacity-40 mt-1">{{ roleDto().description }}</p> }
-      <p class="text-xs opacity-40 mt-1">Org: {{ orgId().slice(0,6) }} • Role: {{ roleId().slice(0,6) }} • Selected {{ selected().size }} / {{ permissionsQuery.data()?.length || 0 }}</p>
+      <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div class="min-w-0">
+          <h1 class="text-xl sm:text-2xl font-semibold tracking-tight">Permissions Matrix — {{ roleDto()?.name || 'Role' }}</h1>
+          <p class="text-sm opacity-60 mt-1">Toggle permissions for this role. Grouped by resource. Changes are saved per role via PUT permissions.</p>
+          @if (roleDto()?.description) {
+            <p class="text-xs opacity-40 mt-1">{{ roleDto().description }}</p>
+          }
+        </div>
+
+        <div class="flex flex-wrap gap-2 text-xs opacity-60 shrink-0">
+          <span class="badge badge-ghost badge-sm rounded-full">Org: {{ orgId().slice(0,6) }}</span>
+          <span class="badge badge-ghost badge-sm rounded-full">Role: {{ roleId().slice(0,6) }}</span>
+          <span class="badge badge-primary badge-sm rounded-full">Selected {{ selected().size }} / {{ permissionsQuery.data()?.length || 0 }}</span>
+        </div>
+      </div>
     </div>
 
     @if (!orgId() || rolePermissionsQuery.isPending() || permissionsQuery.isPending()) {
       <div class="mt-6 space-y-2">
-        @for (i of [1,2,3,4]; track i) { <div class="card bg-base-100 border p-4 animate-pulse"><div class="h-4 bg-base-300 rounded w-1/4 mb-2"></div><div class="h-3 bg-base-200 rounded w-3/4"></div></div> }
+        @for (i of [1,2,3,4]; track i) {
+          <div class="card bg-base-100 border p-4 animate-pulse">
+            <div class="h-4 bg-base-300 rounded w-1/4 mb-2"></div>
+            <div class="h-3 bg-base-200 rounded w-3/4"></div>
+          </div>
+        }
       </div>
     } @else if (rolePermissionsQuery.isError()) {
       <div class="mt-6 card bg-base-100 rounded-2xl border p-6 text-center">
@@ -25,26 +43,29 @@
         <a routerLink="/roles" class="btn btn-ghost btn-sm rounded-full mt-3">Back to Roles</a>
       </div>
     } @else {
-      <div class="mt-6 space-y-4">
+      <div class="mt-5 sm:mt-6 space-y-3 sm:space-y-4">
         @for (g of grouped(); track g.group) {
           <div class="card bg-base-100 rounded-2xl shadow border overflow-hidden">
-            <div class="flex items-center justify-between p-3 sm:p-4 border-b border-base-200 bg-base-200/30">
-              <div class="flex items-center gap-2">
-                <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" [checked]="isGroupAllChecked(g.permissions)" [indeterminate]="isGroupSomeChecked(g.permissions)" (change)="toggleGroup(g.permissions, $any($event.target).checked)" />
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4 border-b border-base-200 bg-base-200/30">
+              <div class="flex items-center gap-2 min-w-0">
+                <input type="checkbox" class="checkbox checkbox-sm checkbox-primary shrink-0" [checked]="isGroupAllChecked(g.permissions)" [indeterminate]="isGroupSomeChecked(g.permissions)" (change)="toggleGroup(g.permissions, $any($event.target).checked)" />
                 <span class="font-semibold text-sm">{{ g.label }}</span>
                 <span class="badge badge-ghost badge-xs rounded-full">{{ g.permissions.length }}</span>
-                <span class="text-xs opacity-40 hidden sm:inline">{{ g.permissions.filter(p => isChecked(p.id)).length }}/{{ g.permissions.length }} selected</span>
+                <span class="text-xs opacity-40">{{ g.permissions.filter(p => isChecked(p.id)).length }}/{{ g.permissions.length }} selected</span>
               </div>
               <span class="text-xs opacity-40 font-mono hidden sm:inline">{{ g.group }}</span>
             </div>
+
             <div class="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               @for (p of g.permissions; track p.id) {
-                <label class="flex items-start gap-2 p-2 rounded-xl hover:bg-base-200 cursor-pointer border border-transparent hover:border-base-200 transition-colors">
-                  <input type="checkbox" class="checkbox checkbox-sm checkbox-primary mt-0.5" [checked]="isChecked(p.id)" (change)="toggle(p.id, $any($event.target).checked)" />
+                <label class="flex items-start gap-2 p-2 rounded-xl hover:bg-base-200 cursor-pointer border border-transparent hover:border-base-200 transition-colors min-w-0">
+                  <input type="checkbox" class="checkbox checkbox-sm checkbox-primary mt-0.5 shrink-0" [checked]="isChecked(p.id)" (change)="toggle(p.id, $any($event.target).checked)" />
                   <span class="flex-1 min-w-0">
                     <span class="text-sm font-medium block truncate" [title]="p.key">{{ p.name }}</span>
                     <span class="text-xs opacity-60 block truncate font-mono" [title]="p.key">{{ p.key }}</span>
-                    @if (p.description) { <span class="text-xs opacity-40 block line-clamp-2">{{ p.description }}</span> }
+                    @if (p.description) {
+                      <span class="text-xs opacity-40 block line-clamp-2">{{ p.description }}</span>
+                    }
                   </span>
                 </label>
               }
@@ -53,11 +74,18 @@
         }
       </div>
 
-      <div class="mt-6 flex justify-between items-center gap-3 sticky bottom-0 bg-base-200/80 backdrop-blur p-3 rounded-2xl border">
-        <span class="text-xs opacity-60">{{ selected().size }} selected • {{ permissionsQuery.data()?.length || 0 }} total</span>
-        <div class="flex gap-2">
-          <a routerLink="/roles" class="btn btn-ghost rounded-xl">Cancel</a>
-          <button class="btn btn-primary rounded-xl" (click)="doSave()" [class.loading]="saveMutation.isPending()" [disabled]="saveMutation.isPending()">Save Permissions</button>
+      <div class="mt-5 sm:mt-6 sticky bottom-2 z-30 bg-base-200/90 backdrop-blur p-3 rounded-2xl border border-base-300">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span class="text-xs opacity-60">
+            {{ selected().size }} selected
+            <span class="mx-1 opacity-40">•</span>
+            {{ permissionsQuery.data()?.length || 0 }} total
+          </span>
+
+          <div class="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
+            <a routerLink="/roles" class="btn btn-ghost btn-sm rounded-xl w-full sm:w-auto">Cancel</a>
+            <button class="btn btn-primary btn-sm rounded-xl w-full sm:w-auto" (click)="doSave()" [class.loading]="saveMutation.isPending()" [disabled]="saveMutation.isPending()">Save Permissions</button>
+          </div>
         </div>
       </div>
     }

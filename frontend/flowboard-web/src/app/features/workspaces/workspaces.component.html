@@ -2,38 +2,94 @@
   <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
     <div class="flex flex-col sm:flex-row justify-between gap-3 mb-6">
       <div>
-        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Workspaces</h1>
-        <p class="text-sm opacity-60 mt-1">All teams you belong to — filtered to your assigned workspaces (Manager sees allotted only).</p>
-        @if (!canCreateWorkspaceEffective()) { <span class="badge badge-ghost badge-xs mt-1">View only — missing workspace:create</span> }
+        <div class="flex items-center gap-2 mb-1">
+          <svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <path stroke-linecap="round" d="M8 8h8M8 12h5M8 16h3"></path>
+          </svg>
+          <span class="text-xs opacity-50 uppercase tracking-wider">Organization</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">Workspaces</h1>
+        <p class="text-sm opacity-60 mt-1">Manage the workspaces you belong to and access your assigned teams and projects.</p>
+        @if (!canCreateWorkspaceEffective()) {
+          <span class="badge badge-ghost badge-xs mt-1">View only — missing workspace:create</span>
+        }
       </div>
+
       <div class="flex gap-2 self-start sm:self-auto items-center">
         @if (canCreateWorkspaceEffective()) {
-          <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md" (click)="openCreate()">+ New Workspace</button>
+          <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md" (click)="openCreate()">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" d="M12 5v14M5 12h14"></path>
+            </svg>
+            New workspace
+          </button>
         }
-        <span class="badge badge-ghost badge-sm">Total {{ total() }}</span>
       </div>
     </div>
 
-    <div class="flex flex-col sm:flex-row gap-2 mb-4">
-      <input type="text" placeholder="Search workspaces..." class="input input-bordered input-sm rounded-full max-w-xs" [value]="search()" (input)="onSearch($any($event.target).value)" />
+    <app-workspace-modal
+      [open]="createOpen()"
+      mode="create"
+      [organizations]="orgsQuery.data() || []"
+      [loading]="createMutation.isPending()"
+      [error]="createError()"
+      (closed)="createOpen.set(false)"
+      (submitted)="onCreateSubmit($event)"
+    />
+
+    <app-workspace-modal
+      [open]="editOpen()"
+      mode="update"
+      [initialName]="editing()?.name || ''"
+      [initialSlug]="editing()?.slug || ''"
+      [loading]="updateMutation.isPending()"
+      (closed)="editOpen.set(false)"
+      (submitted)="onEditSubmit($event)"
+    />
+
+    <app-confirm-delete
+      [open]="deleteOpen()"
+      [title]="'Delete workspace &quot;' + (editing()?.name || '') + '&quot;?'"
+      message="This will delete the workspace and its memberships. Cannot be undone."
+      [loading]="deleteMutation.isPending()"
+      (cancelled)="deleteOpen.set(false)"
+      (confirmed)="onDeleteConfirm()"
+    />
+
+    <div class="flex flex-col sm:flex-row gap-2 mb-6">
+      <input
+        type="text"
+        placeholder="Search workspaces..."
+        class="input input-bordered input-sm h-9 w-full rounded-lg border-base-300 bg-base-100 text-sm shadow-none outline-none transition-colors focus:border-base-content/30 focus:outline-none focus:ring-0 sm:max-w-md"
+        [value]="search()"
+        (input)="onSearch($any($event.target).value)"
+      />
       <div class="text-xs opacity-40 self-center">Page {{ page() }} / {{ totalPages() }}</div>
     </div>
 
-    <app-workspace-modal [open]="createOpen()" mode="create" [organizations]="orgsQuery.data() || []" [loading]="createMutation.isPending()" [error]="createError()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
-    <app-workspace-modal [open]="editOpen()" mode="update" [initialName]="editing()?.name || ''" [initialSlug]="editing()?.slug || ''" [loading]="updateMutation.isPending()" (closed)="editOpen.set(false)" (submitted)="onEditSubmit($event)" />
-    <app-confirm-delete [open]="deleteOpen()" [title]="'Delete workspace &quot;'+(editing()?.name||'')+'&quot;?'" message="This will delete the workspace and its memberships. Cannot be undone." [loading]="deleteMutation.isPending()" (cancelled)="deleteOpen.set(false)" (confirmed)="onDeleteConfirm()" />
-
     @if (workspacesQuery.isPending()) {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        @for (i of [1,2,3,4,5,6]; track i) { <div class="card bg-base-100 border p-6 animate-pulse"><div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div><div class="h-3 bg-base-200 rounded w-1/2"></div></div> }
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="card bg-base-100 rounded-2xl shadow border border-base-200 p-5 animate-pulse">
+            <div class="h-5 bg-base-300 rounded w-20"></div>
+            <div class="h-5 bg-base-300 rounded w-3/4 mt-5"></div>
+            <div class="h-3 bg-base-200 rounded w-1/2 mt-2"></div>
+            <div class="h-6 bg-base-200 rounded w-24 mt-4"></div>
+            <div class="h-9 bg-base-200 rounded-full mt-5"></div>
+          </div>
+        }
       </div>
-    } <!-- error via toast --> @else {
+    } @else {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         @for (ws of workspacesQuery.data()?.items || []; track ws.id) {
           <div class="card bg-base-100 rounded-2xl shadow border border-base-200 hover:shadow-xl hover:-translate-y-1 transition-all group">
             <div class="card-body p-5 sm:p-6">
               <div class="flex justify-between items-start gap-2">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center text-white font-bold text-sm" [ngClass]="gradientFor(ws.slug)" title="{{ws.slug}}">{{ ws.name.charAt(0) }}</div>
+                <span class="badge badge-primary badge-sm rounded-full">
+                  {{ ws.name.charAt(0).toUpperCase() }}
+                </span>
+
                 <div class="flex gap-1 items-center">
                   @if (canCreateWorkspaceEffective()) {
                     <div class="dropdown dropdown-end">
@@ -44,32 +100,115 @@
                       </ul>
                     </div>
                   }
-                  <span class="badge badge-ghost badge-xs font-mono">{{ ws.id.slice(0,8) }}</span>
+                  <span class="badge badge-ghost badge-xs">{{ ws.id.slice(0,4) }}</span>
                 </div>
               </div>
-              <h2 class="card-title text-lg mt-3 line-clamp-1">{{ ws.name }}</h2>
-              <p class="text-sm opacity-60 font-mono text-xs">{{ ws.slug }}</p>
-              <div class="flex gap-2 mt-2">
-                <span class="badge badge-primary badge-sm rounded-full">{{ getRoleLabel(ws.role) }}</span>
-                <span class="badge badge-ghost badge-sm">Org {{ ws.organizationId.slice(0,4) }}</span>
+
+              <h2 class="card-title text-lg mt-2 line-clamp-1">{{ ws.name }}</h2>
+              <p class="text-sm opacity-60 line-clamp-2 font-mono">{{ ws.slug }}</p>
+
+              <div class="flex gap-2 mt-3">
+                <!-- <span class="badge badge-primary badge-sm rounded-full">{{ getRoleLabel(ws.role) }}</span> -->
+                <span class="badge badge-ghost badge-sm rounded-full">Org {{ ws.organizationId.slice(0,4) }}</span>
               </div>
+
               <div class="card-actions justify-end mt-4">
-                <a [routerLink]="['/w', ws.id]" class="btn btn-primary btn-sm rounded-full px-4 group-hover:shadow-md">Open →</a>
+                <a [routerLink]="['/w', ws.id]" class="btn btn-primary btn-sm rounded-full px-4">
+                  Open Workspace →
+                </a>
               </div>
             </div>
           </div>
         }
       </div>
+
       @if ((workspacesQuery.data()?.items?.length || 0) === 0) {
         <div class="text-center py-16 bg-base-100 rounded-2xl border border-dashed mt-6">
-          <p class="font-semibold">No workspaces yet</p>
-          <p class="text-sm opacity-60">Your personal workspace will appear here after register (OrgAdmin). Create more via Organization.</p>
+          <p class="font-semibold">No workspaces</p>
+          <p class="text-sm opacity-60 mt-1">Your available workspaces will appear here.</p>
         </div>
       }
-      <div class="flex justify-center gap-2 mt-6">
-        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
-        @for (p of [].constructor(totalPages()); track $index) { <button class="btn btn-sm rounded-full" [class.btn-primary]="page()===$index+1" [class.btn-ghost]="page()!==$index+1" (click)="page.set($index+1)">{{ $index+1 }}</button> }
-        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+
+      <div class="flex flex-col gap-4 mt-6 pt-4 border-t border-base-300 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+        <div class="text-xs opacity-60">
+          Showing <span class="font-medium">{{ showingFrom() }}</span>
+          to <span class="font-medium">{{ showingTo() }}</span>
+          of <span class="font-medium">{{ total() }}</span>
+          {{ total() === 1 ? 'workspace' : 'workspaces' }}
+        </div>
+
+        <div class="order-first flex justify-center gap-1.5 sm:order-none">
+          <button
+            class="btn btn-ghost btn-sm h-9 w-9 min-h-9 rounded-lg border border-base-300 p-0"
+            [disabled]="page() <= 1"
+            (click)="page.set(1)"
+          >
+            «
+          </button>
+
+          <button
+            class="btn btn-ghost btn-sm h-9 w-9 min-h-9 rounded-lg border border-base-300 p-0"
+            [disabled]="page() <= 1"
+            (click)="page.set(page() - 1)"
+          >
+            ‹
+          </button>
+
+          @for (p of [].constructor(totalPages()); track $index) {
+            @if ($index < 7) {
+              <button
+                class="btn btn-sm h-9 w-9 min-h-9 rounded-lg p-0"
+                [class.btn-primary]="page() === $index + 1"
+                [class.btn-ghost]="page() !== $index + 1"
+                (click)="page.set($index + 1)"
+              >
+                {{ $index + 1 }}
+              </button>
+            }
+          }
+
+          @if (totalPages() > 7) {
+            <span class="self-center px-1 opacity-40">...</span>
+            <button
+              class="btn btn-sm h-9 w-9 min-h-9 rounded-lg p-0"
+              [class.btn-primary]="page() === totalPages()"
+              [class.btn-ghost]="page() !== totalPages()"
+              (click)="page.set(totalPages())"
+            >
+              {{ totalPages() }}
+            </button>
+          }
+
+          <button
+            class="btn btn-ghost btn-sm h-9 w-9 min-h-9 rounded-lg border border-base-300 p-0"
+            [disabled]="page() >= totalPages()"
+            (click)="page.set(page() + 1)"
+          >
+            ›
+          </button>
+
+          <button
+            class="btn btn-ghost btn-sm h-9 w-9 min-h-9 rounded-lg border border-base-300 p-0"
+            [disabled]="page() >= totalPages()"
+            (click)="page.set(totalPages())"
+          >
+            »
+          </button>
+        </div>
+
+        <div class="flex items-center justify-center gap-2 text-xs opacity-60 sm:justify-end">
+          <select
+            class="select select-bordered h-10 min-h-10 w-[72px] rounded-lg px-3 text-sm"
+            [value]="pageSize()"
+            (change)="onPageSizeChange($any($event.target).value)"
+          >
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+          </select>
+          <span>per page</span>
+        </div>
       </div>
     }
   </div>

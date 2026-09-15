@@ -5,17 +5,11 @@ import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
 import { injectQuery } from '@tanstack/angular-query-experimental';
 
-/**
- * ProjectLayout - secondary sidebar for project module.
- * Left nav: Overview, Boards (multi-view), Backlog, Sprints, Issues, Team, Docs, Settings.
- * Responsive: drawer on mobile, sticky sidebar desktop. Boards as views of same Project tasks.
- */
 @Component({
   selector: 'app-project-layout',
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './project-layout.component.html',
-  styleUrls: ['./project-layout.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ProjectLayoutComponent {
@@ -28,50 +22,63 @@ export class ProjectLayoutComponent {
   sidebarOpen = signal(false);
 
   constructor() {
-    // Keep workspaceId/projectId in sync when navigating between projects (snapshot alone misses reuse)
     this.route.paramMap.subscribe(m => {
       const wid = m.get('wid') || this.route.snapshot.paramMap.get('wid') || '';
       const pid = m.get('pid') || '';
       if (wid) this.workspaceId.set(wid);
       if (pid) this.projectId.set(pid);
     });
+
     this.route.parent?.paramMap.subscribe(m => {
       const wid = m.get('wid');
       if (wid) this.workspaceId.set(wid);
     });
   }
 
-  // Boards as views - Project → Multiple Boards (Engineering/QA/Support) → Sprint → Column → Task → Subtasks
   boardsQuery = injectQuery(() => ({
     queryKey: ['boards', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getBoards(this.projectId())),
     enabled: !!this.projectId(),
   }));
+
   sprintsQuery = injectQuery(() => ({
     queryKey: ['sprints', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getSprints(this.projectId())),
     enabled: !!this.projectId(),
   }));
+
   membersQuery = injectQuery(() => ({
     queryKey: ['workspace-members', this.workspaceId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getWorkspaceMembers(this.workspaceId())),
     enabled: !!this.workspaceId(),
   }));
+
   teamsQuery = injectQuery(() => ({
     queryKey: ['teams', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getTeams(this.projectId())),
     enabled: !!this.projectId(),
   }));
+
   projectMembersQuery = injectQuery(() => ({
     queryKey: ['project-members', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.projectService.getProjectMembers(this.projectId(), 1, 1)),
     enabled: !!this.projectId(),
   }));
+
   boardViews = computed(() => {
     const api = this.boardsQuery.data();
-    if (api && api.length>0) return api.map((b:any)=> ({id:b.id, name:b.name, filter:'all', icon: b.type==='Scrum'?'🟣':'🔵', type: `${b.type} • ${b.name}`} ));
+    if (api && api.length > 0) {
+      return api.map((b: any) => ({
+        id: b.id,
+        name: b.name,
+        filter: 'all',
+        icon: b.type === 'Scrum' ? '🟣' : '🔵',
+        type: `${b.type} • ${b.name}`
+      }));
+    }
     return [];
   });
+
   selectedBoardView = signal('main');
 
   onBoardViewChange(viewId: string) {
@@ -92,26 +99,27 @@ export class ProjectLayoutComponent {
     const pid = this.projectId();
     const base = `/w/${wid}/p/${pid}`;
     const allTasks = this.projectQuery.data()?.tasks ?? [];
-    const backlogCount = allTasks.filter((t:any) => !t.sprintId).length;
+    const backlogCount = allTasks.filter((t: any) => !t.sprintId).length;
     const boardsCount = this.boardsQuery.data()?.length ?? 0;
     const sprintsCount = this.sprintsQuery.data()?.length ?? 0;
     const teamsCount = this.teamsQuery.data()?.length ?? 0;
     const taskCount = allTasks.length;
     const projectMembersCount = (this.projectMembersQuery.data() as any)?.total ?? 0;
+
     return [
-      { label:'Overview', icon:'◎', path: `${base}/overview`, badge: '' },
-      { label:'Boards', icon:'⧉', path: `${base}/boards`, badge: `${boardsCount}` },
-      { label:'Backlog', icon:'☰', path: `${base}/backlog`, badge: `${backlogCount}` },
-      { label:'Sprints', icon:'⚡', path: `${base}/sprints`, badge: `${sprintsCount}` },
-      { label:'Issues', icon:'◉', path: `${base}/issues`, badge: `${taskCount}` },
-      { label:'Teams', icon:'◐', path: `${base}/team`, badge: teamsCount ? `${teamsCount}` : '' },
-      { label:'Members', icon:'◑', path: `${base}/members`, badge: projectMembersCount ? `${projectMembersCount}` : '' },
-      { label:'Statuses', icon:'◍', path: `${base}/statuses`, badge: '' },
-      { label:'Environments', icon:'⬢', path: `${base}/environments`, badge: '' },
-      { label:'Activity', icon:'◷', path: `${base}/activity`, badge: '' },
-      { label:'AI Usage', icon:'✦', path: `${base}/ai-usage`, badge: '' },
-      { label:'Docs', icon:'▭', path: `${base}/docs`, badge: '' },
-      { label:'Settings', icon:'⚙', path: `${base}/settings`, badge: '' },
+      { label: 'Overview', icon: 'overview', path: `${base}/overview`, badge: '' },
+      { label: 'Boards', icon: 'boards', path: `${base}/boards`, badge: `${boardsCount}` },
+      { label: 'Backlog', icon: 'backlog', path: `${base}/backlog`, badge: `${backlogCount}` },
+      { label: 'Sprints', icon: 'sprints', path: `${base}/sprints`, badge: `${sprintsCount}` },
+      { label: 'Issues', icon: 'issues', path: `${base}/issues`, badge: `${taskCount}` },
+      { label: 'Teams', icon: 'teams', path: `${base}/team`, badge: teamsCount ? `${teamsCount}` : '' },
+      { label: 'Members', icon: 'members', path: `${base}/members`, badge: projectMembersCount ? `${projectMembersCount}` : '' },
+      { label: 'Statuses', icon: 'statuses', path: `${base}/statuses`, badge: '' },
+      { label: 'Environments', icon: 'environments', path: `${base}/environments`, badge: '' },
+      { label: 'Activity', icon: 'activity', path: `${base}/activity`, badge: '' },
+      { label: 'AI Usage', icon: 'ai', path: `${base}/ai-usage`, badge: '' },
+      { label: 'Docs', icon: 'docs', path: `${base}/docs`, badge: '' },
+      { label: 'Settings', icon: 'settings', path: `${base}/settings`, badge: '' },
     ];
   });
 }

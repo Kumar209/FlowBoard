@@ -1,53 +1,250 @@
-<div class="bg-base-200 min-h-full">
+<div class="min-h-full bg-base-100">
   <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
-    <div class="flex flex-wrap justify-between gap-3 items-center">
-      <div>
-        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Activity — Organization</h1>
-        <p class="text-sm opacity-60 mt-1">Unified audit — organization + all projects (including project activity) • 10 per page</p>
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 mb-1">
+          <svg class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 12h16M4 19h10"></path>
+            <circle cx="18" cy="19" r="2"></circle>
+          </svg>
+          <span class="text-xs uppercase tracking-wider text-base-content/60">Organization</span>
+        </div>
+
+        <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight text-base-content">
+          Activity
+        </h1>
+
+        <p class="mt-1 text-sm text-base-content/65">
+          Unified activity across your organization, workspaces and projects.
+        </p>
       </div>
-      <span class="badge badge-ghost badge-sm rounded-full">{{ total() }} events • {{ orgId().slice(0,6) || 'org' }} • {{ workspacesQuery.data()?.length || 0 }} workspaces</span>
+
+      <div class="flex items-center gap-2 text-xs text-base-content/65">
+        <span>{{ workspacesQuery.data()?.length || 0 }} workspaces</span>
+        <span class="text-base-content/30">•</span>
+        <span>{{ total() }} events</span>
+      </div>
     </div>
 
     @if (orgActivitiesQuery.isPending() && !orgActivitiesQuery.data()) {
-      <div class="mt-6 space-y-2">
-        @for (i of [1,2,3]; track i) { <div class="card bg-base-100 border p-4 animate-pulse"><div class="h-3 bg-base-300 rounded w-1/4 mb-2"></div><div class="h-4 bg-base-200 rounded w-3/4"></div></div> }
+      <div class="overflow-hidden rounded-xl border border-base-300 bg-base-100">
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="flex items-center gap-4 border-b border-base-200 px-4 py-4 last:border-b-0 animate-pulse">
+            <div class="h-8 w-8 shrink-0 rounded-lg bg-base-300"></div>
+
+            <div class="flex-1 space-y-2">
+              <div class="h-3 w-32 rounded bg-base-300"></div>
+              <div class="h-3 w-64 max-w-full rounded bg-base-200"></div>
+            </div>
+
+            <div class="h-3 w-20 rounded bg-base-200"></div>
+          </div>
+        }
       </div>
-    } <!-- error via toast --> @else if ((orgActivitiesQuery.data()?.items?.length || 0) === 0 && !orgActivitiesQuery.isPending()) {
-      <div class="mt-6 card bg-base-100 rounded-2xl border border-dashed p-8 text-center">
-        <p class="font-semibold">No activity yet</p>
-        <p class="text-sm opacity-60 mt-1">Unified audit empty — add a member, create a workspace/project, or create/move a task.</p>
+    } @else if ((orgActivitiesQuery.data()?.items?.length || 0) === 0 && !orgActivitiesQuery.isPending()) {
+      <div class="rounded-xl border border-dashed border-base-300 bg-base-100 px-6 py-16 text-center">
+        <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-base-200 text-base-content/55">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 12h16M4 19h10"></path>
+          </svg>
+        </div>
+
+        <p class="mt-3 text-sm font-medium text-base-content">
+          No activity yet
+        </p>
+
+        <p class="mt-1 text-xs text-base-content/60">
+          Activity will appear when members, workspaces, projects or tasks change.
+        </p>
       </div>
     } @else {
-      <div class="mt-6 card bg-base-100 rounded-2xl shadow border border-base-200 overflow-hidden">
+      <div class="overflow-hidden rounded-xl border border-base-300 bg-base-100">
         <div class="overflow-x-auto">
-          <table class="table table-sm">
-            <thead><tr><th>Time</th><th>Project</th><th>Workspace</th><th>Action</th><th>Actor</th><th>Details</th></tr></thead>
+          <table class="table table-sm w-full">
+            <thead>
+              <tr class="border-b border-base-300 bg-base-200/40">
+                <th class="whitespace-nowrap px-4 py-3 text-[11px] font-medium uppercase tracking-wider text-base-content/65">
+                  Time
+                </th>
+                <th class="px-4 py-3 text-[11px] font-medium uppercase tracking-wider text-base-content/65">
+                  Activity
+                </th>
+                <th class="px-4 py-3 text-[11px] font-medium uppercase tracking-wider text-base-content/65">
+                  Scope
+                </th>
+                <th class="px-4 py-3 text-[11px] font-medium uppercase tracking-wider text-base-content/65">
+                  Actor
+                </th>
+                <th class="px-4 py-3 text-[11px] font-medium uppercase tracking-wider text-base-content/65">
+                  Details
+                </th>
+              </tr>
+            </thead>
+
             <tbody>
               @for (a of orgActivitiesQuery.data()?.items || []; track a.id) {
-                <tr class="hover:bg-base-200">
-                  <td class="text-xs opacity-60 whitespace-nowrap">{{ a.occurredAt | date:'short' }}</td>
-                  <td><span class="badge badge-ghost badge-xs rounded-full">{{ a.projectName || a.workspaceName || 'Org' }}</span><div class="text-[11px] opacity-60">{{ a.projectName ? a.projectName.slice(0,12) : '' }}</div></td>
-                  <td class="text-xs">{{ a.workspaceName || a.workspaceId?.slice(0,6) || '—' }}</td>
-                  <td><span class="badge badge-sm rounded-full" [ngClass]="a.action==='TaskCreated'?'badge-success': a.action==='TaskMoved'?'badge-warning': a.action==='MemberAdded'?'badge-info':'badge-ghost'">{{ a.action }}</span></td>
-                  <td class="text-xs">
-                    <div class="flex flex-col">
-                      <span class="font-medium">{{ a.actorName || a.callerName || getActorDisplay(a.actorUserId || a.actorId).split(' (')[0] }}</span>
-                      <span class="text-[11px] opacity-60">{{ a.customRoleName || a.callerEmail || getActorDisplay(a.actorUserId || a.actorId).split('(')[1]?.slice(0,-1) || '' }} • {{ a.callerEmail || '' }}</span>
+                <tr class="border-b border-base-200 last:border-b-0 hover:bg-base-200/40 transition-colors">
+                  <td class="px-4 py-3 align-top whitespace-nowrap">
+                    <div class="text-xs text-base-content/75">
+                      {{ a.occurredAt | date:'short' }}
                     </div>
                   </td>
-                  <td class="text-xs max-w-[320px] truncate">{{ (a.payloadJson || '') | slice:0:120 }}</td>
+
+                  <td class="px-4 py-3 align-top min-w-[190px]">
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="badge badge-sm rounded-md border-0 px-2.5"
+                        [ngClass]="actionClass(a.action)"
+                      >
+                        {{ actionLabel(a.action) }}
+                      </span>
+                    </div>
+
+                    <div class="mt-1.5 max-w-[240px] truncate text-sm font-medium text-base-content">
+                      {{ activityTarget(a) }}
+                    </div>
+
+                    <div class="mt-0.5 text-[11px] text-base-content/55">
+                      {{ activityScope(a) }}
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3 align-top min-w-[150px]">
+                    <div class="text-xs text-base-content/75">
+                      {{ a.workspaceName || a.workspaceId?.slice(0, 8) || 'Organization' }}
+                    </div>
+
+                    @if (a.projectName) {
+                      <div class="mt-1 max-w-[160px] truncate text-[11px] text-base-content/55">
+                        {{ a.projectName }}
+                      </div>
+                    }
+                  </td>
+
+                  <td class="px-4 py-3 align-top min-w-[180px]">
+                    <div class="flex items-center gap-2.5">
+                      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-[11px] font-semibold text-primary-content shadow-sm">
+                        {{ actorName(a).charAt(0).toUpperCase() }}
+                      </div>
+
+                      <div class="min-w-0">
+                        <div class="max-w-[150px] truncate text-xs font-medium text-base-content">
+                          {{ actorName(a) }}
+                        </div>
+
+                        <div class="max-w-[170px] truncate text-[11px] text-base-content/55">
+                          {{ actorRole(a) }}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3 align-top min-w-[220px] max-w-[340px]">
+                    <div
+                      class="truncate text-xs text-base-content/65"
+                      [title]="a.payloadJson || ''"
+                    >
+                      {{ (a.payloadJson || '—') | slice:0:160 }}
+                    </div>
+
+                    @if (a.callerEmail) {
+                      <div
+                        class="mt-1 truncate text-[11px] text-base-content/50"
+                        [title]="a.callerEmail"
+                      >
+                        {{ a.callerEmail }}
+                      </div>
+                    }
+                  </td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
-        <div class="flex justify-between items-center p-3 border-t border-base-200">
-          <span class="text-xs opacity-40">Page {{ page() }} / {{ totalPages() }} • Total {{ total() }}</span>
-          <div class="flex gap-1">
-            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
-            <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+
+        <div class="border-t border-base-300 px-3 py-4 sm:px-4">
+          <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+            <div class="text-xs text-base-content/70 text-center sm:text-left">
+              Showing
+              <span class="font-medium text-base-content">{{ showingFrom() }}</span>
+              to
+              <span class="font-medium text-base-content">{{ showingTo() }}</span>
+              of
+              <span class="font-medium text-base-content">{{ total() }}</span>
+              {{ total() === 1 ? 'activity' : 'activities' }}
+            </div>
+
+            <div class="flex w-full items-center justify-center gap-1 sm:gap-1.5">
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() <= 1"
+                (click)="firstPage()"
+                aria-label="First page"
+              >
+                «
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() <= 1"
+                (click)="previousPage()"
+                aria-label="Previous page"
+              >
+                ‹
+              </button>
+
+              @for (p of visiblePages(); track p) {
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                  [class.btn-primary]="page() === p"
+                  [class.btn-ghost]="page() !== p"
+                  [class.text-base-content]="page() !== p"
+                  (click)="page.set(p)"
+                >
+                  {{ p }}
+                </button>
+              }
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() >= totalPages()"
+                (click)="nextPage()"
+                aria-label="Next page"
+              >
+                ›
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() >= totalPages()"
+                (click)="lastPage()"
+                aria-label="Last page"
+              >
+                »
+              </button>
+            </div>
+
+            <div class="flex items-center justify-center gap-2 text-xs text-base-content/70 sm:justify-end">
+              <span>Rows</span>
+
+              <select
+                class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0 sm:h-10 sm:min-h-10 sm:w-[76px]"
+                [value]="pageSize()"
+                (change)="onPageSizeChange($any($event.target).value)"
+                aria-label="Items per page"
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+              </select>
+
+              <span>per page</span>
+            </div>
           </div>
         </div>
+
+
       </div>
     }
   </div>

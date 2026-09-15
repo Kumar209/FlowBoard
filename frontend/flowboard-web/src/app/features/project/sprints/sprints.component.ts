@@ -13,7 +13,6 @@ import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-quer
   standalone: true,
   imports: [CommonModule, RouterLink, BurndownComponent],
   templateUrl: './sprints.component.html',
-  styleUrls: ['./sprints.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SprintsComponent {
@@ -22,142 +21,387 @@ export class SprintsComponent {
   private stats = inject(StatsService);
   private toast = inject(ToastService);
   private qc = inject(QueryClient);
-  projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || this.route.snapshot.paramMap.get('pid') || '');
-  selectedSprintId = signal<string>('');
 
-  constructor() {
-    this.route.paramMap.subscribe(m => { const pid = m.get('pid'); if (pid) this.projectId.set(pid); });
-    this.route.parent?.paramMap.subscribe(m => { const pid = m.get('pid'); if (pid) this.projectId.set(pid); });
-  }
+  projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || this.route.snapshot.paramMap.get('pid') || '');
+  selectedSprintId = signal('');
   search = signal('');
   page = signal(1);
-  pageSize = 8;
-  // Boards for BoardId when creating sprint (Board → Sprint)
+  pageSize = signal(10);
+
+  constructor() {
+    this.route.paramMap.subscribe(m => {
+      const pid = m.get('pid');
+      if (pid) this.projectId.set(pid);
+    });
+
+    this.route.parent?.paramMap.subscribe(m => {
+      const pid = m.get('pid');
+      if (pid) this.projectId.set(pid);
+    });
+  }
+
   boardsQuery = injectQuery(() => ({
     queryKey: ['boards', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.ps.getBoards(this.projectId())),
-    enabled: !!this.projectId(),
+    enabled: !!this.projectId()
   }));
+
   sprintsQuery = injectQuery(() => ({
     queryKey: ['sprints', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.ps.getSprints(this.projectId())),
-    enabled: !!this.projectId(),
+    enabled: !!this.projectId()
   }));
+
   boardQuery = injectQuery(() => ({
     queryKey: ['board', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.ps.getBoard(this.projectId())),
-    enabled: !!this.projectId(),
+    enabled: !!this.projectId()
   }));
+
   burndownQuery = injectQuery(() => ({
     queryKey: ['burndown', this.projectId(), this.selectedSprintId()] as const,
-    queryFn: () => firstValueFrom(this.stats.getBurndown(this.projectId(), this.selectedSprintId() || undefined)),
-    enabled: !!this.projectId() && !!this.selectedSprintId(),
+    queryFn: () => firstValueFrom(
+      this.stats.getBurndown(
+        this.projectId(),
+        this.selectedSprintId() || undefined
+      )
+    ),
+    enabled: !!this.projectId() && !!this.selectedSprintId()
   }));
-  // Fallback to in-memory if API empty (for demo)
+
   fallbackSprints = signal([
-    { id:'1', name:'Sprint 1 — Auth & Board', start:'2026-09-01', end:'2026-09-14', tasks: 12, done: 4 },
-    { id:'2', name:'Sprint 2 — Realtime & Files', start:'2026-09-15', end:'2026-09-28', tasks: 8, done: 1 },
+    { id: '1', name: 'Sprint 1 — Auth & Board', start: '2026-09-01', end: '2026-09-14', tasks: 12, done: 4 },
+    { id: '2', name: 'Sprint 2 — Realtime & Files', start: '2026-09-15', end: '2026-09-28', tasks: 8, done: 1 }
   ]);
-  sprints = signal<any[]>([]); // kept for backward compat, not used now
+
+  sprints = signal<any[]>([]);
+
   showCreate = signal(false);
   editingSprint = signal<any>(null);
   newName = signal('');
   newStart = signal('');
   newEnd = signal('');
   deleteTarget = signal<any>(null);
+
   sprintIssueCounts = computed(() => {
     const tasks = this.boardQuery.data()?.tasks || [];
     const lists = this.boardQuery.data()?.lists || [];
-    const map = new Map<string, {total:number; done:number}>();
+    const map = new Map<string, { total: number; done: number }>();
+
     for (const t of tasks as any[]) {
       if (!t.sprintId) continue;
-      const entry = map.get(t.sprintId) || {total:0, done:0};
+
+      const entry = map.get(t.sprintId) || { total: 0, done: 0 };
       entry.total++;
-      const isDone = (t as any).status === 'Done' || lists.find((l:any)=>l.id===t.listId)?.name === 'Done';
+
+      const isDone =
+        t.status === 'Done' ||
+        lists.find((l: any) => l.id === t.listId)?.name === 'Done';
+
       if (isDone) entry.done++;
+
       map.set(t.sprintId, entry);
     }
+
     return map;
   });
+
   scrumBoardId = computed(() => {
     const boards = this.boardsQuery.data() || [];
-    const scrum = boards.find((b:any) => b.type === 'Scrum');
+    const scrum = boards.find((b: any) => b.type === 'Scrum');
     return scrum?.id || boards[0]?.id || '';
   });
+
   displaySprints = computed(() => {
     const api = this.sprintsQuery.data();
     const counts = this.sprintIssueCounts();
-    if (api && api.length > 0) return api.map((s:any) => {
-      const c = counts.get(s.id) || {total:0, done:0};
-      return { id:s.id, name:s.name, start: (s.startDate||s.start||'').slice(0,10), end:(s.endDate||s.end||'').slice(0,10), tasks:c.total, done:c.done, status: s.status || 'Planned' };
-    });
+
+    if (api && api.length > 0) {
+      return api.map((s: any) => {
+        const c = counts.get(s.id) || { total: 0, done: 0 };
+
+        return {
+          id: s.id,
+          name: s.name,
+          start: (s.startDate || s.start || '').slice(0, 10),
+          end: (s.endDate || s.end || '').slice(0, 10),
+          tasks: c.total,
+          done: c.done,
+          status: s.status || 'Planned'
+        };
+      });
+    }
+
     return [];
   });
+
   _autoSelect = effect(() => {
     const list = this.displaySprints();
+
     if (list.length && !this.selectedSprintId()) {
       const active = list.find(s => s.status === 'Active') || list[0];
       this.selectedSprintId.set(active.id);
     }
   });
-  selectedSprint = computed(() => this.displaySprints().find(s => s.id === this.selectedSprintId()) || null);
+
+  selectedSprint = computed(() =>
+    this.displaySprints().find(s => s.id === this.selectedSprintId()) || null
+  );
+
   selectedSprintStats = computed(() => {
     const s = this.selectedSprint();
     if (!s) return null;
-    const tasks = this.boardQuery.data()?.tasks?.filter((t:any)=> t.sprintId === s.id) || [];
-    const sp = tasks.reduce((sum:number,t:any)=> sum + (t.storyPoints||0), 0);
-    const completed = tasks.filter((t:any)=> t.status==='Done').length;
-    const completedSp = tasks.filter((t:any)=> t.status==='Done').reduce((sum:number,t:any)=> sum + (t.storyPoints||0),0);
-    return { issues: s.tasks, sp, completed, remaining: s.tasks - s.done, completedSp, remainingSp: sp - completedSp };
+
+    const tasks = this.boardQuery.data()?.tasks?.filter(
+      (t: any) => t.sprintId === s.id
+    ) || [];
+
+    const sp = tasks.reduce(
+      (sum: number, t: any) => sum + (t.storyPoints || 0),
+      0
+    );
+
+    const completed = tasks.filter(
+      (t: any) => t.status === 'Done'
+    ).length;
+
+    const completedSp = tasks
+      .filter((t: any) => t.status === 'Done')
+      .reduce(
+        (sum: number, t: any) => sum + (t.storyPoints || 0),
+        0
+      );
+
+    return {
+      issues: s.tasks,
+      sp,
+      completed,
+      remaining: s.tasks - s.done,
+      completedSp,
+      remainingSp: sp - completedSp
+    };
   });
+
   filtered = computed(() => {
     const q = this.search().toLowerCase().trim();
     const list = this.displaySprints();
-    if(!q) return list;
-    return list.filter((s:any) => s.name.toLowerCase().includes(q));
-  });
-  totalPages = computed(() => Math.max(1, Math.ceil(this.filtered().length / this.pageSize)));
-  paginated = computed(() => {
-    const start = (this.page()-1)*this.pageSize;
-    return this.filtered().slice(start, start+this.pageSize);
+
+    if (!q) return list;
+
+    return list.filter((s: any) =>
+      s.name.toLowerCase().includes(q)
+    );
   });
 
-  createMutation = injectMutation(() => ({
-    mutationFn: () => {
-      return firstValueFrom(this.ps.createSprint(this.projectId(), null, this.newName().trim(), this.newStart() || new Date().toISOString().slice(0,10), this.newEnd() || new Date().toISOString().slice(0,10)));
-    },
-    onSuccess: () => { this.qc.invalidateQueries({ queryKey: ['sprints', this.projectId()] }); this.qc.invalidateQueries({ queryKey: ['board'] }); this.qc.invalidateQueries({ queryKey: ['burndown'] }); this.showCreate.set(false); this.editingSprint.set(null); this.newName.set(''); this.newStart.set(''); this.newEnd.set(''); this.toast.success('Sprint created'); },
-    onError: (e:any) => this.toast.error(e?.error?.error || e?.message || 'Create sprint failed')
-  }));
-  updateMutation = injectMutation(() => ({
-    mutationFn: () => firstValueFrom(this.ps.updateSprint(this.editingSprint()!.id, this.newName().trim(), this.newStart() || new Date().toISOString().slice(0,10), this.newEnd() || new Date().toISOString().slice(0,10))),
-    onSuccess: () => { this.qc.invalidateQueries({ queryKey: ['sprints', this.projectId()] }); this.showCreate.set(false); this.editingSprint.set(null); this.newName.set(''); this.newStart.set(''); this.newEnd.set(''); this.toast.success('Sprint updated'); },
-    onError: (e:any) => this.toast.error(e?.error?.error || e?.message || 'Update failed')
-  }));
-  create(){
-    if(this.editingSprint()) this.updateMutation.mutate();
-    else this.createMutation.mutate();
+  totalPages = computed(() =>
+    Math.max(
+      1,
+      Math.ceil(this.filtered().length / this.pageSize())
+    )
+  );
+
+  paginated = computed(() => {
+    const start = (this.page() - 1) * this.pageSize();
+
+    return this.filtered().slice(
+      start,
+      start + this.pageSize()
+    );
+  });
+
+  visiblePages = computed(() => {
+    const total = this.totalPages();
+    const current = this.page();
+
+    if (total <= 3) {
+      return Array.from(
+        { length: total },
+        (_, i) => i + 1
+      );
+    }
+
+    if (current <= 2) {
+      return [1, 2, 3];
+    }
+
+    if (current >= total - 1) {
+      return [total - 2, total - 1, total];
+    }
+
+    return [current - 1, current, current + 1];
+  });
+
+  pageStart = computed(() => {
+    const total = this.filtered().length;
+
+    if (!total) return 0;
+
+    return (this.page() - 1) * this.pageSize() + 1;
+  });
+
+  pageEnd = computed(() =>
+    Math.min(
+      this.page() * this.pageSize(),
+      this.filtered().length
+    )
+  );
+
+  setPage(value: number) {
+    const safePage = Math.min(
+      Math.max(value, 1),
+      this.totalPages()
+    );
+
+    this.page.set(safePage);
   }
-  openCreate(){ this.editingSprint.set(null); this.newName.set(''); this.newStart.set(''); this.newEnd.set(''); this.showCreate.set(true); }
-  openEdit(s:any){ this.editingSprint.set(s); this.newName.set(s.name); this.newStart.set(s.start); this.newEnd.set(s.end); this.showCreate.set(true); }
-  confirmDelete(s:any){ this.deleteTarget.set(s); }
+
+  setPageSize(value: number) {
+    const size = Number(value);
+
+    if (![10, 20, 30, 50].includes(size)) return;
+
+    this.pageSize.set(size);
+    this.page.set(1);
+  }
+
+  createMutation = injectMutation(() => ({
+    mutationFn: () => firstValueFrom(
+      this.ps.createSprint(
+        this.projectId(),
+        null,
+        this.newName().trim(),
+        this.newStart() || new Date().toISOString().slice(0, 10),
+        this.newEnd() || new Date().toISOString().slice(0, 10)
+      )
+    ),
+    onSuccess: () => {
+      this.qc.invalidateQueries({
+        queryKey: ['sprints', this.projectId()]
+      });
+      this.qc.invalidateQueries({
+        queryKey: ['board']
+      });
+      this.qc.invalidateQueries({
+        queryKey: ['burndown']
+      });
+
+      this.showCreate.set(false);
+      this.editingSprint.set(null);
+      this.newName.set('');
+      this.newStart.set('');
+      this.newEnd.set('');
+      this.toast.success('Sprint created');
+    },
+    onError: (e: any) =>
+      this.toast.error(
+        e?.error?.error ||
+        e?.message ||
+        'Create sprint failed'
+      )
+  }));
+
+  updateMutation = injectMutation(() => ({
+    mutationFn: () => firstValueFrom(
+      this.ps.updateSprint(
+        this.editingSprint()!.id,
+        this.newName().trim(),
+        this.newStart() || new Date().toISOString().slice(0, 10),
+        this.newEnd() || new Date().toISOString().slice(0, 10)
+      )
+    ),
+    onSuccess: () => {
+      this.qc.invalidateQueries({
+        queryKey: ['sprints', this.projectId()]
+      });
+
+      this.showCreate.set(false);
+      this.editingSprint.set(null);
+      this.newName.set('');
+      this.newStart.set('');
+      this.newEnd.set('');
+      this.toast.success('Sprint updated');
+    },
+    onError: (e: any) =>
+      this.toast.error(
+        e?.error?.error ||
+        e?.message ||
+        'Update failed'
+      )
+  }));
+
+  create() {
+    if (this.editingSprint()) {
+      this.updateMutation.mutate();
+    } else {
+      this.createMutation.mutate();
+    }
+  }
+
+  openCreate() {
+    this.editingSprint.set(null);
+    this.newName.set('');
+    this.newStart.set('');
+    this.newEnd.set('');
+    this.showCreate.set(true);
+  }
+
+  openEdit(s: any) {
+    this.editingSprint.set(s);
+    this.newName.set(s.name);
+    this.newStart.set(s.start);
+    this.newEnd.set(s.end);
+    this.showCreate.set(true);
+  }
+
+  confirmDelete(s: any) {
+    this.deleteTarget.set(s);
+  }
+
   deleteMutation = injectMutation(() => ({
-    mutationFn: (id:string) => firstValueFrom(this.ps.deleteSprint(id)),
-    onSuccess: () => { this.qc.invalidateQueries({ queryKey: ['sprints', this.projectId()] }); this.qc.invalidateQueries({ queryKey: ['board'] }); this.deleteTarget.set(null); this.toast.success('Sprint deleted'); },
+    mutationFn: (id: string) =>
+      firstValueFrom(this.ps.deleteSprint(id)),
+
+    onSuccess: () => {
+      this.qc.invalidateQueries({
+        queryKey: ['sprints', this.projectId()]
+      });
+      this.qc.invalidateQueries({
+        queryKey: ['board']
+      });
+
+      this.deleteTarget.set(null);
+      this.toast.success('Sprint deleted');
+    },
+
     onError: () => {
-      // Fallback local delete
-      const t=this.deleteTarget(); if(!t) return;
-      this.fallbackSprints.update(s=>s.filter(x=>x.id!==t.id));
-      this.sprints.update(s=>s.filter((x:any)=>x.id!==t.id));
+      const t = this.deleteTarget();
+
+      if (!t) return;
+
+      this.fallbackSprints.update(
+        s => s.filter(x => x.id !== t.id)
+      );
+
+      this.sprints.update(
+        s => s.filter((x: any) => x.id !== t.id)
+      );
+
       this.deleteTarget.set(null);
     }
   }));
-  deleteConfirm(){
-    const t=this.deleteTarget(); if(!t) return;
-    // Try API if id looks like GUID (has -), else fallback
-    if (t.id.includes('-') && t.id.length>20) this.deleteMutation.mutate(t.id);
-    else {
-      this.fallbackSprints.update(s=>s.filter(x=>x.id!==t.id));
+
+  deleteConfirm() {
+    const t = this.deleteTarget();
+
+    if (!t) return;
+
+    if (t.id.includes('-') && t.id.length > 20) {
+      this.deleteMutation.mutate(t.id);
+    } else {
+      this.fallbackSprints.update(
+        s => s.filter(x => x.id !== t.id)
+      );
+
       this.deleteTarget.set(null);
     }
   }

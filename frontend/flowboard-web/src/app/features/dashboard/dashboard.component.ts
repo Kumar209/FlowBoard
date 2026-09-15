@@ -20,7 +20,6 @@ import { firstValueFrom } from 'rxjs';
   standalone: true,
   imports: [CommonModule, RouterLink, OrgChartsComponent, PlatformNoticeComponent],
   templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardComponent implements OnInit {
@@ -30,6 +29,7 @@ export class DashboardComponent implements OnInit {
   private stats = inject(StatsService);
   private toast = inject(ToastService);
   private qc = inject(QueryClient);
+
   workspaceId = signal<string>('11111111-1111-1111-1111-111111111111');
   editOrgOpen = signal(false);
   orgName = signal('');
@@ -39,7 +39,9 @@ export class DashboardComponent implements OnInit {
     queryKey: ['organizations'] as const,
     queryFn: () => firstValueFrom(this.wsService.getMyOrganizations()),
   }));
+
   org = computed(() => this.orgsQuery.data()?.[0] as any);
+
   orgId = computed(() => this.org()?.id as string | undefined);
 
   isOrgAdmin = computed(() => this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
@@ -57,14 +59,24 @@ export class DashboardComponent implements OnInit {
   }));
 
   updateOrgMutation = injectMutation(() => ({
-    mutationFn: () => firstValueFrom(this.wsService.updateOrganization(this.org()!.id, this.orgName().trim(), this.orgDesc().trim() || undefined)),
-    onSuccess: () => { this.qc.invalidateQueries({queryKey:['organizations']}); this.editOrgOpen.set(false); this.toast.success('Organization updated'); },
-    onError: (e:any) => this.toast.error(e.error?.error || 'Update failed')
+    mutationFn: () => firstValueFrom(
+      this.wsService.updateOrganization(
+        this.org()!.id,
+        this.orgName().trim(),
+        this.orgDesc().trim() || undefined
+      )
+    ),
+    onSuccess: () => {
+      this.qc.invalidateQueries({ queryKey: ['organizations'] });
+      this.editOrgOpen.set(false);
+      this.toast.success('Organization updated');
+    },
+    onError: (e: any) => this.toast.error(e.error?.error || 'Update failed')
   }));
 
-  openEditOrg(){
+  openEditOrg() {
     const o = this.org();
-    if(!o) return;
+    if (!o) return;
     this.orgName.set(o.name);
     this.orgDesc.set(o.description || '');
     this.editOrgOpen.set(true);
@@ -76,16 +88,23 @@ export class DashboardComponent implements OnInit {
       this.router.navigate(['/superadmin']);
       return;
     }
+
     this.auth.me().subscribe({
       next: (res: any) => {
         this.auth.hydrateFromMe(res);
+
         if (this.auth.isSuperAdmin()) {
           this.router.navigate(['/superadmin']);
           return;
         }
+
         const ws = res?.workspaces?.[0];
-        if (ws?.id) this.workspaceId.set(ws.id);
-        else if (ws?.workspaceId) this.workspaceId.set(ws.workspaceId);
+
+        if (ws?.id) {
+          this.workspaceId.set(ws.id);
+        } else if (ws?.workspaceId) {
+          this.workspaceId.set(ws.workspaceId);
+        }
       },
       error: () => {}
     });

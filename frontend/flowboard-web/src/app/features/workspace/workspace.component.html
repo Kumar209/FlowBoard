@@ -1,45 +1,111 @@
-<div class="bg-base-200 min-h-full">
+<div class="min-h-full bg-base-200">
   <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
-    <!-- Breadcrumb + actions -->
-    <div class="flex flex-col sm:flex-row justify-between gap-3 mb-6">
-      <div>
-        <div class="flex items-center gap-2 text-xs opacity-60 mb-1">
-          <a routerLink="/w" class="link link-hover">Workspaces</a>
-          <span>›</span>
-          <span class="font-semibold text-base-content">{{ workspaceName() }}</span>
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div class="min-w-0">
+        <div class="mb-1.5 flex flex-wrap items-center gap-2">
+          <a routerLink="/w" class="text-xs font-medium text-base-content/55 hover:text-primary transition-colors">Workspaces</a>
+          <svg class="h-3.5 w-3.5 text-base-content/35" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"></path>
+          </svg>
+          <span class="truncate text-xs font-medium text-base-content/75">{{ workspaceName() }}</span>
         </div>
-        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">{{ workspaceName() }} <span class="text-base font-normal opacity-60">Projects</span></h1>
-        <p class="text-xs sm:text-sm opacity-60 mt-1"><span class="badge badge-ghost badge-xs">{{ roleLabel() }}</span>
-          @if (canCreateProject()) { <span class="badge badge-success badge-xs ml-1">Can create projects</span> }
-          @else { <span class="badge badge-ghost badge-xs ml-1">View only — PM/OrgAdmin can create</span> }
+
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight text-base-content">{{ workspaceName() }}</h1>
+          <span class="text-sm text-base-content/45">Projects</span>
+        </div>
+
+        <p class="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-base-content/60">
+          <span class="badge badge-ghost badge-sm rounded-lg border border-base-content/15 text-base-content/70">{{ roleLabel() }}</span>
+          <!-- @if (canCreateProject()) {
+            <span class="badge badge-success badge-sm rounded-lg text-success-content">Can create projects</span>
+          } @else {
+            <span class="badge badge-ghost badge-sm rounded-lg border border-base-content/15 text-base-content/60">View only · PM/OrgAdmin can create</span>
+          } -->
         </p>
       </div>
-      @if (canCreateProject()) {
-        <button class="btn btn-primary btn-sm rounded-full px-5 shadow-md self-start sm:self-auto" (click)="openCreate()">
-          + New Project
-        </button>
-      } @else {
-        <span class="badge badge-ghost badge-sm self-start sm:self-auto">View only</span>
-      }
-    </div>
 
-    <app-project-modal [open]="createOpen()" mode="create" [workspaces]="workspacesQuery.data() || []" [initialWorkspaceId]="workspaceId()" [error]="createError()" [loading]="createMutation.isPending()" (closed)="createOpen.set(false)" (submitted)="onCreateSubmit($event)" />
-    <app-project-modal [open]="editOpen()" mode="update" [initialName]="editing()?.name || ''" [initialDescription]="editing()?.description || ''" [loading]="updateMutation.isPending()" (closed)="editOpen.set(false)" (submitted)="onEditSubmit($event)" />
-    <app-confirm-delete [open]="deleteOpen()" [title]="'Delete project &quot;'+(editing()?.name||'')+'&quot;?'" message="This will delete the project and its board. Cannot be undone." [loading]="deleteMutation.isPending()" (cancelled)="deleteOpen.set(false)" (confirmed)="onDeleteConfirm()" />
-
-    <div class="flex flex-col sm:flex-row gap-2 mb-4">
-      <input type="text" placeholder="Search projects by name/key..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
-      <span class="text-xs opacity-40 self-center">Page {{ page() }} / {{ totalPages() }} • Total {{ total() }}</span>
-    </div>
-
-    <!-- Loading / Error -->
-    @if (projectsQuery.isPending()) {
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        @for (i of [1,2,3,4,5,6]; track i) { <div class="card bg-base-100 shadow border p-6 animate-pulse"><div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div><div class="h-3 bg-base-200 rounded w-1/2"></div></div> }
+      <div class="shrink-0">
+        @if (canCreateProject()) {
+          <button class="btn btn-primary btn-sm h-9 rounded-lg px-4 shadow-sm" (click)="openCreate()">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" d="M12 5v14M5 12h14"></path>
+            </svg>
+            New Project
+          </button>
+        } @else {
+          <span class="badge badge-ghost badge-sm rounded-lg border border-base-content/15 text-base-content/60">View only</span>
+        }
       </div>
-    } <!-- error via toast --> @else {
-      <!-- Projects grid: 1 col mobile, 2 tablet, 3 desktop -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+    </div>
+
+    <app-project-modal
+      [open]="createOpen()"
+      mode="create"
+      [workspaces]="workspacesQuery.data() || []"
+      [initialWorkspaceId]="workspaceId()"
+      [error]="createError()"
+      [loading]="createMutation.isPending()"
+      (closed)="createOpen.set(false)"
+      (submitted)="onCreateSubmit($event)"
+    />
+
+    <app-project-modal
+      [open]="editOpen()"
+      mode="update"
+      [initialName]="editing()?.name || ''"
+      [initialDescription]="editing()?.description || ''"
+      [loading]="updateMutation.isPending()"
+      (closed)="editOpen.set(false)"
+      (submitted)="onEditSubmit($event)"
+    />
+
+    <app-confirm-delete
+      [open]="deleteOpen()"
+      [title]="'Delete project &quot;'+(editing()?.name||'')+'&quot;?'"
+      message="This will delete the project and its board. Cannot be undone."
+      [loading]="deleteMutation.isPending()"
+      (cancelled)="deleteOpen.set(false)"
+      (confirmed)="onDeleteConfirm()"
+    />
+
+    <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0 flex-1">
+        <div class="relative max-w-md">
+          <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-base-content/45" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path stroke-linecap="round" d="m16.5 16.5 4 4"></path>
+          </svg>
+          <input
+            type="text"
+            placeholder="Search projects by name or key..."
+            class="input input-bordered input-sm h-9 w-full rounded-lg border-base-content/20 bg-base-100 pl-9 text-sm text-base-content shadow-none focus:border-base-content/50 focus:outline-none focus:ring-0"
+            [value]="search()"
+            (input)="search.set($any($event.target).value); page.set(1)"
+          />
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 text-xs text-base-content/60">
+        <span>{{ total() }} {{ total() === 1 ? 'project' : 'projects' }}</span>
+        <span class="text-base-content/30">•</span>
+        <span>Page {{ page() }} / {{ totalPages() }}</span>
+      </div>
+    </div>
+
+    @if (projectsQuery.isPending()) {
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="card rounded-2xl border border-base-200 bg-base-100 p-5 shadow animate-pulse">
+            <div class="h-4 w-20 rounded bg-base-300"></div>
+            <div class="mt-5 h-5 w-3/4 rounded bg-base-300"></div>
+            <div class="mt-2 h-3 w-1/2 rounded bg-base-200"></div>
+            <div class="mt-5 h-9 w-full rounded-full bg-base-200"></div>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 md:gap-6">
         @for (project of paginatedProjects(); track project.id) {
           <div class="card bg-base-100 rounded-2xl shadow border border-base-200 hover:shadow-xl hover:-translate-y-1 transition-all group">
             <div class="card-body p-5 sm:p-6">
@@ -73,19 +139,89 @@
       </div>
 
       @if ((projectsQuery.data()?.items?.length || 0) === 0) {
-        <div class="text-center py-16 bg-base-100 rounded-2xl border border-dashed mt-6">
-          <div class="text-4xl mb-2">▦</div>
-          <p class="font-semibold">No projects yet</p>
-          <p class="text-sm opacity-60">Seeded FlowBoard Demo should appear here or create one above (PM/OrgAdmin only)</p>
-          <div class="mt-2 text-xs opacity-40">Total: {{ projectsQuery.data()?.total }} • page {{ projectsQuery.data()?.page }}</div>
+        <div class="mt-6 rounded-2xl border border-dashed border-base-300 bg-base-100 px-6 py-16 text-center">
+          <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-base-200 text-base-content/60">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="4" y="4" width="6" height="6" rx="1"></rect>
+              <rect x="14" y="4" width="6" height="6" rx="1"></rect>
+              <rect x="4" y="14" width="6" height="6" rx="1"></rect>
+              <rect x="14" y="14" width="6" height="6" rx="1"></rect>
+            </svg>
+          </div>
+          <p class="mt-3 text-sm font-semibold text-base-content">No projects yet</p>
+          <p class="mt-1 text-sm text-base-content/60">Create a project to start organizing your work.</p>
         </div>
       }
-      <div class="flex justify-center gap-2 mt-6">
-        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
-        @for (p of [].constructor(totalPages()); track $index) { @if ($index < 7) { <button class="btn btn-sm rounded-full" [class.btn-primary]="page()===$index+1" [class.btn-ghost]="page()!==$index+1" (click)="page.set($index+1)">{{ $index+1 }}</button> } }
-        <button class="btn btn-ghost btn-sm rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
+
+      <div class="mt-6 border-t border-base-300 pt-4">
+        <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+          <div class="text-xs text-base-content/70 text-center sm:text-left">
+            Showing
+            <span class="font-medium text-base-content">{{ showingFrom() }}</span>
+            to
+            <span class="font-medium text-base-content">{{ showingTo() }}</span>
+            of
+            <span class="font-medium text-base-content">{{ total() }}</span>
+            {{ total() === 1 ? 'project' : 'projects' }}
+          </div>
+
+          <div class="order-first flex w-full items-center justify-center gap-1 sm:order-none sm:gap-1.5">
+            <button
+              class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() <= 1"
+              (click)="firstPage()"
+              aria-label="First page"
+            >«</button>
+
+            <button
+              class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() <= 1"
+              (click)="previousPage()"
+              aria-label="Previous page"
+            >‹</button>
+
+            @for (p of visiblePages(); track p) {
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                [class.btn-primary]="page() === p"
+                [class.btn-ghost]="page() !== p"
+                [class.text-base-content]="page() !== p"
+                (click)="page.set(p)"
+              >{{ p }}</button>
+            }
+
+            <button
+              class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() >= totalPages()"
+              (click)="nextPage()"
+              aria-label="Next page"
+            >›</button>
+
+            <button
+              class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() >= totalPages()"
+              (click)="lastPage()"
+              aria-label="Last page"
+            >»</button>
+          </div>
+
+          <div class="flex items-center justify-center gap-2 text-xs text-base-content/70 sm:justify-end">
+            <span>Rows</span>
+            <select
+              class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0 sm:h-10 sm:min-h-10 sm:w-[76px]"
+              [value]="pageSize()"
+              (change)="onPageSizeChange($any($event.target).value)"
+              aria-label="Items per page"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+              <option value="50">50</option>
+            </select>
+            <span>per page</span>
+          </div>
+        </div>
       </div>
-      <div class="mt-2 text-xs opacity-40 text-center sm:text-left">Total {{ total() }} filtered • TanStack staleTime 2m (Upstash 5m) • Responsive grid</div>
     }
   </div>
 </div>
