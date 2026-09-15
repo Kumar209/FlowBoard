@@ -506,7 +506,7 @@
             <div class="flex flex-col gap-1">
               <span class="opacity-60 text-xs font-semibold">Environment</span>
               @if (environmentsQuery.data(); as envs) {
-                <select class="select select-bordered select-sm rounded-xl" [value]="environmentSel()" (change)="environmentSel.set($any($event.target).value)">
+                <select class="select select-bordered select-sm rounded-xl" [value]="environmentSel() || task()?.environment || ''" (change)="environmentSel.set($any($event.target).value)">
                   <option value="">None</option>
                   @for (e of envs; track e.id) { <option [value]="e.name">{{ e.name }}{{ e.url ? ' — ' + e.url : '' }}</option> }
                 </select>
