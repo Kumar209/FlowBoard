@@ -115,9 +115,10 @@ export class MembersComponent {
         const wids = this.inviteWorkspaceIds();
         const customRoles = (this.customRolesQuery.data() as any[]) || [];
         roles = wids.map(id => {
-          const selectedName = this.inviteWorkspaceRoles()[id];
-          const cr = customRoles.find((c:any) => c.name === selectedName);
-          return { workspaceId: id, role: selectedName || cr?.name || ROLE_LABEL_MAP[String(OrgRoleValues.Member)], customRoleId: cr?.id || undefined };
+          const selectedId = this.inviteWorkspaceRoles()[id];
+          const cr = customRoles.find((c:any) => c.id === selectedId) || customRoles.find((c:any) => c.name === selectedId);
+          const name = cr?.name || selectedId || ROLE_LABEL_MAP[String(OrgRoleValues.Member)];
+          return { workspaceId: id, role: name, customRoleId: cr?.id || selectedId || undefined };
         });
       }
       return firstValueFrom(this.ws.createOrganizationMember(orgId, this.inviteFullName().trim(), this.inviteEmail().trim(), this.invitePassword().trim(), roles as any, orgRole));
@@ -149,9 +150,10 @@ export class MembersComponent {
         const wids = this.editWorkspaceIds();
         const customRoles = (this.customRolesQuery.data() as any[]) || [];
         roles = wids.map(id => {
-          const selectedName = this.editWorkspaceRoles()[id];
-          const cr = customRoles.find((c:any) => c.name === selectedName);
-          return { workspaceId: id, role: selectedName || cr?.name || ROLE_LABEL_MAP[String(OrgRoleValues.Member)], customRoleId: cr?.id || undefined };
+          const selectedId = this.editWorkspaceRoles()[id];
+          const cr = customRoles.find((c:any) => c.id === selectedId) || customRoles.find((c:any) => c.name === selectedId);
+          const name = cr?.name || selectedId || ROLE_LABEL_MAP[String(OrgRoleValues.Member)];
+          return { workspaceId: id, role: name, customRoleId: cr?.id || selectedId || undefined };
         });
       }
       return firstValueFrom(this.ws.updateOrganizationMember(this.orgId(), this.editTarget()!.userId, this.editName().trim() || undefined, this.editEmail().trim() || undefined, roles as any, orgRole));
@@ -178,10 +180,10 @@ export class MembersComponent {
     }
     const dev = wss.find((w:any) => w.name.toLowerCase().includes('development')) || wss[0];
     const ids = dev ? [dev.id] : wss.slice(0,1).map((w:any)=>w.id);
-    const defaultRole = customRoles[0]?.name || ROLE_LABEL_MAP[String(OrgRoleValues.Member)];
+    const defaultId = customRoles[0]?.id || '';
     this.inviteWorkspaceIds.set(ids);
     const map: Record<string,string> = {};
-    ids.forEach(id => map[id] = defaultRole);
+    ids.forEach(id => map[id] = defaultId);
     this.inviteWorkspaceRoles.set(map);
     this.showInvite.set(true);
   }
@@ -198,14 +200,14 @@ export class MembersComponent {
   onInviteWorkspaceChecked(workspaceId: string, checked: boolean){
     if(checked){
       const customRoles = (this.customRolesQuery.data() as any[]) || [];
-      const defaultRole = customRoles[0]?.name || '';
-      if (!defaultRole) { // no custom roles -> keep empty, will be org-level only
+      const defaultId = customRoles[0]?.id || '';
+      if (!defaultId) {
         this.inviteWorkspaceIds.set([...this.inviteWorkspaceIds(), workspaceId]);
         this.inviteWorkspaceRoles.set({...this.inviteWorkspaceRoles(), [workspaceId]: ''});
         return;
       }
       this.inviteWorkspaceIds.set([...this.inviteWorkspaceIds(), workspaceId]);
-      this.inviteWorkspaceRoles.set({...this.inviteWorkspaceRoles(), [workspaceId]: defaultRole});
+      this.inviteWorkspaceRoles.set({...this.inviteWorkspaceRoles(), [workspaceId]: defaultId});
     } else {
       this.inviteWorkspaceIds.set(this.inviteWorkspaceIds().filter(id=>id!==workspaceId));
       const copy = {...this.inviteWorkspaceRoles()}; delete copy[workspaceId]; this.inviteWorkspaceRoles.set(copy);
@@ -217,14 +219,14 @@ export class MembersComponent {
   onEditWorkspaceChecked(workspaceId: string, checked: boolean){
     if(checked){
       const customRoles = (this.customRolesQuery.data() as any[]) || [];
-      const defaultRole = customRoles[0]?.name || '';
-      if (!defaultRole) {
+      const defaultId = customRoles[0]?.id || '';
+      if (!defaultId) {
         this.editWorkspaceIds.set([...this.editWorkspaceIds(), workspaceId]);
         this.editWorkspaceRoles.set({...this.editWorkspaceRoles(), [workspaceId]: ''});
         return;
       }
       this.editWorkspaceIds.set([...this.editWorkspaceIds(), workspaceId]);
-      this.editWorkspaceRoles.set({...this.editWorkspaceRoles(), [workspaceId]: defaultRole});
+      this.editWorkspaceRoles.set({...this.editWorkspaceRoles(), [workspaceId]: defaultId});
     } else {
       this.editWorkspaceIds.set(this.editWorkspaceIds().filter(id=>id!==workspaceId));
       const copy = {...this.editWorkspaceRoles()}; delete copy[workspaceId]; this.editWorkspaceRoles.set(copy);
@@ -233,12 +235,23 @@ export class MembersComponent {
   onEditRoleChange(workspaceId: string, role: string){
     this.editWorkspaceRoles.set({...this.editWorkspaceRoles(), [workspaceId]: role});
   }
+  isEditRoleDeleted(wsId: string): boolean {
+    const roles = (this.customRolesQuery.data() as any[]) || [];
+    const sel = this.editWorkspaceRoles()[wsId];
+    return !!sel && !roles.some((c:any) => c.id === sel);
+  }
+  isInviteRoleDeleted(wsId: string): boolean {
+    const roles = (this.customRolesQuery.data() as any[]) || [];
+    const sel = this.inviteWorkspaceRoles()[wsId];
+    return !!sel && !roles.some((c:any) => c.id === sel);
+  }
   openEdit(m:any){
     this.editTarget.set(m);
     this.editName.set(m.fullName);
     this.editEmail.set(m.email);
     // org-level editRole must be one of Member/OrgAdmin/Client - map incoming to int
-    const rawInt = (m as any).roleInt ?? (m.role ? (({["Member"]:1,["OrgAdmin"]:2,["Client"]:3,["SuperAdmin"]:0} as any)[m.role] ?? OrgRoleValues.Member) : OrgRoleValues.Member);
+    const roleMap: Record<string, number> = { "Member": 1, "OrgAdmin": 2, "Client": 3, "SuperAdmin": 0 };
+    const rawInt = (m as any).roleInt ?? (m.role ? (roleMap[m.role] ?? OrgRoleValues.Member) : OrgRoleValues.Member);
     const mappedInt = [OrgRoleValues.Member, OrgRoleValues.OrgAdmin, OrgRoleValues.Client, OrgRoleValues.SuperAdmin].includes(rawInt) ? rawInt : OrgRoleValues.Member;
     this.editRole.set(mappedInt);
     const wids = (m as any).workspaceIds as string[] | undefined;
@@ -247,11 +260,19 @@ export class MembersComponent {
     const customRoles = (this.customRolesQuery.data() as any[]) || [];
     this.editWorkspaceIds.set(customRoles.length ? ids : []);
     const map: Record<string,string> = {};
-    // Use per-workspace custom role from API if available — no fallback to first custom role, keep empty if missing
+    // Use per-workspace custom role id from API if available (id-based, robust to rename), fallback to name map for old data
+    const wsRoleIdMap = (m as any).workspaceRoleIdMap as Record<string,string> | undefined;
     const wsRoleMap = (m as any).workspaceRoleMap as Record<string,string> | undefined;
     ids.forEach(id => {
-      const perWsRole = wsRoleMap?.[id] || wsRoleMap?.[id.toLowerCase()] || '';
-      map[id] = perWsRole; // keep empty if no role, don't default to Developer
+      let perWsId = wsRoleIdMap?.[id] || wsRoleIdMap?.[id.toLowerCase()] || '';
+      if (!perWsId) {
+        const perWsName = wsRoleMap?.[id] || wsRoleMap?.[id.toLowerCase()] || '';
+        if (perWsName) {
+          const found = customRoles.find((c:any) => c.name === perWsName || c.name.toLowerCase() === perWsName.toLowerCase());
+          perWsId = found?.id || '';
+        }
+      }
+      map[id] = perWsId; // store id, not name
     });
     if (!customRoles.length) this.editWorkspaceIds.set([]);
     this.editWorkspaceRoles.set(map);

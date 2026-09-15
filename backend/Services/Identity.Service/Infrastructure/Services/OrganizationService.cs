@@ -87,7 +87,8 @@ public class OrganizationService : IOrganizationService
             var orgRoleInt = orgMemberMap.TryGetValue(g.Key, out var r) ? r : Roles.MemberValue;
             var roleStr = Roles.GetLabel(orgRoleInt);
             var wsRoleMap = g.ToDictionary(x => x.WorkspaceId.ToString(), x => x.CustomRoleId.HasValue && customRoleMap.TryGetValue(x.CustomRoleId.Value, out var crn) ? crn : Roles.GetLabel(x.Role));
-            return new OrgMemberDto(first.UserId, first.FullName, first.Email, first.AvatarUrl, roleStr, orgRoleInt, first.WorkspaceId, first.JoinedAt, allWorkspaceNames, allWorkspaceIds, wsRoleMap);
+            var wsRoleIdMap = g.ToDictionary(x => x.WorkspaceId.ToString(), x => x.CustomRoleId?.ToString() ?? "");
+            return new OrgMemberDto(first.UserId, first.FullName, first.Email, first.AvatarUrl, roleStr, orgRoleInt, first.WorkspaceId, first.JoinedAt, allWorkspaceNames, allWorkspaceIds, wsRoleMap, wsRoleIdMap);
         }).ToList();
         // Include org-only members (OrganizationMembers without any WorkspaceMember) - org level Member/OrgAdmin/Client
         var groupedIds = grouped.Select(g => g.UserId).ToHashSet();
@@ -97,14 +98,14 @@ public class OrganizationService : IOrganizationService
         foreach (var om in orgOnlyMembers)
         {
             string roleStr = Roles.GetLabel(om.Role);
-            grouped.Add(new OrgMemberDto(om.UserId, om.FullName, om.Email, om.AvatarUrl, roleStr, om.Role, Guid.Empty, om.CreatedAt, new List<string>(), new List<Guid>()));
+            grouped.Add(new OrgMemberDto(om.UserId, om.FullName, om.Email, om.AvatarUrl, roleStr, om.Role, Guid.Empty, om.CreatedAt, new List<string>(), new List<Guid>(), new Dictionary<string,string>(), new Dictionary<string,string>()));
         }
         // Also include Organization Owner if not already
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
         if (org != null && !grouped.Any(g => g.UserId == org.OwnerId) && !groupedIds.Contains(org.OwnerId))
         {
             var owner = await _db.Users.FirstOrDefaultAsync(u => u.Id == org.OwnerId, ct);
-            if (owner != null) grouped.Add(new OrgMemberDto(owner.Id, owner.FullName, owner.Email, owner.AvatarUrl, Roles.OrgAdmin, Roles.OrgAdminValue, Guid.Empty, owner.CreatedAt, new List<string>(), new List<Guid>()));
+            if (owner != null) grouped.Add(new OrgMemberDto(owner.Id, owner.FullName, owner.Email, owner.AvatarUrl, Roles.OrgAdmin, Roles.OrgAdminValue, Guid.Empty, owner.CreatedAt, new List<string>(), new List<Guid>(), new Dictionary<string,string>(), new Dictionary<string,string>()));
         }
         return grouped;
     }
