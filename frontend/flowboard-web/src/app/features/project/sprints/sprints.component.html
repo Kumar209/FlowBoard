@@ -143,7 +143,7 @@
     </div>
 
     @if (showCreate()) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div class="fixed inset-0 bg-black/45 backdrop-blur-sm" (click)="showCreate.set(false); editingSprint.set(null)"></div>
         <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full relative z-10 border border-base-200">
           <div class="p-5 sm:p-6">
@@ -464,7 +464,7 @@
     }
 
     @if (deleteTarget()) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div class="fixed inset-0 bg-black/45 backdrop-blur-sm" (click)="deleteTarget.set(null)"></div>
         <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-md w-full relative z-10 border border-base-200">
           <div class="p-5 sm:p-6">

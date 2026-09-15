@@ -46,24 +46,54 @@ export class AiUsageComponent {
     staleTime: 60 * 1000
   }));
 
+  allUsageLogs = computed(() => {
+    const data = this.usageQuery.data() as any;
+    if (!Array.isArray(data)) return [];
+    return data;
+  });
+
+  allSummary = computed(() => {
+    const data = this.summaryQuery.data() as any;
+    if (!Array.isArray(data)) return [];
+    return data;
+  });
+
+  availableModels = computed(() => {
+    const models = new Set<string>();
+
+    for (const item of this.allSummary()) {
+      const model = String(item.model || '').trim();
+      if (model) models.add(model);
+    }
+
+    for (const item of this.allUsageLogs()) {
+      const model = String(item.model || '').trim();
+      if (model) models.add(model);
+    }
+
+    return Array.from(models).sort((a, b) => a.localeCompare(b));
+  });
+
   filteredSummary = computed(() => {
-    const list = this.summaryQuery.data() as any[] | undefined;
-    if (!list) return [];
+    const list = this.allSummary();
+    const filter = this.modelFilter().trim().toLowerCase();
 
-    const f = this.modelFilter();
-    if (f === 'all') return list;
+    if (filter === 'all') return list;
 
-    return list.filter((x: any) => x.model === f || x.provider === f);
+    return list.filter((item: any) =>
+      String(item.model || '').trim().toLowerCase() === filter
+    );
   });
 
   filteredLogs = computed(() => {
-    const list = this.usageQuery.data() as any[] | undefined;
-    if (!list) return [];
+    const list = this.allUsageLogs();
+    const filter = this.modelFilter().trim().toLowerCase();
 
-    const f = this.modelFilter();
-    if (f === 'all') return list;
+    if (filter === 'all') return list;
 
-    return list.filter((x: any) => x.model === f || x.provider === f);
+    return list.filter((item: any) =>
+      String(item.model || '').trim().toLowerCase() === filter
+    );
   });
 
   totalPages = computed(() =>
@@ -71,41 +101,58 @@ export class AiUsageComponent {
   );
 
   paginatedLogs = computed(() => {
-    const start = (this.page() - 1) * this.pageSize();
-    return this.filteredLogs().slice(start, start + this.pageSize());
+    const totalPages = this.totalPages();
+    const currentPage = Math.min(this.page(), totalPages);
+    const start = (currentPage - 1) * this.pageSize();
+
+    return this.filteredLogs().slice(
+      start,
+      start + this.pageSize()
+    );
   });
 
   showingFrom = computed(() => {
     const total = this.filteredLogs().length;
+
     if (!total) return 0;
-    return (this.page() - 1) * this.pageSize() + 1;
+
+    return (Math.min(this.page(), this.totalPages()) - 1) * this.pageSize() + 1;
   });
 
   showingTo = computed(() => {
+    const total = this.filteredLogs().length;
+
+    if (!total) return 0;
+
     return Math.min(
-      this.page() * this.pageSize(),
-      this.filteredLogs().length
+      Math.min(this.page(), this.totalPages()) * this.pageSize(),
+      total
     );
   });
 
   visiblePages = computed(() => {
     const total = this.totalPages();
-    const current = this.page();
+    const current = Math.min(this.page(), total);
 
     if (total <= 3) {
       return Array.from({ length: total }, (_, i) => i + 1);
     }
 
-    if (current === 1) {
+    if (current <= 2) {
       return [1, 2, 3];
     }
 
-    if (current === total) {
+    if (current >= total - 1) {
       return [total - 2, total - 1, total];
     }
 
     return [current - 1, current, current + 1];
   });
+
+  onModelChange(value: string) {
+    this.modelFilter.set(value);
+    this.page.set(1);
+  }
 
   firstPage() {
     this.page.set(1);
@@ -127,11 +174,28 @@ export class AiUsageComponent {
     this.page.set(this.totalPages());
   }
 
+  setPage(page: number) {
+    if (page < 1 || page > this.totalPages()) return;
+    this.page.set(page);
+  }
+
   onPageSizeChange(value: string) {
     const size = Number(value);
+
     if (!Number.isFinite(size) || size <= 0) return;
 
     this.pageSize.set(size);
     this.page.set(1);
+  }
+
+  statusClass(status: string) {
+    switch (status) {
+      case 'Success':
+        return 'badge-success';
+      case 'RateLimited':
+        return 'badge-warning';
+      default:
+        return 'badge-error';
+    }
   }
 }

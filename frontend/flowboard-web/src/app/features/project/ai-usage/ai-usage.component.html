@@ -1,71 +1,328 @@
-<div class="p-3 sm:p-4 md:p-6 max-w-[1200px] mx-auto space-y-4">
-  <div class="flex justify-between items-center">
-    <div>
-      <h1 class="text-xl font-bold flex items-center gap-2">AI Usage <span class="badge badge-ghost badge-xs">Project • All members</span></h1>
-      <p class="text-xs opacity-60">Project filtered tokens / cost • {{ projectId().slice(0,6) }}</p>
-    </div>
-    <select class="select select-bordered select-sm rounded-full" [value]="modelFilter()" (change)="modelFilter.set($any($event.target).value); page.set(1)">
-      <option value="all">All models</option>
-      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-      <option value="llama-3.1-8b-instant">Groq llama-3.1-8b (disabled)</option>
-    </select>
-  </div>
+<div class="min-h-full bg-base-200/40">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 mb-1">
+          <svg class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 19V5m0 14h16"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16v-4M12 16V8M16 16v-7M20 16V5"></path>
+          </svg>
+          <span class="text-xs uppercase tracking-wider text-base-content/80">
+            Project
+          </span>
+        </div>
 
-  @if (summaryQuery.isPending()) { <span class="loading loading-spinner loading-sm"></span> }
-  @else if (filteredSummary().length === 0) {
-    <div class="card bg-base-100 rounded-2xl p-6 border text-center">
-      <p class="font-semibold">No AI usage for this project</p>
-      <p class="text-sm opacity-60">Use AI Draft/Enhance/Criteria/Breakdown in this project to see logs.</p>
+        <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight text-base-content">
+          AI Usage
+        </h1>
+
+        <p class="mt-1 max-w-2xl text-sm text-base-content/80">
+          Monitor AI requests, token usage, response times, and cost across this project.
+        </p>
+      </div>
+
+      <div class="shrink-0">
+        <select
+          class="select select-bordered select-sm w-full sm:w-52 rounded-lg border-base-content/30 bg-base-100 text-sm font-medium text-base-content focus:border-base-content/50 focus:outline-none focus:ring-0"
+          [value]="modelFilter()"
+          (change)="onModelChange($any($event.target).value)"
+          aria-label="Filter AI usage by model"
+        >
+          <option value="all">All models</option>
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+          <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+          <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
+        </select>
+      </div>
     </div>
-  } @else {
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      @for (s of filteredSummary(); track s.model) {
-        <div class="card bg-base-100 rounded-2xl p-4 border shadow-sm">
-          <p class="text-xs opacity-60">{{ s.provider }} • {{ s.model }}</p>
-          <p class="text-lg font-bold">{{ s.totalRequests }} requests</p>
-          <p class="text-xs">Tokens: {{ s.totalTokens }} • Avg {{ s.avgDurationMs }}ms</p>
-          <p class="text-xs opacity-60">Cost: ${{ s.totalCost }}</p>
+
+    @if (summaryQuery.isPending() && !summaryQuery.data()) {
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        @for (i of [1,2,3]; track i) {
+          <div class="rounded-xl border border-base-300 bg-base-100 p-4 animate-pulse">
+            <div class="h-3 w-28 rounded bg-base-300"></div>
+            <div class="mt-3 h-6 w-24 rounded bg-base-300"></div>
+            <div class="mt-2 h-3 w-36 rounded bg-base-200"></div>
+            <div class="mt-2 h-3 w-20 rounded bg-base-200"></div>
+          </div>
+        }
+      </div>
+    } @else if (filteredSummary().length === 0) {
+      <div class="rounded-xl border border-dashed border-base-300 bg-base-100 px-6 py-12 text-center mb-5">
+        <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-base-200 text-base-content/70">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 19V5m0 14h16"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16v-4M12 16V8M16 16v-7M20 16V5"></path>
+          </svg>
+        </div>
+
+        <p class="mt-3 text-sm font-medium text-base-content">
+          No AI usage for this project
+        </p>
+
+        <p class="mt-1 text-xs text-base-content/75">
+          AI activity will appear here when requests are made in this project.
+        </p>
+      </div>
+    } @else {
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        @for (s of filteredSummary(); track s.model) {
+          <div class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate text-xs font-medium text-base-content/80">
+                  {{ s.provider }}
+                </p>
+                <p class="mt-0.5 truncate text-sm font-semibold text-base-content">
+                  {{ s.model }}
+                </p>
+              </div>
+
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M3 12h18"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"></path>
+                </svg>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <p class="text-lg font-semibold text-base-content">
+                {{ s.totalRequests }}
+                <span class="text-xs font-medium text-base-content/75">requests</span>
+              </p>
+
+              <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/80">
+                <span>
+                  <span class="font-medium text-base-content">{{ s.totalTokens }}</span>
+                  tokens
+                </span>
+                <span>
+                  Avg
+                  <span class="font-medium text-base-content">{{ s.avgDurationMs }}ms</span>
+                </span>
+              </div>
+
+              <p class="mt-2 text-xs text-base-content/80">
+                Cost
+                <span class="font-semibold text-base-content">${{ s.totalCost }}</span>
+              </p>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <div class="rounded-xl border border-base-300 bg-base-100 shadow-sm overflow-hidden">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-base-300 px-4 py-3">
+        <div>
+          <h2 class="text-sm font-semibold text-base-content">
+            Recent AI Logs
+          </h2>
+          <p class="mt-0.5 text-xs text-base-content/75">
+            {{ filteredLogs().length }} {{ filteredLogs().length === 1 ? 'request' : 'requests' }}
+          </p>
+        </div>
+      </div>
+
+      @if (usageQuery.isPending() && !usageQuery.data()) {
+        <div class="p-4 space-y-3">
+          @for (i of [1,2,3,4,5]; track i) {
+            <div class="flex items-center gap-3 animate-pulse">
+              <div class="h-8 w-8 rounded-lg bg-base-300"></div>
+              <div class="flex-1 space-y-2">
+                <div class="h-3 w-32 rounded bg-base-300"></div>
+                <div class="h-3 w-48 rounded bg-base-200"></div>
+              </div>
+            </div>
+          }
+        </div>
+      } @else if (filteredLogs().length === 0) {
+        <div class="px-6 py-12 text-center">
+          <p class="text-sm font-medium text-base-content">
+            No AI logs found
+          </p>
+          <p class="mt-1 text-xs text-base-content/75">
+            Try selecting a different model filter.
+          </p>
+        </div>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="table table-sm w-full">
+            <thead>
+              <tr class="border-b border-base-300 bg-base-200/60">
+                <th class="whitespace-nowrap px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-base-content">
+                  Time
+                </th>
+                <th class="whitespace-nowrap px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-base-content">
+                  Operation
+                </th>
+                <th class="whitespace-nowrap px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-base-content">
+                  Provider / Model
+                </th>
+                <th class="whitespace-nowrap px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-base-content">
+                  Tokens
+                </th>
+                <th class="whitespace-nowrap px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-base-content">
+                  Status
+                </th>
+                <th class="whitespace-nowrap px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-base-content">
+                  Caller
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              @for (l of paginatedLogs(); track l.id) {
+                <tr class="border-b border-base-200 last:border-b-0 hover:bg-base-200/40 transition-colors">
+                  <td class="px-4 py-3 align-top whitespace-nowrap">
+                    <span class="text-xs font-medium text-base-content">
+                      {{ l.createdAt | date:'short' }}
+                    </span>
+                  </td>
+
+                  <td class="px-4 py-3 align-top whitespace-nowrap">
+                    <span class="inline-flex items-center rounded-md border border-base-content/20 bg-base-200 px-2 py-1 text-[11px] font-medium text-base-content">
+                      {{ l.operation }}
+                    </span>
+                  </td>
+
+                  <td class="px-4 py-3 align-top min-w-[200px]">
+                    <div class="flex flex-col">
+                      <span class="text-xs font-semibold text-base-content">
+                        {{ l.provider }}
+                      </span>
+                      <span class="mt-0.5 text-xs text-base-content/80">
+                        {{ l.model }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3 align-top whitespace-nowrap">
+                    <div class="flex flex-col">
+                      <span class="text-xs font-semibold text-base-content">
+                        {{ l.totalTokens }}
+                      </span>
+                      <span class="mt-0.5 text-[11px] text-base-content/75">
+                        {{ l.inputTokens }} in / {{ l.outputTokens }} out
+                      </span>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3 align-top whitespace-nowrap">
+                    <span class="badge badge-sm font-medium" [ngClass]="statusClass(l.status)">
+                      {{ l.status }}
+                    </span>
+                  </td>
+
+                  <td class="px-4 py-3 align-top min-w-[190px]">
+                    <div class="flex items-center gap-2.5">
+                      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-[11px] font-semibold text-primary-content">
+                        {{ (l.callerName || l.userId.slice(0, 6)).charAt(0).toUpperCase() }}
+                      </div>
+
+                      <div class="min-w-0">
+                        <span class="block max-w-[170px] truncate text-xs font-semibold text-base-content">
+                          {{ l.callerName || l.userId.slice(0, 6) }}
+                        </span>
+
+                        <span class="block max-w-[190px] truncate text-[11px] text-base-content/75">
+                          {{ l.customRoleName || 'Member' }}
+                          @if (l.callerEmail) {
+                            <span> · {{ l.callerEmail }}</span>
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="border-t border-base-300 px-3 py-4 sm:px-4">
+          <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+            <div class="text-xs text-base-content/80 text-center sm:text-left">
+              Showing
+              <span class="font-semibold text-base-content">{{ showingFrom() }}</span>
+              to
+              <span class="font-semibold text-base-content">{{ showingTo() }}</span>
+              of
+              <span class="font-semibold text-base-content">{{ filteredLogs().length }}</span>
+              {{ filteredLogs().length === 1 ? 'request' : 'requests' }}
+            </div>
+
+            <div class="flex w-full items-center justify-center gap-1 sm:gap-1.5">
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/30 bg-base-100 p-0 text-sm font-medium text-base-content hover:bg-base-200 hover:text-base-content disabled:border-base-content/15 disabled:bg-base-200/40 disabled:text-base-content/40 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() <= 1"
+                (click)="firstPage()"
+                aria-label="First page"
+              >
+                «
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/30 bg-base-100 p-0 text-sm font-medium text-base-content hover:bg-base-200 hover:text-base-content disabled:border-base-content/15 disabled:bg-base-200/40 disabled:text-base-content/40 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() <= 1"
+                (click)="previousPage()"
+                aria-label="Previous page"
+              >
+                ‹
+              </button>
+
+              @for (p of visiblePages(); track p) {
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                  [class.btn-primary]="page() === p"
+                  [class.btn-ghost]="page() !== p"
+                  [class.text-base-content]="page() !== p"
+                  (click)="setPage(p)"
+                >
+                  {{ p }}
+                </button>
+              }
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/30 bg-base-100 p-0 text-sm font-medium text-base-content hover:bg-base-200 hover:text-base-content disabled:border-base-content/15 disabled:bg-base-200/40 disabled:text-base-content/40 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() >= totalPages()"
+                (click)="nextPage()"
+                aria-label="Next page"
+              >
+                ›
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/30 bg-base-100 p-0 text-sm font-medium text-base-content hover:bg-base-200 hover:text-base-content disabled:border-base-content/15 disabled:bg-base-200/40 disabled:text-base-content/40 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() >= totalPages()"
+                (click)="lastPage()"
+                aria-label="Last page"
+              >
+                »
+              </button>
+            </div>
+
+            <div class="flex items-center justify-center gap-2 text-xs text-base-content/80 sm:justify-end">
+              <span>Rows</span>
+
+              <select
+                class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/30 bg-base-100 px-2 text-sm font-medium text-base-content shadow-none focus:border-base-content/50 focus:outline-none focus:ring-0 sm:h-10 sm:min-h-10 sm:w-[76px]"
+                [value]="pageSize()"
+                (change)="onPageSizeChange($any($event.target).value)"
+                aria-label="Items per page"
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+              </select>
+
+              <span>per page</span>
+            </div>
+          </div>
         </div>
       }
     </div>
-  }
-
-  <div class="card bg-base-100 rounded-2xl border overflow-hidden">
-    <div class="p-3 border-b border-base-200 flex justify-between items-center">
-      <h3 class="font-semibold text-sm">Recent Logs ({{ filteredLogs().length }}) — Page {{ page() }}/{{ totalPages() }}</h3>
-      <span class="text-xs opacity-40">filtered by projectId</span>
-    </div>
-    @if (usageQuery.isPending()) { <div class="p-4"><span class="loading loading-spinner loading-sm"></span></div> }
-    @else {
-      <div class="overflow-x-auto">
-        <table class="table table-xs">
-          <thead><tr><th>Time</th><th>Operation</th><th>Provider/Model</th><th>Tokens</th><th>Status</th><th>Caller</th></tr></thead>
-          <tbody>
-            @for (l of paginatedLogs(); track l.id) {
-              <tr>
-                <td class="text-[11px]">{{ l.createdAt | date:'short' }}</td>
-                <td><span class="badge badge-ghost badge-xs">{{ l.operation }}</span></td>
-                <td class="text-xs">{{ l.provider }} • {{ l.model }}</td>
-                <td class="text-xs">{{ l.totalTokens }} ({{ l.inputTokens }}/{{ l.outputTokens }})</td>
-                <td><span class="badge badge-xs" [ngClass]="l.status==='Success'?'badge-success': l.status==='RateLimited'?'badge-warning':'badge-error'">{{ l.status }}</span></td>
-                <td class="text-xs">
-                  <div class="flex flex-col">
-                    <span class="font-medium">{{ l.callerName || l.userId.slice(0,6) }}</span>
-                    <span class="text-[10px] opacity-60">{{ l.customRoleName || 'Member' }} • {{ l.callerEmail || '' }}</span>
-                  </div>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-      <div class="flex justify-between items-center p-3 border-t border-base-200">
-        <span class="text-xs opacity-40">Page {{ page() }}/{{ totalPages() }} • Total {{ filteredLogs().length }}</span>
-        <div class="flex gap-1">
-          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()<=1" (click)="page.set(page()-1)">Previous</button>
-          <button class="btn btn-ghost btn-xs rounded-full" [disabled]="page()>=totalPages()" (click)="page.set(page()+1)">Next</button>
-        </div>
-      </div>
-    }
   </div>
 </div>

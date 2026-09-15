@@ -1,97 +1,223 @@
 @if (open()) {
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="close()"></div>
-    <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative z-10 border max-h-[90vh] overflow-y-auto">
+  <div class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 lg:p-6">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" (click)="close()"></div>
+
+    <div class="relative z-[101] flex w-full max-w-3xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-3rem)] flex-col overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-2xl">
       @if (!isPreview()) {
-        <h3 class="font-bold text-lg flex items-center gap-2">✨ AI Draft</h3>
-        <p class="text-xs opacity-60">Describe the issue (10-500 chars). AI will draft title, description, suggested steps, labels — human-in-the-loop preview before create.</p>
-        <div class="mt-4 space-y-3">
-          <label class="form-control">
-            <span class="label-text text-xs">Prompt * <span class="opacity-40">{{ promptCount() }}/500</span></span>
-            <textarea class="textarea textarea-bordered rounded-xl h-28" placeholder="e.g., Users cannot login on mobile 320px — login form overflows, footer hidden..." [value]="prompt()" (input)="prompt.set($any($event.target).value)"></textarea>
-            @if (prompt().trim().length > 0 && !promptValid()) { <span class="label-text-alt text-error text-xs">10-500 chars required (now {{ promptCount() }})</span> }
-          </label>
-          <div class="form-control">
-            <span class="label-text text-xs">Model *</span>
-            <div class="flex gap-4 mt-1">
-              <label class="flex items-center gap-2 cursor-pointer">
+        <div class="shrink-0 border-b border-base-200 px-4 py-3 sm:px-5 sm:py-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-3">
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-content">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 3.5 11 2l1.5 1.5M12 5v3M5.5 6.5 4 5m14.5 1.5L20 5M4 12H2m20 0h-2M5.5 17.5 4 19m14.5-1.5L20 19M12 19v3m-5.5-4.5A7.5 7.5 0 1 1 17.5 5.5 7.5 7.5 0 0 1 6.5 18.5Z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m12 9 1.2 2.3L16 12l-2.8.7L12 15l-1.2-2.3L8 12l2.8-.7L12 9Z"/>
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <h3 class="truncate text-base font-semibold text-base-content sm:text-lg">AI Draft</h3>
+                <p class="mt-0.5 text-xs text-base-content/60">Describe the issue and review the generated draft before creating it.</p>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0 rounded-lg text-base-content/70 hover:text-base-content" (click)="close()" aria-label="Close">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6 6 18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+          <div class="space-y-4">
+            <label class="block">
+              <div class="mb-1.5 flex items-center justify-between gap-3">
+                <span class="text-sm font-medium text-base-content">Describe the issue <span class="text-error">*</span></span>
+                <span class="text-xs tabular-nums text-base-content/60">{{ promptCount() }}/500</span>
+              </div>
+              <textarea class="textarea textarea-bordered h-32 w-full resize-y rounded-lg border-base-content/20 bg-base-100 text-sm leading-6 focus:border-base-content/50 focus:outline-none focus:ring-0" placeholder="Example: Users cannot log in on mobile because the login form overflows at 320px and the footer is hidden." [value]="prompt()" (input)="prompt.set($any($event.target).value)"></textarea>
+              @if (prompt().trim().length > 0 && !promptValid()) {
+                <p class="mt-1.5 text-xs text-error">Enter between 10 and 500 characters.</p>
+              }
+            </label>
+
+            <div class="rounded-xl border border-base-200 bg-base-200/30 p-3 sm:p-4">
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p class="text-sm font-medium text-base-content">AI model</p>
+                  <p class="mt-0.5 text-xs text-base-content/60">The available model for AI Draft.</p>
+                </div>
+                <span class="badge badge-ghost rounded-lg border border-base-300 px-2.5 py-2 text-xs font-medium">Gemini 3.5 Flash</span>
+              </div>
+
+              <label class="mt-3 flex cursor-pointer items-center gap-2.5 rounded-lg border border-base-300 bg-base-100 px-3 py-2.5 transition-colors hover:border-base-content/30">
                 <input type="radio" class="radio radio-primary radio-sm" [checked]="model()==='gemini-3.5-flash'" (change)="model.set('gemini-3.5-flash')" />
-                <span class="text-sm">Gemini 3.5 Flash <span class="badge badge-ghost badge-xs">fixed</span></span>
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer hidden" style="display:none">
-                <input type="radio" class="radio radio-primary radio-sm" [checked]="model()==='llama-3.1-8b-instant'" (change)="model.set('llama-3.1-8b-instant')" />
-                <span class="text-sm">Groq llama-3.1-8b <span class="badge badge-outline badge-xs">free</span></span>
+                <span class="text-sm font-medium text-base-content">Gemini 3.5 Flash</span>
+                <span class="badge badge-ghost badge-xs rounded-md">Available</span>
               </label>
             </div>
-            <span class="label-text-alt text-[10px] opacity-40">Gemini 3.5 Flash only</span>
+
+            @if (error()) {
+              <div class="flex items-start gap-2.5 rounded-lg border border-error/30 bg-error/10 px-3 py-2.5 text-sm text-error">
+                <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="9"/>
+                  <path stroke-linecap="round" d="M12 8v5M12 16h.01"/>
+                </svg>
+                <span>{{ error() }}</span>
+              </div>
+            }
           </div>
-          @if (error()) { <div class="alert alert-error py-2 text-xs">{{ error() }}</div> }
         </div>
-        <div class="flex justify-end gap-2 mt-6">
-          <button class="btn btn-ghost rounded-xl" (click)="close()">Cancel</button>
-          <button class="btn btn-primary rounded-xl" (click)="generate()" [disabled]="!canGenerate()" [class.loading]="isGenerating()">
-            @if (isGenerating()) { Generating… } @else { ✨ Generate Draft }
-          </button>
+
+        <div class="shrink-0 border-t border-base-200 bg-base-100 px-4 py-3 sm:px-5">
+          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <button type="button" class="btn btn-ghost btn-sm rounded-lg text-base-content/80" (click)="close()">Cancel</button>
+
+            <button type="button" class="btn btn-primary btn-sm rounded-lg min-w-32" (click)="generate()" [disabled]="!canGenerate()">
+              @if (isGenerating()) {
+                <span class="inline-flex items-center gap-2">
+                  <span class="h-4 w-4 animate-spin rounded-full border-2 border-primary-content/30 border-t-primary-content"></span>
+                  <span>Generating…</span>
+                </span>
+              } @else {
+                <span class="inline-flex items-center gap-2">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3Z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19 15 .7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7L19 15Z"/>
+                  </svg>
+                  <span>Generate Draft</span>
+                </span>
+              }
+            </button>
+          </div>
         </div>
       } @else {
-        <h3 class="font-bold text-lg">Preview — isDraft <span class="badge badge-ghost badge-sm">no Id yet</span></h3>
-        <p class="text-xs opacity-60">Edit below — <span class="badge badge-outline badge-xs">{{ draft()?.provider }} • {{ draft()?.model }}</span> — Create will POST /tasks to Backlog.</p>
-        <div class="mt-4 space-y-3">
-          <label class="form-control">
-            <span class="label-text text-xs">Title *</span>
-            <input type="text" class="input input-bordered rounded-xl" [value]="title()" (input)="title.set($any($event.target).value)" />
-          </label>
-          <label class="form-control">
-            <span class="label-text text-xs">Description</span>
-            <textarea class="textarea textarea-bordered rounded-xl h-24" [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
-          </label>
-          <div class="grid grid-cols-2 gap-3">
-            <label class="form-control">
-              <span class="label-text text-xs">Issue Type</span>
-              <select class="select select-bordered rounded-xl" [value]="issueType()" (change)="issueType.set($any($event.target).value)">
-                <option>Task</option><option>Bug</option><option>Story</option><option>Feature</option>
-              </select>
-            </label>
-            <label class="form-control">
-              <span class="label-text text-xs">Priority</span>
-              <select class="select select-bordered rounded-xl" [value]="priority()" (change)="priority.set($any($event.target).value)">
-                <option>Low</option><option>Medium</option><option>High</option><option>Urgent</option>
-              </select>
-            </label>
+        <div class="shrink-0 border-b border-base-200 px-4 py-3 sm:px-5 sm:py-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-3">
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-content">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-9Z"/>
+                  <path stroke-linecap="round" d="M8 10h8M8 14h5"/>
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <h3 class="text-base font-semibold text-base-content sm:text-lg">Review AI Draft</h3>
+                  <span class="badge badge-ghost rounded-lg border border-base-300 text-[10px] font-medium">{{ draft()?.provider }} · {{ draft()?.model }}</span>
+                </div>
+                <p class="mt-0.5 text-xs text-base-content/60">Review and edit the suggested issue details before creating the issue.</p>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0 rounded-lg text-base-content/70 hover:text-base-content" (click)="close()" aria-label="Close">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6 6 18"/>
+              </svg>
+            </button>
           </div>
-          <div class="grid grid-cols-2 gap-3">
-            <label class="form-control">
-              <span class="label-text text-xs">Story Points (Fibonacci)</span>
-              <select class="select select-bordered rounded-xl" [value]="storyPoints() ?? ''" (change)="storyPoints.set($any($event.target).value ? +$any($event.target).value : null)">
-                <option value="">—</option><option [value]="1">1</option><option [value]="2">2</option><option [value]="3">3</option><option [value]="5">5</option><option [value]="8">8</option><option [value]="13">13</option><option [value]="21">21</option>
-              </select>
-            </label>
-            <label class="form-control">
-              <span class="label-text text-xs">Labels (comma)</span>
-              <input type="text" class="input input-bordered rounded-xl" placeholder="bug, mobile" [value]="labels()" (input)="labels.set($any($event.target).value)" />
-            </label>
-          </div>
-          <label class="form-control">
-            <span class="label-text text-xs">Suggested Steps <span class="opacity-40">(one per line — appended to Description as Checklist)</span></span>
-            <textarea class="textarea textarea-bordered rounded-xl h-20" placeholder="Analyze mobile breakpoint&#10;Fix responsive layout&#10;Test on 320/768" [value]="checklist()" (input)="checklist.set($any($event.target).value)"></textarea>
-            <span class="label-text-alt text-[10px] opacity-40">Not Subtask (7.5) nor Acceptance Criteria (7.4) — steps become **Checklist:** block in description</span>
-          </label>
-          <label class="form-control">
-            <span class="label-text text-xs">Due date (optional)</span>
-            <input type="date" class="input input-bordered rounded-xl" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
-            <span class="label-text-alt text-[10px] opacity-40">AI never sets date — null unless you pick</span>
-          </label>
-          @if (error()) { <div class="alert alert-error py-2 text-xs">{{ error() }}</div> }
         </div>
-        <div class="flex justify-between gap-2 mt-6">
-          <button class="btn btn-ghost rounded-xl" (click)="backToPrompt()">← Back to prompt</button>
-          <div class="flex gap-2">
-            <button class="btn btn-ghost rounded-xl" (click)="close()">Cancel</button>
-            <button class="btn btn-primary rounded-xl" (click)="submitCreate()" [disabled]="!title().trim()">Create Issue</button>
+
+        <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+          <div class="space-y-4">
+            <label class="block">
+              <span class="mb-1.5 block text-sm font-medium text-base-content">Title <span class="text-error">*</span></span>
+              <input type="text" class="input input-bordered h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="title()" (input)="title.set($any($event.target).value)" />
+            </label>
+
+            <label class="block">
+              <span class="mb-1.5 block text-sm font-medium text-base-content">Description</span>
+              <textarea class="textarea textarea-bordered min-h-28 w-full resize-y rounded-lg border-base-content/20 bg-base-100 text-sm leading-6 focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
+            </label>
+
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label class="block">
+                <span class="mb-1.5 block text-sm font-medium text-base-content">Issue Type</span>
+                <select class="select select-bordered h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="issueType()" (change)="issueType.set($any($event.target).value)">
+                  <option>Task</option>
+                  <option>Bug</option>
+                  <option>Story</option>
+                  <option>Feature</option>
+                </select>
+              </label>
+
+              <label class="block">
+                <span class="mb-1.5 block text-sm font-medium text-base-content">Priority</span>
+                <select class="select select-bordered h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="priority()" (change)="priority.set($any($event.target).value)">
+                  <option>Low</option>
+                  <option>Medium</option>
+                  <option>High</option>
+                  <option>Urgent</option>
+                </select>
+              </label>
+
+              <label class="block">
+                <span class="mb-1.5 block text-sm font-medium text-base-content">Story Points</span>
+                <select class="select select-bordered h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="storyPoints() ?? ''" (change)="storyPoints.set($any($event.target).value ? +$any($event.target).value : null)">
+                  <option value="">—</option>
+                  <option [value]="1">1</option>
+                  <option [value]="2">2</option>
+                  <option [value]="3">3</option>
+                  <option [value]="5">5</option>
+                  <option [value]="8">8</option>
+                  <option [value]="13">13</option>
+                  <option [value]="21">21</option>
+                </select>
+              </label>
+
+              <label class="block">
+                <span class="mb-1.5 block text-sm font-medium text-base-content">Labels</span>
+                <input type="text" class="input input-bordered h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm focus:border-base-content/50 focus:outline-none focus:ring-0" placeholder="bug, mobile" [value]="labels()" (input)="labels.set($any($event.target).value)" />
+              </label>
+            </div>
+
+            <label class="block">
+              <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                <span class="text-sm font-medium text-base-content">Suggested Steps</span>
+                <span class="text-xs text-base-content/50">One step per line</span>
+              </div>
+              <textarea class="textarea textarea-bordered min-h-24 w-full resize-y rounded-lg border-base-content/20 bg-base-100 text-sm leading-6 focus:border-base-content/50 focus:outline-none focus:ring-0" placeholder="Analyze mobile breakpoint&#10;Fix responsive layout&#10;Test on 320/768" [value]="checklist()" (input)="checklist.set($any($event.target).value)"></textarea>
+              <p class="mt-1.5 text-xs text-base-content/50">These steps will be included in the issue description as a checklist.</p>
+            </label>
+
+            <label class="block">
+              <span class="mb-1.5 block text-sm font-medium text-base-content">Due date <span class="font-normal text-base-content/50">(optional)</span></span>
+              <input type="date" class="input input-bordered h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
+              <p class="mt-1.5 text-xs text-base-content/50">Choose a date if you want to add one to the issue.</p>
+            </label>
+
+            @if (error()) {
+              <div class="flex items-start gap-2.5 rounded-lg border border-error/30 bg-error/10 px-3 py-2.5 text-sm text-error">
+                <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="9"/>
+                  <path stroke-linecap="round" d="M12 8v5M12 16h.01"/>
+                </svg>
+                <span>{{ error() }}</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="shrink-0 border-t border-base-200 bg-base-100 px-4 py-3 sm:px-5">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <button type="button" class="btn btn-ghost btn-sm w-full rounded-lg text-base-content/80 sm:w-auto" (click)="backToPrompt()">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/>
+              </svg>
+              Back
+            </button>
+
+            <div class="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+              <button type="button" class="btn btn-ghost btn-sm w-full rounded-lg text-base-content/80 sm:w-auto" (click)="close()">Cancel</button>
+              <button type="button" class="btn btn-primary btn-sm w-full rounded-lg sm:min-w-28 sm:w-auto" (click)="submitCreate()" [disabled]="!title().trim()">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
+                </svg>
+                Create Issue
+              </button>
+            </div>
           </div>
         </div>
       }
     </div>
   </div>
+
   <app-feature-disabled-modal [open]="showFlagDisabled()" featureName="AI Draft" [disabledBy]="flagDisabledBy()" (closed)="showFlagDisabled.set(false)" />
 }

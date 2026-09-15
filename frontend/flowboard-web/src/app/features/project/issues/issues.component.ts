@@ -15,9 +15,14 @@ import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-quer
 @Component({
   selector: 'app-issues',
   standalone: true,
-  imports: [CommonModule, TaskDetailModalComponent, TaskCreateModalComponent, AiDraftModalComponent, FeatureDisabledModalComponent],
+  imports: [
+    CommonModule,
+    TaskDetailModalComponent,
+    TaskCreateModalComponent,
+    AiDraftModalComponent,
+    FeatureDisabledModalComponent
+  ],
   templateUrl: './issues.component.html',
-  styleUrls: ['./issues.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class IssuesComponent {
@@ -27,29 +32,54 @@ export class IssuesComponent {
   private qc = inject(QueryClient);
   private flagService = inject(FeatureFlagService);
   private ws = inject(WorkspaceService);
+
   projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || '');
   workspaceId = signal(this.route.parent?.snapshot.paramMap.get('wid') || '');
+
   aiDraftEnabled = signal(true);
   orgFlags = signal<Map<string, boolean>>(new Map());
   private currentOrgId: string | undefined;
 
+  typeFilter = signal('');
+  search = signal('');
+  page = signal(1);
+  pageSize = signal(10);
+
+  detailOpen = signal(false);
+  detailReadOnly = signal(false);
+  selectedTask = signal<any>(null);
+
+  createOpen = signal(false);
+  createListId = signal('');
+  createStatusId = signal('');
+
+  deleteTarget = signal<any>(null);
+
+  aiDraftOpen = signal(false);
+  showFlagDisabled = signal(false);
+  flagDisabledBy = signal('SuperAdmin or Organization Owner');
+
   private async loadOrgFlags() {
     const wid = this.workspaceId();
     let orgId: string | undefined;
+
     if (wid) {
       try {
         const res: any = await firstValueFrom(this.ws.getMyWorkspacesPaginated(1, 100));
         const list = res?.items ?? (Array.isArray(res) ? res : []);
-        const ws = list.find((w:any) => w.id === wid);
+        const ws = list.find((w: any) => w.id === wid);
+
         if (ws?.organizationId) orgId = ws.organizationId;
+
         if (!orgId) {
           const all: any = await firstValueFrom(this.ws.getMyWorkspaces());
           const allList = Array.isArray(all) ? all : (all?.items ?? []);
-          const ws2 = allList.find((w:any) => w.id === wid);
+          const ws2 = allList.find((w: any) => w.id === wid);
           orgId = ws2?.organizationId || ws2?.OrganizationId;
         }
       } catch {}
     }
+
     if (!orgId) {
       try {
         const orgs: any = await firstValueFrom(this.ws.getMyOrganizations());
@@ -57,14 +87,20 @@ export class IssuesComponent {
         orgId = arr[0]?.id;
       } catch {}
     }
+
     this.currentOrgId = orgId;
+
     if (!orgId) return;
+
     try {
       const map = await this.flagService.loadForOrg(orgId);
       this.orgFlags.set(new Map(map));
+
       const chkDraft = map.get('ai_draft');
-      if (chkDraft !== undefined) this.aiDraftEnabled.set(!!chkDraft);
-      else {
+
+      if (chkDraft !== undefined) {
+        this.aiDraftEnabled.set(!!chkDraft);
+      } else {
         const chk = await this.flagService.isEnabledForOrg('ai_draft', orgId);
         this.aiDraftEnabled.set(chk.enabled);
       }
@@ -73,8 +109,6 @@ export class IssuesComponent {
       this.aiDraftEnabled.set(chk.enabled);
     }
   }
-  showFlagDisabled = signal(false);
-  flagDisabledBy = signal('SuperAdmin or Organization Owner');
 
   constructor() {
     queueMicrotask(() => {
@@ -82,124 +116,304 @@ export class IssuesComponent {
         const taskId = m.get('task');
         if (taskId) this.openTaskFromQuery(taskId);
       });
+
       this.route.parent?.queryParamMap?.subscribe(m => {
         const taskId = m.get('task');
         if (taskId) this.openTaskFromQuery(taskId);
       });
     });
-    const initialTask = this.route.snapshot.queryParamMap.get('task') || this.route.parent?.snapshot.queryParamMap.get('task');
-    if (initialTask) queueMicrotask(() => this.openTaskFromQuery(initialTask));
+
+    const initialTask =
+      this.route.snapshot.queryParamMap.get('task') ||
+      this.route.parent?.snapshot.queryParamMap.get('task');
+
+    if (initialTask) {
+      queueMicrotask(() => this.openTaskFromQuery(initialTask));
+    }
+
     queueMicrotask(() => this.loadOrgFlags());
   }
 
   private async openTaskFromQuery(taskId: string) {
     if (!taskId) return;
+
     const found = this.boardQuery.data()?.tasks?.find((x: any) => x.id === taskId);
-    if (found) { this.openDetail(found); return; }
+
+    if (found) {
+      this.openDetail(found);
+      return;
+    }
+
     try {
       const detail: any = await firstValueFrom(this.ps.getTaskDetail(taskId));
+
       if (detail?.task) this.openDetail(detail.task);
       else if (detail) this.openDetail(detail);
     } catch {}
   }
-  typeFilter = signal('');
-  search = signal('');
-  page = signal(1);
-  pageSize = 8;
-  detailOpen = signal(false);
-  detailReadOnly = signal(false);
-  selectedTask = signal<any>(null);
-  createOpen = signal(false);
-  createListId = signal('');
-  createStatusId = signal('');
-  deleteTarget = signal<any>(null);
-  aiDraftOpen = signal(false);
+
   boardQuery = injectQuery(() => ({
     queryKey: ['board', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.ps.getBoard(this.projectId())),
-    enabled: !!this.projectId(),
+    enabled: !!this.projectId()
   }));
+
   teamsQuery = injectQuery(() => ({
     queryKey: ['teams', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.ps.getTeams(this.projectId())),
-    enabled: !!this.projectId(),
+    enabled: !!this.projectId()
   }));
+
   sprintsQuery = injectQuery(() => ({
     queryKey: ['sprints', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.ps.getSprints(this.projectId())),
-    enabled: !!this.projectId(),
+    enabled: !!this.projectId()
   }));
+
   membersQuery = injectQuery(() => ({
     queryKey: ['workspace-members', this.workspaceId()] as const,
     queryFn: () => firstValueFrom(this.ps.getWorkspaceMembers(this.workspaceId())),
-    enabled: !!this.workspaceId(),
+    enabled: !!this.workspaceId()
   }));
+
   statusesQuery = injectQuery(() => ({
     queryKey: ['statuses', this.projectId()] as const,
     queryFn: () => firstValueFrom(this.ps.getStatuses(this.projectId())),
-    enabled: !!this.projectId(),
+    enabled: !!this.projectId()
   }));
+
   filtered = computed(() => {
     let tasks = this.boardQuery.data()?.tasks || [];
     const q = this.search().toLowerCase().trim();
-    if (q) tasks = tasks.filter(x => x.title.toLowerCase().includes(q) || (x.description||'').toLowerCase().includes(q) || x.id.toLowerCase().includes(q));
+
+    if (q) {
+      tasks = tasks.filter(x =>
+        x.title.toLowerCase().includes(q) ||
+        (x.description || '').toLowerCase().includes(q) ||
+        x.id.toLowerCase().includes(q)
+      );
+    }
+
     const t = this.typeFilter().toLowerCase();
-    if (t) tasks = tasks.filter(x => (x.labelsJson||'').toLowerCase().includes(t) || x.priority.toLowerCase()===t || (x.issueType||'').toLowerCase()===t);
-    return tasks.sort((a,b)=> a.position - b.position);
+
+    if (t) {
+      tasks = tasks.filter(x =>
+        (x.labelsJson || '').toLowerCase().includes(t) ||
+        x.priority.toLowerCase() === t ||
+        (x.issueType || '').toLowerCase() === t
+      );
+    }
+
+    return [...tasks].sort((a, b) => a.position - b.position);
   });
-  totalPages = computed(() => Math.max(1, Math.ceil(this.filtered().length / this.pageSize)));
+
+  totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filtered().length / this.pageSize()))
+  );
+
   paginated = computed(() => {
-    const start = (this.page()-1)*this.pageSize;
-    return this.filtered().slice(start, start+this.pageSize);
+    const start = (this.page() - 1) * this.pageSize();
+    return this.filtered().slice(start, start + this.pageSize());
   });
+
+  pageStart = computed(() => {
+    const total = this.filtered().length;
+    if (!total) return 0;
+    return (this.page() - 1) * this.pageSize() + 1;
+  });
+
+  pageEnd = computed(() =>
+    Math.min(this.page() * this.pageSize(), this.filtered().length)
+  );
+
+  visiblePages = computed(() => {
+    const total = this.totalPages();
+    const current = this.page();
+
+    if (total <= 3) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    if (current <= 2) {
+      return [1, 2, 3];
+    }
+
+    if (current >= total - 1) {
+      return [total - 2, total - 1, total];
+    }
+
+    return [current - 1, current, current + 1];
+  });
+
   updateMutation = injectMutation(() => ({
-    mutationFn: (vars: any) => firstValueFrom(this.ps.updateTask(vars.id, vars.title, vars.description, vars.priority, vars.listId, vars.labelsJson, vars.assigneeId, vars.dueDate, vars.issueType, vars.epic, vars.storyPoints, vars.startDate, vars.environment, vars.parentIssueId, vars.sprintId, vars.watchersJson, vars.linkedIssuesJson, vars.timeEstimated, vars.timeSpent, vars.timeRemaining, vars.teamId, vars.statusId, vars.acceptanceCriteriaJson)),
-    onSuccess: () => { this.qc.invalidateQueries({queryKey: ['board', this.projectId()]}); this.qc.invalidateQueries({queryKey: ['board']}); this.detailOpen.set(false); this.toast.success('Issue updated'); },
-    onError: (e:any) => this.toast.error(e.error?.error || 'Update failed'),
+    mutationFn: (vars: any) =>
+      firstValueFrom(
+        this.ps.updateTask(
+          vars.id,
+          vars.title,
+          vars.description,
+          vars.priority,
+          vars.listId,
+          vars.labelsJson,
+          vars.assigneeId,
+          vars.dueDate,
+          vars.issueType,
+          vars.epic,
+          vars.storyPoints,
+          vars.startDate,
+          vars.environment,
+          vars.parentIssueId,
+          vars.sprintId,
+          vars.watchersJson,
+          vars.linkedIssuesJson,
+          vars.timeEstimated,
+          vars.timeSpent,
+          vars.timeRemaining,
+          vars.teamId,
+          vars.statusId,
+          vars.acceptanceCriteriaJson
+        )
+      ),
+    onSuccess: () => {
+      this.qc.invalidateQueries({ queryKey: ['board', this.projectId()] });
+      this.qc.invalidateQueries({ queryKey: ['board'] });
+      this.detailOpen.set(false);
+      this.toast.success('Issue updated');
+    },
+    onError: (e: any) =>
+      this.toast.error(e.error?.error || 'Update failed')
   }));
+
   createMutation = injectMutation(() => ({
-    mutationFn: (vars: any) => firstValueFrom(this.ps.createTask(this.projectId(), vars.listId || null, vars.title, vars.description, vars.priority, vars.labelsJson, undefined, vars.dueDate, vars.issueType, vars.epic, vars.storyPoints, vars.startDate, vars.environment, vars.parentIssueId, vars.sprintId, vars.teamId, vars.statusId)),
-    onSuccess: () => { this.qc.invalidateQueries({queryKey: ['board', this.projectId()]}); this.qc.invalidateQueries({queryKey: ['board']}); this.toast.success('Issue created in Backlog'); },
-    onError: (e:any) => this.toast.error(e.error?.error || 'Create failed'),
+    mutationFn: (vars: any) =>
+      firstValueFrom(
+        this.ps.createTask(
+          this.projectId(),
+          vars.listId || null,
+          vars.title,
+          vars.description,
+          vars.priority,
+          vars.labelsJson,
+          undefined,
+          vars.dueDate,
+          vars.issueType,
+          vars.epic,
+          vars.storyPoints,
+          vars.startDate,
+          vars.environment,
+          vars.parentIssueId,
+          vars.sprintId,
+          vars.teamId,
+          vars.statusId
+        )
+      ),
+    onSuccess: () => {
+      this.qc.invalidateQueries({ queryKey: ['board', this.projectId()] });
+      this.qc.invalidateQueries({ queryKey: ['board'] });
+      this.toast.success('Issue created in Backlog');
+    },
+    onError: (e: any) =>
+      this.toast.error(e.error?.error || 'Create failed')
   }));
+
   deleteMutation = injectMutation(() => ({
-    mutationFn: (id:string) => firstValueFrom(this.ps.deleteTask(id)),
-    onSuccess: () => { this.qc.invalidateQueries({queryKey: ['board', this.projectId()]}); this.qc.invalidateQueries({queryKey:['board']}); this.deleteTarget.set(null); this.toast.success('Issue deleted'); },
-    onError: (e:any) => this.toast.error(e.error?.error || 'Delete failed')
+    mutationFn: (id: string) => firstValueFrom(this.ps.deleteTask(id)),
+    onSuccess: () => {
+      this.qc.invalidateQueries({ queryKey: ['board', this.projectId()] });
+      this.qc.invalidateQueries({ queryKey: ['board'] });
+      this.deleteTarget.set(null);
+      this.toast.success('Issue deleted');
+    },
+    onError: (e: any) =>
+      this.toast.error(e.error?.error || 'Delete failed')
   }));
-  openDetail(t:any, readOnly=false){ this.selectedTask.set(t); this.detailReadOnly.set(readOnly); this.detailOpen.set(true); }
-  @HostListener('window:openTask', ['$event'])
-  onOpenTask(event:any){
-    const task = event.detail;
-    if(!task?.id){ this.toast.error('Issue not found'); return; }
-    const found = this.boardQuery.data()?.tasks?.find((x:any)=>x.id===task.id);
-    this.openDetail(found || task);
-    if(!found) this.toast.error('Linked issue not in current project view — opened anyway');
+
+  openDetail(task: any, readOnly = false) {
+    this.selectedTask.set(task);
+    this.detailReadOnly.set(readOnly);
+    this.detailOpen.set(true);
   }
-  confirmDelete(t:any){ this.deleteTarget.set(t); }
-  getTeamName(teamId?:string){ if(!teamId) return '—'; return this.teamsQuery.data()?.find((x:any)=>x.id===teamId)?.name || '—'; }
-  getSprintName(sprintId?:string){ if(!sprintId) return 'Backlog'; return this.sprintsQuery.data()?.find((x:any)=>x.id===sprintId)?.name || 'Backlog'; }
-  getAssigneeName(assigneeId?:string){ if(!assigneeId) return 'Unassigned'; const m = this.membersQuery.data()?.find((x:any)=>x.userId===assigneeId); return m ? m.fullName : assigneeId.slice(0,6); }
-  async openCreate(){
-    const statuses = this.statusesQuery.data() || [];
-    if(statuses.length===0) {
-      this.toast.error('Create a Status first — go to Project → Statuses → + New Status (e.g., To Do). Issues go to Backlog.');
+
+  @HostListener('window:openTask', ['$event'])
+  onOpenTask(event: any) {
+    const task = event.detail;
+
+    if (!task?.id) {
+      this.toast.error('Issue not found');
       return;
     }
-    // Issues are independent of boards/columns — go to Backlog with Status
-    this.createListId.set(''); // no column
+
+    const found = this.boardQuery.data()?.tasks?.find(
+      (x: any) => x.id === task.id
+    );
+
+    this.openDetail(found || task);
+
+    if (!found) {
+      this.toast.error(
+        'Linked issue not in current project view — opened anyway'
+      );
+    }
+  }
+
+  confirmDelete(task: any) {
+    this.deleteTarget.set(task);
+  }
+
+  getTeamName(teamId?: string) {
+    if (!teamId) return '—';
+
+    return (
+      this.teamsQuery.data()?.find((x: any) => x.id === teamId)?.name || '—'
+    );
+  }
+
+  getSprintName(sprintId?: string) {
+    if (!sprintId) return 'Backlog';
+
+    return (
+      this.sprintsQuery.data()?.find((x: any) => x.id === sprintId)?.name ||
+      'Backlog'
+    );
+  }
+
+  getAssigneeName(assigneeId?: string) {
+    if (!assigneeId) return 'Unassigned';
+
+    const member = this.membersQuery.data()?.find(
+      (x: any) => x.userId === assigneeId
+    );
+
+    return member ? member.fullName : assigneeId.slice(0, 6);
+  }
+
+  async openCreate() {
+    const statuses = this.statusesQuery.data() || [];
+
+    if (statuses.length === 0) {
+      this.toast.error(
+        'Create a Status first — go to Project → Statuses → + New Status (e.g., To Do). Issues go to Backlog.'
+      );
+      return;
+    }
+
+    this.createListId.set('');
     this.createStatusId.set(statuses[0].id);
     this.createOpen.set(true);
   }
-  async openAiDraft(){
+
+  async openAiDraft() {
     const cached = this.orgFlags().get('ai_draft');
+
     if (cached === false) {
       this.flagDisabledBy.set('SuperAdmin or Organization Owner');
       this.showFlagDisabled.set(true);
       return;
     }
+
     if (cached === undefined) {
       let orgId = this.currentOrgId;
+
       if (!orgId) {
         try {
           const orgs: any = await firstValueFrom(this.ws.getMyOrganizations());
@@ -207,34 +421,168 @@ export class IssuesComponent {
           orgId = arr[0]?.id;
         } catch {}
       }
+
       const chk = await this.flagService.isEnabledForOrg('ai_draft', orgId);
+
       if (!chk.enabled) {
         this.flagDisabledBy.set(chk.by);
         this.showFlagDisabled.set(true);
         return;
       }
     }
+
     const statuses = this.statusesQuery.data() || [];
-    if(statuses.length===0) {
-      this.toast.error('Create a Status first — go to Project → Statuses → + New Status.');
+
+    if (statuses.length === 0) {
+      this.toast.error(
+        'Create a Status first — go to Project → Statuses → + New Status.'
+      );
       return;
     }
+
     this.aiDraftOpen.set(true);
   }
-  onAiDraftCreated(e:any){
-    // e: {title,description,checklist(Suggested Steps),labels,priority,issueType,storyPoints,dueDate}
+
+  onAiDraftCreated(e: any) {
     const statuses = this.statusesQuery.data() || [];
     const statusId = statuses[0]?.id || '';
-    // Suggested Steps → appended as **Checklist:** block in description (not subtask, not AC 7.4)
-    const desc = e.checklist?.length ? `${e.description}\n\n**Checklist:**\n${e.checklist.map((c:string)=>`- ${c}`).join('\n')}` : e.description;
-    const labelsJson = e.labels?.length ? JSON.stringify(e.labels) : undefined;
-    this.createMutation.mutate({ listId: null, statusId, title: e.title, description: desc, priority: e.priority, labelsJson, issueType: e.issueType, storyPoints: e.storyPoints, dueDate: e.dueDate });
+
+    const desc = e.checklist?.length
+      ? `${e.description}\n\n**Checklist:**\n${e.checklist.map((c: string) => `- ${c}`).join('\n')}`
+      : e.description;
+
+    const labelsJson = e.labels?.length
+      ? JSON.stringify(e.labels)
+      : undefined;
+
+    this.createMutation.mutate({
+      listId: null,
+      statusId,
+      title: e.title,
+      description: desc,
+      priority: e.priority,
+      labelsJson,
+      issueType: e.issueType,
+      storyPoints: e.storyPoints,
+      dueDate: e.dueDate
+    });
+
     this.aiDraftOpen.set(false);
   }
-  onCreateSubmit(e:any){
-    const labelsJson = e.labels ? JSON.stringify(e.labels.split(',').map((s:string)=>s.trim()).filter(Boolean)) : undefined;
-    this.createMutation.mutate({ listId: null, statusId: this.createStatusId(), title: e.title, description: e.description, priority: e.priority, labelsJson, dueDate: e.dueDate, issueType: e.issueType, teamId: e.teamId, sprintId: e.sprintId });
+
+  onCreateSubmit(e: any) {
+    const labelsJson = e.labels
+      ? JSON.stringify(
+          e.labels
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        )
+      : undefined;
+
+    this.createMutation.mutate({
+      listId: null,
+      statusId: this.createStatusId(),
+      title: e.title,
+      description: e.description,
+      priority: e.priority,
+      labelsJson,
+      dueDate: e.dueDate,
+      issueType: e.issueType,
+      teamId: e.teamId,
+      sprintId: e.sprintId
+    });
+
     this.createOpen.set(false);
   }
-  onSave(e:any){ const t=this.selectedTask(); if(!t) return; this.updateMutation.mutate({ id:t.id, title:e.title, description:e.description, priority:e.priority, listId:e.listId, labelsJson:e.labelsJson, assigneeId:e.assigneeId, dueDate:e.dueDate, issueType: e.issueType, epic: e.epic, storyPoints: e.storyPoints, startDate: e.startDate, environment: e.environment, parentIssueId: e.parentIssueId, sprintId: e.sprintId, watchersJson: e.watchersJson, linkedIssuesJson: e.linkedIssuesJson, timeEstimated: e.timeEstimated, timeSpent: e.timeSpent, timeRemaining: e.timeRemaining, teamId: e.teamId, statusId: e.statusId, acceptanceCriteriaJson: e.acceptanceCriteriaJson }); }
+
+  onSave(e: any) {
+    const task = this.selectedTask();
+
+    if (!task) return;
+
+    this.updateMutation.mutate({
+      id: task.id,
+      title: e.title,
+      description: e.description,
+      priority: e.priority,
+      listId: e.listId,
+      labelsJson: e.labelsJson,
+      assigneeId: e.assigneeId,
+      dueDate: e.dueDate,
+      issueType: e.issueType,
+      epic: e.epic,
+      storyPoints: e.storyPoints,
+      startDate: e.startDate,
+      environment: e.environment,
+      parentIssueId: e.parentIssueId,
+      sprintId: e.sprintId,
+      watchersJson: e.watchersJson,
+      linkedIssuesJson: e.linkedIssuesJson,
+      timeEstimated: e.timeEstimated,
+      timeSpent: e.timeSpent,
+      timeRemaining: e.timeRemaining,
+      teamId: e.teamId,
+      statusId: e.statusId,
+      acceptanceCriteriaJson: e.acceptanceCriteriaJson
+    });
+  }
+
+  setPage(page: number) {
+    const target = Math.max(1, Math.min(page, this.totalPages()));
+    this.page.set(target);
+  }
+
+  setPageSize(size: number) {
+    if (![8, 12, 20, 30].includes(size)) return;
+
+    this.pageSize.set(size);
+    this.page.set(1);
+  }
+
+  onSearch(value: string) {
+    this.search.set(value);
+    this.page.set(1);
+  }
+
+  onTypeFilter(value: string) {
+    this.typeFilter.set(value);
+    this.page.set(1);
+  }
+
+  clearFilters() {
+    this.search.set('');
+    this.typeFilter.set('');
+    this.page.set(1);
+  }
+
+  priorityClass(priority: string) {
+    switch ((priority || '').toLowerCase()) {
+      case 'urgent':
+        return 'badge-error';
+      case 'high':
+        return 'badge-warning';
+      case 'medium':
+        return 'badge-info';
+      case 'low':
+        return 'badge-ghost';
+      default:
+        return 'badge-ghost';
+    }
+  }
+
+issueTypeClass(type?: string) {
+  switch ((type || 'task').toLowerCase()) {
+    case 'bug':
+      return 'badge-error';
+    case 'feature':
+      return 'badge-primary';
+    case 'story':
+      return 'badge-secondary';
+    case 'task':
+      return 'badge-ghost';
+    default:
+      return 'badge-ghost';
+  }
+}
 }

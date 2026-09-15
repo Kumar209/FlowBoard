@@ -4,133 +4,194 @@
     "Routes": {
       "identity-route": {
         "ClusterId": "identity-cluster",
-        "Match": { "Path": "/api/auth/{**catch-all}" }
+        "Match": {
+          "Path": "/api/auth/{**catch-all}"
+        }
       },
       "superadmin-route": {
         "ClusterId": "identity-cluster",
-        "Match": { "Path": "/api/superadmin/{**catch-all}" }
+        "Match": {
+          "Path": "/api/superadmin/{**catch-all}"
+        }
       },
       "platform-route": {
         "ClusterId": "identity-cluster",
-        "Match": { "Path": "/api/platform/{**catch-all}" }
+        "Match": {
+          "Path": "/api/platform/{**catch-all}"
+        }
       },
       "permissions-route": {
         "ClusterId": "identity-cluster",
-        "Match": { "Path": "/api/permissions/{**catch-all}" }
+        "Match": {
+          "Path": "/api/permissions/{**catch-all}"
+        }
       },
       "permissions-root-route": {
         "ClusterId": "identity-cluster",
-        "Match": { "Path": "/api/permissions" }
+        "Match": {
+          "Path": "/api/permissions"
+        }
       },
       "workspace-route": {
         "ClusterId": "identity-cluster",
-        "Match": { "Path": "/api/workspaces/{**catch-all}" },
+        "Match": {
+          "Path": "/api/workspaces/{**catch-all}"
+        },
         "Order": 1
       },
       "feature-flags-route": {
         "ClusterId": "identity-cluster",
-        "Match": { "Path": "/api/feature-flags/{**catch-all}" }
+        "Match": {
+          "Path": "/api/feature-flags/{**catch-all}"
+        }
       },
       "feature-flags-root-route": {
         "ClusterId": "identity-cluster",
-        "Match": { "Path": "/api/feature-flags" }
+        "Match": {
+          "Path": "/api/feature-flags"
+        }
       },
       "org-route": {
         "ClusterId": "identity-cluster",
-        "Match": { "Path": "/api/organizations/{**catch-all}" }
+        "Match": {
+          "Path": "/api/organizations/{**catch-all}"
+        }
       },
       "project-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/workspaces/{workspaceId}/projects/{**catch-all}" },
+        "Match": {
+          "Path": "/api/workspaces/{workspaceId}/projects/{**catch-all}"
+        },
         "Order": 0
       },
       "project-workspace-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/workspaces/{workspaceId}/projects" },
+        "Match": {
+          "Path": "/api/workspaces/{workspaceId}/projects"
+        },
         "Order": 0
       },
       "project-api-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/projects/{**catch-all}" }
+        "Match": {
+          "Path": "/api/projects/{**catch-all}"
+        }
       },
       "board-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/boards/{**catch-all}" }
+        "Match": {
+          "Path": "/api/boards/{**catch-all}"
+        }
       },
       "team-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/teams/{**catch-all}" }
+        "Match": {
+          "Path": "/api/teams/{**catch-all}"
+        }
       },
       "sprint-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/sprints/{**catch-all}" }
+        "Match": {
+          "Path": "/api/sprints/{**catch-all}"
+        }
       },
       "subtask-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/subtasks/{**catch-all}" }
+        "Match": {
+          "Path": "/api/subtasks/{**catch-all}"
+        }
       },
       "comment-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/comments/{**catch-all}" }
+        "Match": {
+          "Path": "/api/comments/{**catch-all}"
+        }
       },
       "environment-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/environments/{**catch-all}" }
+        "Match": {
+          "Path": "/api/environments/{**catch-all}"
+        }
       },
       "status-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/statuses/{**catch-all}" }
+        "Match": {
+          "Path": "/api/statuses/{**catch-all}"
+        }
       },
       "status-root-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/statuses" }
+        "Match": {
+          "Path": "/api/statuses"
+        }
       },
       "ai-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/ai/{**catch-all}" }
+        "Match": {
+          "Path": "/api/ai/{**catch-all}"
+        }
       },
       "task-route": {
         "ClusterId": "project-cluster",
-        "Match": { "Path": "/api/tasks/{**catch-all}" },
+        "Match": {
+          "Path": "/api/tasks/{**catch-all}"
+        },
         "Order": 1
       },
       "file-route": {
         "ClusterId": "file-cluster",
-        "Match": { "Path": "/api/files/{**catch-all}" }
+        "Match": {
+          "Path": "/api/files/{**catch-all}"
+        }
       },
       "file-attachments-route": {
         "ClusterId": "file-cluster",
-        "Match": { "Path": "/api/tasks/{taskId}/attachments" },
+        "Match": {
+          "Path": "/api/tasks/{taskId}/attachments"
+        },
         "Order": 0
       },
       "notification-route": {
         "ClusterId": "notification-cluster",
-        "Match": { "Path": "/api/notifications/{**catch-all}" }
+        "Match": {
+          "Path": "/api/notifications/{**catch-all}"
+        }
       },
       "hub-route": {
         "ClusterId": "notification-cluster",
-        "Match": { "Path": "/hubs/{**catch-all}" }
+        "Match": {
+          "Path": "/hubs/{**catch-all}"
+        }
       }
     },
+    
     "Clusters": {
       "identity-cluster": {
         "Destinations": {
-          "identity": { "Address": "http://localhost:5001" }
+          "identity": {
+            "Address": "http://localhost:5001"
+          }
         }
       },
       "project-cluster": {
         "Destinations": {
-          "project": { "Address": "http://localhost:5002" }
+          "project": {
+            "Address": "http://localhost:5002"
+          }
         }
       },
       "file-cluster": {
         "Destinations": {
-          "file": { "Address": "http://localhost:5003" }
+          "file": {
+            "Address": "http://localhost:5003"
+          }
         }
       },
       "notification-cluster": {
         "Destinations": {
-          "notification": { "Address": "http://localhost:5004" }
+          "notification": {
+            "Address": "http://localhost:5004"
+          }
         }
       }
     }

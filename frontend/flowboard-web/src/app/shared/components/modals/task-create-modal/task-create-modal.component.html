@@ -1,71 +1,160 @@
 @if (open()) {
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="closed.emit()"></div>
-    <div class="card bg-base-100 rounded-2xl shadow-2xl max-w-lg w-full p-6 relative z-10 border max-h-[90vh] overflow-y-auto">
-      <h3 class="font-bold text-lg">Create Task in {{ listName() }}</h3>
-      <p class="text-xs opacity-40">Status = {{ listName() }} (Column). Assign Team/Sprint — Sprint None → Backlog.</p>
-      <div class="mt-4 space-y-3">
-        <label class="form-control">
-          <span class="label-text text-xs">Title *</span>
-          <input type="text" class="input input-bordered rounded-xl" placeholder="e.g., Implement login" [value]="title()" (input)="title.set($any($event.target).value)" />
-        </label>
-        <label class="form-control">
-          <span class="label-text text-xs">Description</span>
-          <textarea class="textarea textarea-bordered rounded-xl" placeholder="Optional details" [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
-        </label>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="form-control">
-            <span class="label-text text-xs">Issue Type</span>
-            <select class="select select-bordered rounded-xl" [value]="issueType()" (change)="issueType.set($any($event.target).value)">
-              <option>Task</option><option>Bug</option><option>Story</option><option>Feature</option>
-            </select>
-          </label>
-          <label class="form-control">
-            <span class="label-text text-xs">Priority</span>
-            <select class="select select-bordered rounded-xl" [value]="priority()" (change)="priority.set($any($event.target).value)">
-              <option>Low</option><option>Medium</option><option>High</option><option>Urgent</option>
-            </select>
-          </label>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="form-control">
-            <span class="label-text text-xs">Team @if(lockTeam()){<span class="opacity-40">• Board filter</span>}</span>
-            @if (projectId()) {
-              <select class="select select-bordered rounded-xl" [value]="teamId()" (change)="teamId.set($any($event.target).value)" [disabled]="lockTeam()">
-                <option value="">No Team</option>
-                @for (t of teamsQuery.data() || []; track t.id) { <option [value]="t.id">{{ t.name }}</option> }
-              </select>
-              @if(lockTeam()){<span class="label-text-alt text-[10px] opacity-40">Locked to board's team filter</span>}
+  <div class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5">
+    <div class="fixed inset-0 z-[100] bg-black/45 backdrop-blur-sm" (click)="loading() ? null : close()"></div>
+
+    <div class="relative z-[101] flex max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-2xl">
+      <div class="flex shrink-0 items-center justify-between border-b border-base-200 px-4 py-3 sm:px-5">
+        <div class="flex min-w-0 items-center gap-3">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <h3 class="truncate text-sm font-semibold text-base-content sm:text-base">Create Issue</h3>
+            @if (listName()) {
+              <p class="truncate text-xs text-base-content/60">Add an issue to {{ listName() }}</p>
             } @else {
-              <input type="text" class="input input-bordered rounded-xl" placeholder="Team optional" disabled />
+              <p class="text-xs text-base-content/60">Create a new issue</p>
             }
-          </label>
-          <label class="form-control">
-            <span class="label-text text-xs">Sprint @if(lockSprint()){<span class="opacity-40">• Board sprint</span>}</span>
-            @if (projectId()) {
-              <select class="select select-bordered rounded-xl" [value]="sprintId()" (change)="sprintId.set($any($event.target).value)" [disabled]="lockSprint()">
-                <option value="">No Sprint (Backlog)</option>
-                @for (s of sprintsQuery.data() || []; track s.id) { <option [value]="s.id">{{ s.name }}</option> }
-              </select>
-              @if(lockSprint()){<span class="label-text-alt text-[10px] opacity-40">Locked to board's current sprint</span>}
-            } @else {
-              <select class="select select-bordered rounded-xl" disabled><option>Backlog</option></select>
-            }
-          </label>
+          </div>
         </div>
-        <label class="form-control">
-          <span class="label-text text-xs">Due date</span>
-          <input type="date" class="input input-bordered rounded-xl" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
-        </label>
-        <label class="form-control">
-          <span class="label-text text-xs">Labels (comma separated)</span>
-          <input type="text" class="input input-bordered rounded-xl" placeholder="e.g., bug, frontend" [value]="labels()" (input)="labels.set($any($event.target).value)" />
-        </label>
-        @if (error()) { <div class="text-error text-xs">● {{ error() }}</div> }
+
+        <button class="btn btn-ghost btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-base-content/70 hover:bg-base-200 hover:text-base-content" (click)="close()" [disabled]="loading()" aria-label="Close">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6 6 18"></path>
+          </svg>
+        </button>
       </div>
-      <div class="flex justify-end gap-2 mt-6">
-        <button class="btn btn-ghost rounded-xl" (click)="closed.emit()">Cancel</button>
-        <button class="btn btn-primary rounded-xl" (click)="submit()" [class.loading]="loading()" [disabled]="!isValid()">Create</button>
+
+      <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+        @if (error()) {
+          <div class="mb-4 rounded-lg border border-error/25 bg-error/5 px-3 py-2.5 text-xs text-error">
+            {{ error() }}
+          </div>
+        }
+
+        <div class="space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-base-content/75">Title <span class="text-error">*</span></label>
+            <input type="text" class="input input-bordered h-10 min-h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="title()" (input)="title.set($any($event.target).value)" placeholder="What needs to be done?" autofocus />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-base-content/75">Description</label>
+            <textarea class="textarea textarea-bordered min-h-[100px] w-full rounded-lg border-base-content/20 bg-base-100 text-sm leading-6 text-base-content shadow-none focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="description()" (input)="description.set($any($event.target).value)" placeholder="Add context, requirements, or details..."></textarea>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div class="space-y-1.5">
+              <label class="text-xs font-medium text-base-content/75">Issue Type</label>
+              <select class="select select-bordered h-10 min-h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="issueType()" (change)="issueType.set($any($event.target).value)">
+                <option>Task</option>
+                <option>Bug</option>
+                <option>Story</option>
+                <option>Feature</option>
+              </select>
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-xs font-medium text-base-content/75">Priority</label>
+              <select class="select select-bordered h-10 min-h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="priority()" (change)="priority.set($any($event.target).value)">
+                <option>Low</option>
+                <option>Medium</option>
+                <option>High</option>
+                <option>Urgent</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-xs font-medium text-base-content/75">Team</label>
+                @if (lockTeam()) {
+                  <span class="inline-flex items-center gap-1 text-[10px] text-base-content/55">
+                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <rect x="5" y="10" width="14" height="10" rx="2"></rect>
+                      <path stroke-linecap="round" d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+                    </svg>
+                    Fixed
+                  </span>
+                }
+              </div>
+
+              @if (teamsQuery.data(); as teams) {
+                <select class="select select-bordered h-10 min-h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/50 focus:outline-none focus:ring-0 disabled:bg-base-200/50 disabled:text-base-content/60" [value]="teamId()" (change)="teamId.set($any($event.target).value)" [disabled]="lockTeam()">
+                  <option value="">No Team</option>
+                  @for (team of teams; track team.id) {
+                    <option [value]="team.id">{{ team.name }}</option>
+                  }
+                </select>
+              } @else {
+                <select class="select select-bordered h-10 min-h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none" disabled>
+                  <option>Loading teams...</option>
+                </select>
+              }
+            </div>
+
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-xs font-medium text-base-content/75">Sprint</label>
+                @if (lockSprint()) {
+                  <span class="inline-flex items-center gap-1 text-[10px] text-base-content/55">
+                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <rect x="5" y="10" width="14" height="10" rx="2"></rect>
+                      <path stroke-linecap="round" d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+                    </svg>
+                    Fixed
+                  </span>
+                }
+              </div>
+
+              @if (sprintsQuery.data(); as sprints) {
+                <select class="select select-bordered h-10 min-h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/50 focus:outline-none focus:ring-0 disabled:bg-base-200/50 disabled:text-base-content/60" [value]="sprintId()" (change)="sprintId.set($any($event.target).value)" [disabled]="lockSprint()">
+                  <option value="">No Sprint (Backlog)</option>
+                  @for (sprint of sprints; track sprint.id) {
+                    <option [value]="sprint.id">{{ sprint.name }}</option>
+                  }
+                </select>
+              } @else {
+                <select class="select select-bordered h-10 min-h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none" disabled>
+                  <option>Loading sprints...</option>
+                </select>
+              }
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div class="space-y-1.5">
+              <label class="text-xs font-medium text-base-content/75">Labels</label>
+              <input type="text" class="input input-bordered h-10 min-h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="labels()" (input)="labels.set($any($event.target).value)" placeholder="e.g. frontend, bug" />
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-xs font-medium text-base-content/75">Due date</label>
+              <input type="date" class="input input-bordered h-10 min-h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/50 focus:outline-none focus:ring-0" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex shrink-0 flex-col-reverse gap-2 border-t border-base-200 px-4 py-3 sm:flex-row sm:justify-end sm:px-5">
+        <button class="btn btn-ghost btn-sm h-9 min-h-9 rounded-lg border border-transparent px-4 text-base-content/80 hover:bg-base-200 hover:text-base-content" (click)="close()" [disabled]="loading()">
+          Cancel
+        </button>
+
+        <button class="btn btn-primary btn-sm h-9 min-h-9 rounded-lg px-5" (click)="submit()" [disabled]="!isValid() || loading()" [attr.aria-busy]="loading()">
+          @if (loading()) {
+            <span class="loading loading-spinner loading-xs"></span>
+            <span>Creating</span>
+          } @else {
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
+            </svg>
+            <span>Create Issue</span>
+          }
+        </button>
       </div>
     </div>
   </div>

@@ -29,13 +29,16 @@
           Model filter
         </label>
         <select
-          class="select select-bordered h-10 min-h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0 sm:w-[210px]"
+          class="select select-bordered h-10 min-h-10 w-full rounded-lg border-base-content/30 bg-base-100 text-sm font-medium text-base-content shadow-none focus:border-base-content/50 focus:outline-none focus:ring-0 sm:w-[230px]"
           [value]="modelFilter()"
-          (change)="modelFilter.set($any($event.target).value); page.set(1)"
+          (change)="onModelChange($any($event.target).value)"
+          aria-label="Filter AI usage by model"
         >
           <option value="all">All models</option>
-          <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-          <option value="llama-3.1-8b-instant">Groq llama-3.1-8b (disabled)</option>
+
+          @for (model of availableModels(); track model) {
+            <option [value]="model">{{ model }}</option>
+          }
         </select>
       </div>
     </div>

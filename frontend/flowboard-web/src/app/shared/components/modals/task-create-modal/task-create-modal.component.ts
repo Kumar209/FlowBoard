@@ -1,33 +1,40 @@
-import { Component, ChangeDetectionStrategy, input, output, signal, effect, computed, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, output, signal, computed, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../../core/services/project.service';
 import { injectQuery } from '@tanstack/angular-query-experimental';
 
-/**
- * TaskCreateModal - Create task with Title, Team, Sprint (Backlog if None), Status via listName, etc.
- */
 @Component({
   selector: 'app-task-create-modal',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './task-create-modal.component.html',
-  styleUrls: ['./task-create-modal.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TaskCreateModalComponent {
   open = input<boolean>(false);
-  listName = input<string>('To Do');
+  listName = input<string>('');
   projectId = input<string>('');
   loading = input<boolean>(false);
-  error = input<string|null>(null);
-  // Strict board context: when lock true, team/sprint are auto-filled from board filter and disabled
+  error = input<string | null>(null);
   presetTeamId = input<string>('');
   presetSprintId = input<string>('');
   lockTeam = input<boolean>(false);
   lockSprint = input<boolean>(false);
+
   closed = output<void>();
-  submitted = output<{title:string; description:string; priority:string; labels:string; dueDate:string; teamId?:string; sprintId?:string; issueType:string}>();
+  submitted = output<{
+    title: string;
+    description: string;
+    priority: string;
+    labels: string;
+    dueDate: string;
+    teamId?: string;
+    sprintId?: string;
+    issueType: string;
+  }>();
+
+  private projectService = inject(ProjectService);
 
   title = signal('');
   description = signal('');
@@ -38,67 +45,72 @@ export class TaskCreateModalComponent {
   sprintId = signal('');
   issueType = signal('Task');
 
-  private ps = inject(ProjectService);
-
   teamsQuery = injectQuery(() => ({
     queryKey: ['teams', this.projectId()] as const,
-    queryFn: () => firstValueFrom(this.ps.getTeams(this.projectId())),
-    enabled: this.open() && !!this.projectId(),
+    queryFn: () => firstValueFrom(this.projectService.getTeams(this.projectId())),
+    enabled: !!this.projectId(),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000
   }));
+
   sprintsQuery = injectQuery(() => ({
     queryKey: ['sprints', this.projectId()] as const,
-    queryFn: () => firstValueFrom(this.ps.getSprints(this.projectId())),
-    enabled: this.open() && !!this.projectId(),
+    queryFn: () => firstValueFrom(this.projectService.getSprints(this.projectId())),
+    enabled: !!this.projectId(),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000
   }));
 
-  isValid = computed(() => this.title().trim().length > 0);
+  isValid = computed(() => !!this.title().trim());
 
   constructor() {
-    effect(() => { if(this.open()){
-      this.title.set(''); this.description.set(''); this.priority.set('Medium'); this.labels.set(''); this.dueDate.set('');
-      // For lock, set from preset but normalize to actual team/sprint id case from loaded lists
-      if(this.lockTeam()){
-        const preset = this.presetTeamId() || '';
-        const teams = this.teamsQuery.data() || [];
-        const matched = teams.find((t:any) => t.id.toLowerCase() === preset.toLowerCase());
-        this.teamId.set(matched ? matched.id : preset);
-      } else this.teamId.set('');
-      if(this.lockSprint()){
-        const preset = this.presetSprintId() || '';
-        const sprints = this.sprintsQuery.data() || [];
-        const matched = sprints.find((s:any) => s.id.toLowerCase() === preset.toLowerCase());
-        this.sprintId.set(matched ? matched.id : preset);
-      } else this.sprintId.set('');
-      this.issueType.set('Task');
-    } });
-    // Also sync when preset changes while open (e.g., board filter loads after modal open) or teams/sprints load
     effect(() => {
-      if(this.open() && this.lockTeam()){
-        const preset = this.presetTeamId() || '';
-        const teams = this.teamsQuery.data() || [];
-        // Only update if preset exists and teamId doesn't already match (handle case mismatch)
-        if(preset){
-          const matched = teams.find((t:any) => t.id.toLowerCase() === preset.toLowerCase());
-          const target = matched ? matched.id : preset;
-          if(this.teamId() !== target) this.teamId.set(target);
-        } else if(this.teamId() !== '') this.teamId.set('');
+      if (this.open()) {
+        this.resetForm();
       }
     });
+
     effect(() => {
-      if(this.open() && this.lockSprint()){
-        const preset = this.presetSprintId() || '';
-        const sprints = this.sprintsQuery.data() || [];
-        if(preset){
-          const matched = sprints.find((s:any) => s.id.toLowerCase() === preset.toLowerCase());
-          const target = matched ? matched.id : preset;
-          if(this.sprintId() !== target) this.sprintId.set(target);
-        } else if(this.sprintId() !== '') this.sprintId.set('');
+      if (!this.open()) return;
+
+      if (this.lockTeam()) {
+        this.teamId.set(this.presetTeamId() || '');
+      }
+
+      if (this.lockSprint()) {
+        this.sprintId.set(this.presetSprintId() || '');
       }
     });
   }
 
+  private resetForm() {
+    this.title.set('');
+    this.description.set('');
+    this.priority.set('Medium');
+    this.labels.set('');
+    this.dueDate.set('');
+    this.issueType.set('Task');
+    this.teamId.set(this.presetTeamId() || '');
+    this.sprintId.set(this.presetSprintId() || '');
+  }
+
+  close() {
+    if (this.loading()) return;
+    this.closed.emit();
+  }
+
   submit() {
-    if(!this.isValid()) return;
-    this.submitted.emit({ title: this.title().trim(), description: this.description().trim(), priority: this.priority(), labels: this.labels().trim(), dueDate: this.dueDate(), teamId: this.teamId() || undefined, sprintId: this.sprintId() || undefined, issueType: this.issueType() });
+    if (!this.title().trim() || this.loading()) return;
+
+    this.submitted.emit({
+      title: this.title().trim(),
+      description: this.description().trim(),
+      priority: this.priority(),
+      labels: this.labels().trim(),
+      dueDate: this.dueDate(),
+      teamId: this.teamId() || undefined,
+      sprintId: this.sprintId() || undefined,
+      issueType: this.issueType()
+    });
   }
 }
