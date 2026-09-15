@@ -3208,6 +3208,22 @@ MNC docs-first — SDD `32 sections 11 diagrams` + Tasks Plan `10 Phases 50 Task
 
 ---
 
+## Bug Fix P1: Silent Polling — Me, Feature Flags, Maintenance — Approach 2026-09-15
+
+> **Problem:** `me`, `feature-flags`, `maintenance` each polled every 60s from different components, each triggered loader, spamming `Image 3` `me` `me` `maintenance` `me`.
+
+**Approach (MNC grade):**
+- **Me:** One `GET /api/auth/me` after login, `shareReplay` deduped, `staleTime 5m`, `refetchOnWindowFocus false`, no interval. Refetch only on `401` via `auth.interceptor` `refreshDeduped` → `me`, or after promotion via `members` `onSuccess` `me` invalidation.
+- **Feature flags:** One `GET /api/superadmin/flags` or `GET /api/organizations/{id}/flags` on app start, `staleTime 5m`, `refetchOnWindowFocus false`, no interval. Invalidate only when admin toggles a flag (`toggleFlag` `onSuccess` `invalidateQueries(['flags'])`).
+- **Maintenance:** Keep `GET /api/platform/maintenance` every `5m` only when `document.visibilityState==='visible'`, `headers {'X-Silent':'true'}`, `loading.interceptor` `silentUrls` includes `maintenance` + `flags` + `me` → no loader, just banner toggle.
+
+**Tasks:**
+- P1.1 Me: remove interval/polling in `LayoutComponent`, keep single `meDeduped` on login + 401 refresh
+- P1.2 Flags: set `staleTime 5m`, remove interval, add `onSuccess` invalidation
+- P1.3 Maintenance: keep `5m` `X-Silent` `silentUrls` no loader, verify 60s → 5m
+
+---
+
 <!--
 ## Task X.Y: Title
 

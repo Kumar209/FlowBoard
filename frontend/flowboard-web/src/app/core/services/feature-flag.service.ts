@@ -24,7 +24,7 @@ export class FeatureFlagService {
   private orgCache = new Map<string, { map: Map<string, boolean>; at: number }>();
   async loadForOrg(orgId: string, force = false): Promise<Map<string, boolean>> {
     const cached = this.orgCache.get(orgId);
-    if (!force && cached && Date.now() - cached.at < 5_000) return cached.map;
+    if (!force && cached && Date.now() - cached.at < 5 * 60 * 1000) return cached.map;
     try {
       const list: any = await firstValueFrom(this.http.get<any[]>(`${environment.apiUrl}/api/feature-flags/organizations/${orgId}`, { withCredentials: true, headers: { 'X-Silent': 'true' } as any }));
       const map = new Map<string, boolean>();

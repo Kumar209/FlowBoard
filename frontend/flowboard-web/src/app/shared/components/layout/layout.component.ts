@@ -82,20 +82,7 @@ export class LayoutComponent implements OnInit {
       if (document.visibilityState === 'visible') poll();
     });
 
-    // Poll auth memberships for role changes (e.g., Member -> OrgAdmin promotion) so sidebar updates without re-login
-    const pollAuth = () => {
-      if (!this.auth.isAuthenticated() || document.visibilityState !== 'visible') return;
-      this.auth.meDeduped().subscribe({
-        next: res => this.auth.hydrateFromMe(res as any),
-        error: () => {}
-      });
-    };
-    // Initial poll after 5s, then every 60s when visible (also handles promoted user stale JWT via DB OrgAdmin check)
-    setTimeout(pollAuth, 5000);
-    let authTimer: any = setInterval(pollAuth, 60000);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') pollAuth();
-    });
+    // Me is single call after login + 401 refresh (deduped, 5m stale, silent) — no interval. Promotion is handled by explicit refresh in members.component after update, and by next login for the promoted user.
   }
 
   toggle() {
