@@ -29,15 +29,17 @@
 | 8: Polish & Production Deploy | 5.1 - 5.5 | 5/5 | Completed |
 | R: Rework Org-Authoritative | R1 - R7 | 7/7 | Completed |
 | N: Notification MNC | N1 - N7 | 7/7 | Completed |
-| 9: Production Deployment | 5.4 | 0/1 | Pending |
-| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 + N1-N7 (64)** | **63/64** | **In Progress — only Deploy pending** |
+| 9: Production Deployment | 5.4 | 1/1 | Completed |
+| 10: Post-Deploy Bug Fixing | 5.5 | 0/1 | Pending |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 + N1-N7 (64) + 5.5 (1)** | **64/65** | **Completed — Deploy done, bug fixing pending** |
 
 > **New Order Note (2026-09-14):** Phases reordered as per 0,1,2(Phase6),3(Project Core),4(Realtime),5(Files),6(AI),7(SuperAdmin),8(Polish),9(Production) — task sections below follow this new phase order as per table.
 > **Update (2026-09-15):** Realtime 3.1-3.3 verified completed via codebase audit (Outbox 2s, SignalR Hub, CDK Lock) — see Tasks 3.1-3.3 entries below. Polish 5.2 Tests (40 unit+15 integration) + 5.3 Docs (README v1.3) marked completed. Only **5.4 Deploy (MonsterASP.net + Vercel)** remains per `FlowBoard_Tasks_Plan.docx` + bug fixes pre-deploy (you will provide list).
 > **Update (2026-09-15 R):** Approved to **drop DB and recreate** with org-authoritative. Added **R1-R7** 7 tasks (9h) before `5.4 Deploy`. Old workspace-synthetic approach will be deleted. See `Rework Phase R` below.
 > **Update (2026-09-15 N):** Notification MNC 7 tasks `N1-N7` 8.5h completed — idempotency, per-project recipients, hub per-project+user, event-driven, missing events, superadmin complaint, mark read.
+> **Update (2026-09-17):** **5.4 Deploy Completed** — MonsterASP 5 sites + Vercel live, auto DB migrate, two-file YARP, CORS fix, selective CI/CD. Added **5.5 Bug Fixing** 0/1 pending for post-deploy fixes.
 | SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
-| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 + N1-N7 (64)** | **63/64** | **In Progress — only Deploy pending** |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 + N1-N7 (64) + 5.5 (1)** | **64/65** | **Completed — Deploy done, bug fixing pending** |
 
 ---
 
@@ -3125,6 +3127,123 @@ MNC docs-first — SDD `32 sections 11 diagrams` + Tasks Plan `10 Phases 50 Task
 - Unlocks: `5.4 Deploy` only remaining; bug fixes pre-deploy (you will provide)
 - Depends on: All code `38→49/50`
 - Follow-up: Update `README.md` live links `https://flowboard.vercel.app` `https://gateway-xxxxx.monsterasp.net/health /scalar` after deploy verification.
+
+---
+
+## Task 5.4: Production Deployment — MonsterASP.net 5 Sites + Vercel + DB + CI/CD
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Completed | 17 Sep 2026 | 9 - Production Deployment | f4c7b5b / 05c47b8 / 8e5def9 / 899a682 / 1d388c7 / 2b9b1a5 / 38eaad1 | 6h | Feature |
+
+### 1. Overview
+Deployed FlowBoard to production with **same keys local/prod, only URLs differ** — 5 MonsterASP.net sites (Gateway + Identity/Project/File/Notification) + Vercel frontend `https://flow-board-seven-gilt.vercel.app` + single `flowboard` DB `db68668.databaseasp.net` with 4 schemas, auto DB creation on startup and selective CI/CD per service.
+
+### 2. Objectives
+- Create 5 MonsterASP sites `flowboard-gateway/identity/project/file/notify.runasp.net` with `ASPNETCORE_ENVIRONMENT=Production` and env vars `Jwt__*` `Redis__Connection` `RabbitMQ__Host` `Cloudinary__*` `Brevo__ApiKey` `Gemini__*` `SuperAdmin__Email/Password` `ConnectionStrings__Default` `FrontendUrl` (same values local/prod, only URLs differ)
+- Publish Gateway + 4 services via `dotnet publish -c Release` Folder (`bin/Release/net10.0/publish/`) and FTP upload to `/wwwroot` (manual first deploy, then automated)
+- Ensure DB `flowboard` auto-creates on first boot via `db.Database.MigrateAsync()` in all 4 services (Monster blocks external `dotnet ef database update`)
+- Fix YARP routing per environment: `yarp.json` dev `http://localhost:5001-5004` + `yarp.Production.json` prod `https://flowboard-*.runasp.net` auto-picked via `AddJsonFile($"yarp.{env}.json")`
+- Fix frontend prod URLs: `environment.prod.ts` `apiUrl https://flowboard-gateway.runasp.net` `hubUrl https://flowboard-notify.runasp.net/hubs/board` + `angular.json` `fileReplacements` for prod (was missing, caused `ERR_CONNECTION_REFUSED` localhost)
+- Fix CORS for Vercel: `SetIsOriginAllowed` allow `https://flow-board-seven-gilt.vercel.app` + `*.vercel.app` in Gateway + 4 services (was `WithOrigins` fixed list, caused `CORS error`)
+- Fix prod logging quota: console only on Production (`ASPNETCORE_ENVIRONMENT==Production` no file), file only on Development with 7d retention (was 30d file on all envs, would fill 5GB free quota)
+- Add selective CI/CD Option A: 5 workflows `.github/workflows/gateway|identity|project|file|notify.yml` with `paths` filter + `dotnet publish` + mandatory `rm -rf publish_*/logs` + `SamKirkland/FTP-Deploy-Action@v4.3.5` `protocol: ftp port:21` `dangerous-clean-slate: false` + 15 repo secrets `FTP_HOST/USER/PASS_*`
+
+### 3. Technical Stack
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Hosting | MonsterASP.net | FreeSite | 5 IIS sites .NET10, FTP `siteXXXX.siteasp.net:21` `/wwwroot` |
+| Hosting | Vercel | - | `frontend/flowboard-web` Root Directory `frontend/flowboard-web` + `vercel.json` rewrites |
+| Gateway | YARP | 2.3 | `yarp.json` `yarp.Production.json` `Order 0` specific before `Order 1` |
+| DB | SQL Server | 2025 | `db68668.databaseasp.net` `flowboard` 4 schemas `HasDefaultSchema` `MigrationsHistoryTable` per schema |
+| CI/CD | GitHub Actions | - | 5 workflows `push paths` + `workflow_dispatch` `setup-dotnet 10.0.x` `FTP-Deploy-Action` |
+| Logging | Serilog | 9.0 | Console always, File only on Development |
+
+### 4. Implementation Details
+1. Created 5 sites `site91909-91913` `flowboard-gateway/identity/project/file/notify.runasp.net` free subdomain `runasp.net` EU W15, set `ASPNETCORE_ENVIRONMENT=Production`, added env vars per service (Gateway: Jwt+Redis, Identity: ConnectionStrings+Jwt+Brevo+SuperAdmin+FrontendUrl, Project: ConnectionStrings+Jwt+Redis+RabbitMQ+Gemini+Groq, File: ConnectionStrings+Jwt+Cloudinary+RabbitMQ, Notification: ConnectionStrings+Jwt+Redis+RabbitMQ+Brevo) — same keys as local
+2. Published 5 via Visual Studio Folder `bin/Release/net10.0/publish/` (`Delete existing files true`, `net10.0` `Portable`), deleted `appsettings.Development.json` from publish before upload, deleted old `logs` from `wwwroot` except `.well-known`, uploaded via WebFTP to `/wwwroot`, restarted AppPool
+3. First boot failed `500.30` `failed to load coreclr` → set `.NET 10.x` in panel (was placeholder list), then `500.30` `Invalid object name 'identity.Users'` → DB empty → Monster blocks external `dotnet ef` → added `await db.Database.MigrateAsync()` in `Identity/Project/File/Notification Program.cs` before `SeedSuperAdminAsync`, rebuilt, republished 4 services, restarted — DB auto-created, `Identity /health` `Ready` but `health` `Unhealthy` due to missing `RabbitMQ__Host`/`Redis__Connection` in Identity env → informed optional, then all Healthy
+4. Created `yarp.Production.json` with 4 clusters `https://flowboard-*.runasp.net` (all https) and updated `Gateway.YARP/Program.cs:25` to `AddJsonFile("yarp.json")` + `AddJsonFile($"yarp.{env}.json")`, rebuilt Gateway, republished — local keeps localhost, prod auto picks prod file
+5. Updated `frontend/flowboard-web/src/environments/environment.prod.ts` to `apiUrl https://flowboard-gateway.runasp.net` `hubUrl https://flowboard-notify.runasp.net/hubs/board` (was `xxxxx` placeholder) and fixed `angular.json:36` `fileReplacements` for `production` (was missing, prod build used `environment.ts` `http://localhost:5000` → `ERR_CONNECTION_REFUSED`), pushed — Vercel auto built from `main` with `Root Directory frontend/flowboard-web`
+6. Fixed CORS: `Gateway + 4 Program.cs` `WithOrigins("http://localhost:4200","https://flowboard.vercel.app")` → `SetIsOriginAllowed(o => o==localhost || o==flowboard.vercel.app || o==flow-board-seven-gilt.vercel.app || o.EndsWith(".vercel.app")) + AllowCredentials` (was fixed list, Vercel preview `flow-board-seven-gilt.vercel.app` caused `CORS error`), pushed, republished 5
+7. Fixed prod logging: `Gateway + 4 Program.cs` `Log.Logger = new LoggerConfiguration().WriteTo.Console().WriteTo.File(...)` → `isDev = ENV!="Production"` `if(isDev) WriteTo.File(... retainedFileCountLimit:7)` (was always file 30d, would fill 5GB free), pushed — local keeps 7d file, prod console only; advised to delete `publish_*/logs` folder before upload (old build output had `bin/Release/net10.0/logs` copied to `publish/logs`)
+8. Created 5 workflows `.github/workflows/gateway|identity|project|file|notify.yml` `on push paths` + `workflow_dispatch` `setup-dotnet 10.0.x` `dotnet publish -o publish_*` + mandatory `if [ -d publish_*/logs ]; then rm -rf` + `FTP-Deploy-Action@v4.3.5` `server: ${{ secrets.FTP_HOST_* }}` `port:21` `protocol:ftp` `local-dir: ./publish_*/` `server-dir: /wwwroot/` `dangerous-clean-slate: false` `exclude: **/.well-known/**` + 15 repo secrets `FTP_HOST/USER/PASS_GATEWAY|IDENTITY|PROJECT|FILE|NOTIFY` (`siteXXXX.siteasp.net` `siteXXXX` password). First runs failed `550 GetHandle` with `ftps` + `dangerous-clean-slate: true` → switched to `ftp` + `false`, then `sftp` invalid → `ftps-legacy` SSL wrong version → back to `ftp` port 21 with `false` + `ftps` 550 → final `ftp` succeeded after user confirmed. Vercel stays native Git integration (no workflow, selective by itself).
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| backend/Gateway.YARP/yarp.Production.json | Created | Prod YARP 4 clusters `https://flowboard-*.runasp.net` |
+| backend/Gateway.YARP/Program.cs | Modified | Add `yarp.{env}.json` load + CORS `SetIsOriginAllowed` vercel.app + logging console-only prod |
+| backend/Services/Identity.Service/Program.cs | Modified | `MigrateAsync` before seed + CORS vercel.app + logging console-only prod |
+| backend/Services/Project.Service/Program.cs | Modified | `MigrateAsync` + CORS + logging |
+| backend/Services/File.Service/Program.cs | Modified | `MigrateAsync` + CORS + logging |
+| backend/Services/Notification.Service/Program.cs | Modified | `MigrateAsync` + CORS + logging |
+| frontend/flowboard-web/src/environments/environment.prod.ts | Modified | `apiUrl` `https://flowboard-gateway.runasp.net` `hubUrl` `https://flowboard-notify.runasp.net/hubs/board` |
+| frontend/flowboard-web/angular.json | Modified | Add `fileReplacements` `environment.ts` → `environment.prod.ts` for production |
+| .github/workflows/gateway.yml | Created | `Deploy Gateway` paths `Gateway.YARP/**` |
+| .github/workflows/identity.yml | Created | `Deploy Identity` paths `Identity.Service/**` + `BuildingBlocks/**` |
+| .github/workflows/project.yml | Created | `Deploy Project` |
+| .github/workflows/file.yml | Created | `Deploy File` |
+| .github/workflows/notify.yml | Created | `Deploy Notify` |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Gateway /health | Passed | `https://flowboard-gateway.runasp.net/health` → `Healthy` |
+| Identity /health /ready | Passed | `https://flowboard-identity.runasp.net/health` → `Healthy` after Migrate + `ready` `Ready` |
+| Docs Scalar | Passed | `https://flowboard-gateway.runasp.net/scalar` BluePlanet loads |
+| API via Gateway | Passed | `POST https://flowboard-gateway.runasp.net/api/auth/register` `{email,pass,fullName,companyName}` → `201` + `POST /api/auth/login` → `200` via Postman |
+| Frontend Vercel | Passed | `https://flow-board-seven-gilt.vercel.app` login with same account → success (after `fileReplacements` fix `ERR_CONNECTION_REFUSED` → CORS fix) |
+| YARP env | Passed | Local `localhost:5001-5004` still works, prod uses `*.runasp.net` via `yarp.Production.json` |
+| CORS | Passed | Vercel origin `https://flow-board-seven-gilt.vercel.app` allowed, no `CORS error` |
+| Logs quota | Passed | Prod console only, no `wwwroot/logs` created, 7d locally |
+| CI/CD selective | Passed | Push `backend/Services/Project.Service/**` only triggers `Deploy Project`, 5 workflows `FTP Deploy` green with `ftp port 21` after fixes (`ftps` 550 → `sftp` invalid → `ftps-legacy` SSL → `ftp` success) |
+
+### 7. Enterprise Relevance (MNC Value)
+MNC single-push selective deploy — each microservice owns its pipeline with `paths` filter, mandatory `logs` cleanup and FTP `exclude .well-known`, same keys local/prod only URLs differ, env-specific YARP `yarp.{env}.json` (no manual swap), auto DB migrate on first boot for shared DB that blocks external access, CORS `SetIsOriginAllowed` for `*.vercel.app` (preview deployments), prod console-only logging to stay under 5GB free quota — proves you can run a 5-service + gateway system on low-cost hosting with proper config separation and zero-downtime per-service deploys plus Vercel native for frontend.
+
+### 8. Next Steps & Dependencies
+- Unlocks: **5.5 Bug Fixing** — post-deploy fixes one at a time (you will provide list, each tested in UI before commit)
+- Depends on: All phases `0-8 + R1-R7 + N1-N7` completed, DB auto-migrate proven
+- Follow-up: Add WebDeploy publish profiles to `.gitignore` or keep, monitor `MonsterASP` logs via console, expand CI/CD with `workflow_dispatch` manual redeploy for hotfixes, consider `staging` env if traffic grows
+
+---
+
+## Task 5.5: Post-Deploy Bug Fixing
+
+| Status | Date | Phase | Commit | Hours | Type |
+|--------|------|-------|--------|-------|------|
+| Pending | - | 10 - Bug Fixing | - | - | Fix |
+
+### 1. Overview
+Placeholder for post-deploy bug fixes — each bug will be fixed one at a time, verified in UI on `https://flow-board-seven-gilt.vercel.app` + `https://flowboard-gateway.runasp.net`, then committed.
+
+### 2. Objectives
+- Fix bugs found after production deploy one at a time
+
+### 3. Technical Stack
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| - | - | - |
+
+### 4. Implementation Details
+- Awaiting bug list from you
+
+### 5. Files & Changes
+| Path | Action | Description |
+|------|--------|-------------|
+| - | - | - |
+
+### 6. Verification & Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| - | - | - |
+
+### 7. Enterprise Relevance (MNC Value)
+- Proves production bug triage discipline
+
+### 8. Next Steps & Dependencies
+- Depends on: Task 5.4 Deploy Completed
 
 ---
 
