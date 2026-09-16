@@ -1,0 +1,45 @@
+name: Deploy Project
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/Services/Project.Service/**'
+      - 'backend/BuildingBlocks/**'
+      - '.github/workflows/project.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish Project
+        run: dotnet publish backend/Services/Project.Service/Project.Service.csproj -c Release -o publish_project
+
+      - name: Mandatory delete logs folder if exists
+        run: |
+          if [ -d "publish_project/logs" ]; then
+            echo "Deleting publish_project/logs"
+            rm -rf publish_project/logs
+          else
+            echo "No logs folder to delete"
+          fi
+
+      - name: FTP Deploy to MonsterASP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST_PROJECT }}
+          username: ${{ secrets.FTP_USER_PROJECT }}
+          password: ${{ secrets.FTP_PASS_PROJECT }}
+          local-dir: ./publish_project/
+          server-dir: /wwwroot/
+          dangerous-clean-slate: true
+          exclude: |
+            **/.well-known/**

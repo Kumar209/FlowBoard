@@ -1,0 +1,45 @@
+name: Deploy Identity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/Services/Identity.Service/**'
+      - 'backend/BuildingBlocks/**'
+      - '.github/workflows/identity.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish Identity
+        run: dotnet publish backend/Services/Identity.Service/Identity.Service.csproj -c Release -o publish_identity
+
+      - name: Mandatory delete logs folder if exists
+        run: |
+          if [ -d "publish_identity/logs" ]; then
+            echo "Deleting publish_identity/logs"
+            rm -rf publish_identity/logs
+          else
+            echo "No logs folder to delete"
+          fi
+
+      - name: FTP Deploy to MonsterASP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST_IDENTITY }}
+          username: ${{ secrets.FTP_USER_IDENTITY }}
+          password: ${{ secrets.FTP_PASS_IDENTITY }}
+          local-dir: ./publish_identity/
+          server-dir: /wwwroot/
+          dangerous-clean-slate: true
+          exclude: |
+            **/.well-known/**

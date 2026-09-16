@@ -1,0 +1,44 @@
+name: Deploy Gateway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/Gateway.YARP/**'
+      - '.github/workflows/gateway.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish Gateway
+        run: dotnet publish backend/Gateway.YARP/Gateway.YARP.csproj -c Release -o publish_gateway
+
+      - name: Mandatory delete logs folder if exists
+        run: |
+          if [ -d "publish_gateway/logs" ]; then
+            echo "Deleting publish_gateway/logs"
+            rm -rf publish_gateway/logs
+          else
+            echo "No logs folder to delete"
+          fi
+
+      - name: FTP Deploy to MonsterASP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST_GATEWAY }}
+          username: ${{ secrets.FTP_USER_GATEWAY }}
+          password: ${{ secrets.FTP_PASS_GATEWAY }}
+          local-dir: ./publish_gateway/
+          server-dir: /wwwroot/
+          dangerous-clean-slate: true
+          exclude: |
+            **/.well-known/**

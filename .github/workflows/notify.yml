@@ -1,0 +1,45 @@
+name: Deploy Notify
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/Services/Notification.Service/**'
+      - 'backend/BuildingBlocks/**'
+      - '.github/workflows/notify.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish Notify
+        run: dotnet publish backend/Services/Notification.Service/Notification.Service.csproj -c Release -o publish_notify
+
+      - name: Mandatory delete logs folder if exists
+        run: |
+          if [ -d "publish_notify/logs" ]; then
+            echo "Deleting publish_notify/logs"
+            rm -rf publish_notify/logs
+          else
+            echo "No logs folder to delete"
+          fi
+
+      - name: FTP Deploy to MonsterASP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST_NOTIFY }}
+          username: ${{ secrets.FTP_USER_NOTIFY }}
+          password: ${{ secrets.FTP_PASS_NOTIFY }}
+          local-dir: ./publish_notify/
+          server-dir: /wwwroot/
+          dangerous-clean-slate: true
+          exclude: |
+            **/.well-known/**
