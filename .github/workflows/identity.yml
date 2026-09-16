@@ -35,7 +35,7 @@ jobs:
       - name: FTP Deploy to MonsterASP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          protocol: ftps-legacy
+          protocol: ftp
           port: 21
           server: ${{ secrets.FTP_HOST_IDENTITY }}
           username: ${{ secrets.FTP_USER_IDENTITY }}
