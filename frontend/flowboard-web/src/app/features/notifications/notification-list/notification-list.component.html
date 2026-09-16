@@ -1,53 +1,307 @@
-<div class="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto">
-  <div class="flex flex-wrap gap-2 justify-between items-center mb-4">
-    <h2 class="text-lg font-bold">Notifications</h2>
-    <button class="btn btn-ghost btn-sm rounded-full" (click)="markAllMut.mutate()" [class.loading]="markAllMut.isPending()">Mark all read</button>
-  </div>
-  <div class="flex flex-col sm:flex-row gap-2 mb-4">
-    <input type="text" placeholder="Search action/payload..." class="input input-bordered input-sm rounded-full flex-1 max-w-md" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
-    <label class="label cursor-pointer gap-2">
-      <span class="label-text text-xs">Unread only</span>
-      <input type="checkbox" class="checkbox checkbox-xs" [checked]="unreadOnly()" (change)="unreadOnly.set($any($event.target).checked); page.set(1)" />
-    </label>
-    <span class="text-xs opacity-40 self-center">{{ total() }} total</span>
-  </div>
-
-  @if (query.isPending()) {
-    <div class="flex justify-center py-12"><span class="loading loading-spinner"></span></div>
-  } @else {
-    <div class="hidden md:block overflow-x-auto bg-base-100 rounded-2xl shadow border">
-      <table class="table table-sm">
-        <thead><tr><th>Time</th><th>Action</th><th>Project</th><th>Issue</th><th>Actor</th><th>Read</th><th>Actions</th></tr></thead>
-        <tbody>
-          @for (n of filtered(); track n.id) {
-            <tr class="hover:bg-base-200" [class.bg-warning/10]="!n.isRead">
-              <td class="text-xs">{{ n.occurredOnUtc | date:'short' }}</td>
-              <td><span class="badge badge-sm" [ngClass]="n.action==='TaskMoved'?'badge-warning': n.action==='TaskCreated'?'badge-success':'badge-info'">{{ getDisplayAction(n.action) }}</span></td>
-              <td class="text-xs font-mono">{{ getProjectDisplay(n) }}</td>
-              <td class="text-xs font-medium max-w-[180px] truncate" [title]="getTaskDisplay(n)">{{ getTaskDisplay(n) }}</td>
-              <td class="text-xs">{{ getActorDisplay(n) }}</td>
-              <td><span class="badge badge-xs" [ngClass]="n.isRead?'badge-ghost':'badge-warning'">{{ n.isRead?'Read':'Unread' }}</span></td>
-              <td><button class="btn btn-primary btn-xs rounded-full" (click)="openDetail(n)">View</button></td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-    <div class="md:hidden space-y-2">
-      @for (n of filtered(); track n.id) {
-        <div class="card bg-base-100 border p-3 rounded-xl" [class.border-warning]="!n.isRead">
-          <div class="flex justify-between"><span class="badge badge-sm">{{ n.action }}</span><span class="text-xs opacity-40">{{ n.occurredOnUtc | date:'short' }}</span></div>
-          <p class="text-xs mt-1 break-all">{{ n.payloadJson | slice:0:80 }}</p>
-          <div class="flex gap-1 mt-2"><button class="btn btn-primary btn-xs rounded-full" (click)="openDetail(n)">View</button></div>
+<div class="min-h-full bg-base-200">
+  <div class="mx-auto w-full max-w-7xl p-3 sm:p-4 md:p-6 lg:p-8">
+    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div class="min-w-0">
+        <div class="mb-1 flex items-center gap-2">
+          <svg class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17H9m10-2V10a7 7 0 0 0-14 0v5l-2 2h18l-2-2Z"/>
+            <path stroke-linecap="round" d="M10 21h4"/>
+          </svg>
+          <span class="text-xs uppercase tracking-wider text-base-content/60">Activity</span>
         </div>
-      }
-    </div>
-    <div class="flex justify-between items-center mt-4">
-      <button class="btn btn-ghost btn-sm rounded-full" (click)="prev()" [disabled]="page()<=1">Previous</button>
-      <span class="text-xs">Page {{ page() }} / {{ totalPages() || 1 }}</span>
-      <button class="btn btn-ghost btn-sm rounded-full" (click)="next()" [disabled]="page()>=totalPages()">Next</button>
-    </div>
-  }
 
-  <app-notification-detail-modal [open]="detailOpen()" [notification]="selected()" (closed)="detailOpen.set(false)" />
+        <h1 class="text-2xl font-semibold tracking-tight text-base-content sm:text-3xl">
+          Notifications
+        </h1>
+
+        <p class="mt-1 text-sm text-base-content/65">
+          Stay up to date with activity across your workspace.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-base-content/65">
+          <span class="font-medium text-base-content">{{ total() }}</span>
+          {{ total() === 1 ? 'notification' : 'notifications' }}
+        </span>
+
+        <button
+          type="button"
+          class="btn btn-sm h-9 min-h-9 rounded-lg border border-base-content/15 bg-base-100 px-3 text-base-content shadow-sm hover:bg-base-200"
+          (click)="markAllMut.mutate()"
+          [disabled]="markAllMut.isPending()"
+        >
+          @if (markAllMut.isPending()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          } @else {
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>
+            </svg>
+          }
+          <span>Mark all read</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="mb-4 rounded-xl border border-base-300 bg-base-100 p-3 shadow-sm sm:p-4">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+          <label class="relative block w-full sm:max-w-md">
+            <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-base-content/45" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="11" cy="11" r="7"/>
+              <path stroke-linecap="round" d="m20 20-4-4"/>
+            </svg>
+
+            <input
+              type="text"
+              placeholder="Search notifications..."
+              class="input input-sm h-9 min-h-9 w-full rounded-lg border-base-content/20 bg-base-100 pl-9 text-sm text-base-content placeholder:text-base-content/40 focus:border-base-content/40 focus:outline-none focus:ring-0"
+              [value]="search()"
+              (input)="search.set($any($event.target).value); page.set(1)"
+            />
+          </label>
+
+          <label class="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-base-content/15 bg-base-200/50 px-3">
+            <input
+              type="checkbox"
+              class="checkbox checkbox-xs border-base-content/30"
+              [checked]="unreadOnly()"
+              (change)="unreadOnly.set($any($event.target).checked); page.set(1)"
+            />
+            <span class="text-xs font-medium text-base-content">Unread only</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    @if (query.isPending() && !query.data()) {
+      <div class="overflow-hidden rounded-xl border border-base-300 bg-base-100 shadow-sm">
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="flex items-center gap-4 border-b border-base-200 px-4 py-4 last:border-b-0 animate-pulse">
+            <div class="h-8 w-8 shrink-0 rounded-lg bg-base-300"></div>
+
+            <div class="flex-1 space-y-2">
+              <div class="h-3 w-32 rounded bg-base-300"></div>
+              <div class="h-3 w-64 max-w-full rounded bg-base-200"></div>
+            </div>
+
+            <div class="h-3 w-20 rounded bg-base-200"></div>
+          </div>
+        }
+      </div>
+    } @else if (filtered().length === 0 && !query.isPending()) {
+      <div class="rounded-xl border border-dashed border-base-300 bg-base-100 px-6 py-16 text-center shadow-sm">
+        <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-base-200 text-base-content/55">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17H9m10-2V10a7 7 0 0 0-14 0v5l-2 2h18l-2-2Z"/>
+            <path stroke-linecap="round" d="M10 21h4"/>
+          </svg>
+        </div>
+
+        <p class="mt-3 text-sm font-medium text-base-content">
+          No notifications found
+        </p>
+
+        <p class="mt-1 text-xs text-base-content/60">
+          Try changing your search or unread filter.
+        </p>
+      </div>
+    } @else {
+      <div class="overflow-hidden rounded-xl border border-base-300 bg-base-100 shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="table table-sm w-full min-w-[900px]">
+            <thead>
+              <tr class="border-b border-base-300 bg-base-200/40">
+                <th class="whitespace-nowrap px-4 py-3 text-[11px] font-medium uppercase tracking-wider text-base-content/65">Time</th>
+                <th class="px-4 py-3 text-[11px] font-medium uppercase tracking-wider text-base-content/65">Activity</th>
+                <th class="px-4 py-3 text-[11px] font-medium uppercase tracking-wider text-base-content/65">Project</th>
+                <th class="px-4 py-3 text-[11px] font-medium uppercase tracking-wider text-base-content/65">Issue</th>
+                <th class="px-4 py-3 text-[11px] font-medium uppercase tracking-wider text-base-content/65">Actor</th>
+                <th class="px-4 py-3 text-[11px] font-medium uppercase tracking-wider text-base-content/65">Status</th>
+                <th class="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-base-content/65">Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              @for (n of filtered(); track n.id) {
+                <tr
+                  class="border-b border-base-200 last:border-b-0 transition-colors hover:bg-base-200/40"
+                  [class.bg-warning/5]="!n.isRead"
+                >
+                  <td class="px-4 py-3 align-top whitespace-nowrap">
+                    <div class="text-xs text-base-content/75">
+                      {{ n.occurredOnUtc | date:'short' }}
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3 align-top min-w-[170px]">
+                    <span
+                      class="badge badge-sm rounded-md border-0 px-2.5"
+                      [ngClass]="
+                        n.action === 'TaskMoved'
+                          ? 'badge-warning'
+                          : n.action === 'TaskCreated'
+                            ? 'badge-success'
+                            : 'badge-info'
+                      "
+                    >
+                      {{ getDisplayAction(n.action) }}
+                    </span>
+                  </td>
+
+                  <td class="px-4 py-3 align-top min-w-[150px]">
+                    <div
+                      class="max-w-[170px] truncate text-xs text-base-content/75"
+                      [title]="getProjectDisplay(n)"
+                    >
+                      {{ getProjectDisplay(n) || '—' }}
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3 align-top min-w-[190px]">
+                    <div
+                      class="max-w-[220px] truncate text-sm font-medium text-base-content"
+                      [title]="getTaskDisplay(n)"
+                    >
+                      {{ getTaskDisplay(n) || '—' }}
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3 align-top min-w-[180px]">
+                    <div class="flex items-center gap-2.5">
+                      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-[11px] font-semibold text-primary-content shadow-sm">
+                        {{ (getActorDisplay(n) || '?').charAt(0).toUpperCase() }}
+                      </div>
+
+                      <div class="min-w-0">
+                        <div
+                          class="max-w-[150px] truncate text-xs font-medium text-base-content"
+                          [title]="getActorDisplay(n)"
+                        >
+                          {{ getActorDisplay(n) || 'Unknown' }}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3 align-top">
+                    <div
+                      class="flex items-center gap-1.5 text-xs font-medium"
+                      [class.text-warning]="!n.isRead"
+                      [class.text-base-content/55]="n.isRead"
+                    >
+                      <span
+                        class="h-1.5 w-1.5 rounded-full"
+                        [class.bg-warning]="!n.isRead"
+                        [class.bg-base-content/30]="n.isRead"
+                      ></span>
+                      {{ n.isRead ? 'Read' : 'Unread' }}
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3 align-top text-right">
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-xs h-7 min-h-7 rounded-lg px-3"
+                      (click)="openDetail(n)"
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="border-t border-base-300 px-3 py-4 sm:px-4">
+          <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+            <div class="text-center text-xs text-base-content/70 sm:text-left">
+              Showing
+              <span class="font-medium text-base-content">{{ showingFrom() }}</span>
+              to
+              <span class="font-medium text-base-content">{{ showingTo() }}</span>
+              of
+              <span class="font-medium text-base-content">{{ total() }}</span>
+              {{ total() === 1 ? 'notification' : 'notifications' }}
+            </div>
+
+            <div class="flex w-full items-center justify-center gap-1 sm:gap-1.5">
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() <= 1"
+                (click)="firstPage()"
+                aria-label="First page"
+              >
+                «
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() <= 1"
+                (click)="previousPage()"
+                aria-label="Previous page"
+              >
+                ‹
+              </button>
+
+              @for (p of visiblePages(); track p) {
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                  [class.btn-primary]="page() === p"
+                  [class.btn-ghost]="page() !== p"
+                  [class.text-base-content]="page() !== p"
+                  (click)="page.set(p)"
+                >
+                  {{ p }}
+                </button>
+              }
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() >= totalPages()"
+                (click)="nextPage()"
+                aria-label="Next page"
+              >
+                ›
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() >= totalPages()"
+                (click)="lastPage()"
+                aria-label="Last page"
+              >
+                »
+              </button>
+            </div>
+
+            <div class="flex items-center justify-center gap-2 text-xs text-base-content/70 sm:justify-end">
+              <span>Rows</span>
+
+              <select
+                class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0 sm:h-10 sm:min-h-10 sm:w-[76px]"
+                [value]="pageSize()"
+                (change)="onPageSizeChange($any($event.target).value)"
+                aria-label="Items per page"
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+              </select>
+
+              <span>per page</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
 </div>
+
+<app-notification-detail-modal
+  [open]="detailOpen()"
+  [notification]="selected()"
+  (closed)="detailOpen.set(false)"
+/>

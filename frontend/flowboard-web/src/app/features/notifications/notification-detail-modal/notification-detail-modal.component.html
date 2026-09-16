@@ -1,89 +1,167 @@
 @if (open() && notification()) {
-  <div class="fixed inset-0 z-[80] flex items-center justify-center p-3">
-    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" (click)="closed.emit()"></div>
-    <div class="card bg-base-100 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative z-10 border" (click)="$event.stopPropagation()">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="font-bold">Notification Detail</h3>
-        <button class="btn btn-ghost btn-sm btn-circle" (click)="closed.emit()">✕</button>
+  <div class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true">
+    <div class="absolute inset-0 bg-black/45 backdrop-blur-sm" (click)="closed.emit()"></div>
+
+    <div
+      class="relative z-[101] flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex shrink-0 items-center justify-between border-b border-base-content/10 px-4 py-3.5 sm:px-5">
+        <div class="flex min-w-0 items-center gap-3">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 17H9m10-2V10a7 7 0 0 0-14 0v5l-2 2h18l-2-2Z"/>
+              <path stroke-linecap="round" d="M10 21h4"/>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <h3 class="truncate text-sm font-semibold text-base-content sm:text-base">Notification detail</h3>
+            <p class="text-[11px] text-base-content/55">{{ displayAction() }}</p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm h-8 min-h-8 w-8 rounded-lg p-0 text-base-content/60 hover:bg-base-200 hover:text-base-content"
+          (click)="closed.emit()"
+          aria-label="Close notification detail"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/>
+          </svg>
+        </button>
       </div>
-      <div class="space-y-3 text-sm">
-        <div class="bg-primary/10 rounded-xl p-3 text-center">
-          <p class="text-sm font-medium">{{ humanMessage() }}</p>
-          <p class="text-xs opacity-60 mt-1">
-            {{ notification().occurredOnUtc | date: 'medium' }} • {{ displayAction() }}
-          </p>
+
+      <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+        <div class="mb-4 rounded-xl border border-primary/15 bg-primary/5 p-4">
+          <div class="flex items-start gap-3">
+            <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17H9m10-2V10a7 7 0 0 0-14 0v5l-2 2h18l-2-2Z"/>
+                <path stroke-linecap="round" d="M10 21h4"/>
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <p class="text-sm font-medium leading-6 text-base-content">{{ humanMessage() }}</p>
+              <p class="mt-1.5 text-[11px] text-base-content/60">
+                {{ notification().occurredOnUtc | date:'medium' }}
+              </p>
+            </div>
+          </div>
         </div>
-        @if (notification().taskTitle || payload().TaskTitle) {
-          <div class="flex justify-between">
-            <span class="opacity-60">Issue</span
-            ><span class="text-xs font-medium">{{
-              notification().taskTitle || payload().TaskTitle || payload().Title
-            }}</span>
-          </div>
-        }
-        @if (notification().projectName || payload().ProjectName) {
-          <div class="flex justify-between">
-            <span class="opacity-60">Project</span
-            ><span class="text-xs">{{
-              notification().projectName || payload().ProjectName || payload().ProjectKey
-            }}</span>
-          </div>
-        }
-        @if (payload().BoardName || payload().boardName) {
-          <div class="flex justify-between">
-            <span class="opacity-60">Board</span
-            ><span class="text-xs">{{ payload().BoardName || payload().boardName }}</span>
-          </div>
-        }
-        @if (payload().SprintName || payload().sprintName) {
-          <div class="flex justify-between">
-            <span class="opacity-60">Sprint</span
-            ><span class="text-xs">{{ payload().SprintName || payload().sprintName }}</span>
-          </div>
-        }
-        @if (payload().ListName || payload().ToListName || payload().listName || payload().toList || payload().toColumn) {
-          <div class="flex justify-between">
-            <span class="opacity-60">Column</span
-            ><span class="text-xs">{{ payload().ListName || payload().ToListName || payload().listName || payload().toList || payload().toColumn }}</span>
-          </div>
-        }
-        @if ((payload().FromListName || payload().fromList || payload().fromColumn) && (payload().ToListName || payload().toList || payload().toColumn)) {
-          <div class="flex justify-between">
-            <span class="opacity-60">Move</span
-            ><span class="text-xs">{{ payload().FromListName || payload().fromList || payload().fromColumn }} → {{ payload().ToListName || payload().toList || payload().toColumn }}</span>
-          </div>
-        }
-        <div class="flex justify-between">
-          <span class="opacity-60">Actor</span
-          ><span class="text-xs"
-            >{{ notification().actorName || payload().ActorName || payload().actorName }}
-            @if (payload().ActorRole) {
-              <span class="badge badge-ghost badge-xs">{{ payload().ActorRole }}</span>
+
+        <div class="overflow-hidden rounded-xl border border-base-content/10">
+          <div class="divide-y divide-base-content/10">
+            @if (notification().taskTitle || payload().TaskTitle || payload().Title) {
+              <div class="flex items-start justify-between gap-5 px-4 py-3">
+                <span class="shrink-0 text-xs font-medium text-base-content/55">Issue</span>
+                <span class="text-right text-xs font-medium text-base-content">{{ notification().taskTitle || payload().TaskTitle || payload().Title }}</span>
+              </div>
             }
-          </span>
+
+            @if (notification().projectName || payload().ProjectName || payload().ProjectKey) {
+              <div class="flex items-start justify-between gap-5 px-4 py-3">
+                <span class="shrink-0 text-xs font-medium text-base-content/55">Project</span>
+                <span class="text-right text-xs text-base-content">{{ notification().projectName || payload().ProjectName || payload().ProjectKey }}</span>
+              </div>
+            }
+
+            @if (payload().BoardName || payload().boardName) {
+              <div class="flex items-start justify-between gap-5 px-4 py-3">
+                <span class="shrink-0 text-xs font-medium text-base-content/55">Board</span>
+                <span class="text-right text-xs text-base-content">{{ payload().BoardName || payload().boardName }}</span>
+              </div>
+            }
+
+            @if (payload().SprintName || payload().sprintName) {
+              <div class="flex items-start justify-between gap-5 px-4 py-3">
+                <span class="shrink-0 text-xs font-medium text-base-content/55">Sprint</span>
+                <span class="text-right text-xs text-base-content">{{ payload().SprintName || payload().sprintName }}</span>
+              </div>
+            }
+
+            @if ((payload().FromListName || payload().fromList || payload().fromColumn) && (payload().ToListName || payload().toList || payload().toColumn)) {
+              <div class="flex items-start justify-between gap-5 px-4 py-3">
+                <span class="shrink-0 text-xs font-medium text-base-content/55">Moved</span>
+                <span class="text-right text-xs text-base-content">
+                  {{ payload().FromListName || payload().fromList || payload().fromColumn }}
+                  <span class="mx-1 text-base-content/40">→</span>
+                  {{ payload().ToListName || payload().toList || payload().toColumn }}
+                </span>
+              </div>
+            } @else if (payload().ListName || payload().ToListName || payload().listName || payload().toList || payload().toColumn) {
+              <div class="flex items-start justify-between gap-5 px-4 py-3">
+                <span class="shrink-0 text-xs font-medium text-base-content/55">Column</span>
+                <span class="text-right text-xs text-base-content">{{ payload().ListName || payload().ToListName || payload().listName || payload().toList || payload().toColumn }}</span>
+              </div>
+            }
+
+            @if (notification().actorName || payload().ActorName || payload().actorName || payload().FullName) {
+              <div class="flex items-start justify-between gap-5 px-4 py-3">
+                <span class="shrink-0 text-xs font-medium text-base-content/55">Actor</span>
+                <span class="text-right text-xs text-base-content">
+                  {{ notification().actorName || payload().ActorName || payload().actorName || payload().FullName }}
+                  @if (payload().ActorRole || payload().actorRole) {
+                    <span class="ml-1 inline-flex rounded-md border border-base-content/15 bg-base-200 px-1.5 py-0.5 text-[10px] font-medium text-base-content/70">
+                      {{ payload().ActorRole || payload().actorRole }}
+                    </span>
+                  }
+                </span>
+              </div>
+            }
+
+            <div class="flex items-start justify-between gap-5 px-4 py-3">
+              <span class="shrink-0 text-xs font-medium text-base-content/55">When</span>
+              <span class="text-right text-xs text-base-content">{{ notification().occurredOnUtc | date:'medium' }}</span>
+            </div>
+
+            <div class="flex items-start justify-between gap-5 px-4 py-3">
+              <span class="shrink-0 text-xs font-medium text-base-content/55">Status</span>
+              <span
+                class="inline-flex items-center gap-1.5 text-xs font-medium"
+                [class.text-warning]="!notification().isRead"
+                [class.text-base-content/55]="notification().isRead"
+              >
+                <span class="h-1.5 w-1.5 rounded-full" [class.bg-warning]="!notification().isRead" [class.bg-base-content/30]="notification().isRead"></span>
+                {{ notification().isRead ? 'Read' : 'Unread' }}
+              </span>
+            </div>
+          </div>
         </div>
-        <div class="flex justify-between">
-          <span class="opacity-60">When</span
-          ><span class="text-xs">{{ notification().occurredOnUtc | date: 'medium' }}</span>
-        </div>
-        <div class="flex justify-between">
-          <span class="opacity-60">Status</span
-          ><span
-            class="badge badge-sm"
-            [ngClass]="notification().isRead ? 'badge-ghost' : 'badge-warning'"
-            >{{ notification().isRead ? 'Read' : 'Unread' }}</span
-          >
-        </div>
-        <details class="bg-base-200 rounded-xl p-3">
-          <summary class="text-xs font-semibold cursor-pointer">Payload (names)</summary>
-          <pre class="text-xs whitespace-pre-wrap break-all mt-2">{{ prettyPayload() }}</pre>
+
+        @if (payload().CommentContent || payload().content || payload().commentPreview || payload().CommentPreview) {
+          <div class="mt-4 rounded-xl border border-base-content/10 bg-base-200/35 p-4">
+            <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-base-content/55">Comment</p>
+            <p class="whitespace-pre-wrap text-sm leading-6 text-base-content">
+              {{ payload().CommentContent || payload().commentPreview || payload().CommentPreview || payload().content }}
+            </p>
+          </div>
+        }
+
+        <details class="mt-4 rounded-xl border border-base-content/10 bg-base-200/30">
+          <summary class="cursor-pointer px-4 py-3 text-xs font-semibold text-base-content">Additional details</summary>
+          <pre class="max-h-64 overflow-auto border-t border-base-content/10 px-4 py-3 text-[11px] leading-5 text-base-content/75 whitespace-pre-wrap break-all">{{ prettyPayload() }}</pre>
         </details>
       </div>
-      <div class="flex gap-2 mt-4">
+
+      <div class="flex shrink-0 flex-col-reverse gap-2 border-t border-base-content/10 bg-base-100 px-4 py-3 sm:flex-row sm:px-5">
+        <button
+          type="button"
+          class="btn btn-sm h-9 min-h-9 flex-1 rounded-lg border border-base-content/15 bg-base-100 text-base-content hover:bg-base-200"
+          (click)="closed.emit(); $event.stopPropagation()"
+        >
+          Close
+        </button>
+
         @if (payload().deepLink || payload().DeepLink || notification().taskId) {
-          <button class="btn btn-outline btn-sm flex-1 rounded-xl" (click)="goToIssue(); $event.stopPropagation()">Go to Issue</button>
+          <button
+            type="button"
+            class="btn btn-primary btn-sm h-9 min-h-9 flex-1 rounded-lg"
+            (click)="goToIssue(); $event.stopPropagation()"
+          >
+            Go to issue
+          </button>
         }
-        <button class="btn btn-primary btn-sm flex-1 rounded-xl" (click)="closed.emit(); $event.stopPropagation()">Close</button>
       </div>
     </div>
   </div>
