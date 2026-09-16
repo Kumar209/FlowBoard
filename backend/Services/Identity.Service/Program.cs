@@ -114,7 +114,8 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-    await IdentitySeeder.SeedSuperAdminAsync(db);
+    var cfg = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    await IdentitySeeder.SeedSuperAdminAsync(db, cfg);
     try
     {
         // Backfill: OrgAdmin should have no workspace rows (org-level only) — delete old synthetic workspace memberships
