@@ -71,6 +71,10 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<TaskCreatedConsumer>();
     x.AddConsumer<TaskMovedConsumer>();
     x.AddConsumer<TaskCommentedConsumer>();
+    x.AddConsumer<TaskAssignedConsumer>();
+    x.AddConsumer<TaskDeletedConsumer>();
+    x.AddConsumer<ProjectMemberAddedConsumer>();
+    x.AddConsumer<ComplaintCreatedConsumer>();
     // DLQ observability: Fault consumers for _error queues (see FaultConsumers.cs)
     x.AddConsumer<TaskCreatedFaultConsumer>();
     x.AddConsumer<TaskMovedFaultConsumer>();
@@ -84,9 +88,17 @@ builder.Services.AddMassTransit(x =>
         cfg.Message<TaskCreatedEvent>(c => c.SetEntityName("flowboard.events"));
         cfg.Message<TaskMovedEvent>(c => c.SetEntityName("flowboard.events"));
         cfg.Message<TaskCommentedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Message<TaskAssignedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Message<TaskDeletedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Message<ProjectMemberAddedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Message<ComplaintCreatedEvent>(c => c.SetEntityName("flowboard.events"));
         cfg.Publish<TaskCreatedEvent>(c => c.ExchangeType = "fanout");
         cfg.Publish<TaskMovedEvent>(c => c.ExchangeType = "fanout");
         cfg.Publish<TaskCommentedEvent>(c => c.ExchangeType = "fanout");
+        cfg.Publish<TaskAssignedEvent>(c => c.ExchangeType = "fanout");
+        cfg.Publish<TaskDeletedEvent>(c => c.ExchangeType = "fanout");
+        cfg.Publish<ProjectMemberAddedEvent>(c => c.ExchangeType = "fanout");
+        cfg.Publish<ComplaintCreatedEvent>(c => c.ExchangeType = "fanout");
         cfg.UseMessageRetry(r => r.Immediate(3));
         // Quorum durable queues per consumer — Durable must be set before ConfigureConsumer
         cfg.ReceiveEndpoint("notification-task-created", e =>
@@ -105,6 +117,30 @@ builder.Services.AddMassTransit(x =>
         {
             e.Durable = true;
             e.ConfigureConsumer<TaskCommentedConsumer>(context);
+            e.UseMessageRetry(r => r.Intervals(100, 500, 1000));
+        });
+        cfg.ReceiveEndpoint("notification-task-assigned", e =>
+        {
+            e.Durable = true;
+            e.ConfigureConsumer<TaskAssignedConsumer>(context);
+            e.UseMessageRetry(r => r.Intervals(100, 500, 1000));
+        });
+        cfg.ReceiveEndpoint("notification-task-deleted", e =>
+        {
+            e.Durable = true;
+            e.ConfigureConsumer<TaskDeletedConsumer>(context);
+            e.UseMessageRetry(r => r.Intervals(100, 500, 1000));
+        });
+        cfg.ReceiveEndpoint("notification-project-member-added", e =>
+        {
+            e.Durable = true;
+            e.ConfigureConsumer<ProjectMemberAddedConsumer>(context);
+            e.UseMessageRetry(r => r.Intervals(100, 500, 1000));
+        });
+        cfg.ReceiveEndpoint("notification-complaint-created", e =>
+        {
+            e.Durable = true;
+            e.ConfigureConsumer<ComplaintCreatedConsumer>(context);
             e.UseMessageRetry(r => r.Intervals(100, 500, 1000));
         });
         // DLQ: consume Fault messages from _error queues for alerting (CloudAMQP alarm on notification-task-*_error depth > 0)

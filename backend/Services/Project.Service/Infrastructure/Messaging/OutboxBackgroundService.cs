@@ -71,6 +71,34 @@ public class OutboxBackgroundService : BackgroundService
                                     else _logger.LogWarning("[Outbox] TaskCommented payload null {Id}", msg.Id);
                                     break;
                                 }
+                            case "TaskAssigned":
+                                {
+                                    var evt = JsonSerializer.Deserialize<TaskAssignedEvent>(msg.Payload, jsonOpts);
+                                    if (evt != null) await publisher.Publish(evt, stoppingToken);
+                                    else _logger.LogWarning("[Outbox] TaskAssigned payload null {Id}", msg.Id);
+                                    break;
+                                }
+                            case "TaskDeleted":
+                                {
+                                    var evt = JsonSerializer.Deserialize<TaskDeletedEvent>(msg.Payload, jsonOpts);
+                                    if (evt != null) await publisher.Publish(evt, stoppingToken);
+                                    else _logger.LogWarning("[Outbox] TaskDeleted payload null {Id}", msg.Id);
+                                    break;
+                                }
+                            case "ProjectMemberAdded":
+                                {
+                                    var evt = JsonSerializer.Deserialize<ProjectMemberAddedEvent>(msg.Payload, jsonOpts);
+                                    if (evt != null) await publisher.Publish(evt, stoppingToken);
+                                    else _logger.LogWarning("[Outbox] ProjectMemberAdded payload null {Id}", msg.Id);
+                                    break;
+                                }
+                            case "ComplaintCreated":
+                                {
+                                    var evt = JsonSerializer.Deserialize<ComplaintCreatedEvent>(msg.Payload, jsonOpts);
+                                    if (evt != null) await publisher.Publish(evt, stoppingToken);
+                                    else _logger.LogWarning("[Outbox] ComplaintCreated payload null {Id}", msg.Id);
+                                    break;
+                                }
                             default:
                                 _logger.LogWarning("[Outbox] Unknown Type {Type} Id {Id} - marking processed to avoid poison", msg.Type, msg.Id);
                                 break;

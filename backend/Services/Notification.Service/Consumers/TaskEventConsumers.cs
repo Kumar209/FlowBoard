@@ -87,3 +87,85 @@ public class TaskCommentedConsumer : IConsumer<TaskCommentedEvent>
         catch (Exception ex) { _logger.LogWarning(ex, "[Consumer] SignalR publish failed for taskCommented — local only"); }
     }
 }
+
+public class TaskAssignedConsumer : IConsumer<TaskAssignedEvent>
+{
+    private readonly INotificationService _service;
+    private readonly IHubContext<BoardHub> _hub;
+    private readonly ILogger<TaskAssignedConsumer> _logger;
+    public TaskAssignedConsumer(INotificationService service, IHubContext<BoardHub> hub, ILogger<TaskAssignedConsumer> logger) { _service = service; _hub = hub; _logger = logger; }
+    public async Task Consume(ConsumeContext<TaskAssignedEvent> ctx)
+    {
+        var msg = ctx.Message;
+        var result = await _service.PersistTaskAssignedAsync(msg.EventId, msg.ProjectId, msg.WorkspaceId, msg.TaskId, msg.AssigneeId, msg.ActorId, msg.RecipientUserIds ?? new List<Guid>(), msg.OccurredOnUtc);
+        if (!result.IsSuccess) _logger.LogWarning("[Consumer] TaskAssigned persist failed {EventId} {Err}", msg.EventId, result.Error);
+        try
+        {
+            await _hub.Clients.Group($"project:{msg.ProjectId}").SendAsync("taskAssigned", new { taskId = msg.TaskId, projectId = msg.ProjectId, assigneeId = msg.AssigneeId });
+            foreach (var uid in msg.RecipientUserIds ?? new List<Guid>())
+                await _hub.Clients.Group($"user:{uid}").SendAsync("notification", new { id = msg.EventId, eventId = msg.EventId, action = "TaskAssigned", projectId = msg.ProjectId, taskId = msg.TaskId });
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "[Consumer] SignalR publish failed for taskAssigned"); }
+    }
+}
+
+public class TaskDeletedConsumer : IConsumer<TaskDeletedEvent>
+{
+    private readonly INotificationService _service;
+    private readonly IHubContext<BoardHub> _hub;
+    private readonly ILogger<TaskDeletedConsumer> _logger;
+    public TaskDeletedConsumer(INotificationService service, IHubContext<BoardHub> hub, ILogger<TaskDeletedConsumer> logger) { _service = service; _hub = hub; _logger = logger; }
+    public async Task Consume(ConsumeContext<TaskDeletedEvent> ctx)
+    {
+        var msg = ctx.Message;
+        var result = await _service.PersistTaskDeletedAsync(msg.EventId, msg.ProjectId, msg.WorkspaceId, msg.TaskId, msg.TaskTitle, msg.ActorId, msg.RecipientUserIds ?? new List<Guid>(), msg.OccurredOnUtc);
+        if (!result.IsSuccess) _logger.LogWarning("[Consumer] TaskDeleted persist failed {EventId} {Err}", msg.EventId, result.Error);
+        try
+        {
+            await _hub.Clients.Group($"project:{msg.ProjectId}").SendAsync("taskDeleted", new { taskId = msg.TaskId, projectId = msg.ProjectId });
+            foreach (var uid in msg.RecipientUserIds ?? new List<Guid>())
+                await _hub.Clients.Group($"user:{uid}").SendAsync("notification", new { id = msg.EventId, eventId = msg.EventId, action = "TaskDeleted", projectId = msg.ProjectId, taskId = msg.TaskId });
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "[Consumer] SignalR publish failed for taskDeleted"); }
+    }
+}
+
+public class ProjectMemberAddedConsumer : IConsumer<ProjectMemberAddedEvent>
+{
+    private readonly INotificationService _service;
+    private readonly IHubContext<BoardHub> _hub;
+    private readonly ILogger<ProjectMemberAddedConsumer> _logger;
+    public ProjectMemberAddedConsumer(INotificationService service, IHubContext<BoardHub> hub, ILogger<ProjectMemberAddedConsumer> logger) { _service = service; _hub = hub; _logger = logger; }
+    public async Task Consume(ConsumeContext<ProjectMemberAddedEvent> ctx)
+    {
+        var msg = ctx.Message;
+        var result = await _service.PersistProjectMemberAddedAsync(msg.EventId, msg.ProjectId, msg.WorkspaceId, msg.UserId, msg.ActorId, msg.RecipientUserIds ?? new List<Guid>(), msg.OccurredOnUtc);
+        if (!result.IsSuccess) _logger.LogWarning("[Consumer] ProjectMemberAdded persist failed {EventId} {Err}", msg.EventId, result.Error);
+        try
+        {
+            foreach (var uid in msg.RecipientUserIds ?? new List<Guid>())
+                await _hub.Clients.Group($"user:{uid}").SendAsync("notification", new { id = msg.EventId, eventId = msg.EventId, action = "ProjectMemberAdded", projectId = msg.ProjectId });
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "[Consumer] SignalR publish failed for projectMemberAdded"); }
+    }
+}
+
+public class ComplaintCreatedConsumer : IConsumer<ComplaintCreatedEvent>
+{
+    private readonly INotificationService _service;
+    private readonly IHubContext<BoardHub> _hub;
+    private readonly ILogger<ComplaintCreatedConsumer> _logger;
+    public ComplaintCreatedConsumer(INotificationService service, IHubContext<BoardHub> hub, ILogger<ComplaintCreatedConsumer> logger) { _service = service; _hub = hub; _logger = logger; }
+    public async Task Consume(ConsumeContext<ComplaintCreatedEvent> ctx)
+    {
+        var msg = ctx.Message;
+        var result = await _service.PersistComplaintCreatedAsync(msg.EventId, msg.OrganizationId, msg.ComplaintId, msg.Subject, msg.ActorId, msg.RecipientUserIds ?? new List<Guid>(), msg.OccurredOnUtc);
+        if (!result.IsSuccess) _logger.LogWarning("[Consumer] ComplaintCreated persist failed {EventId} {Err}", msg.EventId, result.Error);
+        try
+        {
+            foreach (var uid in msg.RecipientUserIds ?? new List<Guid>())
+                await _hub.Clients.Group($"user:{uid}").SendAsync("notification", new { id = msg.EventId, eventId = msg.EventId, action = "ComplaintCreated", organizationId = msg.OrganizationId, complaintId = msg.ComplaintId });
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "[Consumer] SignalR publish failed for complaintCreated"); }
+    }
+}

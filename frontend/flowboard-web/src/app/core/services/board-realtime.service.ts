@@ -48,6 +48,25 @@ export class BoardRealtimeService {
       this.lastEvent.set(`notification:${payload.id || payload.eventId}`);
       this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });
+    this.hub.on('taskAssigned', (payload: any) => {
+      this.lastEvent.set(`taskAssigned:${payload.taskId}`);
+      this.queryClient.invalidateQueries({ queryKey: ['board'] });
+      this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
+    this.hub.on('taskDeleted', (payload: any) => {
+      this.lastEvent.set(`taskDeleted:${payload.taskId}`);
+      this.queryClient.invalidateQueries({ queryKey: ['board'] });
+      this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
+    this.hub.on('projectMemberAdded', (payload: any) => {
+      this.lastEvent.set(`projectMemberAdded:${payload.projectId}`);
+      this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
+    this.hub.on('complaintCreated', (payload: any) => {
+      this.lastEvent.set(`complaintCreated:${payload.complaintId}`);
+      this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      this.queryClient.invalidateQueries({ queryKey: ['superadmin-complaints'] });
+    });
     this.hub.on('connected', () => this.connected.set(true));
     this.hub.onclose(() => this.connected.set(false));
     this.hub.onreconnected(async () => {

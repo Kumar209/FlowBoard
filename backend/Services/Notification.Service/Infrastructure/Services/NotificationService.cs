@@ -68,6 +68,49 @@ public class NotificationService : INotificationService
         return await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskCommented", payload, recipientUserIds, occurredOnUtc, ct);
     }
 
+    public async Task<Result> PersistTaskAssignedAsync(Guid eventId, Guid projectId, Guid workspaceId, Guid taskId, Guid assigneeId, Guid actorUserId, List<Guid> recipientUserIds, DateTime occurredOnUtc, CancellationToken ct = default)
+    {
+        string taskTitle = "", projectName = "", actorName = "", assigneeName = "";
+        try { var t = await _db.Database.SqlQueryRaw<TaskTitleRow>("SELECT Title FROM [project].[Tasks] WHERE Id = {0}", taskId).FirstOrDefaultAsync(ct); if (t != null) taskTitle = t.Title; } catch { }
+        try { var pr = await _db.Database.SqlQueryRaw<ProjectNameRow>("SELECT Name FROM [project].[Projects] WHERE Id = {0}", projectId).FirstOrDefaultAsync(ct); if (pr != null) projectName = pr.Name; } catch { }
+        try { var ar = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", actorUserId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? ""; } catch { }
+        try { var an = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", assigneeId).FirstOrDefaultAsync(ct); if (an != null) assigneeName = an.FullName ?? an.Email ?? ""; } catch { }
+        var deepLink = $"/w/{workspaceId}/p/{projectId}/issues?task={taskId}";
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { taskTitle, projectName, actorName, assigneeName, deepLink });
+        return await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskAssigned", payload, recipientUserIds, occurredOnUtc, ct);
+    }
+
+    public async Task<Result> PersistTaskDeletedAsync(Guid eventId, Guid projectId, Guid workspaceId, Guid taskId, string taskTitle, Guid actorUserId, List<Guid> recipientUserIds, DateTime occurredOnUtc, CancellationToken ct = default)
+    {
+        string projectName = "", actorName = "";
+        try { var pr = await _db.Database.SqlQueryRaw<ProjectNameRow>("SELECT Name FROM [project].[Projects] WHERE Id = {0}", projectId).FirstOrDefaultAsync(ct); if (pr != null) projectName = pr.Name; } catch { }
+        try { var ar = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", actorUserId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? ""; } catch { }
+        var deepLink = $"/w/{workspaceId}/p/{projectId}";
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { taskTitle, projectName, actorName, deepLink });
+        return await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, taskId, actorUserId, "TaskDeleted", payload, recipientUserIds, occurredOnUtc, ct);
+    }
+
+    public async Task<Result> PersistProjectMemberAddedAsync(Guid eventId, Guid projectId, Guid workspaceId, Guid userId, Guid actorUserId, List<Guid> recipientUserIds, DateTime occurredOnUtc, CancellationToken ct = default)
+    {
+        string projectName = "", actorName = "", userName = "";
+        try { var pr = await _db.Database.SqlQueryRaw<ProjectNameRow>("SELECT Name FROM [project].[Projects] WHERE Id = {0}", projectId).FirstOrDefaultAsync(ct); if (pr != null) projectName = pr.Name; } catch { }
+        try { var ar = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", actorUserId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? ""; } catch { }
+        try { var un = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", userId).FirstOrDefaultAsync(ct); if (un != null) userName = un.FullName ?? un.Email ?? ""; } catch { }
+        var deepLink = $"/w/{workspaceId}/p/{projectId}/members";
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { projectName, actorName, userName, deepLink });
+        return await CreateNotificationsForRecipientsAsync(eventId, projectId, workspaceId, null, actorUserId, "ProjectMemberAdded", payload, recipientUserIds, occurredOnUtc, ct);
+    }
+
+    public async Task<Result> PersistComplaintCreatedAsync(Guid eventId, Guid organizationId, Guid complaintId, string subject, Guid actorUserId, List<Guid> recipientUserIds, DateTime occurredOnUtc, CancellationToken ct = default)
+    {
+        string actorName = "", orgName = "";
+        try { var ar = await _db.Database.SqlQueryRaw<ActorNameRow>("SELECT FullName, Email FROM [identity].[Users] WHERE Id = {0}", actorUserId).FirstOrDefaultAsync(ct); if (ar != null) actorName = ar.FullName ?? ar.Email ?? ""; } catch { }
+        try { var org = await _db.Database.SqlQueryRaw<ProjectNameRow>("SELECT Name FROM [identity].[Organizations] WHERE Id = {0}", organizationId).FirstOrDefaultAsync(ct); if (org != null) orgName = org.Name; } catch { }
+        var deepLink = $"/superadmin/support/{complaintId}";
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { subject, organizationName = orgName, actorName, deepLink });
+        return await CreateNotificationsForRecipientsAsync(eventId, Guid.Empty, Guid.Empty, null, actorUserId, "ComplaintCreated", payload, recipientUserIds, occurredOnUtc, ct);
+    }
+
     private async Task<Result> CreateNotificationsForRecipientsAsync(Guid eventId, Guid projectId, Guid workspaceId, Guid taskId, Guid actorUserId, string action, string payloadJson, List<Guid> recipientUserIds, DateTime occurredOnUtc, CancellationToken ct)
     {
         var recipients = (recipientUserIds ?? new List<Guid>()).Distinct().Where(r => r != actorUserId).ToList();
