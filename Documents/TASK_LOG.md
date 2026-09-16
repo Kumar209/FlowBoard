@@ -27,15 +27,17 @@
 | 6: AI Intelligence (Gemini + Groq — A/B/C/D + Usage) | 7.1 - 7.7 | 7/7 | Completed |
 | 7: SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
 | 8: Polish & Production Deploy | 5.1 - 5.5 | 5/5 | Completed |
-| R: Rework Org-Authoritative | R1 - R7 | 0/7 | Pending |
+| R: Rework Org-Authoritative | R1 - R7 | 7/7 | Completed |
+| N: Notification MNC | N1 - N7 | 0/7 | Pending |
 | 9: Production Deployment | 5.4 | 0/1 | Pending |
-| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 (57)** | **49/57** | **In Progress — rework before Deploy** |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 + N1-N7 (64)** | **56/64** | **In Progress — notification before Deploy** |
 
 > **New Order Note (2026-09-14):** Phases reordered as per 0,1,2(Phase6),3(Project Core),4(Realtime),5(Files),6(AI),7(SuperAdmin),8(Polish),9(Production) — task sections below follow this new phase order as per table.
 > **Update (2026-09-15):** Realtime 3.1-3.3 verified completed via codebase audit (Outbox 2s, SignalR Hub, CDK Lock) — see Tasks 3.1-3.3 entries below. Polish 5.2 Tests (40 unit+15 integration) + 5.3 Docs (README v1.3) marked completed. Only **5.4 Deploy (MonsterASP.net + Vercel)** remains per `FlowBoard_Tasks_Plan.docx` + bug fixes pre-deploy (you will provide list).
 > **Update (2026-09-15 R):** Approved to **drop DB and recreate** with org-authoritative. Added **R1-R7** 7 tasks (9h) before `5.4 Deploy`. Old workspace-synthetic approach will be deleted. See `Rework Phase R` below.
+> **Update (2026-09-15 N):** Notification MNC 7 tasks added `N1-N7` 8.5h before `5.4 Deploy`. See `Notification Rework N` below.
 | SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
-| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 (57)** | **49/57** | **In Progress — rework before Deploy** |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 + N1-N7 (64)** | **56/64** | **In Progress — notification before Deploy** |
 
 ---
 
@@ -3221,6 +3223,25 @@ MNC docs-first — SDD `32 sections 11 diagrams` + Tasks Plan `10 Phases 50 Task
 - P1.1 Me: remove interval/polling in `LayoutComponent`, keep single `meDeduped` on login + 401 refresh
 - P1.2 Flags: set `staleTime 5m`, remove interval, add `onSuccess` invalidation
 - P1.3 Maintenance: keep `5m` `X-Silent` `silentUrls` no loader, verify 60s → 5m
+
+---
+
+## Notification Rework N: MNC Grade — 7 Tasks 2026-09-15
+
+> Keep outbox fanout and backplane, fix seams for fully functional.
+
+| Task | Title | Status | Hours |
+|------|-------|--------|-------|
+| N1 | Outbox idempotency — event id dedup, mark processed after publish | Pending | 1h |
+| N2 | Recipient list per project members (not whole workspace) at publish time | Pending | 1.5h |
+| N3 | Hub groups per project and per user with join/leave on route change + reconnect | Pending | 1.5h |
+| N4 | Frontend event-driven invalidation for board and header (remove me/flags polling already done) | Pending | 1h |
+| N5 | Add missing events (assigned, deleted, updated, member add/remove, sprint, project) | Pending | 2h |
+| N6 | SuperAdmin system notifications for complaints (personal group, not polling) | Pending | 1h |
+| N7 | Mark as read with invalidation and bell count from query | Pending | 0.5h |
+| **Total** | **N1-N7** | **0/7** | **8.5h** |
+
+> **New Progress:** `57 + 7 = 64` before deploy. `5.4 Deploy` after `N7`.
 
 ---
 
