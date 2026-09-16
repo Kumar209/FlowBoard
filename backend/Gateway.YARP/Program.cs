@@ -22,8 +22,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-// YARP config
+// YARP config - yarp.json (dev localhost) + yarp.Production.json (prod https) - env decides
 builder.Configuration.AddJsonFile("yarp.json", optional: false, reloadOnChange: true);
+builder.Configuration.AddJsonFile($"yarp.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true);
 builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 // Redis singleton for rate limiting via DI

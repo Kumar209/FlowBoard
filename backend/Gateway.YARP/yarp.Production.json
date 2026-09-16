@@ -1,0 +1,198 @@
+{
+  "_comment": "YARP Gateway config - Production - Routes same as yarp.json, Clusters point to MonsterASP.net https. Loaded when ASPNETCORE_ENVIRONMENT=Production via yarp.Production.json. Dev uses yarp.json with localhost:5001-5004.",
+  "ReverseProxy": {
+    "Routes": {
+      "identity-route": {
+        "ClusterId": "identity-cluster",
+        "Match": {
+          "Path": "/api/auth/{**catch-all}"
+        }
+      },
+      "superadmin-route": {
+        "ClusterId": "identity-cluster",
+        "Match": {
+          "Path": "/api/superadmin/{**catch-all}"
+        }
+      },
+      "platform-route": {
+        "ClusterId": "identity-cluster",
+        "Match": {
+          "Path": "/api/platform/{**catch-all}"
+        }
+      },
+      "permissions-route": {
+        "ClusterId": "identity-cluster",
+        "Match": {
+          "Path": "/api/permissions/{**catch-all}"
+        }
+      },
+      "permissions-root-route": {
+        "ClusterId": "identity-cluster",
+        "Match": {
+          "Path": "/api/permissions"
+        }
+      },
+      "workspace-route": {
+        "ClusterId": "identity-cluster",
+        "Match": {
+          "Path": "/api/workspaces/{**catch-all}"
+        },
+        "Order": 1
+      },
+      "feature-flags-route": {
+        "ClusterId": "identity-cluster",
+        "Match": {
+          "Path": "/api/feature-flags/{**catch-all}"
+        }
+      },
+      "feature-flags-root-route": {
+        "ClusterId": "identity-cluster",
+        "Match": {
+          "Path": "/api/feature-flags"
+        }
+      },
+      "org-route": {
+        "ClusterId": "identity-cluster",
+        "Match": {
+          "Path": "/api/organizations/{**catch-all}"
+        }
+      },
+      "project-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/workspaces/{workspaceId}/projects/{**catch-all}"
+        },
+        "Order": 0
+      },
+      "project-workspace-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/workspaces/{workspaceId}/projects"
+        },
+        "Order": 0
+      },
+      "project-api-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/projects/{**catch-all}"
+        }
+      },
+      "board-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/boards/{**catch-all}"
+        }
+      },
+      "team-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/teams/{**catch-all}"
+        }
+      },
+      "sprint-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/sprints/{**catch-all}"
+        }
+      },
+      "subtask-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/subtasks/{**catch-all}"
+        }
+      },
+      "comment-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/comments/{**catch-all}"
+        }
+      },
+      "environment-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/environments/{**catch-all}"
+        }
+      },
+      "status-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/statuses/{**catch-all}"
+        }
+      },
+      "status-root-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/statuses"
+        }
+      },
+      "ai-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/ai/{**catch-all}"
+        }
+      },
+      "task-route": {
+        "ClusterId": "project-cluster",
+        "Match": {
+          "Path": "/api/tasks/{**catch-all}"
+        },
+        "Order": 1
+      },
+      "file-route": {
+        "ClusterId": "file-cluster",
+        "Match": {
+          "Path": "/api/files/{**catch-all}"
+        }
+      },
+      "file-attachments-route": {
+        "ClusterId": "file-cluster",
+        "Match": {
+          "Path": "/api/tasks/{taskId}/attachments"
+        },
+        "Order": 0
+      },
+      "notification-route": {
+        "ClusterId": "notification-cluster",
+        "Match": {
+          "Path": "/api/notifications/{**catch-all}"
+        }
+      },
+      "hub-route": {
+        "ClusterId": "notification-cluster",
+        "Match": {
+          "Path": "/hubs/{**catch-all}"
+        }
+      }
+    },
+    "Clusters": {
+      "identity-cluster": {
+        "Destinations": {
+          "identity": {
+            "Address": "https://flowboard-identity.runasp.net"
+          }
+        }
+      },
+      "project-cluster": {
+        "Destinations": {
+          "project": {
+            "Address": "https://flowboard-project.runasp.net"
+          }
+        }
+      },
+      "file-cluster": {
+        "Destinations": {
+          "file": {
+            "Address": "https://flowboard-file.runasp.net"
+          }
+        }
+      },
+      "notification-cluster": {
+        "Destinations": {
+          "notification": {
+            "Address": "https://flowboard-notify.runasp.net"
+          }
+        }
+      }
+    }
+  }
+}
