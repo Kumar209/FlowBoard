@@ -15,11 +15,12 @@ using Project.Service.Infrastructure.Messaging;
 using Project.Service.Infrastructure.Persistence;
 using Shared.Contracts.Events;
 
-Log.Logger = new LoggerConfiguration()
+var isDevProject = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") != "Production";
+var projectLoggerConfig = new LoggerConfiguration()
     .Enrich.FromLogContext()
-    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
-    .WriteTo.File(new Serilog.Formatting.Json.JsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30, fileSizeLimitBytes: 10_000_000, rollOnFileSizeLimit: true)
-    .CreateLogger();
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
+if (isDevProject) projectLoggerConfig.WriteTo.File(new Serilog.Formatting.Json.JsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7, fileSizeLimitBytes: 10_000_000, rollOnFileSizeLimit: true);
+Log.Logger = projectLoggerConfig.CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog();

@@ -5,11 +5,12 @@ using Scalar.AspNetCore;
 using Microsoft.AspNetCore.HttpOverrides;
 using Gateway.YARP.Middleware;
 
-Log.Logger = new LoggerConfiguration()
+var isDevGateway = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") != "Production";
+var gatewayLoggerConfig = new LoggerConfiguration()
     .Enrich.FromLogContext()
-    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
-    .WriteTo.File(new Serilog.Formatting.Json.JsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30, fileSizeLimitBytes: 10_000_000, rollOnFileSizeLimit: true)
-    .CreateLogger();
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
+if (isDevGateway) gatewayLoggerConfig.WriteTo.File(new Serilog.Formatting.Json.JsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7, fileSizeLimitBytes: 10_000_000, rollOnFileSizeLimit: true);
+Log.Logger = gatewayLoggerConfig.CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog();
