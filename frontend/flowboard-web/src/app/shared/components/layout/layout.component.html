@@ -1,4 +1,4 @@
-<app-header (mobileMenuRequested)="toggle()" (click)="close()" />
+<app-header [mobileOpen]="sidebarOpen()" (mobileMenuRequested)="toggle()" />
 <app-toast />
 
 @if (loading.isLoading()) {

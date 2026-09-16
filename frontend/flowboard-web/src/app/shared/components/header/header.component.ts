@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, ChangeDetectionStrategy, output } from '@angular/core';
+import { Component, inject, signal, computed, ChangeDetectionStrategy, output, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -9,10 +9,6 @@ import { SuperAdminService } from '../../../core/services/superadmin.service';
 import { NotificationDetailModalComponent } from '../../../features/notifications/notification-detail-modal/notification-detail-modal.component';
 import { injectQuery, QueryClient } from '@tanstack/angular-query-experimental';
 
-/**
- * HeaderComponent - OnPush + inject() + signal mobileOpen + computed theme.
- * OnPush + signals gives fine-grained updates (only when mobileOpen/theme/currentUser changes), not full app tick.
- */
 @Component({
   selector: 'app-header',
   standalone: true,
@@ -28,6 +24,7 @@ export class HeaderComponent {
   private superAdminService = inject(SuperAdminService);
   private queryClient = inject(QueryClient);
 
+  mobileOpen = input(false);
   mobileMenuRequested = output<void>();
 
   platformQuery = injectQuery(() => ({
@@ -36,7 +33,6 @@ export class HeaderComponent {
     staleTime: 5 * 60 * 1000,
   }));
 
-  mobileOpen = signal(false);
   notifOpen = signal(false);
   selectedNotif = signal<any>(null);
   notifDetailOpen = signal(false);
@@ -61,11 +57,13 @@ export class HeaderComponent {
     if (Array.isArray(d)) return d;
     return d.items ?? [];
   }
+
   unread = computed(() => {
     if (this.auth.isSuperAdmin()) {
       const list: any = this.getComplaintsList();
       return list.filter((c: any) => c.status === 'Open').length;
     }
+
     const d: any = this.notificationsQuery.data();
     if (!d?.items) return 0;
     return d.items.filter((n: any) => !n.isRead).length;
@@ -78,17 +76,15 @@ export class HeaderComponent {
   });
 
   requestMobileMenu() {
-    this.mobileOpen.update(v => !v);
     this.mobileMenuRequested.emit();
   }
 
   toggleMobile() {
-    this.mobileOpen.update(v => !v);
     this.mobileMenuRequested.emit();
   }
 
   closeMobile() {
-    this.mobileOpen.set(false);
+    this.mobileMenuRequested.emit();
   }
 
   toggleNotif() {
@@ -110,13 +106,22 @@ export class HeaderComponent {
       const boardPart = board ? ` in ${board}` : '';
       const displayAction = (n.action || '').replace(/^Task/, 'Issue');
 
-      if (n.action === 'TaskMoved' && title) return `${actor ? actor + ' ' : ''}moved "${title}" ${from ? 'from ' + from : ''} → ${to}${boardPart}`;
-      if (n.action === 'TaskCreated' && title) return `${actor ? actor + ' ' : ''}created an issue "${title}"${boardPart}`;
+      if (n.action === 'TaskMoved' && title) {
+        return `${actor ? actor + ' ' : ''}moved "${title}" ${from ? 'from ' + from : ''} → ${to}${boardPart}`;
+      }
+
+      if (n.action === 'TaskCreated' && title) {
+        return `${actor ? actor + ' ' : ''}created an issue "${title}"${boardPart}`;
+      }
+
       if (n.action === 'TaskCommented' && title) {
         const preview = p.CommentContent || p.commentPreview || '';
-        if (preview) return `${actor ? actor + ' ' : ''}commented on "${title}": "${preview.slice(0, 30)}"`;
+        if (preview) {
+          return `${actor ? actor + ' ' : ''}commented on "${title}": "${preview.slice(0, 30)}"`;
+        }
         return `${actor ? actor + ' ' : ''}commented on "${title}"`;
       }
+
       if (title) return title;
       return displayAction;
     } catch {
@@ -143,7 +148,6 @@ export class HeaderComponent {
   }
 
   logout() {
-    this.closeMobile();
     this.auth.logout().subscribe({
       complete: () => {
         this.auth.clearSession();

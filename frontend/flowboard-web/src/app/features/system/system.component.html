@@ -1,49 +1,231 @@
-<div class="bg-base-200 min-h-full">
-  <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">System — Infrastructure</h1>
-        <p class="text-sm opacity-60 mt-1">Live health for Gateway, Services, DB, Redis, RabbitMQ, SignalR, File Storage. OrgAdmin proxy to SuperAdmin health.</p>
+<div class="min-h-full bg-base-200/40">
+  <div class="mx-auto max-w-7xl p-3 sm:p-4 md:p-6 lg:p-8">
+    <div class="mb-6 flex flex-col gap-4 sm:mb-7 sm:flex-row sm:items-end sm:justify-between">
+      <div class="min-w-0">
+        <div class="mb-1.5 flex items-center gap-2">
+          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v3m0 12v3M3 12h3m12 0h3M5.64 5.64l2.12 2.12m8.48 8.48 2.12 2.12m0-12.72-2.12 2.12m-8.48 8.48-2.12 2.12"/>
+              <circle cx="12" cy="12" r="4.5"/>
+            </svg>
+          </div>
+          <span class="text-xs font-medium uppercase tracking-wider text-base-content/65">Organization</span>
+        </div>
+
+        <h1 class="text-2xl font-semibold tracking-tight text-base-content sm:text-3xl">
+          System Health
+        </h1>
+
+        <p class="mt-1 max-w-2xl text-sm text-base-content/75">
+          Monitor the availability and response health of your platform services.
+        </p>
       </div>
+
       @if (!query.isPending() && total) {
-        <div class="badge badge-sm" [ngClass]="healthyCount===total?'badge-success':'badge-warning'">{{ healthyCount }}/{{ total }} Healthy</div>
+        <div
+          class="inline-flex w-fit items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
+          [ngClass]="hasIssues
+            ? 'border-warning/30 bg-warning/10 text-base-content'
+            : 'border-success/30 bg-success/10 text-base-content'"
+        >
+          <span
+            class="h-2 w-2 rounded-full"
+            [ngClass]="hasIssues ? 'bg-warning' : 'bg-success'"
+          ></span>
+          <span>{{ healthyCount }} of {{ total }} services healthy</span>
+        </div>
       }
     </div>
 
     @if (query.isPending() || orgsQuery.isPending()) {
-      <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
-    } @else if (query.isError()) {
-      <div class="alert alert-error mt-6"><span class="text-sm">Failed to load system health — please try again.</span></div>
-    } @else {
-      <div class="text-xs opacity-50 mt-3">Checked at {{ checkedAt | date:'medium' }} · Environment {{ query.data()?.environment }} · Org {{ orgId().slice(0,8) }}</div>
-      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        @for (s of services; track s.service) {
-          <div class="card bg-base-100 shadow">
-            <div class="card-body p-4">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-bold">{{ s.service }}</span>
-                <span class="badge badge-xs" [ngClass]="s.status==='Healthy'?'badge-success':'badge-error'">{{ s.status === 'Healthy' ? 'Up' : 'Down' }}</span>
-              </div>
-              <div class="text-xs opacity-60 mt-1">{{ s.version }} · {{ s.uptime }} uptime</div>
-              <div class="text-xs mt-2">Latency <span class="font-mono font-bold">{{ s.latencyMs }}ms</span></div>
-              <div class="text-[11px] opacity-50 mt-1 line-clamp-2" [title]="s.details">{{ s.details }}</div>
-            </div>
-          </div>
-        }
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          @for (i of [1,2,3]; track i) {
+            <div class="h-24 animate-pulse rounded-xl border border-base-300 bg-base-100"></div>
+          }
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          @for (i of [1,2,3,4,5,6]; track i) {
+            <div class="h-36 animate-pulse rounded-xl border border-base-300 bg-base-100"></div>
+          }
+        </div>
       </div>
-      <div class="card bg-base-100 shadow mt-6">
-        <div class="card-body p-4">
-          <h3 class="font-semibold text-sm">Details</h3>
-          <div class="text-xs opacity-60 mt-2 space-y-1">
-            <div>• Gateway YARP 2.3 — Sliding Window Counter 60 IP/100 User via Upstash Redis Lua atomic, ForwardedHeaders, CorrelationId N format.</div>
-            <div>• DB — SQL Server flowboard [identity]/[project]/[file], HasDefaultSchema, latency measured via SELECT 1.</div>
-            <div>• Redis — Upstash rediss:// caching + rate limiting, Cards show hit/miss via CacheKeys.</div>
-            <div>• RabbitMQ — CloudAMQP amqps:// MassTransit 8.3 fanout for Project → Notification.</div>
-            <div>• SignalR 10.0 Hub /hubs/board — realtime board sync.</div>
-            <div>• File Storage — Cloudinary raw/private uploads, secure_url signing.</div>
+    } @else if (query.isError()) {
+      <div class="rounded-xl border border-error/25 bg-error/5 p-5 sm:p-6">
+        <div class="flex items-start gap-3">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4M12 17h.01"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.3 4.8 3.4 17a2 2 0 001.7 3h13.8a2 2 0 001.7-3L13.7 4.8a2 2 0 00-3.4 0Z"/>
+            </svg>
+          </div>
+
+          <div class="min-w-0">
+            <h2 class="text-sm font-semibold text-base-content">System health unavailable</h2>
+            <p class="mt-1 text-sm text-base-content/70">
+              We couldn't retrieve the current service health information.
+            </p>
           </div>
         </div>
       </div>
+    } @else {
+      <div class="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-xs font-medium uppercase tracking-wide text-base-content/60">Overall status</span>
+            <span
+              class="flex h-8 w-8 items-center justify-center rounded-lg"
+              [ngClass]="hasIssues ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>
+              </svg>
+            </span>
+          </div>
+
+          <p class="mt-2 text-lg font-semibold text-base-content">
+            {{ hasIssues ? 'Attention needed' : 'All systems operational' }}
+          </p>
+        </div>
+
+        <div class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-xs font-medium uppercase tracking-wide text-base-content/60">Healthy services</span>
+            <span class="text-xs font-semibold text-success">{{ healthPercent }}%</span>
+          </div>
+
+          <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-base-300">
+            <div
+              class="h-full rounded-full transition-all"
+              [ngClass]="hasIssues ? 'bg-warning' : 'bg-success'"
+              [style.width.%]="healthPercent"
+            ></div>
+          </div>
+
+          <p class="mt-2 text-sm text-base-content/75">
+            {{ healthyCount }} of {{ total }} services responding normally
+          </p>
+        </div>
+
+        <div class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-xs font-medium uppercase tracking-wide text-base-content/60">Last checked</span>
+            <svg class="h-4 w-4 text-base-content/45" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="9"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2"/>
+            </svg>
+          </div>
+
+          <p class="mt-2 text-sm font-medium text-base-content">
+            {{ checkedAt | date:'medium' }}
+          </p>
+
+          @if (query.data()?.environment) {
+            <p class="mt-1 text-xs text-base-content/65">
+              Environment: {{ query.data()?.environment }}
+            </p>
+          }
+        </div>
+      </div>
+
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-base-content">Services</h2>
+          <p class="mt-0.5 text-xs text-base-content/65">
+            Current availability and response information.
+          </p>
+        </div>
+
+        <span class="text-xs font-medium text-base-content/65">
+          {{ total }} {{ total === 1 ? 'service' : 'services' }}
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        @for (s of services; track s.service) {
+          <div class="group rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-base-content/20 hover:shadow-md">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 items-center gap-3">
+                <div
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                  [ngClass]="s.status === 'Healthy' ? 'bg-success/10 text-success' : 'bg-error/10 text-error'"
+                >
+                  @if (s.status === 'Healthy') {
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>
+                    </svg>
+                  } @else {
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v5m0 3h.01"/>
+                      <circle cx="12" cy="12" r="9"/>
+                    </svg>
+                  }
+                </div>
+
+                <div class="min-w-0">
+                  <h3 class="truncate text-sm font-semibold text-base-content">
+                    {{ s.service }}
+                  </h3>
+
+                  @if (s.version) {
+                    <p class="mt-0.5 truncate text-[11px] text-base-content/60">
+                      {{ s.version }}
+                    </p>
+                  }
+                </div>
+              </div>
+
+              <span
+                class="badge badge-sm shrink-0 rounded-md border font-medium"
+                [ngClass]="s.status === 'Healthy'
+                  ? 'badge-success border-success/20'
+                  : 'badge-error border-error/20'"
+              >
+                {{ s.status === 'Healthy' ? 'Healthy' : 'Down' }}
+              </span>
+            </div>
+
+            <div class="mt-4 grid grid-cols-2 gap-2">
+              <div class="rounded-lg border border-base-200 bg-base-200/40 px-3 py-2">
+                <p class="text-[10px] font-medium uppercase tracking-wide text-base-content/55">Latency</p>
+                <p class="mt-1 text-sm font-semibold text-base-content">
+                  {{ s.latencyMs }}<span class="ml-0.5 text-xs font-normal text-base-content/60">ms</span>
+                </p>
+              </div>
+
+              <div class="rounded-lg border border-base-200 bg-base-200/40 px-3 py-2">
+                <p class="text-[10px] font-medium uppercase tracking-wide text-base-content/55">Uptime</p>
+                <p class="mt-1 truncate text-sm font-semibold text-base-content" [title]="s.uptime">
+                  {{ s.uptime }}
+                </p>
+              </div>
+            </div>
+
+            @if (s.details) {
+              <p
+                class="mt-3 line-clamp-2 text-xs leading-5 text-base-content/70"
+                [title]="s.details"
+              >
+                {{ s.details }}
+              </p>
+            }
+          </div>
+        }
+      </div>
+
+      @if (services.length === 0) {
+        <div class="mt-3 rounded-xl border border-dashed border-base-300 bg-base-100 px-6 py-12 text-center">
+          <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-base-200 text-base-content/60">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"/>
+              <circle cx="12" cy="12" r="9"/>
+            </svg>
+          </div>
+          <p class="mt-3 text-sm font-medium text-base-content">No service data available</p>
+          <p class="mt-1 text-xs text-base-content/65">There are currently no services to display.</p>
+        </div>
+      }
     }
   </div>
 </div>
