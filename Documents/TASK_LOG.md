@@ -28,16 +28,16 @@
 | 7: SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
 | 8: Polish & Production Deploy | 5.1 - 5.5 | 5/5 | Completed |
 | R: Rework Org-Authoritative | R1 - R7 | 7/7 | Completed |
-| N: Notification MNC | N1 - N7 | 0/7 | Pending |
+| N: Notification MNC | N1 - N7 | 7/7 | Completed |
 | 9: Production Deployment | 5.4 | 0/1 | Pending |
-| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 + N1-N7 (64)** | **56/64** | **In Progress — notification before Deploy** |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 + N1-N7 (64)** | **63/64** | **In Progress — only Deploy pending** |
 
 > **New Order Note (2026-09-14):** Phases reordered as per 0,1,2(Phase6),3(Project Core),4(Realtime),5(Files),6(AI),7(SuperAdmin),8(Polish),9(Production) — task sections below follow this new phase order as per table.
 > **Update (2026-09-15):** Realtime 3.1-3.3 verified completed via codebase audit (Outbox 2s, SignalR Hub, CDK Lock) — see Tasks 3.1-3.3 entries below. Polish 5.2 Tests (40 unit+15 integration) + 5.3 Docs (README v1.3) marked completed. Only **5.4 Deploy (MonsterASP.net + Vercel)** remains per `FlowBoard_Tasks_Plan.docx` + bug fixes pre-deploy (you will provide list).
 > **Update (2026-09-15 R):** Approved to **drop DB and recreate** with org-authoritative. Added **R1-R7** 7 tasks (9h) before `5.4 Deploy`. Old workspace-synthetic approach will be deleted. See `Rework Phase R` below.
-> **Update (2026-09-15 N):** Notification MNC 7 tasks added `N1-N7` 8.5h before `5.4 Deploy`. See `Notification Rework N` below.
+> **Update (2026-09-15 N):** Notification MNC 7 tasks `N1-N7` 8.5h completed — idempotency, per-project recipients, hub per-project+user, event-driven, missing events, superadmin complaint, mark read.
 | SuperAdmin | SA.1 - SA.10 | 10/10 | Completed |
-| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 + N1-N7 (64)** | **56/64** | **In Progress — notification before Deploy** |
+| **Total** | **0.1 - 7.7 + SA.1-SA.10 + R1-R7 + N1-N7 (64)** | **63/64** | **In Progress — only Deploy pending** |
 
 ---
 
