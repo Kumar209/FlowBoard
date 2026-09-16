@@ -92,13 +92,6 @@ public class OutboxBackgroundService : BackgroundService
                                     else _logger.LogWarning("[Outbox] ProjectMemberAdded payload null {Id}", msg.Id);
                                     break;
                                 }
-                            case "ComplaintCreated":
-                                {
-                                    var evt = JsonSerializer.Deserialize<ComplaintCreatedEvent>(msg.Payload, jsonOpts);
-                                    if (evt != null) await publisher.Publish(evt, stoppingToken);
-                                    else _logger.LogWarning("[Outbox] ComplaintCreated payload null {Id}", msg.Id);
-                                    break;
-                                }
                             default:
                                 _logger.LogWarning("[Outbox] Unknown Type {Type} Id {Id} - marking processed to avoid poison", msg.Type, msg.Id);
                                 break;

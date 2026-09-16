@@ -31,6 +31,8 @@ builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<Id
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
 
+builder.Services.AddHostedService<Identity.Service.Infrastructure.Messaging.OutboxBackgroundService>();
+
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<Identity.Service.Application.Interfaces.IRedisCacheService, Identity.Service.Infrastructure.Caching.RedisCacheService>();
 builder.Services.AddScoped<IPlatformSettingsService, PlatformSettingsService>();

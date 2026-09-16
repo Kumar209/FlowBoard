@@ -30,6 +30,7 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
     public DbSet<FeatureFlag> FeatureFlags => Set<FeatureFlag>();
     public DbSet<OrganizationFeatureFlag> OrganizationFeatureFlags => Set<OrganizationFeatureFlag>();
     public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -253,6 +254,18 @@ public class IdentityDbContext : DbContext, IApplicationDbContext
             e.Property(x => x.Key).IsRequired().HasMaxLength(50);
             e.Property(x => x.ValueJson).IsRequired().HasMaxLength(4000);
             e.HasIndex(x => x.Key).IsUnique();
+        });
+
+        // OutboxMessage - transactional outbox for reliable events (ComplaintCreated)
+        modelBuilder.Entity<OutboxMessage>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Ignore(x => x.DomainEvents);
+            e.HasIndex(x => x.ProcessedAt);
+            e.HasIndex(x => x.OccurredOn);
+            e.Property(x => x.Type).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Payload).IsRequired().HasMaxLength(8000);
+            e.Property(x => x.Error).HasMaxLength(2000);
         });
     }
 }
