@@ -54,27 +54,34 @@ public class BoardService : IBoardService
 
     public async Task<List<BoardInfoDto>> GetBoardsAsync(Guid projectId, CancellationToken ct = default)
     {
-        var boards = await _db.Boards.Where(b => b.ProjectId == projectId).OrderBy(b => b.Position).ToListAsync(ct);
-        var result = new List<BoardInfoDto>();
+        var boards = await _db.Boards.AsNoTracking().Where(b => b.ProjectId == projectId).OrderBy(b => b.Position).ToListAsync(ct);
+        if (boards.Count == 0) return new List<BoardInfoDto>();
+        var totalCount = await _db.Tasks.AsNoTracking().CountAsync(t => t.ProjectId == projectId, ct);
+        var teamIdsPerBoard = new Dictionary<Guid, List<Guid>>();
         foreach (var b in boards)
         {
-            int count = 0;
+            if (string.IsNullOrWhiteSpace(b.FilterJson)) continue;
             try
             {
-                if (string.IsNullOrWhiteSpace(b.FilterJson))
-                {
-                    count = await _db.Tasks.CountAsync(t => t.ProjectId == projectId, ct);
-                }
-                else
-                {
-                    var filter = System.Text.Json.JsonSerializer.Deserialize<BoardFilterDto>(b.FilterJson);
-                    if (filter?.TeamIds != null && filter.TeamIds.Any())
-                        count = await _db.Tasks.CountAsync(t => t.ProjectId == projectId && t.TeamId != null && filter.TeamIds.Contains(t.TeamId.Value), ct);
-                    else
-                        count = await _db.Tasks.CountAsync(t => t.ProjectId == projectId, ct);
-                }
+                var filter = System.Text.Json.JsonSerializer.Deserialize<BoardFilterDto>(b.FilterJson);
+                if (filter?.TeamIds != null && filter.TeamIds.Any()) teamIdsPerBoard[b.Id] = filter.TeamIds;
             }
-            catch { count = await _db.Tasks.CountAsync(t => t.ProjectId == projectId, ct); }
+            catch { }
+        }
+        Dictionary<Guid, int> teamFilteredCounts = new();
+        if (teamIdsPerBoard.Count > 0)
+        {
+            var allTeamIds = teamIdsPerBoard.Values.SelectMany(x => x).Distinct().ToList();
+            var counts = await _db.Tasks.AsNoTracking().Where(t => t.ProjectId == projectId && t.TeamId != null && allTeamIds.Contains(t.TeamId.Value))
+                .GroupBy(t => t.TeamId!.Value).Select(g => new { TeamId = g.Key, Cnt = g.Count() }).ToListAsync(ct);
+            var map = counts.ToDictionary(x => x.TeamId, x => x.Cnt);
+            foreach (var kv in teamIdsPerBoard)
+                teamFilteredCounts[kv.Key] = kv.Value.Sum(tid => map.TryGetValue(tid, out var c) ? c : 0);
+        }
+        var result = new List<BoardInfoDto>(boards.Count);
+        foreach (var b in boards)
+        {
+            int count = teamIdsPerBoard.ContainsKey(b.Id) ? teamFilteredCounts[b.Id] : totalCount;
             result.Add(new BoardInfoDto(b.Id, b.ProjectId, b.Name, b.Type, b.Description, b.Position, b.CreatedAt, b.FilterJson, count));
         }
         return result;
@@ -109,7 +116,7 @@ public class BoardService : IBoardService
         // Strict: status must already exist — do not auto-create. User must create status in Project → Statuses first.
         if (statusIds == null || !statusIds.Any())
             return Result<BoardListDto>.Failure("Select at least one existing Status to map this column to — create statuses in Project → Statuses first. No auto-create.");
-        var existingStatuses = await _db.Statuses.Where(s => s.ProjectId == projectId && statusIds.Contains(s.Id)).ToListAsync(ct);
+        var existingStatuses = await _db.Statuses.AsNoTracking().Where(s => s.ProjectId == projectId && statusIds.Contains(s.Id)).ToListAsync(ct);
         if (existingStatuses.Count != statusIds.Count)
             return Result<BoardListDto>.Failure("One or more selected statuses not found in this project");
         var list = new BoardList(projectId, display, pos, targetBoardId);
@@ -117,9 +124,9 @@ public class BoardService : IBoardService
         await _db.SaveChangesAsync(ct);
         // A1 — Move with ≥1 guard: one status = one column per board, ≥1 required, move only if source cnt>1
         var distinctIds = statusIds.Distinct().ToList();
-        var alreadyMapped = await _db.BoardColumnStatuses
+        var alreadyMapped = await _db.BoardColumnStatuses.AsNoTracking()
             .Where(bcs => distinctIds.Contains(bcs.StatusId))
-            .Join(_db.BoardLists.Where(bl => bl.BoardId == targetBoardId), bcs => bcs.ColumnId, bl => bl.Id, (bcs, bl) => new { bcs, bl })
+            .Join(_db.BoardLists.AsNoTracking().Where(bl => bl.BoardId == targetBoardId), bcs => bcs.ColumnId, bl => bl.Id, (bcs, bl) => new { bcs, bl })
             .ToListAsync(ct);
         if (alreadyMapped.Any())
         {

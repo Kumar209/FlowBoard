@@ -20,6 +20,11 @@ export class HeaderComponent {
   themeService = inject(ThemeService);
   auth = inject(AuthService);
   router = inject(Router);
+  isAuthPage = computed(() => {
+    const url = this.router.url.split('?')[0].split('#')[0];
+    return url === '/login' || url === '/register';
+  });
+  showAuthenticated = computed(() => this.auth.isAuthenticated() && !this.isAuthPage());
   notificationService = inject(NotificationService);
   private superAdminService = inject(SuperAdminService);
   private queryClient = inject(QueryClient);
@@ -40,14 +45,14 @@ export class HeaderComponent {
   notificationsQuery = injectQuery(() => ({
     queryKey: ['notifications', 'header', 1] as const,
     queryFn: () => firstValueFrom(this.notificationService.getNotifications(1, 5)),
-    enabled: this.auth.isAuthenticated() && !this.auth.isSuperAdmin(),
+    enabled: this.showAuthenticated() && !this.auth.isSuperAdmin(),
     staleTime: 30 * 1000,
   }));
 
   complaintsQuery = injectQuery(() => ({
     queryKey: ['superadmin-complaints', 'header'] as const,
     queryFn: () => firstValueFrom(this.superAdminService.getSuperAdminComplaints()),
-    enabled: this.auth.isAuthenticated() && this.auth.isSuperAdmin(),
+    enabled: this.showAuthenticated() && this.auth.isSuperAdmin(),
     staleTime: 30 * 1000,
   }));
 

@@ -50,7 +50,7 @@ public class SprintService : ISprintService
 
     public async Task<List<SprintDto>> GetSprintsAsync(Guid projectId, Guid? boardId, CancellationToken ct = default)
     {
-        var q = _db.Sprints.Where(s => s.ProjectId == projectId);
+        var q = _db.Sprints.AsNoTracking().Where(s => s.ProjectId == projectId);
         if (boardId != null && boardId != Guid.Empty) q = q.Where(s => s.BoardId == boardId);
         return await q.OrderBy(s => s.StartDate).Select(s => new SprintDto(s.Id, s.ProjectId, s.BoardId, s.Name, s.StartDate, s.EndDate, s.Status, s.CreatedAt)).ToListAsync(ct);
     }
@@ -94,14 +94,12 @@ public class TeamService : ITeamService
 
     public async Task<List<TeamDto>> GetTeamsAsync(Guid projectId, CancellationToken ct = default)
     {
-        var teams = await _db.Teams.Where(t => t.ProjectId == projectId).OrderBy(t => t.CreatedAt).ToListAsync(ct);
-        var result = new List<TeamDto>();
-        foreach (var t in teams)
-        {
-            var count = await _db.TeamMembers.CountAsync(m => m.TeamId == t.Id, ct);
-            result.Add(new TeamDto(t.Id, t.ProjectId, t.Name, t.Description, t.CreatedAt, count));
-        }
-        return result;
+        var teams = await _db.Teams.AsNoTracking().Where(t => t.ProjectId == projectId).OrderBy(t => t.CreatedAt).ToListAsync(ct);
+        if (teams.Count == 0) return new List<TeamDto>();
+        var teamIds = teams.Select(t => t.Id).ToList();
+        var counts = await _db.TeamMembers.AsNoTracking().Where(m => teamIds.Contains(m.TeamId)).GroupBy(m => m.TeamId).Select(g => new { TeamId = g.Key, Cnt = g.Count() }).ToListAsync(ct);
+        var map = counts.ToDictionary(x => x.TeamId, x => x.Cnt);
+        return teams.Select(t => new TeamDto(t.Id, t.ProjectId, t.Name, t.Description, t.CreatedAt, map.TryGetValue(t.Id, out var c) ? c : 0)).ToList();
     }
 
     public async Task<Result<TeamMemberDto>> AddMemberAsync(Guid teamId, Guid userId, Guid callerId, CancellationToken ct = default)
@@ -128,7 +126,7 @@ public class TeamService : ITeamService
     }
 
     public async Task<List<TeamMemberDto>> GetMembersAsync(Guid teamId, CancellationToken ct = default)
-        => await _db.TeamMembers.Where(m => m.TeamId == teamId).OrderBy(m => m.JoinedAt).Select(m => new TeamMemberDto(m.Id, m.TeamId, m.UserId, m.JoinedAt)).ToListAsync(ct);
+        => await _db.TeamMembers.AsNoTracking().Where(m => m.TeamId == teamId).OrderBy(m => m.JoinedAt).Select(m => new TeamMemberDto(m.Id, m.TeamId, m.UserId, m.JoinedAt)).ToListAsync(ct);
 }
 
 public class EnvironmentService : IEnvironmentService
@@ -168,5 +166,5 @@ public class EnvironmentService : IEnvironmentService
     }
 
     public async Task<List<ProjectEnvironmentDto>> GetEnvironmentsAsync(Guid projectId, CancellationToken ct = default)
-        => await _db.Environments.Where(e => e.ProjectId == projectId).OrderBy(e => e.CreatedAt).Select(e => new ProjectEnvironmentDto(e.Id, e.ProjectId, e.Name, e.Url, e.Description, e.Status, e.CreatedAt)).ToListAsync(ct);
+        => await _db.Environments.AsNoTracking().Where(e => e.ProjectId == projectId).OrderBy(e => e.CreatedAt).Select(e => new ProjectEnvironmentDto(e.Id, e.ProjectId, e.Name, e.Url, e.Description, e.Status, e.CreatedAt)).ToListAsync(ct);
 }
