@@ -51,7 +51,13 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:4200", "https://flowboard.vercel.app")
+        policy.SetIsOriginAllowed(origin =>
+            {
+                if (origin == "http://localhost:4200") return true;
+                if (origin == "https://flowboard.vercel.app") return true;
+                if (origin != null && origin.EndsWith(".vercel.app")) return true;
+                return false;
+            })
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();

@@ -127,7 +127,7 @@ builder.Services.AddSwaggerGen(o =>
     });
 });
 builder.Services.AddHealthChecks();
-builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins("http://localhost:4200", "https://flowboard.vercel.app").AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
+builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.SetIsOriginAllowed(origin => origin == "http://localhost:4200" || origin == "https://flowboard.vercel.app" || origin == "https://flow-board-seven-gilt.vercel.app" || (origin != null && origin.EndsWith(".vercel.app"))).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
 var app = builder.Build();
 
