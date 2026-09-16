@@ -134,6 +134,8 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+    try { await db.Database.MigrateAsync(); Log.Logger.Information("Identity DB migrated"); }
+    catch (Exception ex) { Log.Logger.Warning(ex, "Identity DB migrate failed"); }
     var cfg = scope.ServiceProvider.GetRequiredService<IConfiguration>();
     await IdentitySeeder.SeedSuperAdminAsync(db, cfg);
     try

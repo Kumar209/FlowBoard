@@ -90,6 +90,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<FileDbContext>();
+    try { await db.Database.MigrateAsync(); Log.Logger.Information("File DB migrated"); }
+    catch (Exception ex) { Log.Logger.Warning(ex, "File DB migrate failed"); }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

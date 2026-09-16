@@ -176,6 +176,13 @@ builder.Services.AddHealthChecks();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins("http://localhost:4200","https://flowboard.vercel.app").AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
 var app = builder.Build();
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+    try { await db.Database.MigrateAsync(); Log.Logger.Information("Notification DB migrated"); }
+    catch (Exception ex) { Log.Logger.Warning(ex, "Notification DB migrate failed"); }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

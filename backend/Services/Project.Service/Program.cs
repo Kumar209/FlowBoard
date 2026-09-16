@@ -135,6 +135,13 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ProjectDbContext>();
+    try { await db.Database.MigrateAsync(); Log.Logger.Information("Project DB migrated"); }
+    catch (Exception ex) { Log.Logger.Warning(ex, "Project DB migrate failed"); }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
