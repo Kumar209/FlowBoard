@@ -1,4 +1,5 @@
 using System.Text;
+using MassTransit;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ using Identity.Service.Application.SuperAdmin.Interfaces;
 using Identity.Service.Infrastructure.Services;
 using Identity.Service.Infrastructure.SuperAdmin;
 using Identity.Service.Infrastructure.Persistence;
+using Shared.Contracts.Events;
 
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
@@ -43,6 +45,22 @@ builder.Services.AddScoped<IOrganizationActivityService, OrganizationActivitySer
 builder.Services.AddScoped<IOrganizationStatsService, OrganizationStatsService>();
 builder.Services.AddScoped<ISuperAdminService, SuperAdminService>();
 builder.Services.AddHttpClient<IBrevoEmailService, BrevoEmailService>();
+
+// MassTransit for ComplaintCreatedEvent fanout (same flowboard.events as Project)
+var rabbitHostForIdentity = builder.Configuration["RabbitMQ:Host"] ?? builder.Configuration["RabbitMQ__Host"] ?? "";
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        if (!string.IsNullOrWhiteSpace(rabbitHostForIdentity) && !rabbitHostForIdentity.Contains("PASTE_"))
+            cfg.Host(new Uri(rabbitHostForIdentity));
+        else
+            cfg.Host("rabbitmq://localhost");
+        cfg.Message<ComplaintCreatedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Publish<ComplaintCreatedEvent>(c => c.ExchangeType = "fanout");
+        cfg.ConfigureEndpoints(context);
+    });
+});
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key missing - set in appsettings.Development.json");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "FlowBoard.Identity";

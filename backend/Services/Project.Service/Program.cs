@@ -68,9 +68,15 @@ builder.Services.AddMassTransit(x =>
         cfg.Message<TaskCreatedEvent>(c => c.SetEntityName("flowboard.events"));
         cfg.Message<TaskMovedEvent>(c => c.SetEntityName("flowboard.events"));
         cfg.Message<TaskCommentedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Message<TaskAssignedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Message<TaskDeletedEvent>(c => c.SetEntityName("flowboard.events"));
+        cfg.Message<ProjectMemberAddedEvent>(c => c.SetEntityName("flowboard.events"));
         cfg.Publish<TaskCreatedEvent>(c => c.ExchangeType = "fanout");
         cfg.Publish<TaskMovedEvent>(c => c.ExchangeType = "fanout");
         cfg.Publish<TaskCommentedEvent>(c => c.ExchangeType = "fanout");
+        cfg.Publish<TaskAssignedEvent>(c => c.ExchangeType = "fanout");
+        cfg.Publish<TaskDeletedEvent>(c => c.ExchangeType = "fanout");
+        cfg.Publish<ProjectMemberAddedEvent>(c => c.ExchangeType = "fanout");
         cfg.UseMessageRetry(r => r.Immediate(3));
         cfg.ConfigureEndpoints(context);
     });

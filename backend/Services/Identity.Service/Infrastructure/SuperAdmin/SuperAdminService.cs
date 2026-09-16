@@ -1,4 +1,6 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Shared.Contracts.Events;
 using Identity.Service.Application.Interfaces;
 using Identity.Service.Application.SuperAdmin.DTOs;
 using Identity.Service.Application.SuperAdmin.Interfaces;
@@ -14,10 +16,12 @@ public class SuperAdminService : ISuperAdminService
     private readonly IBrevoEmailService _email;
     private readonly ILogger<SuperAdminService> _logger;
     private readonly Identity.Service.Application.Interfaces.IPlatformSettingsService _platformSettings;
+    private readonly IPublishEndpoint _publisher;
 
-    public SuperAdminService(IApplicationDbContext db, IBrevoEmailService email, ILogger<SuperAdminService> logger, Identity.Service.Application.Interfaces.IPlatformSettingsService platformSettings)
+    public SuperAdminService(IApplicationDbContext db, IBrevoEmailService email, ILogger<SuperAdminService> logger, Identity.Service.Application.Interfaces.IPlatformSettingsService platformSettings, IPublishEndpoint publisher)
     {
         _db = db;
+        _publisher = publisher;
         _email = email;
         _logger = logger;
         _platformSettings = platformSettings;
@@ -541,37 +545,19 @@ public class SuperAdminService : ISuperAdminService
         var complaint = new Complaint(organizationId, userId, subject, message);
         _db.Complaints.Add(complaint);
         await _db.SaveChangesAsync(ct);
-        var superAdmins = await _db.Users.Where(u => u.IsSuperAdmin).ToListAsync(ct);
-        foreach (var sa in superAdmins) await _email.SendEmailAsync(sa.Email, $"New complaint from {org.Name}: {subject}", $"<p>{message}</p>");
+        foreach (var sa in await _db.Users.Where(u => u.IsSuperAdmin).ToListAsync(ct)) await _email.SendEmailAsync(sa.Email, $"New complaint from {org.Name}: {subject}", $"<p>{message}</p>");
         _logger.LogInformation("Complaint {Id} created for org {OrgId}", complaint.Id, organizationId);
-        // System notification for superadmins (personal group, not polling) — MNC
+        // Publish ComplaintCreatedEvent for NotificationService (MNC fanout) — superadmin personal group
         try
         {
-            var superIds = superAdmins.Select(u => u.Id).ToList();
+            var superIds = await _db.Users.Where(u => u.IsSuperAdmin).Select(u => u.Id).ToListAsync(ct);
             if (superIds.Any())
             {
-                var payload = System.Text.Json.JsonSerializer.Serialize(new { complaintId = complaint.Id, organizationId, organizationName = org.Name, subject, actorId = userId });
-                // Use NotificationService via direct DB (same DB, different schema) — create notifications for each superadmin
-                foreach (var sid in superIds)
-                {
-                    // Check idempotency via EventId (complaint Id as event)
-                    var exists = await _db.Database.SqlQueryRaw<int>($"SELECT COUNT(1) as Value FROM [notification].[Notifications] WHERE EventId = '{complaint.Id}' AND RecipientUserId = '{sid}'").ToListAsync(ct);
-                    if (exists.FirstOrDefault() == 0)
-                    {
-                        // Insert via raw SQL to avoid cross-schema DbContext
-                        await _db.Database.ExecuteSqlRawAsync("INSERT INTO [notification].[Notifications] (Id, EventId, RecipientUserId, ProjectId, TaskId, ActorUserId, Action, PayloadJson, WorkspaceId, IsRead, OccurredOnUtc, CreatedAt, UpdatedAt) VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12})", Guid.NewGuid(), complaint.Id, sid, Guid.Empty, null, userId, "ComplaintCreated", payload, Guid.Empty, false, DateTime.UtcNow, DateTime.UtcNow, DateTime.UtcNow);
-                    }
-                }
-                // Push via SignalR to superadmin personal groups (best effort)
-                try
-                {
-                    // Note: Hub is in Notification.Service, not Identity — rely on polling fallback for now, or publish via RabbitMQ complaint event
-                    // For now, rely on superadmin header polling fallback; real-time will be via N6 hub push from NotificationService when we add ComplaintCreatedEvent fanout
-                }
-                catch { }
+                var complaintEvt = new ComplaintCreatedEvent(complaint.Id, organizationId, subject, userId, superIds, DateTime.UtcNow, Guid.NewGuid(), Guid.NewGuid().ToString());
+                await _publisher.Publish(complaintEvt, ct);
             }
         }
-        catch (Exception ex) { _logger.LogWarning(ex, "Complaint superadmin notification failed {Id}", complaint.Id); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Complaint publish failed {Id}", complaint.Id); }
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
         var roleVal2 = Roles.MemberValue;
         if (user != null && user.IsSuperAdmin) roleVal2 = Roles.SuperAdminValue;
