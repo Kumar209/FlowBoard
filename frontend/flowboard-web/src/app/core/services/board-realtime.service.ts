@@ -44,6 +44,10 @@ export class BoardRealtimeService {
       this.queryClient.invalidateQueries({ queryKey: ['board'] });
       this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });
+    this.hub.on('notification', (payload: any) => {
+      this.lastEvent.set(`notification:${payload.id || payload.eventId}`);
+      this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
     this.hub.on('connected', () => this.connected.set(true));
     this.hub.onclose(() => this.connected.set(false));
     this.hub.onreconnected(async () => {
@@ -63,9 +67,17 @@ export class BoardRealtimeService {
   }
 
   async joinProject(projectId: string): Promise<void> {
+    const prev = this.lastProjectId;
+    if (prev && prev !== projectId) {
+      try { await this.hub?.invoke('LeaveProject', prev); } catch {}
+    }
     this.lastProjectId = projectId;
     if (!this.hub || this.hub.state !== signalR.HubConnectionState.Connected) await this.connect();
     try { await this.hub?.invoke('JoinProject', projectId); } catch {}
+  }
+  async leaveProject(projectId: string): Promise<void> {
+    try { await this.hub?.invoke('LeaveProject', projectId); } catch {}
+    if (this.lastProjectId === projectId) this.lastProjectId = null;
   }
 
   async disconnect(): Promise<void> {

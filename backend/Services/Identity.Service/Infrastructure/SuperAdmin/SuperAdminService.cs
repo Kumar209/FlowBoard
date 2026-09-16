@@ -541,9 +541,37 @@ public class SuperAdminService : ISuperAdminService
         var complaint = new Complaint(organizationId, userId, subject, message);
         _db.Complaints.Add(complaint);
         await _db.SaveChangesAsync(ct);
-        var superAdmin = await _db.Users.FirstOrDefaultAsync(u => u.IsSuperAdmin, ct);
-        if (superAdmin != null) await _email.SendEmailAsync(superAdmin.Email, $"New complaint from {org.Name}: {subject}", $"<p>{message}</p>");
+        var superAdmins = await _db.Users.Where(u => u.IsSuperAdmin).ToListAsync(ct);
+        foreach (var sa in superAdmins) await _email.SendEmailAsync(sa.Email, $"New complaint from {org.Name}: {subject}", $"<p>{message}</p>");
         _logger.LogInformation("Complaint {Id} created for org {OrgId}", complaint.Id, organizationId);
+        // System notification for superadmins (personal group, not polling) — MNC
+        try
+        {
+            var superIds = superAdmins.Select(u => u.Id).ToList();
+            if (superIds.Any())
+            {
+                var payload = System.Text.Json.JsonSerializer.Serialize(new { complaintId = complaint.Id, organizationId, organizationName = org.Name, subject, actorId = userId });
+                // Use NotificationService via direct DB (same DB, different schema) — create notifications for each superadmin
+                foreach (var sid in superIds)
+                {
+                    // Check idempotency via EventId (complaint Id as event)
+                    var exists = await _db.Database.SqlQueryRaw<int>($"SELECT COUNT(1) as Value FROM [notification].[Notifications] WHERE EventId = '{complaint.Id}' AND RecipientUserId = '{sid}'").ToListAsync(ct);
+                    if (exists.FirstOrDefault() == 0)
+                    {
+                        // Insert via raw SQL to avoid cross-schema DbContext
+                        await _db.Database.ExecuteSqlRawAsync("INSERT INTO [notification].[Notifications] (Id, EventId, RecipientUserId, ProjectId, TaskId, ActorUserId, Action, PayloadJson, WorkspaceId, IsRead, OccurredOnUtc, CreatedAt, UpdatedAt) VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12})", Guid.NewGuid(), complaint.Id, sid, Guid.Empty, null, userId, "ComplaintCreated", payload, Guid.Empty, false, DateTime.UtcNow, DateTime.UtcNow, DateTime.UtcNow);
+                    }
+                }
+                // Push via SignalR to superadmin personal groups (best effort)
+                try
+                {
+                    // Note: Hub is in Notification.Service, not Identity — rely on polling fallback for now, or publish via RabbitMQ complaint event
+                    // For now, rely on superadmin header polling fallback; real-time will be via N6 hub push from NotificationService when we add ComplaintCreatedEvent fanout
+                }
+                catch { }
+            }
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Complaint superadmin notification failed {Id}", complaint.Id); }
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
         var roleVal2 = Roles.MemberValue;
         if (user != null && user.IsSuperAdmin) roleVal2 = Roles.SuperAdminValue;

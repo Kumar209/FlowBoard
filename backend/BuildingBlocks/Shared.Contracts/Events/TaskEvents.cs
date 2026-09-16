@@ -79,6 +79,52 @@ public record FileUploadedEvent(
     Guid EventId = default,
     string CorrelationId = "") : IIntegrationEvent;
 
+public record TaskAssignedEvent(
+    Guid TaskId = default,
+    Guid ProjectId = default,
+    Guid WorkspaceId = default,
+    Guid AssigneeId = default,
+    Guid ActorId = default,
+    string TaskTitle = "",
+    string AssigneeName = "",
+    string ActorName = "",
+    List<Guid>? RecipientUserIds = null,
+    DateTime OccurredOnUtc = default,
+    Guid EventId = default,
+    string CorrelationId = "") : IIntegrationEvent;
+
+public record TaskDeletedEvent(
+    Guid TaskId = default,
+    Guid ProjectId = default,
+    Guid WorkspaceId = default,
+    string TaskTitle = "",
+    Guid ActorId = default,
+    List<Guid>? RecipientUserIds = null,
+    DateTime OccurredOnUtc = default,
+    Guid EventId = default,
+    string CorrelationId = "") : IIntegrationEvent;
+
+public record ProjectMemberAddedEvent(
+    Guid ProjectId = default,
+    Guid WorkspaceId = default,
+    Guid UserId = default,
+    string UserName = "",
+    Guid ActorId = default,
+    List<Guid>? RecipientUserIds = null,
+    DateTime OccurredOnUtc = default,
+    Guid EventId = default,
+    string CorrelationId = "") : IIntegrationEvent;
+
+public record ComplaintCreatedEvent(
+    Guid ComplaintId = default,
+    Guid OrganizationId = default,
+    string Subject = "",
+    Guid ActorId = default,
+    List<Guid>? RecipientUserIds = null,
+    DateTime OccurredOnUtc = default,
+    Guid EventId = default,
+    string CorrelationId = "") : IIntegrationEvent;
+
 /// <summary>
 /// IIntegrationEvent - marker for MassTransit contracts. Ensures idempotent consumers (check EventId) + correlation tracing across Gateway -> Project -> Notification.
 /// </summary>

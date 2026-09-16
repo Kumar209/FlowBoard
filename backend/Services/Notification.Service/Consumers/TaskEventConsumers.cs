@@ -25,7 +25,11 @@ public class TaskCreatedConsumer : IConsumer<TaskCreatedEvent>
         else _logger.LogInformation("[Consumer] TaskCreated {TaskId} persisted {EventId}", msg.TaskId, msg.EventId);
         try
         {
-            await _hub.Clients.Group($"workspace:{msg.WorkspaceId}").SendAsync("taskCreated", new { taskId = msg.TaskId, projectId = msg.ProjectId, workspaceId = msg.WorkspaceId, title = msg.Title, actorId = msg.ActorId });
+            // Board refresh for project members
+            await _hub.Clients.Group($"project:{msg.ProjectId}").SendAsync("taskCreated", new { taskId = msg.TaskId, projectId = msg.ProjectId, workspaceId = msg.WorkspaceId, title = msg.Title, actorId = msg.ActorId });
+            // Personal bell for each recipient
+            foreach (var uid in msg.RecipientUserIds ?? new List<Guid>())
+                await _hub.Clients.Group($"user:{uid}").SendAsync("notification", new { id = msg.EventId, eventId = msg.EventId, action = "TaskCreated", projectId = msg.ProjectId, taskId = msg.TaskId });
         }
         catch (Exception ex) { _logger.LogWarning(ex, "[Consumer] SignalR publish failed for taskCreated {TaskId} — Redis backplane timeout, local delivery only", msg.TaskId); }
     }
@@ -51,6 +55,8 @@ public class TaskMovedConsumer : IConsumer<TaskMovedEvent>
         try
         {
             await _hub.Clients.Group($"project:{msg.ProjectId}").SendAsync("taskMoved", new { taskId = msg.TaskId, projectId = msg.ProjectId, workspaceId = msg.WorkspaceId, fromListId = msg.FromListId, toListId = msg.ToListId, position = msg.Position });
+            foreach (var uid in msg.RecipientUserIds ?? new List<Guid>())
+                await _hub.Clients.Group($"user:{uid}").SendAsync("notification", new { id = msg.EventId, eventId = msg.EventId, action = "TaskMoved", projectId = msg.ProjectId, taskId = msg.TaskId });
         }
         catch (Exception ex) { _logger.LogWarning(ex, "[Consumer] SignalR publish failed for taskMoved — local only"); }
     }
@@ -75,6 +81,8 @@ public class TaskCommentedConsumer : IConsumer<TaskCommentedEvent>
         try
         {
             await _hub.Clients.Group($"project:{msg.ProjectId}").SendAsync("taskCommented", new { taskId = msg.TaskId, projectId = msg.ProjectId, workspaceId = msg.WorkspaceId, commentId = msg.CommentId });
+            foreach (var uid in msg.RecipientUserIds ?? new List<Guid>())
+                await _hub.Clients.Group($"user:{uid}").SendAsync("notification", new { id = msg.EventId, eventId = msg.EventId, action = "TaskCommented", projectId = msg.ProjectId, taskId = msg.TaskId });
         }
         catch (Exception ex) { _logger.LogWarning(ex, "[Consumer] SignalR publish failed for taskCommented — local only"); }
     }

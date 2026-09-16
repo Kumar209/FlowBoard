@@ -35,6 +35,12 @@ public class BoardHub : Hub
                 _logger.LogInformation("[BoardHub] {ConnId} joined workspace:{Ws}", Context.ConnectionId, ws);
             }
         }
+        // Personal group for per-user notifications (MNC: bell goes to user:{id}, not whole workspace)
+        if (!string.IsNullOrWhiteSpace(userId) && Guid.TryParse(userId, out _))
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
+            _logger.LogInformation("[BoardHub] {ConnId} joined user:{UserId}", Context.ConnectionId, userId);
+        }
 
         // Also allow client to explicitly join project group via JoinProject
         await base.OnConnectedAsync();

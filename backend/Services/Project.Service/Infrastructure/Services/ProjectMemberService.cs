@@ -92,6 +92,16 @@ public class ProjectMemberService : IProjectMemberService
         if (exists) return Result<ProjectMemberDto>.Failure("User already a project member");
         var pm = new ProjectMember(projectId, userId, string.IsNullOrWhiteSpace(role) ? Roles.Member : role);
         _db.ProjectMembers.Add(pm);
+        // Outbox for notification — project member added
+        try
+        {
+            var projForMember = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
+            var wsForMember = projForMember?.WorkspaceId ?? Guid.Empty;
+            var recipientsForMember = new List<Guid> { userId };
+            var memberEvt = new { ProjectId = projectId, WorkspaceId = wsForMember, UserId = userId, ActorId = callerId, RecipientUserIds = recipientsForMember, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
+            _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("ProjectMemberAdded", System.Text.Json.JsonSerializer.Serialize(memberEvt)));
+        }
+        catch { }
         await _db.SaveChangesAsync(ct);
         // Fetch user info for response
         string email = userId.ToString()[..8], fullName = userId.ToString()[..8];

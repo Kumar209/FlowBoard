@@ -101,9 +101,23 @@ public class TaskService : ITaskService
             }
             task.MoveToList(targetListId.Value, task.Position, newStatus, newStatusId);
         }
+        var oldAssignee = task.AssigneeId;
         task.Update(title, description, prio, labelsJson, assigneeId, dueDate, issueType, epic, storyPoints, startDate, environment, parentIssueId, sprintId, watchersJson, linkedIssuesJson, timeEstimated, timeSpent, timeRemaining, teamId, newStatus, newStatusId, acceptanceCriteriaJson);
         var updWs = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(task.ProjectId, task.Id, callerId, "TaskUpdated", $"{{\"title\":\"{title}\"}}", updWs));
+        // Assigned event if assignee changed to someone else
+        if (assigneeId.HasValue && assigneeId.Value != Guid.Empty && assigneeId.Value != oldAssignee && assigneeId.Value != callerId)
+        {
+            try
+            {
+                var projForAssign = await _db.Projects.FirstOrDefaultAsync(p => p.Id == task.ProjectId, ct);
+                var wsForAssign = projForAssign?.WorkspaceId ?? updWs;
+                var recipientForAssign = new List<Guid> { assigneeId.Value };
+                var assignEvt = new { TaskId = task.Id, ProjectId = task.ProjectId, WorkspaceId = wsForAssign, AssigneeId = assigneeId.Value, ActorId = callerId, TaskTitle = task.Title, OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString(), RecipientUserIds = recipientForAssign };
+                _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskAssigned", System.Text.Json.JsonSerializer.Serialize(assignEvt)));
+            }
+            catch { }
+        }
         await _db.SaveChangesAsync(ct);
         await _cache.RemoveAsync($"board:{task.ProjectId}");
         await _cache.RemoveByPrefixAsync($"board:{task.ProjectId}:");
@@ -209,6 +223,15 @@ public class TaskService : ITaskService
         var taskTitle = task.Title;
         var taskIdForLog = task.Id;
         var delWs = await _db.Projects.Where(p => p.Id == projectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        // Deleted event for project members (excluding actor)
+        try
+        {
+            var delRecipients = await _db.ProjectMembers.Where(pm => pm.ProjectId == projectId).Select(pm => pm.UserId).ToListAsync(ct);
+            if (!delRecipients.Any()) delRecipients = await _db.Database.SqlQueryRaw<Guid>("SELECT UserId FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0}", delWs).ToListAsync(ct);
+            var delEvt = new { TaskId = taskId, ProjectId = projectId, WorkspaceId = delWs, TaskTitle = taskTitle, ActorId = callerId, RecipientUserIds = delRecipients.Where(r => r != callerId).ToList(), OccurredOnUtc = DateTime.UtcNow, EventId = Guid.NewGuid(), CorrelationId = Guid.NewGuid().ToString() };
+            _db.OutboxMessages.Add(new Domain.Entities.OutboxMessage("TaskDeleted", System.Text.Json.JsonSerializer.Serialize(delEvt)));
+        }
+        catch { }
         // Audit log before delete — TaskId null for deletion event so FK does not conflict (history remains, FK SetNull)
         _db.ActivityLogs.Add(new Domain.Entities.ActivityLog(projectId, null, callerId, "TaskDeleted", $"{{\"title\":\"{taskTitle}\",\"taskId\":\"{taskIdForLog}\"}}", delWs));
         _db.Tasks.Remove(task);
