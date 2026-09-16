@@ -35,11 +35,13 @@ jobs:
       - name: FTP Deploy to MonsterASP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
+          protocol: ftps
+          port: 21
           server: ${{ secrets.FTP_HOST_PROJECT }}
           username: ${{ secrets.FTP_USER_PROJECT }}
           password: ${{ secrets.FTP_PASS_PROJECT }}
           local-dir: ./publish_project/
           server-dir: /wwwroot/
-          dangerous-clean-slate: true
+          dangerous-clean-slate: false
           exclude: |
             **/.well-known/**

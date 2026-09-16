@@ -35,11 +35,13 @@ jobs:
       - name: FTP Deploy to MonsterASP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
+          protocol: ftps
+          port: 21
           server: ${{ secrets.FTP_HOST_NOTIFY }}
           username: ${{ secrets.FTP_USER_NOTIFY }}
           password: ${{ secrets.FTP_PASS_NOTIFY }}
           local-dir: ./publish_notify/
           server-dir: /wwwroot/
-          dangerous-clean-slate: true
+          dangerous-clean-slate: false
           exclude: |
             **/.well-known/**
