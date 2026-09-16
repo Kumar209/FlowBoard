@@ -9,14 +9,10 @@ public static class IdentitySeeder
 {
     public static async Task SeedSuperAdminAsync(IdentityDbContext db, IConfiguration? config = null)
     {
-        var superEmail = config?["SuperAdmin:Email"] ?? config?["SuperAdmin__Email"] ?? "superadmin@flowboard.local";
-        var superPassword = config?["SuperAdmin:Password"] ?? config?["SuperAdmin__Password"] ?? "PASTE_STRONG_PASSWORD_MIN_12_CHARS";
-        if (string.IsNullOrWhiteSpace(superEmail) || superEmail.Contains("PASTE") || string.IsNullOrWhiteSpace(superPassword) || superPassword.Contains("PASTE"))
-        {
-            // Fallback for local dev without config — use default but warn
-            superEmail = "superadmin@flowboard.local";
-            superPassword = "Super666@lmp";
-        }
+        var superEmail = config?["SuperAdmin:Email"] ?? config?["SuperAdmin__Email"];
+        var superPassword = config?["SuperAdmin:Password"] ?? config?["SuperAdmin__Password"];
+        if (string.IsNullOrWhiteSpace(superEmail) || string.IsNullOrWhiteSpace(superPassword))
+            throw new InvalidOperationException("SuperAdmin:Email and SuperAdmin:Password must be set in appsettings.Development.json (local) or App Settings (prod) — not hardcoded");
         const string superName = "FlowBoard SuperAdmin";
 
         var user = await db.Users.FirstOrDefaultAsync(u => u.Email == superEmail.ToLowerInvariant());

@@ -12,9 +12,5 @@
   "Brevo": {
     "ApiKey": "xkeysib-PASTE_YOUR_BREVO_API_KEY"
   },
-  "SuperAdmin": {
-    "Email": "superadmin@flowboard.local",
-    "Password": "PASTE_STRONG_PASSWORD_MIN_12_CHARS"
-  },
   "FrontendUrl": "http://localhost:4200"
 }
