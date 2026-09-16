@@ -29,6 +29,8 @@ export class OrganizationsComponent {
   suspendReason = signal('');
   suspendMessage = signal('');
 
+  deleteTarget = signal<any | null>(null);
+
   query = injectQuery(() => ({
     queryKey: ['superadmin-orgs', this.search(), this.page(), this.pageSize()] as const,
     queryFn: () => firstValueFrom(
@@ -176,6 +178,7 @@ export class OrganizationsComponent {
     ),
     onSuccess: () => {
       this.toast.success('Organization deleted with all data');
+      this.closeDelete();
       this.qc.invalidateQueries({ queryKey: ['superadmin-orgs'] });
     },
     onError: (e: any) => this.toast.error(e.error?.error || 'Delete failed')
@@ -209,10 +212,16 @@ export class OrganizationsComponent {
   }
 
   onDelete(row: any) {
-    if (!confirm(`Delete organization ${row.name}? This will delete all workspaces, projects, tasks and members permanently.`)) {
-      return;
-    }
+    this.deleteTarget.set(row);
+  }
 
+  closeDelete() {
+    this.deleteTarget.set(null);
+  }
+
+  confirmDelete() {
+    const row = this.deleteTarget();
+    if (!row) return;
     this.deleteMutation.mutate(row);
   }
 }

@@ -383,3 +383,60 @@
     </section>
   </div>
 }
+
+@if (deleteTarget()) {
+  <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-5">
+    <button
+      type="button"
+      class="absolute inset-0 cursor-default"
+      aria-label="Close delete dialog"
+      (click)="closeDelete()"
+    ></button>
+
+    <section class="relative z-[101] w-full max-w-lg overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-2xl">
+      <div class="border-b border-base-300 px-5 py-4 sm:px-6">
+        <div class="flex items-start gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-error/15 text-error">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14 11a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2v-7Z"></path>
+              <path stroke-linecap="round" d="M10 11V7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4"></path>
+              <path stroke-linecap="round" d="M3 11h12"></path>
+            </svg>
+          </div>
+
+          <div class="min-w-0">
+            <h3 class="text-base font-semibold text-base-content">Delete organization?</h3>
+            <p class="mt-0.5 truncate text-xs text-base-content/60">{{ deleteTarget()!.name }} • {{ deleteTarget()!.slug }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-5 py-5 sm:px-6">
+        <div class="rounded-xl border border-error/20 bg-error/5 px-4 py-3">
+          <p class="text-sm font-medium text-error">This will permanently delete the organization and all its data.</p>
+          <p class="mt-1 text-xs leading-5 text-base-content/70">All workspaces, projects, boards, tasks, sprints, members, roles and files will be removed. This cannot be undone.</p>
+        </div>
+      </div>
+
+      <div class="flex flex-col-reverse gap-2 border-t border-base-300 bg-base-200/20 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+        <button
+          class="btn btn-ghost rounded-lg text-base-content/75 hover:bg-base-200 hover:text-base-content"
+          (click)="closeDelete()"
+        >
+          Cancel
+        </button>
+
+        <button
+          class="btn btn-error rounded-lg"
+          [disabled]="deleteMutation.isPending()"
+          (click)="confirmDelete()"
+        >
+          @if (deleteMutation.isPending()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          }
+          Delete organization
+        </button>
+      </div>
+    </section>
+  </div>
+}
