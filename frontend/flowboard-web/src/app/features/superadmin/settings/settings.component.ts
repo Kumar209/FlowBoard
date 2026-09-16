@@ -11,7 +11,6 @@ import { ToastService } from '../../../core/services/toast.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './settings.component.html',
-  styleUrls: ['./settings.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SettingsComponent {
@@ -29,10 +28,14 @@ export class SettingsComponent {
     queryFn: () => firstValueFrom(this.sa.getSubscriptions()).then(r => r.plans),
   }));
 
-  get d() { return this.query.data(); }
-  get plans() { return this.plansQuery.data() ?? []; }
+  get d() {
+    return this.query.data();
+  }
 
-  // edit signals
+  get plans() {
+    return this.plansQuery.data() ?? [];
+  }
+
   generalEdit = signal<any>(null);
   securityEdit = signal<any>(null);
   aiEdit = signal<any>(null);
@@ -56,34 +59,60 @@ export class SettingsComponent {
 
   saveGeneral = injectMutation(() => ({
     mutationFn: () => firstValueFrom(this.sa.updateGeneral(this.generalEdit())),
-    onSuccess: () => { this.toast.success('Platform updated'); this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] }); this.qc.invalidateQueries({ queryKey: ['platform-general'] }); },
+    onSuccess: () => {
+      this.toast.success('Platform updated');
+      this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] });
+      this.qc.invalidateQueries({ queryKey: ['platform-general'] });
+    },
     onError: (e: any) => this.toast.error(e.error?.error || 'Save failed')
   }));
+
   saveSecurity = injectMutation(() => ({
     mutationFn: () => firstValueFrom(this.sa.updateSecurity(this.securityEdit())),
-    onSuccess: () => { this.toast.success('Security updated'); this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] }); },
+    onSuccess: () => {
+      this.toast.success('Security updated');
+      this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] });
+    },
     onError: (e: any) => this.toast.error(e.error?.error || 'Save failed')
   }));
+
   saveTenant = injectMutation(() => ({
     mutationFn: () => firstValueFrom(this.sa.updateTenantDefaults(this.tenantEdit())),
-    onSuccess: () => { this.toast.success('Tenant defaults updated'); this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] }); },
+    onSuccess: () => {
+      this.toast.success('Tenant defaults updated');
+      this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] });
+    },
     onError: (e: any) => this.toast.error(e.error?.error || 'Save failed')
   }));
+
   saveAi = injectMutation(() => ({
     mutationFn: () => firstValueFrom(this.sa.updateAi(this.aiEdit())),
-    onSuccess: () => { this.toast.success('AI settings updated'); this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] }); },
+    onSuccess: () => {
+      this.toast.success('AI settings updated');
+      this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] });
+    },
     onError: (e: any) => this.toast.error(e.error?.error || 'Save failed')
   }));
+
   saveRate = injectMutation(() => ({
     mutationFn: () => firstValueFrom(this.sa.updateRateLimits(this.rateEdit())),
-    onSuccess: () => { this.toast.success('Rate limits updated'); this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] }); },
+    onSuccess: () => {
+      this.toast.success('Rate limits updated');
+      this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] });
+    },
     onError: (e: any) => this.toast.error(e.error?.error || 'Save failed')
   }));
+
   saveMaint = injectMutation(() => ({
     mutationFn: () => firstValueFrom(this.sa.updateMaintenance(this.maintEdit())),
-    onSuccess: () => { this.toast.success('Maintenance updated'); this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] }); this.qc.invalidateQueries({ queryKey: ['platform-maintenance'] }); },
+    onSuccess: () => {
+      this.toast.success('Maintenance updated');
+      this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] });
+      this.qc.invalidateQueries({ queryKey: ['platform-maintenance'] });
+    },
     onError: (e: any) => this.toast.error(e.error?.error || 'Save failed')
   }));
+
   uploadLogoMut = injectMutation(() => ({
     mutationFn: () => {
       const f = this.logoFile();
@@ -92,7 +121,9 @@ export class SettingsComponent {
     },
     onSuccess: (res: any) => {
       this.toast.success('Logo uploaded');
-      if (this.generalEdit()) this.generalEdit.set({ ...this.generalEdit(), logoUrl: res.logoUrl });
+      if (this.generalEdit()) {
+        this.generalEdit.set({ ...this.generalEdit(), logoUrl: res.logoUrl });
+      }
       this.logoFile.set(null);
       this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] });
       this.qc.invalidateQueries({ queryKey: ['platform-general'] });

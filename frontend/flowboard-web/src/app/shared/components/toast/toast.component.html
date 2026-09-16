@@ -1,8 +1,58 @@
-<div class="toast toast-top toast-end z-[100]">
-  @for (t of toast.toasts(); track t.id) {
-    <div class="alert shadow-lg rounded-xl text-sm" [ngClass]="t.type==='success'?'alert-success': t.type==='error'?'alert-error':'alert-info'">
-      <span>{{ t.message }}</span>
-      <button class="btn btn-ghost btn-xs" (click)="toast.dismiss(t.id)">✕</button>
-    </div>
-  }
+<div class="pointer-events-none fixed inset-x-0 top-0 z-[200] flex justify-end p-3 sm:p-4">
+  <div class="flex w-full max-w-sm flex-col gap-2">
+    @for (t of toast.toasts(); track t.id) {
+      <div
+        class="pointer-events-auto flex min-h-12 items-center gap-3 rounded-xl border bg-base-100 px-3.5 py-3 text-sm shadow-xl"
+        [ngClass]="
+          t.type === 'success'
+            ? 'border-success/25'
+            : t.type === 'error'
+              ? 'border-error/25'
+              : 'border-info/25'
+        "
+      >
+        <div
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+          [ngClass]="
+            t.type === 'success'
+              ? 'bg-success/10 text-success'
+              : t.type === 'error'
+                ? 'bg-error/10 text-error'
+                : 'bg-info/10 text-info'
+          "
+        >
+          @if (t.type === 'success') {
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>
+            </svg>
+          } @else if (t.type === 'error') {
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4M12 16h.01"/>
+              <circle cx="12" cy="12" r="9"/>
+            </svg>
+          } @else {
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="9"/>
+              <path stroke-linecap="round" d="M12 10v5M12 7h.01"/>
+            </svg>
+          }
+        </div>
+
+        <span class="min-w-0 flex-1 break-words leading-5 text-base-content">
+          {{ t.message }}
+        </span>
+
+        <button
+          type="button"
+          class="btn btn-ghost btn-xs h-7 min-h-7 w-7 shrink-0 rounded-lg p-0 text-base-content/55 hover:bg-base-200 hover:text-base-content"
+          (click)="toast.dismiss(t.id)"
+          aria-label="Dismiss notification"
+        >
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/>
+          </svg>
+        </button>
+      </div>
+    }
+  </div>
 </div>

@@ -8,25 +8,22 @@ import { SuperAdminService } from '../../../core/services/superadmin.service';
 import { injectQuery } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 
-/**
- * LoginComponent - OnPush + inject() + signals (loading/error/submitted) + ReactiveForms with hasError(touched||dirty||submitted) + always-enabled button.
- * Why not simple? OnPush + signals gives fine-grained CD, not full tick. hasError with submitted ensures error shows on click submit (not disabled) + on blur.
- */
 @Component({
   selector: 'app-login',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, HeaderComponent],
   templateUrl: './login.component.html',
-  styleUrls: ['./login.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class LoginComponent {
   private sa = inject(SuperAdminService);
+
   maintenanceQuery = injectQuery(() => ({
     queryKey: ['platform-maintenance'] as const,
     queryFn: () => firstValueFrom(this.sa.getPlatformMaintenance()),
-    staleTime: 30 * 1000,
+    staleTime: 30 * 1000
   }));
+
   form: any;
   loading = signal(false);
   error = signal<string | null>(null);
@@ -76,11 +73,19 @@ export class LoginComponent {
           },
           res.accessToken
         );
-        // Hydrate memberships via me() so role-based UI works immediately (sidebar + board hide)
+
         this.auth.me().subscribe({
-          next: me => { this.auth.hydrateFromMe(me as any); this.loading.set(false); this.router.navigate(this.auth.isSuperAdmin() ? ['/superadmin'] : ['/']); },
-          error: () => { this.loading.set(false); this.router.navigate(this.auth.isSuperAdmin() ? ['/superadmin'] : ['/']); }
+          next: me => {
+            this.auth.hydrateFromMe(me as any);
+            this.loading.set(false);
+            this.router.navigate(this.auth.isSuperAdmin() ? ['/superadmin'] : ['/']);
+          },
+          error: () => {
+            this.loading.set(false);
+            this.router.navigate(this.auth.isSuperAdmin() ? ['/superadmin'] : ['/']);
+          }
         });
+
         return;
       },
       error: (err: any) => {
@@ -89,7 +94,6 @@ export class LoginComponent {
           err.error?.message ||
           'Login failed - check email/password'
         );
-
         this.loading.set(false);
       }
     });

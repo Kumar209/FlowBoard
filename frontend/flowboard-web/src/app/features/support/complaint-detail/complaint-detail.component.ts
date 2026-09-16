@@ -13,7 +13,6 @@ import { ToastService } from '../../../core/services/toast.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './complaint-detail.component.html',
-  styleUrls: ['./complaint-detail.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ComplaintDetailComponent {
@@ -39,47 +38,88 @@ export class ComplaintDetailComponent {
     queryKey: ['complaint-detail', this.orgId(), this.complaintId()] as const,
     queryFn: async () => {
       let oid = this.orgId();
+
       if (!oid) {
         const orgs: any = await firstValueFrom(this.ws.getMyOrganizations());
         const arr = Array.isArray(orgs) ? orgs : (orgs.items ?? []);
         if (arr.length) oid = arr[0].id;
       }
+
       if (!oid) throw new Error('Organization not found');
+
       return firstValueFrom(this.sa.getComplaintDetail(oid, this.complaintId()));
     },
     enabled: !!this.complaintId(),
   }));
 
-  get detail() { return this.detailQuery.data() as any; }
-  get complaint() { return this.detail?.complaint ?? null; }
-  get replies() { return (this.detail?.replies ?? []) as any[]; }
+  get detail() {
+    return this.detailQuery.data() as any;
+  }
+
+  get complaint() {
+    return this.detail?.complaint ?? null;
+  }
+
+  get replies() {
+    return (this.detail?.replies ?? []) as any[];
+  }
 
   replyMutation = injectMutation(() => ({
     mutationFn: () => {
       const oid = this.orgId() || this.complaint?.organizationId;
+
       if (!oid) throw new Error('Organization not found');
-      return firstValueFrom(this.sa.replyComplaint(oid, this.complaintId(), this.replyText().trim()));
+
+      return firstValueFrom(
+        this.sa.replyComplaint(oid, this.complaintId(), this.replyText().trim())
+      );
     },
-    onSuccess: () => { this.toast.success('Reply sent'); this.replyText.set(''); this.qc.invalidateQueries({ queryKey: ['complaint-detail', this.orgId(), this.complaintId()] }); this.qc.invalidateQueries({ queryKey: ['complaints'] }); },
+    onSuccess: () => {
+      this.toast.success('Reply sent');
+      this.replyText.set('');
+      this.qc.invalidateQueries({
+        queryKey: ['complaint-detail', this.orgId(), this.complaintId()]
+      });
+      this.qc.invalidateQueries({ queryKey: ['complaints'] });
+    },
     onError: (e: any) => this.toast.error(e.error?.error || 'Reply failed')
   }));
 
   deleteMutation = injectMutation(() => ({
     mutationFn: () => {
       const oid = this.orgId() || this.complaint?.organizationId;
+
       if (!oid) throw new Error('Organization not found');
-      return firstValueFrom(this.sa.deleteComplaint(oid, this.complaintId()));
+
+      return firstValueFrom(
+        this.sa.deleteComplaint(oid, this.complaintId())
+      );
     },
-    onSuccess: () => { this.toast.success('Complaint deleted'); this.router.navigate(['/support']); },
+    onSuccess: () => {
+      this.toast.success('Complaint deleted');
+      this.router.navigate(['/support']);
+    },
     onError: (e: any) => this.toast.error(e.error?.error || 'Delete failed')
   }));
 
   onReply() {
-    if (!this.replyText().trim()) { this.toast.error('Message required'); return; }
+    if (!this.replyText().trim()) {
+      this.toast.error('Message required');
+      return;
+    }
+
     this.replyMutation.mutate();
   }
 
-  onDelete() { this.deleteConfirm.set(true); }
-  confirmDelete() { this.deleteMutation.mutate(); }
-  goBack() { this.router.navigate(['/support']); }
+  onDelete() {
+    this.deleteConfirm.set(true);
+  }
+
+  confirmDelete() {
+    this.deleteMutation.mutate();
+  }
+
+  goBack() {
+    this.router.navigate(['/support']);
+  }
 }

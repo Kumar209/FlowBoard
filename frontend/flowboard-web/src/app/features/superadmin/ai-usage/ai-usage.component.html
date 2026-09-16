@@ -1,200 +1,714 @@
-<div class="p-3 sm:p-4 space-y-6">
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-2xl font-bold">AI Platform Usage</h1>
-      <p class="text-sm opacity-60">Aggregate only — never prompts or responses (hash/preview 500 only)</p>
-    </div>
-    <span class="badge badge-info badge-sm">SuperAdmin only</span>
-  </div>
+<div class="mx-auto w-full max-w-[1500px] space-y-5 p-3 sm:p-4 lg:p-6">
+  <section class="relative overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+    <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-secondary to-accent"></div>
 
-  <!-- Loading / Error -->
-  <div *ngIf="query.isPending()" class="flex justify-center py-12"><span class="loading loading-spinner loading-lg"></span></div>
-  <div *ngIf="query.isError()" class="alert alert-error"><span>Failed to load AI usage — please try again.</span></div>
+    <div class="relative flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+      <div class="min-w-0">
+        <div class="mb-3 flex items-center gap-2">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 7.5c0-1.7-2.1-3-5-3s-5 1.3-5 3 2.1 3 5 3 5 1.3 5 3-2.1 3-5 3-5-1.3-5-3"/>
+            </svg>
+          </div>
 
-  <ng-container *ngIf="query.data() as d">
-    <!-- Overview 7 KPIs -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3">
-      <div class="card bg-base-100 shadow">
-        <div class="card-body p-4">
-          <div class="text-xs opacity-60">Total Requests</div>
-          <div class="text-2xl font-bold">{{ overview?.totalRequests }}</div>
-          <div class="text-xs opacity-50">All providers</div>
+          <span class="text-xs font-medium text-base-content/55">Platform</span>
+
+          <svg class="h-3 w-3 text-base-content/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/>
+          </svg>
+
+          <span class="text-xs font-medium text-base-content/75">AI Usage</span>
         </div>
+
+        <h1 class="text-2xl font-semibold tracking-tight text-base-content sm:text-3xl">
+          AI Platform Usage
+        </h1>
+
+        <p class="mt-1.5 max-w-2xl text-sm text-base-content/60">
+          Monitor AI requests, token consumption, provider performance, and platform usage.
+        </p>
       </div>
-      <div class="card bg-base-100 shadow">
-        <div class="card-body p-4">
-          <div class="text-xs opacity-60">Success</div>
-          <div class="text-2xl font-bold text-success">{{ overview?.successRequests }}</div>
-          <div class="text-xs opacity-50">Status Success</div>
+
+      <div class="flex w-fit items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5">
+        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 19V5"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="m4 16 5-5 4 3 7-8"/>
+          </svg>
         </div>
-      </div>
-      <div class="card bg-base-100 shadow">
-        <div class="card-body p-4">
-          <div class="text-xs opacity-60">Failed</div>
-          <div class="text-2xl font-bold text-error">{{ overview?.failedRequests }}</div>
-          <div class="text-xs opacity-50">Status Failed</div>
-        </div>
-      </div>
-      <div class="card bg-base-100 shadow">
-        <div class="card-body p-4">
-          <div class="text-xs opacity-60">Total Tokens</div>
-          <div class="text-2xl font-bold">{{ overview?.totalTokens | number }}</div>
-          <div class="text-xs opacity-50">Input + Output</div>
-        </div>
-      </div>
-      <div class="card bg-base-100 shadow">
-        <div class="card-body p-4">
-          <div class="text-xs opacity-60">Estimated Cost</div>
-          <div class="text-2xl font-bold">{{ formatCost(overview?.estimatedCost || 0) }}</div>
-          <div class="text-xs opacity-50">USD</div>
-        </div>
-      </div>
-      <div class="card bg-base-100 shadow">
-        <div class="card-body p-4">
-          <div class="text-xs opacity-60">Avg Latency</div>
-          <div class="text-2xl font-bold">{{ overview?.avgLatencyMs | number:'1.0-1' }} ms</div>
-          <div class="text-xs opacity-50">Across all</div>
-        </div>
-      </div>
-      <div class="card bg-base-100 shadow">
-        <div class="card-body p-4">
-          <div class="text-xs opacity-60">Fallback Count</div>
-          <div class="text-2xl font-bold">{{ overview?.fallbackCount }}</div>
-          <div class="text-xs opacity-50">Groq fallback</div>
+
+        <div>
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-primary/70">
+            Platform analytics
+          </p>
+          <p class="text-xs font-medium text-base-content">
+            AI activity overview
+          </p>
         </div>
       </div>
     </div>
+  </section>
 
-    <!-- Charts -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <div class="card bg-base-100 shadow">
-        <div class="card-body p-4">
-          <h3 class="font-semibold">Requests by Provider</h3>
-          <apx-chart *ngIf="providerChart()" [series]="providerChart()!.series" [chart]="providerChart()!.chart" [labels]="providerChart()!.labels" [colors]="providerChart()!.colors" [legend]="providerChart()!.legend" [dataLabels]="providerChart()!.dataLabels"></apx-chart>
-          <div *ngIf="!providers.length" class="text-sm opacity-50 py-8 text-center">No provider data</div>
+  @if (query.isPending() && !query.data()) {
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
+      @for (i of [1,2,3,4,5,6,7]; track i) {
+        <div class="h-32 animate-pulse rounded-2xl border border-base-300/70 bg-base-100"></div>
+      }
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+      <div class="h-80 animate-pulse rounded-2xl border border-base-300/70 bg-base-100"></div>
+      <div class="h-80 animate-pulse rounded-2xl border border-base-300/70 bg-base-100"></div>
+    </div>
+  } @else if (query.isError()) {
+    <div class="rounded-2xl border border-error/25 bg-error/5 p-5">
+      <div class="flex items-start gap-3">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4"/>
+            <path stroke-linecap="round" d="M12 17h.01"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="m10.3 4.7-7 12a2 2 0 0 0 1.7 3h14a2 2 0 0 0 1.7-3l-7-12a2 2 0 0 0-3.4 0Z"/>
+          </svg>
         </div>
-      </div>
-      <div class="card bg-base-100 shadow">
-        <div class="card-body p-4">
-          <h3 class="font-semibold">Requests by Operation</h3>
-          <apx-chart *ngIf="operationChart()" [series]="operationChart()!.series" [chart]="operationChart()!.chart" [xaxis]="operationChart()!.xaxis" [colors]="operationChart()!.colors" [plotOptions]="operationChart()!.plotOptions" [dataLabels]="operationChart()!.dataLabels"></apx-chart>
-          <div *ngIf="!operations.length" class="text-sm opacity-50 py-8 text-center">No operation data</div>
+
+        <div>
+          <h2 class="text-sm font-semibold text-base-content">
+            Unable to load AI usage
+          </h2>
+          <p class="mt-1 text-xs text-base-content/60">
+            AI platform usage information is currently unavailable.
+          </p>
         </div>
       </div>
     </div>
+  } @else if (query.data(); as d) {
+    <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
+      <article class="relative overflow-hidden rounded-2xl border border-primary/20 bg-base-100 shadow-sm">
+        <div class="absolute inset-x-0 top-0 h-1 bg-primary"></div>
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-base-content/55">
+                Total requests
+              </p>
+              <p class="mt-2 text-2xl font-semibold tracking-tight text-base-content">
+                {{ overview?.totalRequests | number }}
+              </p>
+            </div>
 
-    <!-- Providers table -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <h3 class="font-semibold">Providers</h3>
-        <p class="text-xs opacity-50">Gemini/Groq — Requests/Tokens/Success/Failure/Latency/Cost</p>
-        <div class="overflow-x-auto mt-2">
-          <table class="table table-sm">
-            <thead><tr><th>Provider</th><th>Requests</th><th>Tokens</th><th>Success</th><th>Failed</th><th>Avg Latency</th><th>Cost</th></tr></thead>
-            <tbody>
-              <tr *ngFor="let p of providers">
-                <td><span class="badge badge-outline badge-sm">{{ p.provider }}</span></td>
-                <td class="font-mono">{{ p.requests }}</td>
-                <td class="font-mono">{{ p.totalTokens | number }}</td>
-                <td class="text-success font-mono">{{ p.successCount }}</td>
-                <td class="text-error font-mono">{{ p.failedCount }}</td>
-                <td class="font-mono">{{ p.avgLatencyMs | number:'1.0-1' }} ms</td>
-                <td class="font-mono">{{ formatCost(p.totalCost) }}</td>
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" d="M5 12h14"/>
+                <path stroke-linecap="round" d="m13 6 6 6-6 6"/>
+              </svg>
+            </div>
+          </div>
+
+          <p class="mt-2 text-[11px] text-base-content/50">Across all providers</p>
+        </div>
+      </article>
+
+      <article class="relative overflow-hidden rounded-2xl border border-success/20 bg-base-100 shadow-sm">
+        <div class="absolute inset-x-0 top-0 h-1 bg-success"></div>
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-base-content/55">
+                Successful
+              </p>
+              <p class="mt-2 text-2xl font-semibold tracking-tight text-success">
+                {{ overview?.successRequests | number }}
+              </p>
+            </div>
+
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-success/10 text-success">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>
+              </svg>
+            </div>
+          </div>
+
+          <p class="mt-2 text-[11px] text-success/70">Completed successfully</p>
+        </div>
+      </article>
+
+      <article class="relative overflow-hidden rounded-2xl border border-error/20 bg-base-100 shadow-sm">
+        <div class="absolute inset-x-0 top-0 h-1 bg-error"></div>
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-base-content/55">
+                Failed
+              </p>
+              <p class="mt-2 text-2xl font-semibold tracking-tight text-error">
+                {{ overview?.failedRequests | number }}
+              </p>
+            </div>
+
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-error/10 text-error">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4"/>
+                <path stroke-linecap="round" d="M12 17h.01"/>
+                <circle cx="12" cy="12" r="9"/>
+              </svg>
+            </div>
+          </div>
+
+          <p class="mt-2 text-[11px] text-error/70">Requests with errors</p>
+        </div>
+      </article>
+
+      <article class="relative overflow-hidden rounded-2xl border border-secondary/20 bg-base-100 shadow-sm">
+        <div class="absolute inset-x-0 top-0 h-1 bg-secondary"></div>
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-base-content/55">
+                Total tokens
+              </p>
+              <p class="mt-2 text-2xl font-semibold tracking-tight text-base-content">
+                {{ overview?.totalTokens | number }}
+              </p>
+            </div>
+
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <circle cx="12" cy="12" r="8.5"/>
+                <path stroke-linecap="round" d="M8 12h8M12 8v8"/>
+              </svg>
+            </div>
+          </div>
+
+          <p class="mt-2 text-[11px] text-base-content/50">Input + output</p>
+        </div>
+      </article>
+
+      <article class="relative overflow-hidden rounded-2xl border border-accent/20 bg-base-100 shadow-sm">
+        <div class="absolute inset-x-0 top-0 h-1 bg-accent"></div>
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-base-content/55">
+                Estimated cost
+              </p>
+              <p class="mt-2 text-2xl font-semibold tracking-tight text-base-content">
+                {{ formatCost(overview?.estimatedCost || 0) }}
+              </p>
+            </div>
+
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 text-accent">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" d="M12 3v18"/>
+                <path stroke-linecap="round" d="M16 7H9.5a2.5 2.5 0 0 0 0 5H14a2.5 2.5 0 0 1 0 5H8"/>
+              </svg>
+            </div>
+          </div>
+
+          <p class="mt-2 text-[11px] text-base-content/50">Estimated USD usage</p>
+        </div>
+      </article>
+
+      <article class="relative overflow-hidden rounded-2xl border border-info/20 bg-base-100 shadow-sm">
+        <div class="absolute inset-x-0 top-0 h-1 bg-info"></div>
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-base-content/55">
+                Avg latency
+              </p>
+              <p class="mt-2 text-2xl font-semibold tracking-tight text-base-content">
+                {{ overview?.avgLatencyMs | number:'1.0-1' }}<span class="ml-1 text-sm font-medium text-base-content/50">ms</span>
+              </p>
+            </div>
+
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-info/10 text-info">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <circle cx="12" cy="12" r="8.5"/>
+                <path stroke-linecap="round" d="M12 7v5l3 2"/>
+              </svg>
+            </div>
+          </div>
+
+          <p class="mt-2 text-[11px] text-base-content/50">Across all requests</p>
+        </div>
+      </article>
+
+      <article class="relative overflow-hidden rounded-2xl border border-warning/20 bg-base-100 shadow-sm">
+        <div class="absolute inset-x-0 top-0 h-1 bg-warning"></div>
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-base-content/55">
+                Fallbacks
+              </p>
+              <p class="mt-2 text-2xl font-semibold tracking-tight text-base-content">
+                {{ overview?.fallbackCount | number }}
+              </p>
+            </div>
+
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/10 text-warning">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 17h14"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m8 4-3 3 3 3M16 14l3 3-3 3"/>
+              </svg>
+            </div>
+          </div>
+
+          <p class="mt-2 text-[11px] text-warning/70">Provider fallback requests</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <article class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+        <div class="border-b border-base-300/70 px-5 py-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-base-content">Requests by provider</h2>
+              <p class="mt-0.5 text-xs text-base-content/55">
+                Distribution of AI requests across providers.
+              </p>
+            </div>
+
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <circle cx="12" cy="12" r="8.5"/>
+                <path stroke-linecap="round" d="M12 3.5v8.5l7.4 4.2"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 sm:p-5">
+          @if (providerChart(); as chart) {
+            <div class="w-full overflow-hidden">
+              <apx-chart
+                [series]="chart.series"
+                [chart]="chart.chart"
+                [labels]="chart.labels"
+                [colors]="chart.colors"
+                [legend]="chart.legend"
+                [dataLabels]="chart.dataLabels"
+                [stroke]="chart.stroke"
+                [plotOptions]="chart.plotOptions"
+              ></apx-chart>
+            </div>
+          } @else {
+            <div class="flex min-h-56 items-center justify-center text-sm text-base-content/55">
+              No provider data available.
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+        <div class="border-b border-base-300/70 px-5 py-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-base-content">Requests by operation</h2>
+              <p class="mt-0.5 text-xs text-base-content/55">
+                AI workload distribution by operation.
+              </p>
+            </div>
+
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" d="M5 19V5M5 19h14"/>
+                <path stroke-linecap="round" d="m8 15 3-4 3 2 4-6"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 sm:p-5">
+          @if (operationChart(); as chart) {
+            <div class="w-full overflow-hidden">
+              <apx-chart
+                [series]="chart.series"
+                [chart]="chart.chart"
+                [xaxis]="chart.xaxis"
+                [yaxis]="chart.yaxis"
+                [colors]="chart.colors"
+                [plotOptions]="chart.plotOptions"
+                [dataLabels]="chart.dataLabels"
+                [grid]="chart.grid"
+              ></apx-chart>
+            </div>
+          } @else {
+            <div class="flex min-h-56 items-center justify-center text-sm text-base-content/55">
+              No operation data available.
+            </div>
+          }
+        </div>
+      </article>
+    </section>
+
+    <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+      <div class="flex flex-col gap-3 border-b border-base-300/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-sm font-semibold text-base-content">Provider performance</h2>
+          <p class="mt-0.5 text-xs text-base-content/55">
+            Requests, tokens, reliability, latency, and estimated cost by provider.
+          </p>
+        </div>
+
+        <span class="rounded-lg border border-primary/15 bg-primary/5 px-2.5 py-1 text-[10px] font-medium text-primary">
+          {{ providers.length }} providers
+        </span>
+      </div>
+
+      @if (providers.length === 0) {
+        <div class="flex min-h-48 items-center justify-center text-sm text-base-content/55">
+          No provider data available.
+        </div>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[820px] border-collapse">
+            <thead>
+              <tr class="border-b border-base-300/70 bg-base-200/30">
+                <th class="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Provider</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Requests</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Tokens</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Success</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Failed</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Latency</th>
+                <th class="px-5 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Cost</th>
               </tr>
-              <tr *ngIf="!providers.length"><td colspan="7" class="text-center opacity-50">No provider data</td></tr>
+            </thead>
+
+            <tbody class="divide-y divide-base-300/60">
+              @for (p of providers; track p.provider) {
+                <tr class="transition-colors hover:bg-base-200/25">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">
+                        {{ p.provider?.charAt(0)?.toUpperCase() }}
+                      </div>
+
+                      <span class="text-sm font-semibold text-base-content">
+                        {{ p.provider }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right font-mono text-xs text-base-content/85">
+                    {{ p.requests | number }}
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right font-mono text-xs text-base-content/85">
+                    {{ p.totalTokens | number }}
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right">
+                    <span class="font-mono text-xs font-medium text-success">
+                      {{ p.successCount | number }}
+                    </span>
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right">
+                    <span class="font-mono text-xs font-medium" [class.text-error]="p.failedCount > 0" [class.text-base-content/70]="p.failedCount === 0">
+                      {{ p.failedCount | number }}
+                    </span>
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right font-mono text-xs text-base-content/75">
+                    {{ p.avgLatencyMs | number:'1.0-1' }} ms
+                  </td>
+
+                  <td class="px-5 py-3.5 text-right font-mono text-xs font-medium text-base-content">
+                    {{ formatCost(p.totalCost) }}
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+      }
+    </section>
 
-    <!-- Models table -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <h3 class="font-semibold">Models</h3>
-        <p class="text-xs opacity-50">Model/Provider — Requests Input/Output/Total/Cost</p>
-        <div class="overflow-x-auto mt-2">
-          <table class="table table-sm">
-            <thead><tr><th>Model</th><th>Provider</th><th>Requests</th><th>Input</th><th>Output</th><th>Total</th><th>Cost</th></tr></thead>
-            <tbody>
-              <tr *ngFor="let m of models">
-                <td class="font-mono text-xs">{{ m.model }}</td>
-                <td><span class="badge badge-ghost badge-sm">{{ m.provider }}</span></td>
-                <td class="font-mono">{{ m.requests }}</td>
-                <td class="font-mono">{{ m.inputTokens | number }}</td>
-                <td class="font-mono">{{ m.outputTokens | number }}</td>
-                <td class="font-mono">{{ m.totalTokens | number }}</td>
-                <td class="font-mono">{{ formatCost(m.totalCost) }}</td>
+    <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+      <div class="border-b border-base-300/70 px-5 py-4">
+        <h2 class="text-sm font-semibold text-base-content">Model usage</h2>
+        <p class="mt-0.5 text-xs text-base-content/55">
+          Request volume and token consumption by model.
+        </p>
+      </div>
+
+      @if (models.length === 0) {
+        <div class="flex min-h-48 items-center justify-center text-sm text-base-content/55">
+          No model data available.
+        </div>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[820px] border-collapse">
+            <thead>
+              <tr class="border-b border-base-300/70 bg-base-200/30">
+                <th class="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Model</th>
+                <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Provider</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Requests</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Input</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Output</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Total</th>
+                <th class="px-5 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Cost</th>
               </tr>
-              <tr *ngIf="!models.length"><td colspan="7" class="text-center opacity-50">No model data</td></tr>
+            </thead>
+
+            <tbody class="divide-y divide-base-300/60">
+              @for (m of models; track m.model) {
+                <tr class="transition-colors hover:bg-base-200/25">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 4 7v5c0 4.8 3.4 7.9 8 9 4.6-1.1 8-4.2 8-9V7l-8-4Z"/>
+                          <circle cx="12" cy="11" r="2.5"/>
+                        </svg>
+                      </div>
+
+                      <span class="font-mono text-xs font-medium text-base-content">
+                        {{ m.model }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    <span class="rounded-lg border border-base-content/10 bg-base-200/50 px-2 py-1 text-[10px] font-medium text-base-content/75">
+                      {{ m.provider }}
+                    </span>
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right font-mono text-xs text-base-content/85">
+                    {{ m.requests | number }}
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right font-mono text-xs text-base-content/75">
+                    {{ m.inputTokens | number }}
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right font-mono text-xs text-base-content/75">
+                    {{ m.outputTokens | number }}
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right font-mono text-xs font-medium text-base-content">
+                    {{ m.totalTokens | number }}
+                  </td>
+
+                  <td class="px-5 py-3.5 text-right font-mono text-xs font-medium text-base-content">
+                    {{ formatCost(m.totalCost) }}
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+      }
+    </section>
 
-    <!-- Organizations -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <h3 class="font-semibold">Organizations</h3>
-        <p class="text-xs opacity-50">Org aggregate — Requests/Tokens/Cost (no member lists)</p>
-        <div class="overflow-x-auto mt-2">
-          <table class="table table-sm">
-            <thead><tr><th>Organization</th><th>Requests</th><th>Tokens</th><th>Cost</th></tr></thead>
-            <tbody>
-              <tr *ngFor="let o of organizations">
-                <td>{{ o.organizationName }} <span class="text-xs opacity-40 font-mono">{{ o.organizationId.slice(0,8) }}</span></td>
-                <td class="font-mono">{{ o.requests }}</td>
-                <td class="font-mono">{{ o.totalTokens | number }}</td>
-                <td class="font-mono">{{ formatCost(o.totalCost) }}</td>
+    <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+      <div class="border-b border-base-300/70 px-5 py-4">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-sm font-semibold text-base-content">Organization usage</h2>
+            <p class="mt-0.5 text-xs text-base-content/55">
+              Platform-wide AI consumption by organization.
+            </p>
+          </div>
+
+          <span class="text-[10px] text-base-content/45">
+            {{ organizations.length }} organizations
+          </span>
+        </div>
+      </div>
+
+      @if (organizations.length === 0) {
+        <div class="flex min-h-48 items-center justify-center text-sm text-base-content/55">
+          No organization usage available.
+        </div>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[650px] border-collapse">
+            <thead>
+              <tr class="border-b border-base-300/70 bg-base-200/30">
+                <th class="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Organization</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Requests</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Tokens</th>
+                <th class="px-5 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Cost</th>
               </tr>
-              <tr *ngIf="!organizations.length"><td colspan="4" class="text-center opacity-50">No organization usage</td></tr>
+            </thead>
+
+            <tbody class="divide-y divide-base-300/60">
+              @for (o of organizations; track o.organizationId) {
+                <tr class="transition-colors hover:bg-base-200/25">
+                  <td class="px-5 py-3.5">
+                    <div class="flex min-w-0 items-center gap-3">
+                      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-xs font-semibold text-accent">
+                        {{ o.organizationName?.charAt(0)?.toUpperCase() }}
+                      </div>
+
+                      <div class="min-w-0">
+                        <div class="truncate text-sm font-semibold text-base-content">
+                          {{ o.organizationName }}
+                        </div>
+
+                        <div class="mt-0.5 truncate font-mono text-[10px] text-base-content/45">
+                          {{ o.organizationId.slice(0,8) }}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right font-mono text-xs text-base-content/85">
+                    {{ o.requests | number }}
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right font-mono text-xs text-base-content/85">
+                    {{ o.totalTokens | number }}
+                  </td>
+
+                  <td class="px-5 py-3.5 text-right font-mono text-xs font-medium text-base-content">
+                    {{ formatCost(o.totalCost) }}
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+      }
+    </section>
 
-    <!-- Operations -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <h3 class="font-semibold">Operations</h3>
-        <p class="text-xs opacity-50">draft / enhance / criteria / breakdown / usage</p>
-        <div class="overflow-x-auto mt-2">
-          <table class="table table-sm">
-            <thead><tr><th>Operation</th><th>Requests</th><th>Tokens</th><th>Cost</th></tr></thead>
-            <tbody>
-              <tr *ngFor="let op of operations">
-                <td><span class="badge badge-info badge-sm">{{ op.operation }}</span></td>
-                <td class="font-mono">{{ op.requests }}</td>
-                <td class="font-mono">{{ op.totalTokens | number }}</td>
-                <td class="font-mono">{{ formatCost(op.totalCost) }}</td>
+    <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+      <div class="border-b border-base-300/70 px-5 py-4">
+        <h2 class="text-sm font-semibold text-base-content">Operations</h2>
+        <p class="mt-0.5 text-xs text-base-content/55">
+          AI request volume, token usage, and cost by operation.
+        </p>
+      </div>
+
+      @if (operations.length === 0) {
+        <div class="flex min-h-48 items-center justify-center text-sm text-base-content/55">
+          No operation data available.
+        </div>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[620px] border-collapse">
+            <thead>
+              <tr class="border-b border-base-300/70 bg-base-200/30">
+                <th class="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Operation</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Requests</th>
+                <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Tokens</th>
+                <th class="px-5 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Cost</th>
               </tr>
-              <tr *ngIf="!operations.length"><td colspan="4" class="text-center opacity-50">No operation data</td></tr>
+            </thead>
+
+            <tbody class="divide-y divide-base-300/60">
+              @for (op of operations; track op.operation) {
+                <tr class="transition-colors hover:bg-base-200/25">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-info/10 text-info">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h10M4 18h7"/>
+                        </svg>
+                      </div>
+
+                      <span class="text-sm font-medium text-base-content">
+                        {{ op.operation }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right font-mono text-xs text-base-content/85">
+                    {{ op.requests | number }}
+                  </td>
+
+                  <td class="px-4 py-3.5 text-right font-mono text-xs text-base-content/85">
+                    {{ op.totalTokens | number }}
+                  </td>
+
+                  <td class="px-5 py-3.5 text-right font-mono text-xs font-medium text-base-content">
+                    {{ formatCost(op.totalCost) }}
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+      }
+    </section>
 
-    <!-- Failures -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <h3 class="font-semibold">Failures</h3>
-        <p class="text-xs opacity-50">Top failure reasons — count only, no raw stack</p>
-        <div class="overflow-x-auto mt-2">
-          <table class="table table-sm">
-            <thead><tr><th>Reason</th><th>Count</th></tr></thead>
-            <tbody>
-              <tr *ngFor="let f of failures">
-                <td class="text-sm truncate max-w-[400px]">{{ f.reason }}</td>
-                <td><span class="badge badge-error badge-sm">{{ f.count }}</span></td>
+    <section class="overflow-hidden rounded-2xl border border-error/20 bg-base-100 shadow-sm">
+      <div class="flex flex-col gap-3 border-b border-error/15 bg-error/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-3">
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-error/10 text-error">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4"/>
+              <path stroke-linecap="round" d="M12 17h.01"/>
+              <circle cx="12" cy="12" r="9"/>
+            </svg>
+          </div>
+
+          <div>
+            <h2 class="text-sm font-semibold text-base-content">Failure overview</h2>
+            <p class="mt-0.5 text-xs text-base-content/55">
+              Most common AI request failure reasons.
+            </p>
+          </div>
+        </div>
+
+        @if (failures.length > 0) {
+          <span class="rounded-lg border border-error/20 bg-error/10 px-2.5 py-1 text-[10px] font-medium text-error">
+            {{ failures.length }} {{ failures.length === 1 ? 'reason' : 'reasons' }}
+          </span>
+        }
+      </div>
+
+      @if (failures.length === 0) {
+        <div class="flex min-h-44 flex-col items-center justify-center px-5 text-center">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10 text-success">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>
+            </svg>
+          </div>
+
+          <h3 class="mt-3 text-sm font-semibold text-base-content">
+            No failures recorded
+          </h3>
+
+          <p class="mt-1 text-xs text-base-content/55">
+            No AI request failures are currently reported.
+          </p>
+        </div>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[560px] border-collapse">
+            <thead>
+              <tr class="border-b border-base-300/70 bg-base-200/30">
+                <th class="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Failure reason</th>
+                <th class="px-5 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-base-content/60">Count</th>
               </tr>
-              <tr *ngIf="!failures.length"><td colspan="2" class="text-center opacity-50">No failures 🎉</td></tr>
+            </thead>
+
+            <tbody class="divide-y divide-base-300/60">
+              @for (f of failures; track f.reason) {
+                <tr class="transition-colors hover:bg-error/5">
+                  <td class="max-w-[500px] px-5 py-3.5">
+                    <div class="truncate text-sm text-base-content" [title]="f.reason">
+                      {{ f.reason }}
+                    </div>
+                  </td>
+
+                  <td class="px-5 py-3.5 text-right">
+                    <span class="inline-flex min-w-8 items-center justify-center rounded-lg border border-error/20 bg-error/10 px-2 py-1 font-mono text-xs font-medium text-error">
+                      {{ f.count | number }}
+                    </span>
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
-  </ng-container>
+      }
+    </section>
+  }
 </div>

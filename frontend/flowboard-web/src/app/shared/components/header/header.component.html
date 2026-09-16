@@ -1,19 +1,21 @@
 <header class="fixed inset-x-0 top-0 z-[80] border-b border-base-300/60 bg-base-100/90 backdrop-blur-2xl">
   <div class="navbar mx-auto min-h-16 max-w-[1800px] px-3 sm:px-5 lg:px-6">
     <div class="navbar-start min-w-0 gap-2">
-      <button type="button" class="btn btn-ghost btn-square btn-sm rounded-xl lg:hidden" (click)="requestMobileMenu()" [attr.aria-expanded]="mobileOpen()" aria-label="Open navigation">
-        @if (mobileOpen()) {
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        } @else {
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/>
-          </svg>
-        }
-      </button>
+      @if (auth.isAuthenticated()) {
+        <button type="button" class="btn btn-ghost btn-square btn-sm rounded-xl lg:hidden" (click)="requestMobileMenu()" [attr.aria-expanded]="mobileOpen()" aria-label="Open navigation">
+          @if (mobileOpen()) {
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          } @else {
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+          }
+        </button>
+      }
 
-      <a routerLink="/"  class="group flex min-w-0 items-center gap-2.5">
+      <a routerLink="/" class="group flex min-w-0 items-center gap-2.5">
         <ng-container *ngIf="platformQuery.data() as pg; else defaultLogo">
           <img *ngIf="pg.logoUrl && pg.logoUrl.startsWith('http')" [src]="pg.logoUrl" class="h-9 w-9 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-base-300/60" alt="logo"/>
           <div *ngIf="!pg.logoUrl || !pg.logoUrl.startsWith('http')" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-content shadow-sm ring-1 ring-primary/20">
@@ -99,6 +101,7 @@
                 } @else {
                   <p class="py-8 text-center text-xs opacity-40">Loading…</p>
                 }
+
                 <div class="border-t border-base-300/60 p-2">
                   <a routerLink="/superadmin/support" (click)="closeNotif()" class="btn btn-primary btn-sm w-full rounded-xl">View all support</a>
                 </div>
@@ -122,6 +125,7 @@
                 } @else {
                   <p class="py-8 text-center text-xs opacity-40">Loading…</p>
                 }
+
                 <div class="border-t border-base-300/60 p-2">
                   <a routerLink="/notifications" (click)="closeNotif()" class="btn btn-primary btn-sm w-full rounded-xl">View all notifications</a>
                 </div>
@@ -134,7 +138,7 @@
       <div class="dropdown dropdown-end">
         <button type="button" tabindex="0" class="btn btn-ghost btn-sm gap-1.5 rounded-xl px-2.5" aria-label="Choose theme">
           <svg class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18l-.813-2.096A4.5 4.5 0 006.096 13.5L4 12l2.096-.813A4.5 4.5 0 008.187 9L9 6.904 9.813 9a4.5 4.5 0 002.091 2.187L14 12l-2.096 1.5a4.5 4.5 0 00-2.091 2.404zM18.259 8.715L18 10l-.259-1.285A2.25 2.25 0 0016.285 7.26L15 7l1.285-.259A2.25 2.25 0 0017.741 5.285L18 4l.259 1.285A2.25 2.25 0 0019.715 6.74L21 7l-1.285.259A2.25 2.25 0 0018.259 8.715zM18 16l-.387.968A3.75 3.75 0 0115.968 18.613L15 19l.968.387A3.75 3.75 0 0117.613 21L18 22l.387-.968A3.75 3.75 0 0119.032 19.387L20 19l-.968-.387A3.75 3.75 0 0118.387 17.968L18 16z"/>
+            <path d="M9.813 15.904L9 18l-.813-2.096A4.5 4.5 0 006.096 13.5L4 12l2.096-.813A4.5 4.5 0 008.187 9L9 6.904 9.813 9a4.5 4.5 0 002.091 2.187L14 12l-2.096 1.5a4.5 4.5 0 00-2.091 2.404zM18.259 8.715L18 10l-.259-1.285A2.25 2.25 0 0016.285 7.26L15 7l1.285-.259A2.25 2.25 0 0017.741 5.285L18 4l.259 1.285A2.25 2.25 0 0019.715 6.74L21 7l-1.285.259A2.25 2.25 0 0018.259 8.715zM18 16l-.387.968A3.75 3.75 0 0115.968 18.613L15 19l.968.387A3.75 3.75 0 0117.613 21L18 22l.387-.968A3.75 3.75 0 0119.032 19.387L20 19l-.968-.387A3.75 3.75 0 0118.387 17.968L18 16z"/>
           </svg>
           <span class="hidden text-xs font-semibold capitalize sm:inline">{{ themeService.currentTheme() }}</span>
           <svg class="h-3 w-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -147,6 +151,7 @@
             <div class="text-sm font-bold">Choose theme</div>
             <div class="mt-0.5 text-[10px] opacity-50">Customize your FlowBoard workspace</div>
           </div>
+
           <div class="max-h-80 overflow-y-auto p-2">
             <div class="grid grid-cols-2 gap-1">
               @for (t of themeService.themes; track t.value) {
@@ -167,9 +172,11 @@
               <div class="truncate text-xs font-semibold">{{ auth.currentUser()?.fullName }}</div>
               <div class="truncate text-[9px] opacity-50">{{ auth.currentUser()?.email }}</div>
             </div>
+
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-content ring-2 ring-base-100 shadow-sm">
               {{ (auth.currentUser()?.fullName || 'U').charAt(0).toUpperCase() }}
             </div>
+
             <svg class="hidden h-3 w-3 opacity-40 xl:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" d="m6 9 6 6 6-6"/>
             </svg>
@@ -181,11 +188,13 @@
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-content">
                   {{ (auth.currentUser()?.fullName || 'U').charAt(0).toUpperCase() }}
                 </div>
+
                 <div class="min-w-0">
                   <div class="truncate text-xs font-semibold">{{ auth.currentUser()?.fullName }}</div>
                   <div class="mt-0.5 truncate text-[10px] opacity-50">{{ auth.currentUser()?.email }}</div>
                 </div>
               </div>
+
               <div class="mt-3">
                 @if (auth.isSuperAdmin()) {
                   <span class="badge badge-error rounded-full px-2 py-1 text-[10px] font-semibold">FlowBoard SuperAdmin</span>
@@ -194,6 +203,7 @@
                 }
               </div>
             </div>
+
             <button type="button" class="btn btn-ghost btn-sm w-full justify-start gap-2 rounded-xl text-error hover:bg-error/10" (click)="logout()">
               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12H3m0 0l4-4m-4 4l4 4M21 5v14a2 2 0 01-2 2h-6"/>
@@ -203,8 +213,8 @@
           </div>
         </div>
       } @else {
-        <a routerLink="/login" class="btn btn-ghost btn-sm hidden rounded-xl px-3 lg:inline-flex">Sign in</a>
-        <a routerLink="/register" class="btn btn-primary btn-sm hidden rounded-xl px-4 lg:inline-flex">Get started</a>
+        <a routerLink="/login" class="btn btn-ghost btn-sm rounded-xl px-3">Sign in</a>
+        <a routerLink="/register" class="btn btn-primary btn-sm rounded-xl px-4">Get started</a>
       }
     </div>
   </div>

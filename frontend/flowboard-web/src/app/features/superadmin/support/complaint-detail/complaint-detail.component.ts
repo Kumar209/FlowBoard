@@ -12,7 +12,6 @@ import { ToastService } from '../../../../core/services/toast.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './complaint-detail.component.html',
-  styleUrls: ['./complaint-detail.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ComplaintDetailComponent {
@@ -32,28 +31,56 @@ export class ComplaintDetailComponent {
     enabled: !!this.complaintId(),
   }));
 
-  get detail() { return this.detailQuery.data() as any; }
-  get complaint() { return this.detail?.complaint ?? null; }
-  get replies() { return (this.detail?.replies ?? []) as any[]; }
+  get detail() {
+    return this.detailQuery.data() as any;
+  }
+
+  get complaint() {
+    return this.detail?.complaint ?? null;
+  }
+
+  get replies() {
+    return (this.detail?.replies ?? []) as any[];
+  }
 
   replyMutation = injectMutation(() => ({
     mutationFn: () => firstValueFrom(this.sa.replyAsSuperAdmin(this.complaintId(), this.replyText().trim())),
-    onSuccess: () => { this.toast.success('Reply sent'); this.replyText.set(''); this.qc.invalidateQueries({ queryKey: ['superadmin-complaint-detail', this.complaintId()] }); this.qc.invalidateQueries({ queryKey: ['superadmin-complaints'] }); },
+    onSuccess: () => {
+      this.toast.success('Reply sent');
+      this.replyText.set('');
+      this.qc.invalidateQueries({ queryKey: ['superadmin-complaint-detail', this.complaintId()] });
+      this.qc.invalidateQueries({ queryKey: ['superadmin-complaints'] });
+    },
     onError: (e: any) => this.toast.error(e.error?.error || 'Reply failed')
   }));
 
   deleteMutation = injectMutation(() => ({
     mutationFn: () => firstValueFrom(this.sa.deleteSuperAdminComplaint(this.complaintId())),
-    onSuccess: () => { this.toast.success('Complaint deleted'); this.router.navigate(['/superadmin/support']); },
+    onSuccess: () => {
+      this.toast.success('Complaint deleted');
+      this.router.navigate(['/superadmin/support']);
+    },
     onError: (e: any) => this.toast.error(e.error?.error || 'Delete failed')
   }));
 
   onReply() {
-    if (!this.replyText().trim()) { this.toast.error('Message required'); return; }
+    if (!this.replyText().trim()) {
+      this.toast.error('Message required');
+      return;
+    }
+
     this.replyMutation.mutate();
   }
 
-  onDelete() { this.deleteConfirm.set(true); }
-  confirmDelete() { this.deleteMutation.mutate(); }
-  goBack() { this.router.navigate(['/superadmin/support']); }
+  onDelete() {
+    this.deleteConfirm.set(true);
+  }
+
+  confirmDelete() {
+    this.deleteMutation.mutate();
+  }
+
+  goBack() {
+    this.router.navigate(['/superadmin/support']);
+  }
 }

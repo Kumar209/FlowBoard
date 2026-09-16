@@ -10,5 +10,5 @@ import { CommonModule } from '@angular/common';
 })
 export class LoaderComponent {
   text = input<string>('Loading...');
-  size = input<'sm'|'md'|'lg'>('md');
+  size = input<'sm' | 'md' | 'lg'>('md');
 }

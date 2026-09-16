@@ -8,25 +8,22 @@ import { SuperAdminService } from '../../../core/services/superadmin.service';
 import { injectQuery } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 
-/**
- * RegisterComponent - OnPush + signals + ReactiveForms typed + always-enabled button + input-error below.
- * Boilerplate (hasError with touched||dirty||submitted, markAllAsTouched on submit) is intentional for production UX (a11y, not disabled).
- */
 @Component({
   selector: 'app-register',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, HeaderComponent],
   templateUrl: './register.component.html',
-  styleUrls: ['./register.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RegisterComponent {
   private sa = inject(SuperAdminService);
+
   maintenanceQuery = injectQuery(() => ({
     queryKey: ['platform-maintenance'] as const,
     queryFn: () => firstValueFrom(this.sa.getPlatformMaintenance()),
-    staleTime: 30 * 1000,
+    staleTime: 30 * 1000
   }));
+
   form: any;
   loading = signal(false);
   error = signal<string | null>(null);
@@ -70,7 +67,13 @@ export class RegisterComponent {
 
     const { fullName, email, password, companyName, companyDescription } = this.form.getRawValue();
 
-    this.auth.register(email!, password!, fullName!, companyName!, companyDescription || undefined).subscribe({
+    this.auth.register(
+      email!,
+      password!,
+      fullName!,
+      companyName!,
+      companyDescription || undefined
+    ).subscribe({
       next: (res: any) => {
         this.auth.setSession(
           {
@@ -80,13 +83,14 @@ export class RegisterComponent {
           },
           res.accessToken
         );
+
         this.auth.me().subscribe({
           next: me => this.auth.hydrateFromMe(me as any),
           error: () => {}
         });
+
         this.success.set(true);
         this.loading.set(false);
-
         setTimeout(() => this.router.navigate(['/']), 800);
       },
       error: (err: any) => {

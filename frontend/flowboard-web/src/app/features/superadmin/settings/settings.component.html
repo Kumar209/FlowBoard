@@ -1,116 +1,646 @@
-<div class="p-3 sm:p-4 space-y-6">
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-2xl font-bold">Platform Settings</h1>
-      <p class="text-sm opacity-60">6 dynamic groups (DB + Redis 30s) + System read-only — never raw keys</p>
-    </div>
-    <span class="badge badge-info badge-sm">SuperAdmin only</span>
-  </div>
+<div class="mx-auto w-full max-w-[1500px] space-y-5 p-3 sm:p-4 lg:p-6">
+  <section class="relative overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+    <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-secondary to-accent"></div>
 
-  <div *ngIf="query.isPending()" class="flex justify-center py-12"><span class="loading loading-spinner loading-lg"></span></div>
-  <div *ngIf="query.isError()" class="alert alert-error"><span>Failed to load settings — please try again.</span></div>
+    <div class="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+      <div class="min-w-0">
+        <div class="mb-3 flex items-center gap-2">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5 14 5l2.5-.5.9 2.4 2.1 1.4-.9 2.4 1.1 2.3-2 1.5-.2 2.5-2.4.5-1.1 2.2-2.4-.9-2.4.9-1.1-2.2-2.4-.5-.2-2.5-2-1.5 1.1-2.3-.9-2.4 2.1-1.4.9-2.4L10 5l2-1.5Z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
 
-  <ng-container *ngIf="d as s">
-    <!-- General -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <div class="flex justify-between items-center"><h3 class="font-semibold">Platform Identity</h3><button class="btn btn-xs btn-primary" (click)="saveGeneral.mutate()" [disabled]="saveGeneral.isPending()">Save</button></div>
-        <div *ngIf="generalEdit() as g" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-          <label class="form-control"><span class="label-text text-xs">Platform Name</span><input class="input input-bordered input-sm" [(ngModel)]="g.platformName" /></label>
-          <label class="form-control"><span class="label-text text-xs">Support Email</span><input class="input input-bordered input-sm" [(ngModel)]="g.supportEmail" /></label>
-          <label class="form-control"><span class="label-text text-xs">Language</span><input class="input input-bordered input-sm" [(ngModel)]="g.language" /></label>
-          <label class="form-control"><span class="label-text text-xs">Timezone</span><input class="input input-bordered input-sm" [(ngModel)]="g.timezone" /></label>
-          <label class="form-control col-span-full"><span class="label-text text-xs">Logo URL (auto-synced to header)</span><input class="input input-bordered input-sm" [(ngModel)]="g.logoUrl" /><div class="flex gap-2 mt-1"><input type="file" accept="image/*" class="file-input file-input-bordered file-input-sm" (change)="onLogoSelected($event)" /><button class="btn btn-xs" (click)="uploadLogoMut.mutate()" [disabled]="!logoFile() || uploadLogoMut.isPending()">Upload to Cloudinary</button></div></label>
+          <span class="text-xs font-medium text-base-content/55">Platform</span>
+
+          <svg class="h-3 w-3 text-base-content/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/>
+          </svg>
+
+          <span class="text-xs font-medium text-base-content/75">Settings</span>
+        </div>
+
+        <h1 class="text-2xl font-semibold tracking-tight text-base-content sm:text-3xl">
+          Platform Settings
+        </h1>
+
+        <p class="mt-1.5 max-w-2xl text-sm text-base-content/60">
+          Configure platform identity, security, AI services, tenant defaults, traffic limits, and maintenance.
+        </p>
+      </div>
+
+      <div class="flex w-fit items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5">
+        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M3 12h18"/>
+            <circle cx="12" cy="12" r="8.5"/>
+          </svg>
+        </div>
+
+        <div>
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-primary/70">
+            Administration
+          </p>
+          <p class="text-xs font-medium text-base-content">
+            Platform controls
+          </p>
         </div>
       </div>
     </div>
+  </section>
 
-    <!-- Security -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <div class="flex justify-between items-center"><h3 class="font-semibold">Security Policy</h3><button class="btn btn-xs btn-primary" (click)="saveSecurity.mutate()" [disabled]="saveSecurity.isPending()">Save</button></div>
-        <div *ngIf="securityEdit() as sec" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-          <label class="form-control"><span class="label-text text-xs">Session Timeout</span><input class="input input-bordered input-sm" [(ngModel)]="sec.sessionTimeout" placeholder="30m" /></label>
-          <label class="form-control"><span class="label-text text-xs">Max Login Attempts</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="sec.maxLoginAttempts" /></label>
-          <label class="form-control"><span class="label-text text-xs">Lockout Minutes</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="sec.lockoutMinutes" /></label>
-          <label class="form-control col-span-full"><span class="label-text text-xs">Password Policy</span><input class="input input-bordered input-sm" [(ngModel)]="sec.passwordPolicy" /></label>
-          <label class="form-control"><span class="label-text text-xs">MFA</span><input type="checkbox" class="toggle toggle-sm" [(ngModel)]="sec.mfaRequired" /></label>
+  @if (query.isPending() && !query.data()) {
+    <div class="space-y-4">
+      @for (i of [1,2,3,4,5,6]; track i) {
+        <div class="h-44 animate-pulse rounded-2xl border border-base-300/70 bg-base-100"></div>
+      }
+    </div>
+  } @else if (query.isError()) {
+    <section class="rounded-2xl border border-error/25 bg-error/5 p-5">
+      <div class="flex items-start gap-3">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4"/>
+            <path stroke-linecap="round" d="M12 17h.01"/>
+            <circle cx="12" cy="12" r="9"/>
+          </svg>
+        </div>
+
+        <div>
+          <h2 class="text-sm font-semibold text-base-content">Unable to load settings</h2>
+          <p class="mt-1 text-xs text-base-content/60">
+            Platform settings are currently unavailable.
+          </p>
         </div>
       </div>
-    </div>
+    </section>
+  } @else if (d; as s) {
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <!-- Platform Identity -->
+      <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+        <div class="flex items-center justify-between gap-3 border-b border-base-300/70 px-5 py-4">
+          <div class="flex min-w-0 items-center gap-3">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16M6 20V8l6-4 6 4v12M9 20v-6h6v6"/>
+              </svg>
+            </div>
 
-    <!-- Tenant Defaults -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <div class="flex justify-between items-center"><h3 class="font-semibold">Tenant Defaults</h3><button class="btn btn-xs btn-primary" (click)="saveTenant.mutate()" [disabled]="saveTenant.isPending()">Save</button></div>
-        <div *ngIf="tenantEdit() as t" class="mt-2">
-          <label class="form-control max-w-sm"><span class="label-text text-xs">Default Plan for new orgs</span><select class="select select-bordered select-sm" [(ngModel)]="t.defaultPlanId"><option *ngFor="let p of plans" [value]="p.id">{{p.name}} - {{p.price | currency}} ({{p.maxUsers}} users)</option></select></label>
-          <div class="text-xs opacity-50 mt-1">AuthService Register reads this — no redeploy.</div>
+            <div class="min-w-0">
+              <h2 class="text-sm font-semibold text-base-content">Platform Identity</h2>
+              <p class="mt-0.5 text-xs text-base-content/55">Name, support, locale, and branding.</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn-primary btn-sm h-9 min-h-9 rounded-lg px-3 text-xs"
+            (click)="saveGeneral.mutate()"
+            [disabled]="saveGeneral.isPending()"
+          >
+            @if (saveGeneral.isPending()) {
+              <span class="loading loading-spinner loading-xs"></span>
+            } @else {
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12.5 9.5 17 19 7"/>
+              </svg>
+            }
+            Save
+          </button>
         </div>
-      </div>
-    </div>
 
-    <!-- AI Runtime -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <div class="flex justify-between items-center"><h3 class="font-semibold">AI Runtime</h3><button class="btn btn-xs btn-primary" (click)="saveAi.mutate()" [disabled]="saveAi.isPending()">Save</button></div>
-        <div *ngIf="aiEdit() as ai" class="space-y-3 mt-2">
-          <div *ngFor="let p of ai.providers; let i=index" class="border rounded p-3">
-            <div class="font-medium text-sm">{{p.provider}} <span class="text-xs opacity-40">key •• configured (never raw)</span></div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-              <label class="flex items-center gap-1 text-xs"><input type="checkbox" class="checkbox checkbox-xs" [(ngModel)]="p.enabled" /> Enabled</label>
-              <label class="flex items-center gap-1 text-xs"><input type="checkbox" class="checkbox checkbox-xs" [(ngModel)]="p.isDefault" /> Default</label>
-              <label class="flex items-center gap-1 text-xs"><input type="checkbox" class="checkbox checkbox-xs" [(ngModel)]="p.isFallback" /> Fallback</label>
-              <label class="form-control"><span class="label-text text-xs">Timeout ms</span><input type="number" class="input input-bordered input-xs" [(ngModel)]="p.timeoutMs" /></label>
-              <label class="form-control"><span class="label-text text-xs">Max Retries</span><input type="number" class="input input-bordered input-xs" [(ngModel)]="p.maxRetries" /></label>
-              <label class="form-control col-span-full"><span class="label-text text-xs">Models (comma)</span><input class="input input-bordered input-xs" [ngModel]="p.models.join(',')" (ngModelChange)="p.models=$event.split(',').map(s=>s.trim()).filter(s=>s)" /></label>
+        @if (generalEdit(); as g) {
+          <div class="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
+            <label class="form-control">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Platform Name</span>
+              <input class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 bg-base-100 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="g.platformName" />
+            </label>
+
+            <label class="form-control">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Support Email</span>
+              <input type="email" class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 bg-base-100 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="g.supportEmail" />
+            </label>
+
+            <label class="form-control">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Language</span>
+              <input class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 bg-base-100 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="g.language" />
+            </label>
+
+            <label class="form-control">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Timezone</span>
+              <input class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 bg-base-100 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="g.timezone" />
+            </label>
+
+            <div class="sm:col-span-2">
+              <label class="form-control">
+                <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Platform Logo</span>
+                <input class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 bg-base-100 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="g.logoUrl" />
+              </label>
+
+              <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="file-input file-input-bordered file-input-sm h-10 w-full rounded-lg border-base-content/15 text-xs text-base-content sm:max-w-sm"
+                  (change)="onLogoSelected($event)"
+                />
+
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm h-10 rounded-lg border-base-content/20 text-xs text-base-content/80 hover:border-primary hover:bg-primary/5 hover:text-primary"
+                  (click)="uploadLogoMut.mutate()"
+                  [disabled]="!logoFile() || uploadLogoMut.isPending()"
+                >
+                  @if (uploadLogoMut.isPending()) {
+                    <span class="loading loading-spinner loading-xs"></span>
+                  } @else {
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/>
+                    </svg>
+                  }
+                  Upload logo
+                </button>
+              </div>
+
+              @if (logoFile(); as file) {
+                <div class="mt-2 flex items-center gap-2 text-xs text-base-content/60">
+                  <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+                  {{ file.name }}
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- Security -->
+      <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+        <div class="flex items-center justify-between gap-3 border-b border-base-300/70 px-5 py-4">
+          <div class="flex min-w-0 items-center gap-3">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 4.5 6v5.5c0 4.5 3.1 7.7 7.5 9.5 4.4-1.8 7.5-5 7.5-9.5V6L12 3Z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m9 12 2 2 4-4"/>
+              </svg>
+            </div>
+
+            <div class="min-w-0">
+              <h2 class="text-sm font-semibold text-base-content">Security Policy</h2>
+              <p class="mt-0.5 text-xs text-base-content/55">Authentication and account protection.</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn-primary btn-sm h-9 min-h-9 rounded-lg px-3 text-xs"
+            (click)="saveSecurity.mutate()"
+            [disabled]="saveSecurity.isPending()"
+          >
+            @if (saveSecurity.isPending()) {
+              <span class="loading loading-spinner loading-xs"></span>
+            }
+            Save
+          </button>
+        </div>
+
+        @if (securityEdit(); as sec) {
+          <div class="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+            <label class="form-control">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Session Timeout</span>
+              <input class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="sec.sessionTimeout" placeholder="30m" />
+            </label>
+
+            <label class="form-control">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Max Login Attempts</span>
+              <input type="number" class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="sec.maxLoginAttempts" />
+            </label>
+
+            <label class="form-control">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Lockout Minutes</span>
+              <input type="number" class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="sec.lockoutMinutes" />
+            </label>
+
+            <label class="form-control sm:col-span-2 lg:col-span-3">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Password Policy</span>
+              <input class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="sec.passwordPolicy" />
+            </label>
+
+            <div class="flex items-center justify-between rounded-xl border border-base-content/10 bg-base-200/25 px-4 py-3 sm:col-span-2 lg:col-span-3">
+              <div>
+                <p class="text-sm font-medium text-base-content">Multi-factor authentication</p>
+                <p class="mt-0.5 text-xs text-base-content/55">Require MFA for platform accounts.</p>
+              </div>
+
+              <input type="checkbox" class="toggle toggle-primary toggle-sm" [(ngModel)]="sec.mfaRequired" />
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- Tenant Defaults -->
+      <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+        <div class="flex items-center justify-between gap-3 border-b border-base-300/70 px-5 py-4">
+          <div class="flex min-w-0 items-center gap-3">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 20V8l6-4 6 4v12"/>
+                <path stroke-linecap="round" d="M9 12h6M9 16h6"/>
+              </svg>
+            </div>
+
+            <div>
+              <h2 class="text-sm font-semibold text-base-content">Tenant Defaults</h2>
+              <p class="mt-0.5 text-xs text-base-content/55">Defaults applied to newly created organizations.</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn-primary btn-sm h-9 min-h-9 rounded-lg px-3 text-xs"
+            (click)="saveTenant.mutate()"
+            [disabled]="saveTenant.isPending()"
+          >
+            @if (saveTenant.isPending()) {
+              <span class="loading loading-spinner loading-xs"></span>
+            }
+            Save
+          </button>
+        </div>
+
+        @if (tenantEdit(); as t) {
+          <div class="p-5">
+            <label class="form-control w-full max-w-md">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Default plan for new organizations</span>
+
+              <select
+                class="select select-bordered select-sm h-10 w-full rounded-lg border-base-content/15 bg-base-100 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0"
+                [(ngModel)]="t.defaultPlanId"
+              >
+                @for (p of plans; track p.id) {
+                  <option [value]="p.id">
+                    {{ p.name }} — {{ p.price | currency }} · {{ p.maxUsers }} users
+                  </option>
+                }
+              </select>
+            </label>
+          </div>
+        }
+      </section>
+
+      <!-- Rate Limits -->
+      <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+        <div class="flex items-center justify-between gap-3 border-b border-base-300/70 px-5 py-4">
+          <div class="flex min-w-0 items-center gap-3">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M4 8h16M4 16h16"/>
+              </svg>
+            </div>
+
+            <div>
+              <h2 class="text-sm font-semibold text-base-content">Rate Limits & Quotas</h2>
+              <p class="mt-0.5 text-xs text-base-content/55">Control request volume across platform services.</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn-primary btn-sm h-9 min-h-9 rounded-lg px-3 text-xs"
+            (click)="saveRate.mutate()"
+            [disabled]="saveRate.isPending()"
+          >
+            @if (saveRate.isPending()) {
+              <span class="loading loading-spinner loading-xs"></span>
+            }
+            Save
+          </button>
+        </div>
+
+        @if (rateEdit(); as r) {
+          <div class="p-5">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <label class="form-control">
+                <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Authentication / min</span>
+                <input type="number" class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="r.authRequestsPerMinute" />
+              </label>
+
+              <label class="form-control">
+                <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">API / min</span>
+                <input type="number" class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="r.apiRequestsPerMinute" />
+              </label>
+
+              <label class="form-control">
+                <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">AI / min</span>
+                <input type="number" class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="r.aiRequestsPerMinute" />
+              </label>
+
+              <label class="form-control">
+                <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">File / min</span>
+                <input type="number" class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="r.fileRequestsPerMinute" />
+              </label>
+
+              <label class="form-control">
+                <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Notifications / min</span>
+                <input type="number" class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="r.notificationRequestsPerMinute" />
+              </label>
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- AI Runtime -->
+      <section class="overflow-hidden rounded-2xl border border-primary/20 bg-base-100 shadow-sm xl:col-span-2">
+        <div class="flex flex-col gap-3 border-b border-primary/15 bg-primary/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex min-w-0 items-center gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v3M12 18v3M3 12h3M18 12h3"/>
+                <circle cx="12" cy="12" r="5"/>
+                <path stroke-linecap="round" d="m5.6 5.6 2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>
+              </svg>
+            </div>
+
+            <div>
+              <h2 class="text-sm font-semibold text-base-content">AI Runtime</h2>
+              <p class="mt-0.5 text-xs text-base-content/55">Configure providers, fallback behavior, models, and request limits.</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn-primary btn-sm h-9 min-h-9 rounded-lg px-3 text-xs"
+            (click)="saveAi.mutate()"
+            [disabled]="saveAi.isPending()"
+          >
+            @if (saveAi.isPending()) {
+              <span class="loading loading-spinner loading-xs"></span>
+            } @else {
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>
+              </svg>
+            }
+            Save AI settings
+          </button>
+        </div>
+
+        @if (aiEdit(); as ai) {
+          <div class="grid grid-cols-1 gap-4 p-5 lg:grid-cols-2">
+            @for (p of ai.providers; track p.provider; let i = $index) {
+              <article class="rounded-xl border border-base-300/70 bg-base-100 p-4 transition-colors hover:border-primary/25">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary/10 text-xs font-bold uppercase text-secondary">
+                      {{ p.provider?.charAt(0) }}
+                    </div>
+
+                    <div>
+                      <h3 class="text-sm font-semibold text-base-content">
+                        {{ p.provider }}
+                      </h3>
+                      <p class="mt-0.5 text-[10px] text-base-content/50">
+                        Provider configuration
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="rounded-lg border px-2 py-1 text-[10px] font-medium"
+                      [class.border-success/20]="p.enabled"
+                      [class.bg-success/10]="p.enabled"
+                      [class.text-success]="p.enabled"
+                      [class.border-base-content/10]="!p.enabled"
+                      [class.bg-base-200/50]="!p.enabled"
+                      [class.text-base-content/55]="!p.enabled"
+                    >
+                      {{ p.enabled ? 'Enabled' : 'Disabled' }}
+                    </span>
+
+                    @if (p.isDefault) {
+                      <span class="rounded-lg border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">
+                        Default
+                      </span>
+                    }
+
+                    @if (p.isFallback) {
+                      <span class="rounded-lg border border-warning/20 bg-warning/10 px-2 py-1 text-[10px] font-medium text-warning">
+                        Fallback
+                      </span>
+                    }
+                  </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label class="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-base-content/10 bg-base-200/25 px-3">
+                    <span class="text-xs font-medium text-base-content/75">Enabled</span>
+                    <input type="checkbox" class="toggle toggle-primary toggle-sm" [(ngModel)]="p.enabled" />
+                  </label>
+
+                  <label class="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-base-content/10 bg-base-200/25 px-3">
+                    <span class="text-xs font-medium text-base-content/75">Default provider</span>
+                    <input type="checkbox" class="toggle toggle-primary toggle-sm" [(ngModel)]="p.isDefault" />
+                  </label>
+
+                  <label class="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-base-content/10 bg-base-200/25 px-3">
+                    <span class="text-xs font-medium text-base-content/75">Fallback provider</span>
+                    <input type="checkbox" class="toggle toggle-warning toggle-sm" [(ngModel)]="p.isFallback" />
+                  </label>
+
+                  <label class="form-control">
+                    <span class="label-text mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Timeout</span>
+                    <input type="number" class="input input-bordered input-sm h-9 rounded-lg border-base-content/15 text-xs text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="p.timeoutMs" />
+                  </label>
+
+                  <label class="form-control">
+                    <span class="label-text mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Max retries</span>
+                    <input type="number" class="input input-bordered input-sm h-9 rounded-lg border-base-content/15 text-xs text-base-content focus:border-primary focus:outline-none focus:ring-0" [(ngModel)]="p.maxRetries" />
+                  </label>
+
+                  <label class="form-control sm:col-span-2">
+                    <span class="label-text mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Available models</span>
+                    <input
+                      class="input input-bordered input-sm h-9 rounded-lg border-base-content/15 font-mono text-xs text-base-content focus:border-primary focus:outline-none focus:ring-0"
+                      [ngModel]="p.models.join(',')"
+                      (ngModelChange)="p.models=$event.split(',').map(s=>s.trim()).filter(s=>s)"
+                      placeholder="Model names separated by commas"
+                    />
+                  </label>
+                </div>
+              </article>
+            }
+          </div>
+        }
+      </section>
+
+      <!-- Maintenance -->
+      <section
+        class="overflow-hidden rounded-2xl border bg-base-100 shadow-sm xl:col-span-2"
+        [class.border-warning/35]="s.maintenance.maintenanceMode"
+        [class.border-base-300/70]="!s.maintenance.maintenanceMode"
+      >
+        <div
+          class="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+          [class.border-warning/20]="s.maintenance.maintenanceMode"
+          [class.bg-warning/5]="s.maintenance.maintenanceMode"
+          [class.border-base-300/70]="!s.maintenance.maintenanceMode"
+        >
+          <div class="flex min-w-0 items-center gap-3">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4"/>
+                <path stroke-linecap="round" d="M12 17h.01"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m10.3 4.7-7 12a2 2 0 0 0 1.7 3h14a2 2 0 0 0 1.7-3l-7-12a2 2 0 0 0-3.4 0Z"/>
+              </svg>
+            </div>
+
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-sm font-semibold text-base-content">Maintenance</h2>
+
+                @if (s.maintenance.maintenanceMode) {
+                  <span class="rounded-lg border border-warning/25 bg-warning/10 px-2 py-1 text-[10px] font-medium text-warning">
+                    Active
+                  </span>
+                }
+              </div>
+
+              <p class="mt-0.5 text-xs text-base-content/55">
+                Control scheduled maintenance and platform announcements.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn-warning btn-sm h-9 min-h-9 rounded-lg px-3 text-xs"
+            (click)="saveMaint.mutate()"
+            [disabled]="saveMaint.isPending()"
+          >
+            @if (saveMaint.isPending()) {
+              <span class="loading loading-spinner loading-xs"></span>
+            } @else {
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>
+              </svg>
+            }
+            Save maintenance
+          </button>
+        </div>
+
+        @if (maintEdit(); as m) {
+          <div class="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-warning/20 bg-warning/5 px-4">
+              <div>
+                <p class="text-sm font-medium text-base-content">Maintenance mode</p>
+                <p class="mt-0.5 text-[10px] text-base-content/55">Enable platform maintenance.</p>
+              </div>
+
+              <input type="checkbox" class="toggle toggle-warning toggle-sm" [(ngModel)]="m.maintenanceMode" />
+            </div>
+
+            <label class="form-control">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Scheduled at (UTC)</span>
+              <input type="datetime-local" class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-warning focus:outline-none focus:ring-0" [(ngModel)]="m.scheduledAt" />
+            </label>
+
+            <label class="form-control">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">End at (UTC)</span>
+              <input type="datetime-local" class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-warning focus:outline-none focus:ring-0" [(ngModel)]="m.endAt" />
+            </label>
+
+            <label class="form-control sm:col-span-2 lg:col-span-3">
+              <span class="label-text mb-1.5 text-xs font-medium text-base-content/70">Announcement</span>
+              <input
+                class="input input-bordered input-sm h-10 rounded-lg border-base-content/15 text-sm text-base-content focus:border-warning focus:outline-none focus:ring-0"
+                [(ngModel)]="m.announcement"
+                placeholder="Enter the maintenance announcement"
+              />
+            </label>
+          </div>
+        }
+      </section>
+
+      <!-- System & Integrations -->
+      <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm xl:col-span-2">
+        <div class="border-b border-base-300/70 px-5 py-4">
+          <div class="flex items-center gap-3">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/70">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                <path stroke-linecap="round" d="M7 8h10M7 12h10M7 16h6"/>
+              </svg>
+            </div>
+
+            <div>
+              <h2 class="text-sm font-semibold text-base-content">System & Integrations</h2>
+              <p class="mt-0.5 text-xs text-base-content/55">Current platform infrastructure configuration.</p>
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Rate Limits -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <div class="flex justify-between items-center"><h3 class="font-semibold">Rate Limits & Quotas</h3><button class="btn btn-xs btn-primary" (click)="saveRate.mutate()" [disabled]="saveRate.isPending()">Save</button></div>
-        <p class="text-xs opacity-50">Enforced via {{s.rateLimits.enforcedVia}} — Gateway fetches via HTTP every 30s (Lua sliding window)</p>
-        <div *ngIf="rateEdit() as r" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
-          <label class="form-control"><span class="label-text text-xs">Auth /min</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="r.authRequestsPerMinute" /></label>
-          <label class="form-control"><span class="label-text text-xs">API (Gateway IP/User) /min</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="r.apiRequestsPerMinute" /></label>
-          <label class="form-control"><span class="label-text text-xs">AI /min</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="r.aiRequestsPerMinute" /></label>
-          <label class="form-control"><span class="label-text text-xs">File /min</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="r.fileRequestsPerMinute" /></label>
-          <label class="form-control"><span class="label-text text-xs">Notifications /min</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="r.notificationRequestsPerMinute" /></label>
-        </div>
-      </div>
-    </div>
+        <div class="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="rounded-xl border border-base-content/10 bg-base-200/25 p-4">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Storage</span>
+              <svg class="h-4 w-4 text-base-content/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16v12H4z"/>
+                <path stroke-linecap="round" d="M4 7 6 4h12l2 3"/>
+              </svg>
+            </div>
+            <p class="mt-2 text-sm font-semibold text-base-content">
+              {{ s.storage.provider }}
+            </p>
+            <p class="mt-0.5 text-xs text-base-content/55">
+              {{ s.storage.maxFileSizeMb }} MB maximum
+            </p>
+          </div>
 
-    <!-- Maintenance -->
-    <div class="card bg-base-100 shadow border-warning" [class.border]="s.maintenance.maintenanceMode">
-      <div class="card-body p-4">
-        <div class="flex justify-between items-center"><h3 class="font-semibold">Maintenance</h3><button class="btn btn-xs btn-warning" (click)="saveMaint.mutate()" [disabled]="saveMaint.isPending()">Save</button></div>
-        <div *ngIf="maintEdit() as m" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-          <label class="form-control"><span class="label-text text-xs">Maintenance Mode</span><input type="checkbox" class="toggle toggle-warning" [(ngModel)]="m.maintenanceMode" /></label>
-          <label class="form-control"><span class="label-text text-xs">Scheduled At (UTC)</span><input type="datetime-local" class="input input-bordered input-sm" [(ngModel)]="m.scheduledAt" /></label>
-          <label class="form-control"><span class="label-text text-xs">End At (UTC)</span><input type="datetime-local" class="input input-bordered input-sm" [(ngModel)]="m.endAt" /></label>
-          <label class="form-control col-span-full"><span class="label-text text-xs">Announcement</span><input class="input input-bordered input-sm" [(ngModel)]="m.announcement" placeholder="Platform going under maintenance after 1 hour..." /></label>
-          <div class="col-span-full text-xs opacity-60">Toggle on → blocks login/register for all members (503), invalidates refresh tokens, creates PlatformNotice banner on dashboards. Off → re-login allowed. Update time anytime. SuperAdmin bypasses block.</div>
-        </div>
-      </div>
-    </div>
+          <div class="rounded-xl border border-success/15 bg-success/5 p-4">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Realtime</span>
+              <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+            </div>
+            <p class="mt-2 text-sm font-semibold text-base-content">
+              SignalR
+            </p>
+            <p class="mt-0.5 truncate text-xs text-success/80">
+              {{ s.notifications.signalRHub }}
+            </p>
+          </div>
 
-    <!-- System read-only -->
-    <div class="card bg-base-100 shadow opacity-70">
-      <div class="card-body p-4">
-        <h3 class="font-semibold">System & Integrations (read-only)</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-sm">
-          <div>Storage: <span class="badge badge-ghost badge-sm">{{s.storage.provider}}</span> {{s.storage.maxFileSizeMb}}MB</div>
-          <div>SignalR: <span class="badge badge-success badge-sm">{{s.notifications.signalRHub}}</span></div>
-          <div>RabbitMQ: <span class="badge badge-success badge-sm">{{s.notifications.rabbitMqStatus}}</span></div>
-          <div>Email: <span class="badge badge-ghost badge-sm">{{s.email.provider}}</span> {{s.email.senderEmail}}</div>
+          <div class="rounded-xl border border-success/15 bg-success/5 p-4">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Messaging</span>
+              <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+            </div>
+            <p class="mt-2 text-sm font-semibold text-base-content">
+              RabbitMQ
+            </p>
+            <p class="mt-0.5 truncate text-xs text-success/80">
+              {{ s.notifications.rabbitMqStatus }}
+            </p>
+          </div>
+
+          <div class="rounded-xl border border-base-content/10 bg-base-200/25 p-4">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Email</span>
+              <svg class="h-4 w-4 text-base-content/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <rect x="3" y="5" width="18" height="14" rx="2"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m4 7 8 6 8-6"/>
+              </svg>
+            </div>
+            <p class="mt-2 text-sm font-semibold text-base-content">
+              {{ s.email.provider }}
+            </p>
+            <p class="mt-0.5 truncate text-xs text-base-content/55">
+              {{ s.email.senderEmail }}
+            </p>
+          </div>
         </div>
-        <div class="text-xs opacity-50">Secrets never in DB — `apiKeyConfigured: true` only.</div>
-      </div>
+      </section>
     </div>
-  </ng-container>
+  }
 </div>

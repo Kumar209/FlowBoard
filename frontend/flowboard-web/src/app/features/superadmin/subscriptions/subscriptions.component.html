@@ -1,100 +1,724 @@
-<div class="p-3 sm:p-4 space-y-6">
-  <h1 class="text-2xl font-bold">Subscriptions & Billing</h1>
-  <div class="text-xs opacity-60">Simplified mock — Free default for every new org (enum+table hybrid). Billing cycle/status/amount are mock.</div>
+<div class="mx-auto w-full max-w-[1500px] space-y-5 p-3 sm:p-4 lg:p-6">
+  <section class="rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+    <div class="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-end lg:justify-between">
+      <div class="min-w-0">
+        <div class="mb-1 flex items-center gap-2">
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+              <path stroke-linecap="round" d="M3 10h18M7 15h3"/>
+            </svg>
+          </div>
+          <span class="text-xs text-base-content/60">Platform</span>
+          <svg class="h-3 w-3 text-base-content/35" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/>
+          </svg>
+          <span class="text-xs text-base-content/70">Subscriptions</span>
+        </div>
 
-  @if (query.isPending()) {
-    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
-  } <!-- error via toast --> @else {
-    <!-- Overview MRR/ARR etc -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      <div class="card bg-base-100 shadow"><div class="card-body p-4"><div class="text-xs opacity-60">MRR</div><div class="text-2xl font-bold">${{ overview?.mrr }}</div><div class="text-xs opacity-50">Monthly Recurring</div></div></div>
-      <div class="card bg-base-100 shadow"><div class="card-body p-4"><div class="text-xs opacity-60">ARR</div><div class="text-2xl font-bold">${{ overview?.arr }}</div><div class="text-xs opacity-50">Annual</div></div></div>
-      <div class="card bg-base-100 shadow"><div class="card-body p-4"><div class="text-xs opacity-60">Active Subscriptions</div><div class="text-2xl font-bold">{{ overview?.activeSubscriptions }}</div><div class="text-xs text-success">● {{ overview?.churnRate }}% churn</div></div></div>
-      <div class="card bg-base-100 shadow"><div class="card-body p-4"><div class="text-xs opacity-60">Avg Revenue / Org</div><div class="text-2xl font-bold">${{ overview?.avgRevenuePerOrg }}</div><div class="text-xs opacity-50">ARPO</div></div></div>
+        <h1 class="text-2xl font-semibold tracking-tight text-base-content sm:text-3xl">
+          Subscriptions & Billing
+        </h1>
+
+        <p class="mt-1 text-sm text-base-content/65">
+          Monitor platform revenue, active plans, and organization subscriptions.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  @if (query.isPending() && !query.data()) {
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="h-28 animate-pulse rounded-2xl border border-base-300/70 bg-base-100"></div>
+      }
     </div>
 
-    <!-- Revenue chart -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <div class="text-sm font-semibold">Revenue History</div>
-        @if (revenueChart()) {
-          <apx-chart [series]="revenueChart()!.series" [chart]="revenueChart()!.chart" [xaxis]="revenueChart()!.xaxis" [colors]="revenueChart()!.colors" [stroke]="revenueChart()!.stroke" [fill]="revenueChart()!.fill" [dataLabels]="revenueChart()!.dataLabels"></apx-chart>
+    <div class="h-72 animate-pulse rounded-2xl border border-base-300/70 bg-base-100"></div>
+  } @else {
+    <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div class="rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+        <div class="p-4 sm:p-5">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-medium text-base-content/60">Monthly recurring revenue</p>
+              <p class="mt-2 text-2xl font-semibold tracking-tight text-base-content">${{ overview?.mrr }}</p>
+            </div>
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 7.5c0-1.7-2.1-3-5-3s-5 1.3-5 3 2.1 3 5 3 5 1.3 5 3-2.1 3-5 3-5-1.3-5-3"/>
+              </svg>
+            </div>
+          </div>
+          <p class="mt-2 text-xs text-base-content/50">Current monthly recurring revenue</p>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+        <div class="p-4 sm:p-5">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-medium text-base-content/60">Annual recurring revenue</p>
+              <p class="mt-2 text-2xl font-semibold tracking-tight text-base-content">${{ overview?.arr }}</p>
+            </div>
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 19V9"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 19V5"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16 19v-7"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M22 19V3"/>
+              </svg>
+            </div>
+          </div>
+          <p class="mt-2 text-xs text-base-content/50">Annualized recurring revenue</p>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+        <div class="p-4 sm:p-5">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-medium text-base-content/60">Active subscriptions</p>
+              <p class="mt-2 text-2xl font-semibold tracking-tight text-base-content">{{ overview?.activeSubscriptions }}</p>
+            </div>
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-success/10 text-success">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>
+              </svg>
+            </div>
+          </div>
+          <p class="mt-2 text-xs text-success">{{ overview?.churnRate }}% churn rate</p>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+        <div class="p-4 sm:p-5">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-medium text-base-content/60">Average revenue / org</p>
+              <p class="mt-2 text-2xl font-semibold tracking-tight text-base-content">${{ overview?.avgRevenuePerOrg }}</p>
+            </div>
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/10 text-accent">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="8.5"/>
+                <path stroke-linecap="round" d="M12 7v10M15 9.5c0-1-1.3-1.8-3-1.8s-3 .8-3 1.8 1.3 1.8 3 1.8 3 .8 3 1.8-1.3 1.8-3 1.8-3-.8-3-1.8"/>
+              </svg>
+            </div>
+          </div>
+          <p class="mt-2 text-xs text-base-content/50">Average recurring revenue per organization</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+      <div class="border-b border-base-300/70 px-4 py-3 sm:px-5">
+        <div>
+          <h2 class="text-sm font-semibold text-base-content">Revenue history</h2>
+          <p class="mt-0.5 text-xs text-base-content/55">Recurring revenue across recent months.</p>
+        </div>
+      </div>
+
+      <div class="p-3 sm:p-4">
+        @if (revenueChart(); as chart) {
+          <div class="w-full overflow-hidden">
+            <apx-chart
+              [series]="chart.series"
+              [chart]="chart.chart"
+              [xaxis]="chart.xaxis"
+              [colors]="chart.colors"
+              [stroke]="chart.stroke"
+              [fill]="chart.fill"
+              [dataLabels]="chart.dataLabels"
+            ></apx-chart>
+          </div>
+        } @else {
+          <div class="flex min-h-52 items-center justify-center text-sm text-base-content/55">
+            No revenue history available.
+          </div>
         }
       </div>
-    </div>
+    </section>
 
-    <!-- Subscriptions table 6 cols with Free badge + assign -->
-    <div class="card bg-base-100 shadow overflow-hidden">
-      <div class="card-body p-4 pb-2"><h3 class="font-semibold">Subscriptions</h3><div class="text-xs opacity-50">Organization / Plan / Billing Cycle / Status / Amount / Renewal — Free type row guaranteed. Change plan via dropdown (SuperAdmin).</div></div>
-      <div class="overflow-x-auto">
-        <table class="table table-sm">
-          <thead><tr><th>Organization</th><th>Plan</th><th>Billing Cycle</th><th>Status</th><th>Amount</th><th>Renewal</th><th>Assign</th></tr></thead>
-          <tbody>
-            @for (s of subscriptions; track s.organizationId) {
-              <tr>
-                <td><div class="font-medium">{{ s.organizationName }}</div><div class="text-xs opacity-50">{{ s.organizationId | slice:0:8 }}</div></td>
-                <td><span class="badge badge-sm {{ planBadgeClass(s.planName) }}">{{ s.planName }}</span></td>
-                <td><span class="text-xs">{{ s.billingCycle }}</span></td>
-                <td><span class="badge badge-sm" [class.badge-success]="s.status==='Active'" [class.badge-error]="s.status!=='Active'">{{ s.status }}</span></td>
-                <td><span class="font-mono text-sm">${{ s.amount }}</span></td>
-                <td><span class="text-xs">{{ s.renewalAt | date:'mediumDate' }}</span></td>
-                <td>
-                  @if (assignOrgId() === s.organizationId) {
-                    <div class="flex gap-1"><select class="select select-bordered select-xs" [(ngModel)]="assignPlanId"><option *ngFor="let p of plans" [value]="p.id">{{p.name}} ${{p.price}}</option></select><button class="btn btn-xs btn-primary" (click)="assignMut.mutate()" [disabled]="!assignPlanId() || assignMut.isPending()">Save</button><button class="btn btn-xs" (click)="assignOrgId.set(null)">Cancel</button></div>
-                  } @else { <button class="btn btn-xs btn-ghost" (click)="assignOrgId.set(s.organizationId); assignPlanId.set(plans.find(x=>x.name===s.planName)?.id || plans[0]?.id || '')">Change</button> }
-                </td>
-              </tr>
-            }
-            @if (subscriptions.length === 0) { <tr><td colspan="7" class="text-center py-8 opacity-50">No subscriptions</td></tr> }
-          </tbody>
-        </table>
+    <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+      <div class="flex flex-col gap-3 border-b border-base-300/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div>
+          <h2 class="text-sm font-semibold text-base-content">Organization subscriptions</h2>
+          <p class="mt-0.5 text-xs text-base-content/55">
+            Review current plans and change an organization's subscription.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs text-base-content/60">
+          <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+          {{ subscriptionTotal }} {{ subscriptionTotal === 1 ? 'subscription' : 'subscriptions' }}
+        </div>
       </div>
-    </div>
 
-    <!-- Plans config cards with edit -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-      @for (p of plans; track p.id) {
-        <div class="card bg-base-100 shadow border" [class.border-primary]="p.name==='Pro'">
-          <div class="card-body p-4">
-            <div class="flex items-center justify-between">
-              <h4 class="font-bold">{{ p.name }}</h4>
-              <span class="badge badge-sm {{ planBadgeClass(p.name) }}">{{ p.name }}</span>
+      @if (subscriptionTotal === 0) {
+        <div class="flex min-h-56 flex-col items-center justify-center px-5 text-center">
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-base-200 text-base-content/55">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+              <path stroke-linecap="round" d="M3 10h18"/>
+            </svg>
+          </div>
+
+          <h3 class="mt-3 text-sm font-semibold text-base-content">No subscriptions</h3>
+          <p class="mt-1 text-xs text-base-content/60">
+            There are no organization subscriptions to display.
+          </p>
+        </div>
+      } @else {
+        <!-- Desktop / Tablet -->
+        <div class="!hidden overflow-x-auto md:!block">
+          <table class="w-full min-w-[1050px] border-collapse">
+            <thead>
+              <tr class="border-b border-base-300/70 bg-base-200/35">
+                <th class="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Organization</th>
+                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Plan</th>
+                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Billing</th>
+                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Status</th>
+                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Amount</th>
+                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Renewal</th>
+                <th class="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Plan</th>
+              </tr>
+            </thead>
+
+            <tbody class="divide-y divide-base-300/60">
+              @for (s of paginatedSubscriptions(); track s.organizationId) {
+                <tr class="transition-colors hover:bg-base-200/30">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-base-200 text-sm font-semibold text-base-content/75">
+                        {{ s.organizationName?.charAt(0)?.toUpperCase() }}
+                      </div>
+
+                      <div class="min-w-0">
+                        <div class="truncate text-sm font-semibold text-base-content">
+                          {{ s.organizationName }}
+                        </div>
+                        <div class="mt-0.5 truncate font-mono text-xs text-base-content/50">
+                          {{ s.organizationId | slice:0:8 }}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    <span class="badge badge-sm rounded-lg px-2.5 {{ planBadgeClass(s.planName) }}">
+                      {{ s.planName }}
+                    </span>
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    <span class="text-xs text-base-content/75">{{ s.billingCycle }}</span>
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    @if (s.status === 'Active') {
+                      <span class="inline-flex items-center gap-1.5 text-xs font-medium text-success">
+                        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+                        Active
+                      </span>
+                    } @else {
+                      <span class="inline-flex items-center gap-1.5 text-xs font-medium text-error">
+                        <span class="h-1.5 w-1.5 rounded-full bg-error"></span>
+                        {{ s.status }}
+                      </span>
+                    }
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    <span class="font-mono text-sm text-base-content/85">${{ s.amount }}</span>
+                  </td>
+
+                  <td class="whitespace-nowrap px-4 py-3.5">
+                    <span class="text-xs text-base-content/70">
+                      {{ s.renewalAt | date:'mediumDate' }}
+                    </span>
+                  </td>
+
+                  <td class="px-5 py-3.5">
+                    <div class="flex justify-end">
+                      @if (assignOrgId() === s.organizationId) {
+                        <div class="flex items-center gap-1.5">
+                          <select
+                            class="select select-bordered select-xs h-8 min-h-8 w-32 rounded-lg border-base-content/20 bg-base-100 text-xs text-base-content focus:border-base-content/40 focus:outline-none focus:ring-0"
+                            [(ngModel)]="assignPlanId"
+                          >
+                            @for (p of plans; track p.id) {
+                              <option [value]="p.id">{{ p.name }} — ${{ p.price }}</option>
+                            }
+                          </select>
+
+                          <button
+                            type="button"
+                            class="btn btn-primary btn-xs h-8 min-h-8 rounded-lg px-2.5"
+                            (click)="assignMut.mutate()"
+                            [disabled]="!assignPlanId() || assignMut.isPending()"
+                          >
+                            @if (assignMut.isPending()) {
+                              <span class="loading loading-spinner loading-xs"></span>
+                            } @else {
+                              Save
+                            }
+                          </button>
+
+                          <button
+                            type="button"
+                            class="btn btn-ghost btn-xs h-8 min-h-8 rounded-lg border border-base-content/10 px-2.5 text-base-content/75"
+                            (click)="assignOrgId.set(null)"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      } @else {
+                        <button
+                          type="button"
+                          class="btn btn-ghost btn-xs h-8 min-h-8 rounded-lg border border-base-content/10 px-3 text-base-content/75 hover:bg-base-200 hover:text-base-content"
+                          (click)="assignOrgId.set(s.organizationId); assignPlanId.set(plans.find(x => x.name === s.planName)?.id || plans[0]?.id || '')"
+                        >
+                          Change plan
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile -->
+        <div class="!block divide-y divide-base-300/60 md:!hidden">
+          @for (s of paginatedSubscriptions(); track s.organizationId) {
+            <article class="p-4">
+              <div class="flex items-start gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-base-200 text-sm font-semibold text-base-content/75">
+                  {{ s.organizationName?.charAt(0)?.toUpperCase() }}
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <h3 class="truncate text-sm font-semibold text-base-content">
+                        {{ s.organizationName }}
+                      </h3>
+                      <p class="mt-0.5 truncate font-mono text-xs text-base-content/50">
+                        {{ s.organizationId | slice:0:8 }}
+                      </p>
+                    </div>
+
+                    @if (s.status === 'Active') {
+                      <span class="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-success">
+                        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+                        Active
+                      </span>
+                    } @else {
+                      <span class="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-error">
+                        <span class="h-1.5 w-1.5 rounded-full bg-error"></span>
+                        {{ s.status }}
+                      </span>
+                    }
+                  </div>
+
+                  <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Plan</p>
+                      <span class="badge badge-sm mt-1 rounded-lg px-2.5 {{ planBadgeClass(s.planName) }}">
+                        {{ s.planName }}
+                      </span>
+                    </div>
+
+                    <div>
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Amount</p>
+                      <p class="mt-1 font-mono text-xs text-base-content/80">${{ s.amount }}</p>
+                    </div>
+
+                    <div>
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Billing</p>
+                      <p class="mt-1 text-xs text-base-content/75">{{ s.billingCycle }}</p>
+                    </div>
+
+                    <div>
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Renewal</p>
+                      <p class="mt-1 text-xs text-base-content/75">{{ s.renewalAt | date:'mediumDate' }}</p>
+                    </div>
+                  </div>
+
+                  <div class="mt-4">
+                    @if (assignOrgId() === s.organizationId) {
+                      <div class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto]">
+                        <select
+                          class="select select-bordered select-sm h-9 min-h-9 w-full rounded-lg border-base-content/20 bg-base-100 text-xs text-base-content focus:border-base-content/40 focus:outline-none focus:ring-0"
+                          [(ngModel)]="assignPlanId"
+                        >
+                          @for (p of plans; track p.id) {
+                            <option [value]="p.id">{{ p.name }} — ${{ p.price }}</option>
+                          }
+                        </select>
+
+                        <button
+                          type="button"
+                          class="btn btn-primary btn-sm h-9 min-h-9 rounded-lg"
+                          (click)="assignMut.mutate()"
+                          [disabled]="!assignPlanId() || assignMut.isPending()"
+                        >
+                          @if (assignMut.isPending()) {
+                            <span class="loading loading-spinner loading-xs"></span>
+                          } @else {
+                            Save
+                          }
+                        </button>
+
+                        <button
+                          type="button"
+                          class="btn btn-ghost btn-sm h-9 min-h-9 rounded-lg border border-base-content/10 text-base-content/75"
+                          (click)="assignOrgId.set(null)"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    } @else {
+                      <button
+                        type="button"
+                        class="btn btn-ghost btn-sm h-9 min-h-9 w-full rounded-lg border border-base-content/15 bg-base-100 text-xs text-base-content/80 shadow-none hover:bg-base-200"
+                        (click)="assignOrgId.set(s.organizationId); assignPlanId.set(plans.find(x => x.name === s.planName)?.id || plans[0]?.id || '')"
+                      >
+                        Change plan
+                      </button>
+                    }
+                  </div>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+
+        <!-- Subscription paginator -->
+        <div class="border-t border-base-300/70 p-3 sm:p-4">
+          <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+            <div class="text-center text-xs text-base-content/70 sm:text-left">
+              Showing
+              <span class="font-medium text-base-content">{{ subscriptionShowingFrom }}</span>
+              to
+              <span class="font-medium text-base-content">{{ subscriptionShowingTo }}</span>
+              of
+              <span class="font-medium text-base-content">{{ subscriptionTotal }}</span>
+              {{ subscriptionTotal === 1 ? 'subscription' : 'subscriptions' }}
             </div>
-            <div class="text-2xl font-bold mt-2">${{ p.price }}<span class="text-xs font-normal opacity-60">/mo</span></div>
-            <div class="divider my-2"></div>
-            <div class="text-xs space-y-1">
-              <div>Users: {{ p.maxUsers }}</div>
-              <div>Workspaces: {{ p.maxWorkspaces }}</div>
-              <div>Projects: {{ p.maxProjects }}</div>
-              <div>Storage: {{ p.storageGB }} GB</div>
-              <div>AI Requests: {{ p.aiRequests }}</div>
-              <div>API Limit: {{ p.apiLimit }}</div>
+
+            <div class="flex w-full items-center justify-center gap-1 sm:gap-1.5">
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="subscriptionPage() <= 1"
+                (click)="firstSubscriptionPage()"
+                aria-label="First page"
+              >
+                «
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="subscriptionPage() <= 1"
+                (click)="previousSubscriptionPage()"
+                aria-label="Previous page"
+              >
+                ‹
+              </button>
+
+              @for (p of visibleSubscriptionPages(); track p) {
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                  [class.btn-primary]="subscriptionPage() === p"
+                  [class.btn-ghost]="subscriptionPage() !== p"
+                  [class.text-base-content]="subscriptionPage() !== p"
+                  (click)="setSubscriptionPage(p)"
+                  [attr.aria-current]="subscriptionPage() === p ? 'page' : null"
+                >
+                  {{ p }}
+                </button>
+              }
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="subscriptionPage() >= subscriptionTotalPages"
+                (click)="nextSubscriptionPage()"
+                aria-label="Next page"
+              >
+                ›
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="subscriptionPage() >= subscriptionTotalPages"
+                (click)="lastSubscriptionPage()"
+                aria-label="Last page"
+              >
+                »
+              </button>
             </div>
-            <button class="btn btn-xs btn-outline mt-3" (click)="openEdit(p)">Edit Plan</button>
+
+            <div class="flex items-center justify-center gap-2 text-xs text-base-content/70 sm:justify-end">
+              <span>Rows</span>
+
+              <select
+                class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0 sm:h-10 sm:min-h-10 sm:w-[76px]"
+                [value]="subscriptionPageSize()"
+                (change)="onSubscriptionPageSizeChange($any($event.target).value)"
+                aria-label="Items per page"
+              >
+                <option value="8">8</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+              </select>
+
+              <span>per page</span>
+            </div>
           </div>
         </div>
       }
-    </div>
-    <!-- Edit modal -->
-    @if (editPlan(); as ep) {
-      <div class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-3">
-        <div class="card bg-base-100 w-full max-w-lg shadow-xl">
-          <div class="card-body p-4">
-            <h3 class="font-bold">Edit {{ ep.name }}</h3>
-            <div class="grid grid-cols-2 gap-2 mt-2">
-              <label class="form-control"><span class="label-text text-xs">Price $</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.price" /></label>
-              <label class="form-control"><span class="label-text text-xs">Max Users</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.maxUsers" /></label>
-              <label class="form-control"><span class="label-text text-xs">Max Workspaces</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.maxWorkspaces" /></label>
-              <label class="form-control"><span class="label-text text-xs">Max Projects</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.maxProjects" /></label>
-              <label class="form-control"><span class="label-text text-xs">Storage GB</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.storageGB" /></label>
-              <label class="form-control"><span class="label-text text-xs">AI Requests</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.aiRequests" /></label>
-              <label class="form-control"><span class="label-text text-xs">API Limit</span><input type="number" class="input input-bordered input-sm" [(ngModel)]="ep.apiLimit" /></label>
-              <label class="form-control col-span-2"><span class="label-text text-xs">FeaturesJson</span><input class="input input-bordered input-sm" [(ngModel)]="ep.featuresJson" /></label>
+    </section>
+
+    <section>
+      <div class="mb-3">
+        <h2 class="text-sm font-semibold text-base-content">Plan configuration</h2>
+        <p class="mt-0.5 text-xs text-base-content/55">
+          Manage pricing and limits available to organizations.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        @for (p of plans; track p.id) {
+          <article
+            class="rounded-2xl border bg-base-100 shadow-sm transition-shadow hover:shadow-md"
+            [class.border-primary]="p.name === 'Pro'"
+            [class.border-base-300/70]="p.name !== 'Pro'"
+          >
+            <div class="p-4 sm:p-5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <h3 class="truncate text-base font-semibold text-base-content">{{ p.name }}</h3>
+                  <p class="mt-0.5 text-xs text-base-content/55">Subscription plan</p>
+                </div>
+
+                <span class="badge badge-sm shrink-0 rounded-lg px-2.5 {{ planBadgeClass(p.name) }}">
+                  {{ p.name }}
+                </span>
+              </div>
+
+              <div class="mt-4">
+                <span class="text-2xl font-semibold tracking-tight text-base-content">${{ p.price }}</span>
+                <span class="ml-1 text-xs text-base-content/50">/month</span>
+              </div>
+
+              <div class="my-4 border-t border-base-300/60"></div>
+
+              <dl class="space-y-2.5">
+                <div class="flex items-center justify-between gap-3">
+                  <dt class="text-xs text-base-content/60">Users</dt>
+                  <dd class="text-xs font-medium text-base-content">{{ p.maxUsers }}</dd>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                  <dt class="text-xs text-base-content/60">Workspaces</dt>
+                  <dd class="text-xs font-medium text-base-content">{{ p.maxWorkspaces }}</dd>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                  <dt class="text-xs text-base-content/60">Projects</dt>
+                  <dd class="text-xs font-medium text-base-content">{{ p.maxProjects }}</dd>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                  <dt class="text-xs text-base-content/60">Storage</dt>
+                  <dd class="text-xs font-medium text-base-content">{{ p.storageGB }} GB</dd>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                  <dt class="text-xs text-base-content/60">AI requests</dt>
+                  <dd class="text-xs font-medium text-base-content">{{ p.aiRequests }}</dd>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                  <dt class="text-xs text-base-content/60">API limit</dt>
+                  <dd class="text-xs font-medium text-base-content">{{ p.apiLimit }}</dd>
+                </div>
+              </dl>
+
+              <button
+                type="button"
+                class="btn btn-sm mt-5 h-9 min-h-9 w-full rounded-lg border border-base-content/15 bg-base-100 text-xs text-base-content/80 shadow-none hover:bg-base-200"
+                (click)="openEdit(p)"
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.5a2.12 2.12 0 013 3L8 18l-4 1 1-4 11.5-11.5Z"/>
+                </svg>
+                Edit plan
+              </button>
             </div>
-            <div class="flex justify-end gap-2 mt-4"><button class="btn btn-sm" (click)="closeEdit()">Cancel</button><button class="btn btn-sm btn-primary" (click)="updatePlanMut.mutate()" [disabled]="updatePlanMut.isPending()">Save</button></div>
+          </article>
+        }
+      </div>
+    </section>
+  }
+</div>
+
+@if (editPlan(); as ep) {
+  <div class="fixed inset-0 z-[100] m-0 flex h-[100dvh] w-screen items-center justify-center overflow-y-auto bg-black/45 p-4 backdrop-blur-sm">
+    <button
+      type="button"
+      class="absolute inset-0 h-full w-full cursor-default"
+      aria-label="Close edit plan dialog"
+      (click)="closeEdit()"
+    ></button>
+
+    <section
+      class="relative z-[101] my-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-plan-title"
+    >
+      <div class="border-b border-base-300/70 px-5 py-4 sm:px-6">
+        <div class="flex items-start gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.5a2.12 2.12 0 013 3L8 18l-4 1 1-4 11.5-11.5Z"/>
+            </svg>
+          </div>
+
+          <div class="min-w-0">
+            <h3 id="edit-plan-title" class="text-base font-semibold text-base-content sm:text-lg">
+              Edit {{ ep.name }}
+            </h3>
+            <p class="mt-1 text-xs text-base-content/60">
+              Update pricing, usage limits, and plan configuration.
+            </p>
           </div>
         </div>
       </div>
-    }
-  }
-</div>
+
+      <div class="max-h-[calc(100dvh-180px)] overflow-y-auto px-5 py-5 sm:px-6">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label class="form-control">
+            <div class="label px-0 pb-1.5">
+              <span class="label-text text-xs font-medium text-base-content">Price</span>
+            </div>
+            <input
+              type="number"
+              class="input input-bordered h-10 rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/45 focus:outline-none focus:ring-0"
+              [(ngModel)]="ep.price"
+            />
+          </label>
+
+          <label class="form-control">
+            <div class="label px-0 pb-1.5">
+              <span class="label-text text-xs font-medium text-base-content">Max users</span>
+            </div>
+            <input
+              type="number"
+              class="input input-bordered h-10 rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/45 focus:outline-none focus:ring-0"
+              [(ngModel)]="ep.maxUsers"
+            />
+          </label>
+
+          <label class="form-control">
+            <div class="label px-0 pb-1.5">
+              <span class="label-text text-xs font-medium text-base-content">Max workspaces</span>
+            </div>
+            <input
+              type="number"
+              class="input input-bordered h-10 rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/45 focus:outline-none focus:ring-0"
+              [(ngModel)]="ep.maxWorkspaces"
+            />
+          </label>
+
+          <label class="form-control">
+            <div class="label px-0 pb-1.5">
+              <span class="label-text text-xs font-medium text-base-content">Max projects</span>
+            </div>
+            <input
+              type="number"
+              class="input input-bordered h-10 rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/45 focus:outline-none focus:ring-0"
+              [(ngModel)]="ep.maxProjects"
+            />
+          </label>
+
+          <label class="form-control">
+            <div class="label px-0 pb-1.5">
+              <span class="label-text text-xs font-medium text-base-content">Storage</span>
+            </div>
+            <div class="relative">
+              <input
+                type="number"
+                class="input input-bordered h-10 w-full rounded-lg border-base-content/20 bg-base-100 pr-12 text-sm text-base-content shadow-none focus:border-base-content/45 focus:outline-none focus:ring-0"
+                [(ngModel)]="ep.storageGB"
+              />
+              <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-base-content/50">GB</span>
+            </div>
+          </label>
+
+          <label class="form-control">
+            <div class="label px-0 pb-1.5">
+              <span class="label-text text-xs font-medium text-base-content">AI requests</span>
+            </div>
+            <input
+              type="number"
+              class="input input-bordered h-10 rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/45 focus:outline-none focus:ring-0"
+              [(ngModel)]="ep.aiRequests"
+            />
+          </label>
+
+          <label class="form-control sm:col-span-2">
+            <div class="label px-0 pb-1.5">
+              <span class="label-text text-xs font-medium text-base-content">API limit</span>
+            </div>
+            <input
+              type="number"
+              class="input input-bordered h-10 rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/45 focus:outline-none focus:ring-0"
+              [(ngModel)]="ep.apiLimit"
+            />
+          </label>
+
+          <label class="form-control sm:col-span-2">
+            <div class="label px-0 pb-1.5">
+              <span class="label-text text-xs font-medium text-base-content">Features configuration</span>
+            </div>
+            <input
+              class="input input-bordered h-10 rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none placeholder:text-base-content/45 focus:border-base-content/45 focus:outline-none focus:ring-0"
+              [(ngModel)]="ep.featuresJson"
+              placeholder="Plan feature configuration"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div class="flex flex-col-reverse gap-2 border-t border-base-300/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm h-9 min-h-9 rounded-lg border border-base-content/10 px-4 text-base-content/75 hover:bg-base-200 hover:text-base-content"
+          (click)="closeEdit()"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-primary btn-sm h-9 min-h-9 rounded-lg px-4"
+          (click)="updatePlanMut.mutate()"
+          [disabled]="updatePlanMut.isPending()"
+        >
+          @if (updatePlanMut.isPending()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          }
+          Save changes
+        </button>
+      </div>
+    </section>
+  </div>
+}

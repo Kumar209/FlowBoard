@@ -1,97 +1,385 @@
-<div class="p-3 sm:p-4 space-y-4">
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-    <h1 class="text-2xl font-bold">Organizations</h1>
-    <div class="flex gap-2">
-      <input class="input input-bordered input-sm w-64" placeholder="Search name or slug..." [(ngModel)]="searchInput" (keyup.enter)="onSearch()" />
-      <button class="btn btn-sm btn-primary" (click)="onSearch()">Search</button>
-      @if (search()) { <button class="btn btn-sm btn-ghost" (click)="clearSearch()">Clear</button> }
+<div class="min-h-full bg-base-200/40">
+  <div class="mx-auto w-full max-w-7xl p-3 sm:p-4 md:p-6 lg:p-8">
+    <div class="mb-5 flex flex-col gap-4 sm:mb-6">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <div class="mb-1 flex items-center gap-2">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9h8M8 13h3M14 13h2M8 16h8"></path>
+              </svg>
+            </div>
+            <span class="text-xs text-base-content/60">SuperAdmin</span>
+            <svg class="h-3 w-3 text-base-content/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"></path>
+            </svg>
+            <span class="text-xs text-base-content/70">Organizations</span>
+          </div>
+
+          <h1 class="text-2xl font-semibold tracking-tight text-base-content sm:text-3xl">
+            Organizations
+          </h1>
+
+          <p class="mt-1 text-sm text-base-content/65">
+            Manage organizations across the FlowBoard platform.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div class="relative min-w-0 flex-1">
+          <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-base-content/65" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.5 16.5 4 4"></path>
+          </svg>
+
+          <input
+            type="text"
+            class="input input-sm h-10 min-h-10 w-full min-w-0 rounded-lg border border-base-content/20 bg-base-100 pl-9 pr-9 text-sm text-base-content shadow-none placeholder:text-base-content/50 focus:border-base-content/50 focus:outline-none focus:ring-0"
+            placeholder="Search organizations by name or slug..."
+            [ngModel]="searchInput()"
+            (ngModelChange)="searchInput.set($event)"
+            (keyup.enter)="onSearch()"
+          />
+
+          @if (searchInput()) {
+            <button
+              type="button"
+              class="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-base-content/65 hover:bg-base-200 hover:text-base-content"
+              (click)="clearSearch()"
+              aria-label="Clear search"
+            >
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m6 6 12 12M18 6 6 18"></path>
+              </svg>
+            </button>
+          }
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-primary btn-sm h-10 min-h-10 rounded-lg px-4"
+          (click)="onSearch()"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.5 16.5 4 4"></path>
+          </svg>
+          Search
+        </button>
+
+        @if (search()) {
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm h-10 min-h-10 rounded-lg px-3 text-base-content/75 hover:bg-base-200 hover:text-base-content"
+            (click)="clearSearch()"
+          >
+            Clear
+          </button>
+        }
+
+        <div class="shrink-0 text-sm text-base-content/75 sm:ml-auto">
+          <span class="font-medium text-base-content">{{ total }}</span>
+          {{ total === 1 ? 'organization' : 'organizations' }}
+        </div>
+      </div>
     </div>
-  </div>
 
-  <div class="text-xs opacity-60">Lightweight tenant directory — counts only, no member browse. Plan badge Free visible for every new org.</div>
+    @if (query.isPending() && !query.data()) {
+      <div class="overflow-hidden rounded-xl border border-base-300 bg-base-100">
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="flex items-center gap-4 border-b border-base-200 px-4 py-4 last:border-b-0 animate-pulse">
+            <div class="h-9 w-9 shrink-0 rounded-lg bg-base-300"></div>
+            <div class="min-w-0 flex-1 space-y-2">
+              <div class="h-3 w-40 rounded bg-base-300"></div>
+              <div class="h-3 w-64 max-w-full rounded bg-base-200"></div>
+            </div>
+            <div class="hidden h-5 w-16 rounded bg-base-200 sm:block"></div>
+            <div class="hidden h-5 w-16 rounded bg-base-200 md:block"></div>
+          </div>
+        }
+      </div>
+    } @else if (items.length === 0) {
+      <div class="rounded-xl border border-dashed border-base-300 bg-base-100 px-6 py-16 text-center">
+        <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-base-200 text-base-content/65">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+            <path stroke-linecap="round" d="M8 10h8M8 14h5"></path>
+          </svg>
+        </div>
 
-  @if (query.isPending()) {
-    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
-  } <!-- error via toast --> @else {
-    <div class="card bg-base-100 shadow overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="table table-sm">
-          <thead>
-            <tr>
-              <th>Organization</th>
-              <th>Owner</th>
-              <th>Plan</th>
-              <th>Status</th>
-              <th>Users</th>
-              <th>Workspaces</th>
-              <th>Projects</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (o of items; track o.id) {
-              <tr>
-                <td>
-                  <div class="font-medium">{{ o.name }}</div>
-                  <div class="text-xs opacity-50">{{ o.slug }}</div>
-                </td>
-                <td>
-                  <div class="text-sm">{{ o.ownerName }}</div>
-                  <div class="text-xs opacity-50">{{ o.ownerEmail }}</div>
-                </td>
-                <td><span class="badge badge-sm {{ planBadgeClass(o.planName) }}">{{ o.planName }}</span></td>
-                <td>
-                  @if (o.isActive) { <span class="badge badge-success badge-sm">Active</span> } @else { <span class="badge badge-error badge-sm">Suspended</span> }
-                </td>
-                <td><span class="font-mono text-sm">{{ o.users }}</span></td>
-                <td><span class="font-mono text-sm">{{ o.workspaces }}</span></td>
-                <td><span class="font-mono text-sm">{{ o.projects }}</span></td>
-                <td><span class="text-xs">{{ o.createdAt | date:'mediumDate' }}</span></td>
-                <td>
-                  <div class="flex gap-1 flex-wrap">
-                    <button class="btn btn-xs btn-ghost" (click)="viewMembers(o)">Members</button>
-                    @if (o.isActive) { <button class="btn btn-xs btn-warning" (click)="openSuspend(o)">Suspend</button> } @else { <button class="btn btn-xs btn-success" (click)="onActivate(o)">Reactivate</button> }
-                    <button class="btn btn-xs btn-error btn-outline" (click)="onDelete(o)">Delete</button>
-                  </div>
-                </td>
+        <p class="mt-3 text-sm font-medium text-base-content">No organizations found</p>
+
+        <p class="mt-1 text-xs text-base-content/65">
+          @if (search()) {
+            Try adjusting your search.
+          } @else {
+            There are no organizations to display.
+          }
+        </p>
+      </div>
+    } @else {
+      <div class="overflow-hidden rounded-xl border border-base-300 bg-base-100">
+        <div class="overflow-x-auto">
+          <table class="table table-sm w-full min-w-[1050px]">
+            <thead>
+              <tr class="border-b border-base-300 bg-base-200/40">
+                <th class="min-w-[240px] px-4 py-3 text-xs font-medium uppercase tracking-wider text-base-content/70">Organization</th>
+                <th class="px-4 py-3 text-xs font-medium uppercase tracking-wider text-base-content/70">Owner</th>
+                <th class="px-4 py-3 text-xs font-medium uppercase tracking-wider text-base-content/70">Plan</th>
+                <th class="px-4 py-3 text-xs font-medium uppercase tracking-wider text-base-content/70">Status</th>
+                <th class="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-base-content/70">Users</th>
+                <th class="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-base-content/70">Workspaces</th>
+                <th class="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-base-content/70">Projects</th>
+                <th class="px-4 py-3 text-xs font-medium uppercase tracking-wider text-base-content/70">Created</th>
+                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-base-content/70">Actions</th>
               </tr>
-            }
-            @if (items.length === 0) {
-              <tr><td colspan="9" class="text-center py-8 opacity-50">No organizations found</td></tr>
-            }
-          </tbody>
-        </table>
-      </div>
-      <div class="flex items-center justify-between p-3 border-t border-base-200">
-        <div class="text-xs opacity-60">Total {{ total }} · Page {{ page() }} / {{ totalPages }}</div>
-        <div class="flex gap-2">
-          <button class="btn btn-xs" [disabled]="page() <= 1" (click)="prevPage()">Prev</button>
-          <button class="btn btn-xs" [disabled]="page() >= totalPages" (click)="nextPage()">Next</button>
-        </div>
-      </div>
-    </div>
-  }
+            </thead>
 
-  @if (suspendTarget()) {
-    <div class="modal modal-open">
-      <div class="modal-box">
-        <h3 class="font-bold">Suspend {{ suspendTarget()!.name }}</h3>
-        <p class="text-xs opacity-60 mt-1">This will block all users of this organization from logging in. They will see a contact support message.</p>
-        <div class="form-control mt-3">
-          <label class="label"><span class="label-text">Reason</span></label>
-          <input class="input input-bordered input-sm" [ngModel]="suspendReason()" (ngModelChange)="suspendReason.set($event)" placeholder="Reason for suspension" />
+            <tbody>
+              @for (o of items; track o.id) {
+                <tr class="border-b border-base-200 last:border-b-0 transition-colors hover:bg-base-200/40">
+                  <td class="px-4 py-3.5">
+                    <div class="flex min-w-0 items-center gap-3">
+                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+                        {{ o.name?.charAt(0)?.toUpperCase() }}
+                      </div>
+                      <div class="min-w-0">
+                        <div class="truncate text-sm font-medium text-base-content">{{ o.name }}</div>
+                        <div class="mt-0.5 truncate text-[11px] text-base-content/55">{{ o.slug }}</div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    <div class="text-sm font-medium text-base-content">{{ o.ownerName }}</div>
+                    <div class="mt-0.5 max-w-[190px] truncate text-xs text-base-content/60">{{ o.ownerEmail }}</div>
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    <span class="badge badge-sm rounded-md border px-2.5 {{ planBadgeClass(o.planName) }}">
+                      {{ o.planName }}
+                    </span>
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    @if (o.isActive) {
+                      <span class="inline-flex items-center gap-1.5 text-xs font-medium text-success">
+                        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+                        Active
+                      </span>
+                    } @else {
+                      <span class="inline-flex items-center gap-1.5 text-xs font-medium text-error">
+                        <span class="h-1.5 w-1.5 rounded-full bg-error"></span>
+                        Suspended
+                      </span>
+                    }
+                  </td>
+
+                  <td class="px-4 py-3.5 text-center text-sm font-medium tabular-nums text-base-content">{{ o.users }}</td>
+                  <td class="px-4 py-3.5 text-center text-sm font-medium tabular-nums text-base-content">{{ o.workspaces }}</td>
+                  <td class="px-4 py-3.5 text-center text-sm font-medium tabular-nums text-base-content">{{ o.projects }}</td>
+                  <td class="px-4 py-3.5 text-xs text-base-content/75">{{ o.createdAt | date:'mediumDate' }}</td>
+
+                  <td class="px-4 py-3.5">
+                    <div class="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        class="flex h-8 items-center justify-center rounded-lg px-2.5 text-xs font-medium text-base-content/75 hover:bg-base-200 hover:text-base-content transition-colors"
+                        (click)="viewMembers(o)"
+                      >
+                        Members
+                      </button>
+
+                      @if (o.isActive) {
+                        <button
+                          type="button"
+                          class="flex h-8 items-center justify-center rounded-lg px-2.5 text-xs font-medium text-warning hover:bg-warning/10"
+                          (click)="openSuspend(o)"
+                        >
+                          Suspend
+                        </button>
+                      } @else {
+                        <button
+                          type="button"
+                          class="flex h-8 items-center justify-center rounded-lg px-2.5 text-xs font-medium text-success hover:bg-success/10"
+                          (click)="onActivate(o)"
+                        >
+                          Reactivate
+                        </button>
+                      }
+
+                      <button
+                        type="button"
+                        class="flex h-8 items-center justify-center rounded-lg px-2.5 text-xs font-medium text-error hover:bg-error/10"
+                        (click)="onDelete(o)"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
-        <div class="form-control mt-2">
-          <label class="label"><span class="label-text">Message to organization (email + banner)</span></label>
-          <textarea class="textarea textarea-bordered textarea-sm" [ngModel]="suspendMessage()" (ngModelChange)="suspendMessage.set($event)" rows="3"></textarea>
-        </div>
-        <div class="modal-action">
-          <button class="btn btn-ghost btn-sm" (click)="closeSuspend()">Cancel</button>
-          <button class="btn btn-warning btn-sm" [disabled]="suspendMutation.isPending()" (click)="confirmSuspend()">@if (suspendMutation.isPending()) { <span class="loading loading-spinner loading-xs"></span> } Suspend</button>
+
+        <!-- Exact standard FlowBoard paginator -->
+        <div class="border-t border-base-300 px-3 py-4 sm:px-4">
+          <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+            <div class="text-xs text-base-content/70 text-center sm:text-left">
+              Showing
+              <span class="font-medium text-base-content">{{ showingFrom }}</span>
+              to
+              <span class="font-medium text-base-content">{{ showingTo }}</span>
+              of
+              <span class="font-medium text-base-content">{{ total }}</span>
+              {{ total === 1 ? 'organization' : 'organizations' }}
+            </div>
+
+            <div class="flex w-full items-center justify-center gap-1 sm:gap-1.5">
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() <= 1"
+                (click)="firstPage()"
+                aria-label="First page"
+              >
+                «
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() <= 1"
+                (click)="previousPage()"
+                aria-label="Previous page"
+              >
+                ‹
+              </button>
+
+              @for (p of visiblePages(); track p) {
+                <button
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                  [class.btn-primary]="page() === p"
+                  [class.btn-ghost]="page() !== p"
+                  [class.text-base-content]="page() !== p"
+                  (click)="setPage(p)"
+                  [attr.aria-current]="page() === p ? 'page' : null"
+                >
+                  {{ p }}
+                </button>
+              }
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() >= totalPages"
+                (click)="nextPage()"
+                aria-label="Next page"
+              >
+                ›
+              </button>
+
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                [disabled]="page() >= totalPages"
+                (click)="lastPage()"
+                aria-label="Last page"
+              >
+                »
+              </button>
+            </div>
+
+            <div class="flex items-center justify-center gap-2 text-xs text-base-content/70 sm:justify-end">
+              <span>Rows</span>
+
+              <select
+                class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0 sm:h-10 sm:min-h-10 sm:w-[76px]"
+                [value]="pageSize()"
+                (change)="onPageSizeChange($any($event.target).value)"
+                aria-label="Items per page"
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+              </select>
+
+              <span>per page</span>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="modal-backdrop" (click)="closeSuspend()"></div>
-    </div>
-  }
+    }
+  </div>
 </div>
+
+@if (suspendTarget()) {
+  <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-5">
+    <button
+      type="button"
+      class="absolute inset-0 cursor-default"
+      aria-label="Close suspension dialog"
+      (click)="closeSuspend()"
+    ></button>
+
+    <section class="relative z-[101] w-full max-w-lg overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-2xl">
+      <div class="border-b border-base-300 px-5 py-4 sm:px-6">
+        <div class="flex items-start gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning/15 text-warning">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4 21 19H3L12 4Z"></path>
+              <path stroke-linecap="round" d="M12 9v4M12 16.5h.01"></path>
+            </svg>
+          </div>
+
+          <div class="min-w-0">
+            <h3 class="text-base font-semibold text-base-content">Suspend organization</h3>
+            <p class="mt-0.5 truncate text-xs text-base-content/60">{{ suspendTarget()!.name }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4 px-5 py-5 sm:px-6">
+        <div>
+          <label class="mb-1.5 block text-xs font-medium text-base-content">Reason</label>
+          <input
+            class="input input-bordered h-10 w-full rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content placeholder:text-base-content/45 focus:border-base-content/40 focus:outline-none focus:ring-0"
+            [ngModel]="suspendReason()"
+            (ngModelChange)="suspendReason.set($event)"
+            placeholder="Enter the reason for suspension"
+          />
+        </div>
+
+        <div>
+          <label class="mb-1.5 block text-xs font-medium text-base-content">Message to organization</label>
+          <textarea
+            class="textarea textarea-bordered min-h-24 w-full rounded-lg border-base-content/20 bg-base-100 text-sm leading-5 text-base-content placeholder:text-base-content/45 focus:border-base-content/40 focus:outline-none focus:ring-0"
+            [ngModel]="suspendMessage()"
+            (ngModelChange)="suspendMessage.set($event)"
+            rows="4"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="flex flex-col-reverse gap-2 border-t border-base-300 bg-base-200/20 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+        <button
+          class="btn btn-ghost rounded-lg text-base-content/75 hover:bg-base-200 hover:text-base-content"
+          (click)="closeSuspend()"
+        >
+          Cancel
+        </button>
+
+        <button
+          class="btn btn-warning rounded-lg"
+          [disabled]="suspendMutation.isPending()"
+          (click)="confirmSuspend()"
+        >
+          @if (suspendMutation.isPending()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          }
+          Suspend organization
+        </button>
+      </div>
+    </section>
+  </div>
+}

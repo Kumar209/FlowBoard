@@ -7,7 +7,8 @@ import { ToastService } from '../../../core/services/toast.service';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './toast.component.html',
-  styleUrls: ['./toast.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ToastComponent { toast = inject(ToastService); }
+export class ToastComponent {
+  toast = inject(ToastService);
+}

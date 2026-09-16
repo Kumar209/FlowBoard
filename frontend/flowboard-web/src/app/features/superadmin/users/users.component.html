@@ -1,112 +1,712 @@
-<div class="p-3 sm:p-4 space-y-4">
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-    <h1 class="text-2xl font-bold">Users — Org Admins</h1>
-    <div class="flex gap-2">
-      <input class="input input-bordered input-sm w-64" placeholder="Search name or email..." [(ngModel)]="searchInput" (keyup.enter)="onSearch()" />
-      <button class="btn btn-sm btn-primary" (click)="onSearch()">Search</button>
-      @if (search()) { <button class="btn btn-sm btn-ghost" (click)="clearSearch()">Clear</button> }
-    </div>
-  </div>
-  <div class="text-xs opacity-60">Shows only org admins who registered their company. Each row shows their organization and fixed org role. Drill into members for full roster.</div>
+<div class="mx-auto w-full max-w-[1500px] space-y-5 p-3 sm:p-4 lg:p-6">
+  <section class="rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+    <div class="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-end lg:justify-between">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 mb-1">
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="9" cy="8" r="3"/>
+              <path stroke-linecap="round" d="M3.5 19a5.5 5.5 0 0111 0"/>
+              <path stroke-linecap="round" d="M16 6.5a2.5 2.5 0 010 5M17 14a4.5 4.5 0 013.5 4.5"/>
+            </svg>
+          </div>
+          <span class="text-xs text-base-content/60">Platform</span>
+          <svg class="h-3 w-3 text-base-content/35" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/>
+          </svg>
+          <span class="text-xs text-base-content/70">Users</span>
+        </div>
 
-  @if (query.isPending()) {
-    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
-  } <!-- error via toast --> @else {
-    <div class="card bg-base-100 shadow overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="table table-sm">
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Email</th>
-              <th>Organization</th>
-              <th>Org Role</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Last Login</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (u of items; track u.id) {
-              <tr>
-                <td><div class="font-medium">{{ u.fullName }}</div><div class="text-xs opacity-50 mono">{{ u.id | slice:0:8 }}</div></td>
-                <td><span class="text-sm">{{ u.email }}</span></td>
-                <td><div class="text-sm font-medium">{{ u.organizationName }}</div><div class="text-xs opacity-50">{{ u.organizationId | slice:0:8 }}</div></td>
-                <td><span class="badge badge-sm badge-primary">{{ u.orgRole }}</span></td>
-                <td>
-                  @if (u.isPendingSuspension) { <span class="badge badge-warning badge-sm">Pending</span> <span class="text-xs opacity-60">{{ u.pendingDeadline | date:'shortDate' }}</span> }
-                  @else if (u.isActive) { <span class="badge badge-success badge-sm">Active</span> }
-                  @else { <span class="badge badge-error badge-sm">Suspended</span> }
-                </td>
-                <td><span class="text-xs">{{ u.createdAt | date:'mediumDate' }}</span></td>
-                <td><span class="text-xs">{{ u.lastLoginAt ? (u.lastLoginAt | date:'short') : '—' }}</span></td>
-                <td>
-                  <div class="flex gap-1 flex-wrap">
-                    <button class="btn btn-xs btn-ghost" (click)="viewMembers(u)">Members</button>
-                    @if (u.isPendingSuspension) { <button class="btn btn-xs btn-ghost" (click)="onActivate(u)">Cancel Suspension</button> }
-                    @else if (u.isActive) { <button class="btn btn-xs btn-warning" (click)="openSuspend(u)">Suspend</button> }
-                    @else { <button class="btn btn-xs btn-success" (click)="onActivate(u)">Reactivate</button> }
-                    <button class="btn btn-xs btn-error btn-outline" (click)="onDelete(u)">Delete</button>
-                  </div>
-                </td>
-              </tr>
-            }
-            @if (items.length === 0) { <tr><td colspan="8" class="text-center py-8 opacity-50">No org admins found</td></tr> }
-          </tbody>
-        </table>
-      </div>
-      <div class="flex items-center justify-between p-3 border-t border-base-200">
-        <div class="text-xs opacity-60">Total {{ total }} · Page {{ page() }} / {{ totalPages }}</div>
-        <div class="flex gap-2">
-          <button class="btn btn-xs" [disabled]="page() <= 1" (click)="prevPage()">Prev</button>
-          <button class="btn btn-xs" [disabled]="page() >= totalPages" (click)="nextPage()">Next</button>
-        </div>
-      </div>
-    </div>
-  }
+        <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight text-base-content">
+          Users
+        </h1>
 
-  @if (suspendTarget()) {
-    <div class="modal modal-open">
-      <div class="modal-box">
-        <h3 class="font-bold">Suspend {{ suspendTarget()!.fullName }} with grace period</h3>
-        <p class="text-xs opacity-60 mt-1">If this is the only OrgAdmin of {{ suspendTarget()!.organizationName }}, the organization will also be suspended at deadline unless another OrgAdmin is promoted.</p>
-        <div class="form-control mt-3">
-          <label class="label"><span class="label-text">Reason</span></label>
-          <input class="input input-bordered input-sm" [ngModel]="suspendReason()" (ngModelChange)="suspendReason.set($event)" placeholder="Reason for suspension" />
-        </div>
-        <div class="form-control mt-2">
-          <label class="label"><span class="label-text">Message to organization (shown as banner + email)</span></label>
-          <textarea class="textarea textarea-bordered textarea-sm" [ngModel]="suspendMessage()" (ngModelChange)="suspendMessage.set($event)" rows="3"></textarea>
-        </div>
-        <div class="form-control mt-2">
-          <label class="label"><span class="label-text">Deadline days</span></label>
-          <input type="number" class="input input-bordered input-sm w-24" [ngModel]="suspendDays()" (ngModelChange)="suspendDays.set($event)" min="1" max="30" />
-        </div>
-        <div class="modal-action">
-          <button class="btn btn-ghost btn-sm" (click)="closeSuspend()">Cancel</button>
-          <button class="btn btn-warning btn-sm" [disabled]="suspendMutation.isPending()" (click)="confirmSuspend()">@if (suspendMutation.isPending()) { <span class="loading loading-spinner loading-xs"></span> } Schedule</button>
-        </div>
+        <p class="mt-1 text-sm text-base-content/65">
+          Manage organization administrators and their platform access.
+        </p>
       </div>
-      <div class="modal-backdrop" (click)="closeSuspend()"></div>
-    </div>
-  }
 
-  @if (deleteTarget()) {
-    <div class="modal modal-open">
-      <div class="modal-box">
-        <h3 class="font-bold">Delete {{ deleteTarget()!.fullName }}?</h3>
-        @if (deleteIsLastAdmin()) {
-          <div class="alert alert-error mt-3 text-sm">This is the last OrgAdmin of {{ deleteOrgName() }}. Deleting this user will also permanently delete the entire organization and all its workspaces, projects and tasks. This cannot be undone.</div>
-        } @else {
-          <p class="text-sm mt-2">This will delete the user and their memberships, but the organization and its data will remain because other orgadmins exist.</p>
+      <div class="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+        <div class="relative min-w-0 flex-1 sm:w-64 lg:w-72">
+          <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-base-content/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="6.5"/>
+            <path stroke-linecap="round" d="m16 16 4 4"/>
+          </svg>
+
+          <input
+            class="input input-bordered h-10 w-full rounded-lg border border-base-content/20 bg-base-100 pl-9 pr-9 text-sm text-base-content shadow-none placeholder:text-base-content/50 focus:border-base-content/50 focus:outline-none focus:ring-0"
+            placeholder="Search name or email..."
+            [(ngModel)]="searchInput"
+            (keyup.enter)="onSearch()"
+          />
+
+          @if (searchInput()) {
+            <button
+              type="button"
+              class="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-base-content/65 hover:bg-base-200 hover:text-base-content"
+              (click)="clearSearch()"
+              aria-label="Clear search"
+            >
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/>
+              </svg>
+            </button>
+          }
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-primary h-10 min-h-10 rounded-lg px-4 shadow-sm"
+          (click)="onSearch()"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="6.5"/>
+            <path stroke-linecap="round" d="m16 16 4 4"/>
+          </svg>
+          Search
+        </button>
+
+        @if (search()) {
+          <button
+            type="button"
+            class="btn btn-ghost h-10 min-h-10 rounded-lg border border-base-content/10 px-3 text-base-content/75 hover:bg-base-200 hover:text-base-content"
+            (click)="clearSearch()"
+          >
+            Clear
+          </button>
         }
-        <div class="modal-action">
-          <button class="btn btn-ghost btn-sm" (click)="closeDelete()">Cancel</button>
-          <button class="btn btn-error btn-sm" [disabled]="deleteMutation.isPending()" (click)="confirmDelete()">@if (deleteMutation.isPending()) { <span class="loading loading-spinner loading-xs"></span> } Delete</button>
+      </div>
+    </div>
+  </section>
+
+  @if (query.isPending() && !query.data()) {
+    <div class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="flex items-center gap-4 border-b border-base-200 px-4 py-4 last:border-b-0 animate-pulse">
+          <div class="h-10 w-10 shrink-0 rounded-lg bg-base-300"></div>
+          <div class="min-w-0 flex-1 space-y-2">
+            <div class="h-3 w-40 rounded bg-base-300"></div>
+            <div class="h-3 w-64 max-w-full rounded bg-base-200"></div>
+          </div>
+          <div class="hidden h-5 w-20 rounded bg-base-200 sm:block"></div>
+          <div class="hidden h-5 w-24 rounded bg-base-200 md:block"></div>
+        </div>
+      }
+    </div>
+  } @else {
+    <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+      <div class="flex items-center justify-between border-b border-base-300/70 px-4 py-3 sm:px-5">
+        <div>
+          <h2 class="text-sm font-semibold text-base-content">Organization administrators</h2>
+          <p class="mt-0.5 text-xs text-base-content/55">
+            {{ total }} {{ total === 1 ? 'user' : 'users' }}
+          </p>
+        </div>
+
+        <div class="hidden items-center gap-2 text-xs text-base-content/55 sm:flex">
+          <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+          Platform access
         </div>
       </div>
-      <div class="modal-backdrop" (click)="closeDelete()"></div>
-    </div>
+
+      @if (items.length === 0) {
+        <div class="flex min-h-56 flex-col items-center justify-center px-5 text-center">
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-base-200 text-base-content/55">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <circle cx="9" cy="8" r="3"/>
+              <path stroke-linecap="round" d="M3.5 19a5.5 5.5 0 0111 0"/>
+              <path stroke-linecap="round" d="M16 6.5a2.5 2.5 0 010 5M17 14a4.5 4.5 0 013.5 4.5"/>
+            </svg>
+          </div>
+
+          <h3 class="mt-3 text-sm font-semibold text-base-content">No users found</h3>
+          <p class="mt-1 text-xs text-base-content/60">Try adjusting your search criteria.</p>
+        </div>
+      } @else {
+        <div class="hidden overflow-x-auto md:block">
+          <table class="w-full min-w-[1080px] border-collapse">
+            <thead>
+              <tr class="border-b border-base-300/70 bg-base-200/35">
+                <th class="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">User</th>
+                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Email</th>
+                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Organization</th>
+                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Role</th>
+                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Status</th>
+                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Created</th>
+                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Last Login</th>
+                <th class="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-base-content/65">Actions</th>
+              </tr>
+            </thead>
+
+            <tbody class="divide-y divide-base-300/60">
+              @for (u of items; track u.id) {
+                <tr class="transition-colors hover:bg-base-200/30">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-base-200 text-sm font-semibold text-base-content/75">
+                        {{ u.fullName?.charAt(0)?.toUpperCase() }}
+                      </div>
+
+                      <div class="min-w-0">
+                        <div class="truncate text-sm font-semibold text-base-content">
+                          {{ u.fullName }}
+                        </div>
+                        <div class="mt-0.5 truncate font-mono text-xs text-base-content/50">
+                          {{ u.id | slice:0:8 }}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    <span class="text-sm text-base-content/85">{{ u.email }}</span>
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    <div class="min-w-0">
+                      <div class="truncate text-sm font-medium text-base-content">
+                        {{ u.organizationName }}
+                      </div>
+                      <div class="mt-0.5 truncate font-mono text-xs text-base-content/50">
+                        {{ u.organizationId | slice:0:8 }}
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    <span class="badge badge-sm rounded-lg px-2.5 badge-primary">
+                      {{ u.orgRole }}
+                    </span>
+                  </td>
+
+                  <td class="px-4 py-3.5">
+                    @if (u.isPendingSuspension) {
+                      <div class="flex flex-col items-start gap-0.5">
+                        <span class="inline-flex items-center gap-1.5 text-xs font-medium text-warning">
+                          <span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
+                          Pending
+                        </span>
+                        <span class="text-[11px] text-base-content/55">
+                          {{ u.pendingDeadline | date:'shortDate' }}
+                        </span>
+                      </div>
+                    } @else if (u.isActive) {
+                      <span class="inline-flex items-center gap-1.5 text-xs font-medium text-success">
+                        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+                        Active
+                      </span>
+                    } @else {
+                      <span class="inline-flex items-center gap-1.5 text-xs font-medium text-error">
+                        <span class="h-1.5 w-1.5 rounded-full bg-error"></span>
+                        Suspended
+                      </span>
+                    }
+                  </td>
+
+                  <td class="px-4 py-3.5 whitespace-nowrap text-xs text-base-content/70">
+                    {{ u.createdAt | date:'mediumDate' }}
+                  </td>
+
+                  <td class="px-4 py-3.5 whitespace-nowrap text-xs text-base-content/70">
+                    {{ u.lastLoginAt ? (u.lastLoginAt | date:'short') : '—' }}
+                  </td>
+
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        class="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-base-content/75 transition-colors hover:bg-base-200 hover:text-base-content"
+                        (click)="viewMembers(u)"
+                      >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <circle cx="9" cy="8" r="3"/>
+                          <path stroke-linecap="round" d="M3.5 19a5.5 5.5 0 0111 0"/>
+                          <circle cx="17" cy="9" r="2"/>
+                          <path stroke-linecap="round" d="M15.5 15a4.5 4.5 0 014 4"/>
+                        </svg>
+                        Members
+                      </button>
+
+                      @if (u.isPendingSuspension) {
+                        <button
+                          type="button"
+                          class="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-base-content/75 transition-colors hover:bg-base-200 hover:text-base-content"
+                          (click)="onActivate(u)"
+                        >
+                          Cancel
+                        </button>
+                      } @else if (u.isActive) {
+                        <button
+                          type="button"
+                          class="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-warning transition-colors hover:bg-warning/10"
+                          (click)="openSuspend(u)"
+                        >
+                          Suspend
+                        </button>
+                      } @else {
+                        <button
+                          type="button"
+                          class="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-success transition-colors hover:bg-success/10"
+                          (click)="onActivate(u)"
+                        >
+                          Reactivate
+                        </button>
+                      }
+
+                      <button
+                        type="button"
+                        class="flex h-8 w-8 items-center justify-center rounded-lg text-base-content/65 transition-colors hover:bg-error/10 hover:text-error"
+                        (click)="onDelete(u)"
+                        aria-label="Delete user"
+                        title="Delete user"
+                      >
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 7V4h6v3"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M6 7l1 14h10l1-14"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M10 11v6M14 11v6"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="divide-y divide-base-300/60 md:hidden">
+          @for (u of items; track u.id) {
+            <article class="p-4">
+              <div class="flex items-start gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-base-200 text-sm font-semibold text-base-content/75">
+                  {{ u.fullName?.charAt(0)?.toUpperCase() }}
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <h3 class="truncate text-sm font-semibold text-base-content">
+                        {{ u.fullName }}
+                      </h3>
+                      <p class="mt-0.5 truncate text-xs text-base-content/60">
+                        {{ u.email }}
+                      </p>
+                    </div>
+
+                    @if (u.isPendingSuspension) {
+                      <span class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-warning">
+                        <span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
+                        Pending
+                      </span>
+                    } @else if (u.isActive) {
+                      <span class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-success">
+                        <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+                        Active
+                      </span>
+                    } @else {
+                      <span class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-error">
+                        <span class="h-1.5 w-1.5 rounded-full bg-error"></span>
+                        Suspended
+                      </span>
+                    }
+                  </div>
+
+                  <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div class="min-w-0">
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Organization</p>
+                      <p class="mt-1 truncate text-xs font-medium text-base-content">
+                        {{ u.organizationName }}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Role</p>
+                      <span class="badge badge-sm mt-1 rounded-lg px-2.5 badge-primary">
+                        {{ u.orgRole }}
+                      </span>
+                    </div>
+
+                    <div>
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Created</p>
+                      <p class="mt-1 text-xs text-base-content/75">
+                        {{ u.createdAt | date:'mediumDate' }}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Last Login</p>
+                      <p class="mt-1 text-xs text-base-content/75">
+                        {{ u.lastLoginAt ? (u.lastLoginAt | date:'short') : '—' }}
+                      </p>
+                    </div>
+
+                    @if (u.isPendingSuspension) {
+                      <div>
+                        <p class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">Deadline</p>
+                        <p class="mt-1 text-xs text-warning">
+                          {{ u.pendingDeadline | date:'mediumDate' }}
+                        </p>
+                      </div>
+                    }
+
+                    <div class="col-span-2">
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-base-content/50">User ID</p>
+                      <p class="mt-1 truncate font-mono text-xs text-base-content/60">
+                        {{ u.id | slice:0:8 }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-sm h-9 min-h-9 rounded-lg border border-base-content/15 bg-base-100 text-xs text-base-content/80 shadow-none hover:bg-base-200"
+                      (click)="viewMembers(u)"
+                    >
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <circle cx="9" cy="8" r="3"/>
+                        <path stroke-linecap="round" d="M3.5 19a5.5 5.5 0 0111 0"/>
+                        <circle cx="17" cy="9" r="2"/>
+                        <path stroke-linecap="round" d="M15.5 15a4.5 4.5 0 014 4"/>
+                      </svg>
+                      Members
+                    </button>
+
+                    @if (u.isPendingSuspension) {
+                      <button
+                        type="button"
+                        class="btn btn-sm h-9 min-h-9 rounded-lg border border-base-content/15 bg-base-100 text-xs text-base-content/80 shadow-none hover:bg-base-200"
+                        (click)="onActivate(u)"
+                      >
+                        Cancel Suspension
+                      </button>
+                    } @else if (u.isActive) {
+                      <button
+                        type="button"
+                        class="btn btn-sm h-9 min-h-9 rounded-lg border border-warning/30 bg-warning/10 text-xs text-warning shadow-none hover:bg-warning/15"
+                        (click)="openSuspend(u)"
+                      >
+                        Suspend
+                      </button>
+                    } @else {
+                      <button
+                        type="button"
+                        class="btn btn-sm h-9 min-h-9 rounded-lg border border-success/30 bg-success/10 text-xs text-success shadow-none hover:bg-success/15"
+                        (click)="onActivate(u)"
+                      >
+                        Reactivate
+                      </button>
+                    }
+
+                    <button
+                      type="button"
+                      class="btn btn-sm col-span-2 h-9 min-h-9 rounded-lg border border-error/25 bg-error/5 text-xs text-error shadow-none hover:bg-error/10"
+                      (click)="onDelete(u)"
+                    >
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" d="M4 7h16"/>
+                        <path stroke-linecap="round" d="M9 7V4h6v3"/>
+                        <path stroke-linecap="round" d="M6 7l1 14h10l1-14"/>
+                        <path stroke-linecap="round" d="M10 11v6M14 11v6"/>
+                      </svg>
+                      Delete User
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      }
+
+      <div class="border-t border-base-300/70 p-3 sm:p-4">
+        <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+          <div class="text-center text-xs text-base-content/70 sm:text-left">
+            Showing
+            <span class="font-medium text-base-content">{{ showingFrom }}</span>
+            to
+            <span class="font-medium text-base-content">{{ showingTo }}</span>
+            of
+            <span class="font-medium text-base-content">{{ total }}</span>
+            {{ total === 1 ? 'user' : 'users' }}
+          </div>
+
+          <div class="flex w-full items-center justify-center gap-1 sm:gap-1.5">
+            <button
+              class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() <= 1"
+              (click)="firstPage()"
+              aria-label="First page"
+            >
+              «
+            </button>
+
+            <button
+              class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() <= 1"
+              (click)="prevPage()"
+              aria-label="Previous page"
+            >
+              ‹
+            </button>
+
+            @for (p of visiblePages(); track p) {
+              <button
+                class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                [class.btn-primary]="page() === p"
+                [class.btn-ghost]="page() !== p"
+                [class.text-base-content]="page() !== p"
+                (click)="setPage(p)"
+                [attr.aria-current]="page() === p ? 'page' : null"
+              >
+                {{ p }}
+              </button>
+            }
+
+            <button
+              class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() >= totalPages"
+              (click)="nextPage()"
+              aria-label="Next page"
+            >
+              ›
+            </button>
+
+            <button
+              class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+              [disabled]="page() >= totalPages"
+              (click)="lastPage()"
+              aria-label="Last page"
+            >
+              »
+            </button>
+          </div>
+
+          <div class="flex items-center justify-center gap-2 text-xs text-base-content/70 sm:justify-end">
+            <span>Rows</span>
+
+            <select
+              class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0 sm:h-10 sm:min-h-10 sm:w-[76px]"
+              [value]="pageSize()"
+              (change)="onPageSizeChange($any($event.target).value)"
+              aria-label="Items per page"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+              <option value="50">50</option>
+            </select>
+
+            <span>per page</span>
+          </div>
+        </div>
+      </div>
+    </section>
   }
 </div>
+
+@if (suspendTarget()) {
+  <div class="fixed inset-0 z-[100] m-0 flex h-[100dvh] w-screen items-center justify-center overflow-y-auto bg-black/45 p-4 backdrop-blur-sm">
+    <button
+      type="button"
+      class="absolute inset-0 h-full w-full cursor-default"
+      aria-label="Close suspension dialog"
+      (click)="closeSuspend()"
+    ></button>
+
+    <section
+      class="relative z-[101] my-auto w-full max-w-lg overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="suspend-user-title"
+    >
+      <div class="border-b border-base-300/70 px-5 py-4 sm:px-6">
+        <div class="flex items-start gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning/15 text-warning">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 21 20H3L12 3Z"/>
+              <path stroke-linecap="round" d="M12 9v4M12 16h.01"/>
+            </svg>
+          </div>
+
+          <div class="min-w-0">
+            <h3 id="suspend-user-title" class="text-base font-semibold text-base-content sm:text-lg">
+              Suspend {{ suspendTarget()!.fullName }}
+            </h3>
+            <p class="mt-1 text-xs leading-5 text-base-content/60">
+              Schedule a grace period before the account suspension takes effect.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4 px-5 py-5 sm:px-6">
+        <div class="rounded-xl border border-warning/20 bg-warning/5 px-3.5 py-3">
+          <div class="flex gap-2.5">
+            <svg class="mt-0.5 h-4 w-4 shrink-0 text-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 21 20H3L12 3Z"/>
+              <path stroke-linecap="round" d="M12 9v4M12 16h.01"/>
+            </svg>
+            <p class="text-xs leading-5 text-base-content/70">
+              If this is the only OrgAdmin of {{ suspendTarget()!.organizationName }}, the organization will also be suspended at the deadline unless another OrgAdmin is promoted.
+            </p>
+          </div>
+        </div>
+
+        <label class="form-control">
+          <div class="label px-0 pb-1.5">
+            <span class="label-text text-xs font-medium text-base-content">Reason</span>
+          </div>
+          <input
+            class="input input-bordered h-10 rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none placeholder:text-base-content/45 focus:border-base-content/45 focus:outline-none focus:ring-0"
+            [ngModel]="suspendReason()"
+            (ngModelChange)="suspendReason.set($event)"
+            placeholder="Reason for suspension"
+          />
+        </label>
+
+        <label class="form-control">
+          <div class="label px-0 pb-1.5">
+            <span class="label-text text-xs font-medium text-base-content">Message to organization</span>
+          </div>
+          <textarea
+            class="textarea textarea-bordered min-h-24 rounded-lg border-base-content/20 bg-base-100 text-sm leading-5 text-base-content shadow-none placeholder:text-base-content/45 focus:border-base-content/45 focus:outline-none focus:ring-0"
+            [ngModel]="suspendMessage()"
+            (ngModelChange)="suspendMessage.set($event)"
+            rows="3"
+          ></textarea>
+        </label>
+
+        <label class="form-control">
+          <div class="label px-0 pb-1.5">
+            <span class="label-text text-xs font-medium text-base-content">Grace period</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input
+              type="number"
+              class="input input-bordered h-10 w-24 rounded-lg border-base-content/20 bg-base-100 text-sm text-base-content shadow-none focus:border-base-content/45 focus:outline-none focus:ring-0"
+              [ngModel]="suspendDays()"
+              (ngModelChange)="suspendDays.set($event)"
+              min="1"
+              max="30"
+            />
+            <span class="text-xs text-base-content/60">days</span>
+          </div>
+        </label>
+      </div>
+
+      <div class="flex flex-col-reverse gap-2 border-t border-base-300/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm h-9 min-h-9 rounded-lg border border-base-content/10 px-4 text-base-content/75 hover:bg-base-200 hover:text-base-content"
+          (click)="closeSuspend()"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-warning btn-sm h-9 min-h-9 rounded-lg px-4"
+          [disabled]="suspendMutation.isPending()"
+          (click)="confirmSuspend()"
+        >
+          @if (suspendMutation.isPending()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          }
+          Schedule Suspension
+        </button>
+      </div>
+    </section>
+  </div>
+}
+
+@if (deleteTarget()) {
+  <div class="fixed inset-0 z-[100] m-0 flex h-[100dvh] w-screen items-center justify-center overflow-y-auto bg-black/45 p-4 backdrop-blur-sm">
+    <button
+      type="button"
+      class="absolute inset-0 h-full w-full cursor-default"
+      aria-label="Close delete dialog"
+      (click)="closeDelete()"
+    ></button>
+
+    <section
+      class="relative z-[101] my-auto w-full max-w-lg overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-user-title"
+    >
+      <div class="border-b border-base-300/70 px-5 py-4 sm:px-6">
+        <div class="flex items-start gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-error/10 text-error">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 7V4h6v3"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 7l1 14h10l1-14"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 11v6M14 11v6"/>
+            </svg>
+          </div>
+
+          <div class="min-w-0">
+            <h3 id="delete-user-title" class="text-base font-semibold text-base-content sm:text-lg">
+              Delete {{ deleteTarget()!.fullName }}?
+            </h3>
+            <p class="mt-1 text-xs leading-5 text-base-content/60">
+              Review the impact before permanently removing this user.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-5 py-5 sm:px-6">
+        @if (deleteIsLastAdmin()) {
+          <div class="rounded-xl border border-error/25 bg-error/5 p-4">
+            <div class="flex gap-3">
+              <svg class="mt-0.5 h-5 w-5 shrink-0 text-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 21 20H3L12 3Z"/>
+                <path stroke-linecap="round" d="M12 9v4M12 16h.01"/>
+              </svg>
+
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-error">
+                  This is the last OrgAdmin
+                </p>
+                <p class="mt-1 text-xs leading-5 text-base-content/70">
+                  Deleting this user will also permanently delete {{ deleteOrgName() }} and all of its workspaces, projects, and tasks. This cannot be undone.
+                </p>
+              </div>
+            </div>
+          </div>
+        } @else {
+          <div class="rounded-xl border border-base-300/70 bg-base-200/30 p-4">
+            <p class="text-sm leading-6 text-base-content/80">
+              This will delete the user and their memberships. The organization and its data will remain because other OrgAdmins exist.
+            </p>
+          </div>
+        }
+      </div>
+
+      <div class="flex flex-col-reverse gap-2 border-t border-base-300/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm h-9 min-h-9 rounded-lg border border-base-content/10 px-4 text-base-content/75 hover:bg-base-200 hover:text-base-content"
+          (click)="closeDelete()"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-error btn-sm h-9 min-h-9 rounded-lg px-4 text-error-content"
+          [disabled]="deleteMutation.isPending()"
+          (click)="confirmDelete()"
+        >
+          @if (deleteMutation.isPending()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          }
+          Delete User
+        </button>
+      </div>
+    </section>
+  </div>
+}

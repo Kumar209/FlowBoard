@@ -1,64 +1,339 @@
-<div class="p-3 sm:p-4 space-y-4">
-  <button class="btn btn-ghost btn-sm" (click)="goBack()">← Back to Support</button>
+<div class="mx-auto w-full max-w-[1200px] space-y-4 p-3 sm:p-4 lg:p-6">
+  <button
+    type="button"
+    class="btn btn-ghost btn-sm h-9 min-h-9 rounded-lg border border-base-content/10 px-3 text-base-content/75 hover:bg-base-200 hover:text-base-content"
+    (click)="goBack()"
+  >
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/>
+    </svg>
+    Back to support
+  </button>
 
   @if (detailQuery.isPending()) {
-    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
-  } <!-- error via toast --> @else if (complaint) {
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 class="text-xl font-bold">{{ complaint.subject }}</h1>
-            <div class="text-xs opacity-60 mt-1">{{ complaint.organizationName || (complaint.organizationId | slice:0:8) }} · {{ complaint.createdAt | date:'medium' }} · <span class="badge badge-sm" [ngClass]="complaint.status === 'Replied' ? 'badge-success' : 'badge-warning'">{{ complaint.status }}</span></div>
-            <div class="text-xs opacity-60 mt-1">By {{ complaint.createdByName || complaint.createdByEmail }} <span class="opacity-50">({{ complaint.createdByEmail }})</span> · <span class="badge badge-xs badge-ghost">{{ complaint.createdByRole }}</span></div>
-          </div>
-          <button class="btn btn-error btn-sm btn-outline" (click)="onDelete()">Delete</button>
-        </div>
-        <div class="divider my-3"></div>
-        <div class="text-sm whitespace-pre-wrap">{{ complaint.message }}</div>
-      </div>
+    <div class="space-y-4">
+      <div class="h-48 animate-pulse rounded-2xl border border-base-300/70 bg-base-100"></div>
+      <div class="h-72 animate-pulse rounded-2xl border border-base-300/70 bg-base-100"></div>
     </div>
+  } @else if (complaint) {
+    <!-- Complaint -->
+    <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+      <div class="border-b border-base-300/70 px-5 py-5 sm:px-6">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div class="min-w-0">
+            <div class="mb-3 flex flex-wrap items-center gap-2">
+              <span class="rounded-lg border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                Complaint
+              </span>
 
-    <div class="card bg-base-100 shadow">
-      <div class="card-body p-4">
-        <h3 class="font-semibold">Threaded Replies — {{ replies.length }}</h3>
+              <span
+                class="inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-medium"
+                [class.border-success/20]="complaint.status === 'Replied'"
+                [class.bg-success/10]="complaint.status === 'Replied'"
+                [class.text-success]="complaint.status === 'Replied'"
+                [class.border-warning/20]="complaint.status !== 'Replied'"
+                [class.bg-warning/10]="complaint.status !== 'Replied'"
+                [class.text-warning]="complaint.status !== 'Replied'"
+              >
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  [class.bg-success]="complaint.status === 'Replied'"
+                  [class.bg-warning]="complaint.status !== 'Replied'"
+                ></span>
+                {{ complaint.status }}
+              </span>
+            </div>
+
+            <h1 class="break-words text-xl font-semibold tracking-tight text-base-content sm:text-2xl">
+              {{ complaint.subject }}
+            </h1>
+
+            <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-content/60">
+              <span>{{ complaint.organizationName || (complaint.organizationId | slice:0:8) }}</span>
+              <span class="text-base-content/30">•</span>
+              <span>{{ complaint.createdAt | date:'medium' }}</span>
+            </div>
+
+            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <span class="text-base-content/50">Submitted by</span>
+              <span class="font-medium text-base-content/80">
+                {{ complaint.createdByName || complaint.createdByEmail }}
+              </span>
+
+              @if (complaint.createdByEmail) {
+                <span class="text-base-content/30">•</span>
+                <span class="text-base-content/60">{{ complaint.createdByEmail }}</span>
+              }
+
+              @if (complaint.createdByRole) {
+                <span class="rounded-lg border border-base-content/10 bg-base-200/50 px-2 py-0.5 text-[10px] font-medium text-base-content/60">
+                  {{ complaint.createdByRole }}
+                </span>
+              }
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn-error btn-outline btn-sm h-9 min-h-9 shrink-0 rounded-lg"
+            (click)="onDelete()"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 11v6M14 11v6"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="m9 7 .7-2h4.6l.7 2M6 7l.7 13h10.6L18 7"/>
+            </svg>
+            Delete
+          </button>
+        </div>
+      </div>
+
+      <div class="px-5 py-5 sm:px-6">
+        <div class="rounded-xl border border-base-content/10 bg-base-200/25 p-4 sm:p-5">
+          <div class="mb-2 flex items-center gap-2">
+            <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-base-200 text-base-content/60">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H12l-5 4v-4h-.5A2.5 2.5 0 0 1 4 13.5v-8Z"/>
+              </svg>
+            </div>
+
+            <span class="text-xs font-medium text-base-content/60">
+              Your message
+            </span>
+          </div>
+
+          <p class="whitespace-pre-wrap break-words text-sm leading-6 text-base-content/85">
+            {{ complaint.message }}
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Conversation -->
+    <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+      <div class="border-b border-base-300/70 px-5 py-4 sm:px-6">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-semibold text-base-content">Conversation</h2>
+            <p class="mt-0.5 text-xs text-base-content/55">
+              {{ replies.length }} {{ replies.length === 1 ? 'reply' : 'replies' }}
+            </p>
+          </div>
+
+          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H12l-5 4v-4h-.5A2.5 2.5 0 0 1 4 13.5v-8Z"/>
+              <path stroke-linecap="round" d="M8 9h8M8 12h5"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-5 sm:p-6">
         @if (replies.length === 0) {
-          <div class="text-sm opacity-50 py-4">No replies yet — be the first to reply</div>
+          <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-base-content/15 bg-base-200/20 px-5 py-10 text-center">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-base-200 text-base-content/50">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H12l-5 4v-4h-.5A2.5 2.5 0 0 1 4 13.5v-8Z"/>
+              </svg>
+            </div>
+
+            <p class="mt-3 text-sm font-medium text-base-content">No replies yet</p>
+            <p class="mt-1 text-xs text-base-content/55">
+              Send a reply below to continue the conversation.
+            </p>
+          </div>
         } @else {
-          <div class="space-y-3 mt-3">
+          <div class="relative space-y-4">
+            <div class="absolute bottom-5 left-[17px] top-5 w-px bg-base-300/80"></div>
+
             @for (r of replies; track r.id) {
-              <div class="border border-base-200 rounded-xl p-3" [ngClass]="r.isSuperAdminReply ? 'bg-primary/5 border-primary/20' : 'bg-base-100'">
-                <div class="flex items-center justify-between flex-wrap gap-2">
-                  <span class="text-xs font-semibold" [ngClass]="r.isSuperAdminReply ? 'text-primary' : 'opacity-70'">
-                    @if (r.isSuperAdminReply) { FlowBoard SuperAdmin } @else { {{ r.authorName }} }
-                    <span class="font-normal opacity-60">({{ r.authorEmail }})</span> · <span class="badge badge-xs" [ngClass]="r.isSuperAdminReply ? 'badge-primary' : 'badge-ghost'">{{ r.authorRole }}</span>
-                  </span>
-                  <span class="text-xs opacity-50">{{ r.createdAt | date:'medium' }}</span>
+              <article class="relative flex gap-3 sm:gap-4">
+                <div
+                  class="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
+                  [class.border-primary/20]="r.isSuperAdminReply"
+                  [class.bg-primary/10]="r.isSuperAdminReply"
+                  [class.text-primary]="r.isSuperAdminReply"
+                  [class.border-base-content/10]="!r.isSuperAdminReply"
+                  [class.bg-base-200]="!r.isSuperAdminReply"
+                  [class.text-base-content/60]="!r.isSuperAdminReply"
+                >
+                  @if (r.isSuperAdminReply) {
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                      <circle cx="12" cy="12" r="8.5"/>
+                      <path stroke-linecap="round" d="M12 7v10M7 12h10"/>
+                    </svg>
+                  } @else {
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                      <circle cx="12" cy="8" r="3.5"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 20a7 7 0 0 1 14 0"/>
+                    </svg>
+                  }
                 </div>
-                <div class="text-sm mt-2 whitespace-pre-wrap">{{ r.message }}</div>
-              </div>
+
+                <div
+                  class="min-w-0 flex-1 rounded-xl border p-4"
+                  [class.border-primary/20]="r.isSuperAdminReply"
+                  [class.bg-primary/5]="r.isSuperAdminReply"
+                  [class.border-base-300/70]="!r.isSuperAdminReply"
+                  [class.bg-base-100]="!r.isSuperAdminReply"
+                >
+                  <div class="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span
+                          class="text-xs font-semibold"
+                          [class.text-primary]="r.isSuperAdminReply"
+                          [class.text-base-content]="!r.isSuperAdminReply"
+                        >
+                          @if (r.isSuperAdminReply) {
+                            FlowBoard SuperAdmin
+                          } @else {
+                            {{ r.authorName }}
+                          }
+                        </span>
+
+                        <span class="rounded-lg border border-base-content/10 bg-base-200/50 px-2 py-0.5 text-[10px] font-medium text-base-content/60">
+                          {{ r.authorRole }}
+                        </span>
+                      </div>
+
+                      <p class="mt-0.5 truncate text-[11px] text-base-content/50">
+                        {{ r.authorEmail }}
+                      </p>
+                    </div>
+
+                    <span class="shrink-0 text-[11px] text-base-content/50">
+                      {{ r.createdAt | date:'medium' }}
+                    </span>
+                  </div>
+
+                  <p class="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-base-content/80">
+                    {{ r.message }}
+                  </p>
+                </div>
+              </article>
             }
           </div>
         }
-        <div class="mt-4">
-          <textarea class="textarea textarea-bordered w-full" rows="4" placeholder="Write a reply..." [ngModel]="replyText()" (ngModelChange)="replyText.set($event)"></textarea>
-          <button class="btn btn-primary btn-sm mt-3" [disabled]="replyMutation.isPending()" (click)="onReply()">@if (replyMutation.isPending()) { <span class="loading loading-spinner loading-xs"></span> } Send Reply</button>
-        </div>
-      </div>
-    </div>
-  }
 
-  @if (deleteConfirm()) {
-    <div class="modal modal-open">
-      <div class="modal-box">
-        <h3 class="font-bold">Delete complaint?</h3>
-        <p class="text-sm opacity-60 mt-2">This will permanently delete the complaint and its replies.</p>
-        <div class="modal-action">
-          <button class="btn btn-ghost btn-sm" (click)="deleteConfirm.set(false)">Cancel</button>
-          <button class="btn btn-error btn-sm" [disabled]="deleteMutation.isPending()" (click)="confirmDelete()">Delete</button>
+        <!-- Reply composer -->
+        <div class="mt-6 border-t border-base-300/70 pt-5">
+          <div class="mb-3 flex items-center gap-2">
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.7 9.7 0 0 1-4.1-.9L3 20l1.2-4.2A8.5 8.5 0 1 1 21 11.5Z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m8 12 2.5 2L16 9"/>
+              </svg>
+            </div>
+
+            <div>
+              <h3 class="text-sm font-semibold text-base-content">Reply</h3>
+              <p class="text-xs text-base-content/55">
+                Send another message to the platform team.
+              </p>
+            </div>
+          </div>
+
+          <textarea
+            class="textarea textarea-bordered min-h-28 w-full resize-y rounded-xl border-base-content/15 bg-base-100 px-4 py-3 text-sm leading-6 text-base-content placeholder:text-base-content/35 focus:border-primary focus:outline-none focus:ring-0"
+            rows="4"
+            placeholder="Write a reply..."
+            [ngModel]="replyText()"
+            (ngModelChange)="replyText.set($event)"
+          ></textarea>
+
+          <div class="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span class="text-[11px] text-base-content/45">
+              Your reply will be added to this conversation.
+            </span>
+
+            <button
+              type="button"
+              class="btn btn-primary btn-sm h-9 min-h-9 rounded-lg px-4"
+              [disabled]="replyMutation.isPending()"
+              (click)="onReply()"
+            >
+              @if (replyMutation.isPending()) {
+                <span class="loading loading-spinner loading-xs"></span>
+              } @else {
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m4 12 16-8-4 16-4.5-6.5L4 12Z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m11.5 13.5 4-4"/>
+                </svg>
+              }
+              Send reply
+            </button>
+          </div>
         </div>
       </div>
-      <div class="modal-backdrop" (click)="deleteConfirm.set(false)"></div>
-    </div>
+    </section>
   }
 </div>
+
+@if (deleteConfirm()) {
+  <div class="fixed inset-0 z-[100] flex h-[100dvh] w-screen items-center justify-center overflow-y-auto bg-black/45 p-4 backdrop-blur-sm">
+    <button
+      type="button"
+      class="absolute inset-0 h-full w-full cursor-default"
+      aria-label="Close delete confirmation"
+      (click)="deleteConfirm.set(false)"
+    ></button>
+
+    <section
+      class="relative z-[101] w-full max-w-md overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="detail-delete-title"
+    >
+      <div class="border-b border-error/15 bg-error/5 px-5 py-4">
+        <div class="flex items-center gap-3">
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-error/10 text-error">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 11v6M14 11v6"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="m9 7 .7-2h4.6l.7 2M6 7l.7 13h10.6L18 7"/>
+            </svg>
+          </div>
+
+          <div>
+            <h2 id="detail-delete-title" class="text-sm font-semibold text-base-content">
+              Delete complaint?
+            </h2>
+            <p class="mt-0.5 text-xs text-base-content/55">
+              The entire conversation will be removed.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-5 py-5">
+        <p class="text-sm leading-6 text-base-content/75">
+          This permanently deletes the complaint and all replies associated with it.
+        </p>
+      </div>
+
+      <div class="flex flex-col-reverse gap-2 border-t border-base-300/70 px-5 py-4 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm h-9 min-h-9 rounded-lg border border-base-content/10 text-base-content/75"
+          (click)="deleteConfirm.set(false)"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-error btn-sm h-9 min-h-9 rounded-lg px-4 text-white"
+          [disabled]="deleteMutation.isPending()"
+          (click)="confirmDelete()"
+        >
+          @if (deleteMutation.isPending()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          }
+          Delete complaint
+        </button>
+      </div>
+    </section>
+  </div>
+}

@@ -1,75 +1,464 @@
-<div class="p-3 sm:p-4 space-y-4">
-  <div>
-    <h1 class="text-2xl font-bold">Feature Flags</h1>
-    <div class="text-xs opacity-60 mt-1">Platform-level toggles — Global + Organization Overrides + Environments. Beta testing, gradual rollout, emergency disabling.</div>
-  </div>
+<div class="mx-auto w-full max-w-[1500px] space-y-5 p-3 sm:p-4 lg:p-6">
+  <section class="relative overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+    <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-secondary to-accent"></div>
 
-  <div class="tabs tabs-boxed bg-base-100 w-fit">
-    <a class="tab tab-sm" [class.tab-active]="tab()==='global'" (click)="tab.set('global')">Global</a>
-    <a class="tab tab-sm" [class.tab-active]="tab()==='overrides'" (click)="tab.set('overrides')">Organization Overrides</a>
-  </div>
-
-  @if (query.isPending()) {
-    <div class="grid place-items-center py-16"><span class="loading loading-spinner loading-lg"></span></div>
-  } <!-- error via toast --> @else if (tab()==='global') {
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3">
-      @for (f of aiFlags; track f.key) {
-        <div class="card bg-base-100 shadow">
-          <div class="card-body p-4">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-bold">{{ f.name }}</span>
-              <input type="checkbox" class="toggle toggle-primary toggle-sm" [checked]="f.isEnabled" (change)="onToggle(f)" [disabled]="toggleMutation.isPending()" />
-            </div>
-            <div class="text-xs opacity-60 mt-1 font-mono">{{ f.key }}</div>
-            <div class="text-xs opacity-70 mt-2">{{ f.description }}</div>
-            <div class="text-[11px] opacity-50 mt-2">Updated {{ f.updatedAt | date:'medium' }} · <span class="badge badge-xs" [ngClass]="f.isEnabled?'badge-success':'badge-ghost'">{{ f.isEnabled ? 'Enabled' : 'Disabled' }}</span></div>
+    <div class="relative flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+      <div class="min-w-0">
+        <div class="mb-3 flex items-center gap-2">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 4 7v5c0 4.8 3.4 7.9 8 9 4.6-1.1 8-4.2 8-9V7l-8-4Z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6"/>
+              <path stroke-linecap="round" d="M12 9v6"/>
+            </svg>
           </div>
+
+          <span class="text-xs font-medium text-base-content/55">Platform</span>
+
+          <svg class="h-3 w-3 text-base-content/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/>
+          </svg>
+
+          <span class="text-xs font-medium text-base-content/75">Feature Flags</span>
         </div>
+
+        <h1 class="text-2xl font-semibold tracking-tight text-base-content sm:text-3xl">
+          Feature Flags
+        </h1>
+
+        <p class="mt-1.5 max-w-2xl text-sm text-base-content/60">
+          Control AI capabilities globally or customize them for individual organizations.
+        </p>
+      </div>
+
+      <div class="flex shrink-0 items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M3 12h18"/>
+            <circle cx="12" cy="12" r="8.5"/>
+          </svg>
+        </div>
+
+        <div>
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-primary/70">
+            Controls
+          </p>
+          <p class="text-xs font-medium text-base-content">
+            {{ aiFlags.length }} AI flags
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="flex flex-wrap items-center gap-1 rounded-xl border border-base-300/70 bg-base-100 p-1 shadow-sm w-fit">
+    <button
+      type="button"
+      class="flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors"
+      [class.bg-primary]="tab() === 'global'"
+      [class.text-primary-content]="tab() === 'global'"
+      [class.text-base-content/65]="tab() !== 'global'"
+      [class.hover:bg-base-200]="tab() !== 'global'"
+      (click)="tab.set('global')"
+    >
+      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="8.5"/>
+        <path stroke-linecap="round" d="M3.5 12h17M12 3.5c2.3 2.4 3.5 5.2 3.5 8.5S14.3 18.1 12 20.5C9.7 18.1 8.5 15.3 8.5 12S9.7 5.9 12 3.5Z"/>
+      </svg>
+      Global controls
+    </button>
+
+    <button
+      type="button"
+      class="flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors"
+      [class.bg-primary]="tab() === 'overrides'"
+      [class.text-primary-content]="tab() === 'overrides'"
+      [class.text-base-content/65]="tab() !== 'overrides'"
+      [class.hover:bg-base-200]="tab() !== 'overrides'"
+      (click)="tab.set('overrides')"
+    >
+      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+        <circle cx="8" cy="6" r="2"/>
+        <circle cx="15" cy="12" r="2"/>
+        <circle cx="10" cy="18" r="2"/>
+      </svg>
+      Organization overrides
+    </button>
+  </div>
+
+  @if (query.isPending() && !query.data()) {
+    <div class="grid gap-4 md:grid-cols-2">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="h-48 animate-pulse rounded-2xl border border-base-300/70 bg-base-100"></div>
       }
     </div>
-    <div class="text-xs opacity-60 mt-2">Only AI issue flags used in SuperAdmin — Global controls all tenants.</div>
-  } @else {
-    <div class="space-y-3">
-      <div class="flex gap-2">
-        <input class="input input-bordered input-sm w-full sm:w-64" placeholder="Search organization..." [ngModel]="orgSearch()" (ngModelChange)="onOrgSearch($event)" />
-        <span class="badge badge-ghost badge-sm self-center">{{ orgTotal }} orgs</span>
+  } @else if (tab() === 'global') {
+    <section class="space-y-4">
+      <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 class="text-sm font-semibold text-base-content">Global AI controls</h2>
+          <p class="mt-0.5 text-xs text-base-content/55">
+            These controls determine the default availability of AI capabilities across the platform.
+          </p>
+        </div>
+
+        <div class="text-xs text-base-content/55">
+          {{ aiFlags.length }} capabilities
+        </div>
       </div>
-      @if (orgsQuery.isPending()) {
-        <div class="grid place-items-center py-8"><span class="loading loading-spinner"></span></div>
-      } @else if (orgs.length === 0) {
-        <div class="card bg-base-100 shadow p-8 text-center opacity-50 text-sm">No organizations</div>
+
+      @if (aiFlags.length === 0) {
+        <div class="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-base-300 bg-base-100 px-5 text-center">
+          <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-base-200 text-base-content/50">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <circle cx="12" cy="12" r="8.5"/>
+              <path stroke-linecap="round" d="M8 8l8 8M16 8l-8 8"/>
+            </svg>
+          </div>
+
+          <h3 class="mt-3 text-sm font-semibold text-base-content">
+            No AI flags available
+          </h3>
+
+          <p class="mt-1 text-xs text-base-content/60">
+            There are currently no AI capabilities configured for platform control.
+          </p>
+        </div>
       } @else {
-        <div class="card bg-base-100 shadow">
-          <div class="card-body p-0">
-            <div class="overflow-x-auto">
-              <table class="table table-sm">
-                <thead><tr><th>Organization</th>@for (f of aiFlags; track f.key) { <th class="text-center font-mono text-xs">{{ f.key }}</th> }</tr></thead>
-                <tbody>
-                  @for (o of orgs; track o.id) {
-                    <tr class="hover">
-                      <td class="font-medium text-xs max-w-[180px] truncate" [title]="o.name">{{ o.name }}<div class="text-[10px] opacity-50 font-mono">{{ o.slug }}</div></td>
-                      @for (f of aiFlags; track f.key) {
-                        <td class="text-center">
-                          @let orgVal = getOrgFlag(o.id, f.key);
-                          <input type="checkbox" class="toggle toggle-primary toggle-xs" [checked]="orgVal !== null ? orgVal : f.isEnabled" (change)="onOrgToggle(o,f)" [disabled]="orgToggleMutation.isPending()" />
-                        </td>
-                      }
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-            <div class="flex items-center justify-between p-3 border-t border-base-200">
-              <span class="text-xs opacity-60">Page {{ orgPage() }} of {{ orgTotalPages }} — {{ orgTotal }} orgs</span>
-              <div class="flex gap-2">
-                <button class="btn btn-ghost btn-xs" (click)="prevOrg()" [disabled]="orgPage()<=1">Prev</button>
-                <button class="btn btn-ghost btn-xs" (click)="nextOrg()" [disabled]="orgPage()>=orgTotalPages">Next</button>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          @for (f of aiFlags; track f.key) {
+            <article
+              class="group relative overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+              [class.border-primary/25]="f.isEnabled"
+            >
+              <div
+                class="absolute inset-x-0 top-0 h-1 opacity-80"
+                [class.bg-primary]="f.key === 'ai_draft'"
+                [class.bg-secondary]="f.key === 'ai_breakdown'"
+                [class.bg-accent]="f.key === 'ai_enhance_description'"
+                [class.bg-info]="f.key === 'ai_generate_criteria'"
+              ></div>
+
+              <div class="p-5">
+                <div class="flex items-start justify-between gap-4">
+                  <div class="flex min-w-0 items-start gap-3">
+                    <div
+                      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-base font-semibold"
+                      [class]="flagAccent(f.key)"
+                    >
+                      {{ flagIcon(f.key) }}
+                    </div>
+
+                    <div class="min-w-0">
+                      <h3 class="truncate text-sm font-semibold text-base-content">
+                        {{ f.name }}
+                      </h3>
+
+                      <p class="mt-1 break-all font-mono text-[10px] text-base-content/45">
+                        {{ f.key }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <label class="flex shrink-0 cursor-pointer items-center gap-2">
+                    <span
+                      class="hidden text-[10px] font-medium sm:inline"
+                      [class.text-success]="f.isEnabled"
+                      [class.text-base-content/45]="!f.isEnabled"
+                    >
+                      {{ f.isEnabled ? 'Enabled' : 'Disabled' }}
+                    </span>
+
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-primary toggle-sm"
+                      [checked]="f.isEnabled"
+                      (change)="onToggle(f)"
+                      [disabled]="toggleMutation.isPending()"
+                    />
+                  </label>
+                </div>
+
+                <p class="mt-4 min-h-10 text-xs leading-5 text-base-content/65">
+                  {{ f.description }}
+                </p>
+
+                <div class="mt-4 flex items-center justify-between border-t border-base-300/60 pt-3">
+                  <div
+                    class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium"
+                    [class.bg-success/10]="f.isEnabled"
+                    [class.text-success]="f.isEnabled"
+                    [class.bg-base-200]="!f.isEnabled"
+                    [class.text-base-content/55]="!f.isEnabled"
+                  >
+                    <span
+                      class="h-1.5 w-1.5 rounded-full"
+                      [class.bg-success]="f.isEnabled"
+                      [class.bg-base-content/30]="!f.isEnabled"
+                    ></span>
+
+                    {{ f.isEnabled ? 'Active globally' : 'Inactive globally' }}
+                  </div>
+
+                  <span class="text-[10px] text-base-content/45">
+                    Updated {{ f.updatedAt | date:'medium' }}
+                  </span>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </section>
+  } @else {
+    <section class="space-y-4">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 class="text-sm font-semibold text-base-content">Organization overrides</h2>
+          <p class="mt-0.5 text-xs text-base-content/55">
+            Adjust AI availability for individual organizations.
+          </p>
+        </div>
+
+        <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <label class="relative block w-full sm:w-72">
+            <svg class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-base-content/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="11" cy="11" r="7"/>
+              <path stroke-linecap="round" d="m20 20-4-4"/>
+            </svg>
+
+            <input
+              class="input input-bordered h-9 min-h-9 w-full rounded-lg border-base-content/20 bg-base-100 pl-9 text-xs text-base-content shadow-none placeholder:text-base-content/45 focus:border-base-content/45 focus:outline-none focus:ring-0"
+              placeholder="Search organizations..."
+              [ngModel]="orgSearch()"
+              (ngModelChange)="onOrgSearch($event)"
+            />
+          </label>
+
+          <div class="flex shrink-0 items-center gap-2 rounded-lg border border-base-300/70 bg-base-100 px-3 py-2 text-xs text-base-content/60">
+            <span class="h-1.5 w-1.5 rounded-full bg-primary"></span>
+            {{ orgTotal }} {{ orgTotal === 1 ? 'organization' : 'organizations' }}
+          </div>
+        </div>
+      </div>
+
+      @if (orgsQuery.isPending()) {
+        <div class="rounded-2xl border border-base-300/70 bg-base-100 p-5">
+          <div class="space-y-3">
+            @for (i of [1,2,3,4,5]; track i) {
+              <div class="h-12 animate-pulse rounded-lg bg-base-200/60"></div>
+            }
+          </div>
+        </div>
+      } @else if (orgs.length === 0) {
+        <div class="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-base-300 bg-base-100 px-5 text-center">
+          <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-base-200 text-base-content/50">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+              <path stroke-linecap="round" d="M3 10h18"/>
+            </svg>
+          </div>
+
+          <h3 class="mt-3 text-sm font-semibold text-base-content">
+            No organizations found
+          </h3>
+
+          <p class="mt-1 text-xs text-base-content/60">
+            Try adjusting your organization search.
+          </p>
+        </div>
+      } @else {
+        <section class="overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-sm">
+          <div class="border-b border-base-300/70 bg-base-200/25 px-4 py-3 sm:px-5">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h3 class="text-xs font-semibold text-base-content">
+                  AI capability matrix
+                </h3>
+                <p class="mt-0.5 text-[11px] text-base-content/50">
+                  Organization-level settings override the global defaults.
+                </p>
+              </div>
+
+              <div class="hidden items-center gap-3 text-[10px] text-base-content/50 sm:flex">
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+                  Enabled
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="h-1.5 w-1.5 rounded-full bg-base-content/25"></span>
+                  Disabled
+                </span>
               </div>
             </div>
           </div>
-        </div>
-        <div class="text-xs opacity-60">Searchable + paginated for 50+ orgs. Toggles mock — future per-org override.</div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[760px] border-collapse">
+              <thead>
+                <tr class="border-b border-base-300/70 bg-base-200/30">
+                  <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-base-content/60 sm:px-5">
+                    Organization
+                  </th>
+
+                  @for (f of aiFlags; track f.key) {
+                    <th class="px-3 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-base-content/60">
+                      <div class="flex flex-col items-center gap-1">
+                        <span>{{ f.name }}</span>
+                        <span class="font-mono text-[9px] font-normal normal-case text-base-content/40">
+                          {{ f.key }}
+                        </span>
+                      </div>
+                    </th>
+                  }
+                </tr>
+              </thead>
+
+              <tbody class="divide-y divide-base-300/60">
+                @for (o of orgs; track o.id) {
+                  <tr class="transition-colors hover:bg-base-200/25">
+                    <td class="px-4 py-3.5 sm:px-5">
+                      <div class="flex min-w-0 items-center gap-3">
+                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">
+                          {{ o.name?.charAt(0)?.toUpperCase() }}
+                        </div>
+
+                        <div class="min-w-0">
+                          <div class="truncate text-xs font-semibold text-base-content" [title]="o.name">
+                            {{ o.name }}
+                          </div>
+
+                          <div class="mt-0.5 truncate font-mono text-[10px] text-base-content/45" [title]="o.slug">
+                            {{ o.slug }}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    @for (f of aiFlags; track f.key) {
+                      <td class="px-3 py-3.5 text-center">
+                        @let orgVal = getOrgFlag(o.id, f.key);
+
+                        <div class="flex items-center justify-center">
+                          <label
+                            class="inline-flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors"
+                            [class.border-success/20]="orgVal !== null ? orgVal : f.isEnabled"
+                            [class.bg-success/5]="orgVal !== null ? orgVal : f.isEnabled"
+                            [class.border-base-content/10]="!(orgVal !== null ? orgVal : f.isEnabled)"
+                            [class.bg-base-200/30]="!(orgVal !== null ? orgVal : f.isEnabled)"
+                          >
+                            <span
+                              class="h-1.5 w-1.5 rounded-full"
+                              [class.bg-success]="orgVal !== null ? orgVal : f.isEnabled"
+                              [class.bg-base-content/25]="!(orgVal !== null ? orgVal : f.isEnabled)"
+                            ></span>
+
+                            <input
+                              type="checkbox"
+                              class="toggle toggle-primary toggle-xs"
+                              [checked]="orgVal !== null ? orgVal : f.isEnabled"
+                              (change)="onOrgToggle(o, f)"
+                              [disabled]="orgToggleMutation.isPending()"
+                            />
+                          </label>
+                        </div>
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="border-t border-base-300/70 px-4 py-4 sm:px-5">
+            <div class="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+              <div class="text-center text-xs text-base-content/70 sm:text-left">
+                Showing
+                <span class="font-medium text-base-content">{{ orgShowingFrom() }}</span>
+                to
+                <span class="font-medium text-base-content">{{ orgShowingTo() }}</span>
+                of
+                <span class="font-medium text-base-content">{{ orgTotal }}</span>
+                {{ orgTotal === 1 ? 'organization' : 'organizations' }}
+              </div>
+
+              <div class="flex w-full items-center justify-center gap-1 sm:gap-1.5">
+                <button
+                  type="button"
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                  [disabled]="orgPage() <= 1"
+                  (click)="firstOrgPage()"
+                  aria-label="First page"
+                >
+                  «
+                </button>
+
+                <button
+                  type="button"
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                  [disabled]="orgPage() <= 1"
+                  (click)="previousOrgPage()"
+                  aria-label="Previous page"
+                >
+                  ‹
+                </button>
+
+                @for (p of visibleOrgPages(); track p) {
+                  <button
+                    type="button"
+                    class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg p-0 text-sm font-medium sm:h-9 sm:w-9 sm:min-h-9"
+                    [class.btn-primary]="orgPage() === p"
+                    [class.btn-ghost]="orgPage() !== p"
+                    [class.text-base-content]="orgPage() !== p"
+                    (click)="setOrgPage(p)"
+                  >
+                    {{ p }}
+                  </button>
+                }
+
+                <button
+                  type="button"
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                  [disabled]="orgPage() >= orgTotalPages"
+                  (click)="nextOrgPage()"
+                  aria-label="Next page"
+                >
+                  ›
+                </button>
+
+                <button
+                  type="button"
+                  class="btn btn-sm h-8 w-8 min-h-8 shrink-0 rounded-lg border border-base-content/20 bg-base-100 p-0 text-sm text-base-content/75 hover:bg-base-200 hover:text-base-content disabled:border-base-content/10 disabled:bg-base-200/40 disabled:text-base-content/30 sm:h-9 sm:w-9 sm:min-h-9"
+                  [disabled]="orgPage() >= orgTotalPages"
+                  (click)="lastOrgPage()"
+                  aria-label="Last page"
+                >
+                  »
+                </button>
+              </div>
+
+              <div class="flex items-center justify-center gap-2 text-xs text-base-content/70 sm:justify-end">
+                <span>Rows</span>
+
+                <select
+                  class="select select-bordered h-9 min-h-9 w-[72px] rounded-lg border-base-content/20 bg-base-100 px-2 text-sm text-base-content shadow-none focus:border-base-content/40 focus:outline-none focus:ring-0 sm:h-10 sm:min-h-10 sm:w-[76px]"
+                  [value]="orgPageSize()"
+                  (change)="setOrgPageSize(+$any($event.target).value)"
+                  aria-label="Organizations per page"
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="30">30</option>
+                  <option value="50">50</option>
+                </select>
+
+                <span>per page</span>
+              </div>
+            </div>
+          </div>
+        </section>
       }
-    </div>
+    </section>
   }
 </div>

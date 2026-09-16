@@ -1,45 +1,434 @@
-<app-header (click)="close()" />
+<app-header [mobileOpen]="sidebarOpen()" (mobileMenuRequested)="toggle()" />
+
 <app-toast />
 
-<div class="drawer lg:drawer-open min-h-[calc(100vh-64px)]">
-  <input id="sa-drawer" type="checkbox" class="drawer-toggle" [checked]="sidebarOpen()" (change)="toggle()" />
-  <div class="drawer-content flex flex-col bg-base-200">
-    <label for="sa-drawer" class="btn btn-ghost btn-sm lg:hidden m-2 self-start">☰ Menu</label>
-    <main class="flex-1">
-      <router-outlet />
-    </main>
-  </div>
-  <div class="drawer-side z-30">
-    <label for="sa-drawer" aria-label="close sidebar" class="drawer-overlay" (click)="close()"></label>
-    <aside [ngClass]="mainCollapsed() ? 'w-72 lg:w-16' : 'w-72 lg:w-72'" class="bg-base-100 border-r border-base-200 flex flex-col h-[calc(100vh-64px)] lg:sticky lg:top-[64px] lg:overflow-y-auto self-start transition-all duration-200 overflow-hidden">
-      <div class="p-2 border-b border-base-200 hidden lg:flex" [class.justify-end]="mainCollapsed()" [class.justify-between]="!mainCollapsed()">
-        @if (!mainCollapsed()) { <span class="text-xs font-semibold opacity-60 px-2 self-center">SuperAdmin</span> }
-        <button class="btn btn-ghost btn-xs btn-circle" (click)="toggleMainCollapse()" [title]="mainCollapsed() ? 'Expand' : 'Collapse'">
-          {{ mainCollapsed() ? '→' : '←' }}
-        </button>
+@if (sidebarOpen()) {
+  <button
+    type="button"
+    aria-label="Close navigation"
+    class="fixed inset-0 top-16 z-[69] bg-black/35 backdrop-blur-[1px] lg:hidden"
+    (click)="close()"
+  ></button>
+}
+
+<!-- Fixed SuperAdmin Sidebar -->
+<aside
+  [ngClass]="mainCollapsed() ? 'w-[288px] lg:w-[76px]' : 'w-[288px] lg:w-[288px]'"
+  class="fixed left-0 top-16 z-[70] flex h-[calc(100dvh-4rem)] flex-col overflow-hidden border-r border-base-300/70 bg-base-100 shadow-sm transition-[width,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+  [class.translate-x-0]="sidebarOpen()"
+  [class.-translate-x-full]="!sidebarOpen()"
+  [class.lg:translate-x-0]="true"
+>
+  <!-- Sidebar Header -->
+  <div
+    class="flex h-14 shrink-0 items-center border-b border-base-300/70"
+    [class.justify-center]="mainCollapsed()"
+    [class.justify-between]="!mainCollapsed()"
+  >
+    <div
+      class="flex min-w-0 items-center gap-2.5 px-4"
+      [class.lg:hidden]="mainCollapsed()"
+    >
+      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-error text-error-content shadow-sm">
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4Z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 12h5M12 9.5v5"/>
+        </svg>
       </div>
-      <ul class="menu gap-1 flex-1" [class.p-4]="!mainCollapsed()" [class.p-1]="mainCollapsed()" [class.lg:p-4]="!mainCollapsed()" [class.lg:p-1]="mainCollapsed()">
-        <li><a routerLink="/superadmin" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}" (click)="close()" class="rounded-xl"><span class="w-6 text-center">◈</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Dashboard</span></a></li>
-        <li><a routerLink="/superadmin/organizations" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">▦</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Organizations</span></a></li>
-        <li><a routerLink="/superadmin/users" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">◐</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Users</span></a></li>
-        <li><a routerLink="/superadmin/subscriptions" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">💳</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Subscriptions</span></a></li>
-        <li><a routerLink="/superadmin/activity" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">◎</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Platform Activity</span></a></li>
-        <li><a routerLink="/superadmin/system" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">●</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">System</span></a></li>
-        <li><a routerLink="/superadmin/support" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">?</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Support</span> @if (!mainCollapsed()) { <span class="badge badge-error badge-xs" id="sa-support-badge"></span> }</a></li>
-        <li><a routerLink="/superadmin/flags" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">⚑</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Feature Flags</span></a></li>
-        <li><a routerLink="/superadmin/ai-usage" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">✦</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">AI Usage</span></a></li>
-        <li><a routerLink="/superadmin/settings" routerLinkActive="active" (click)="close()" class="rounded-xl"><span class="w-6 text-center">⚙</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Settings</span></a></li>
-        <li class="mt-4"><a routerLink="/" (click)="close()" class="opacity-60 rounded-xl"><span class="w-6 text-center">←</span> <span [class.lg:hidden]="mainCollapsed()" class="inline">Back to App</span></a></li>
-      </ul>
-      <div class="p-4 border-t border-base-200" [class.lg:p-1]="mainCollapsed()">
-        <div class="flex items-center gap-3 bg-base-200/50 rounded-xl p-3" [class.lg:p-2]="mainCollapsed()" [class.lg:justify-center]="mainCollapsed()">
-          <div class="w-8 h-8 rounded-full bg-error text-error-content flex items-center justify-center text-xs font-bold shrink-0">{{ (auth.currentUser()?.fullName || 'S').charAt(0) }}</div>
-          <div class="min-w-0 flex-1" [class.lg:hidden]="mainCollapsed()">
-            <div class="text-sm font-semibold truncate">{{ auth.currentUser()?.fullName }}</div>
-            <div class="text-xs opacity-50 truncate">FlowBoard SuperAdmin</div>
+      <div class="min-w-0">
+        <p class="truncate text-xs font-semibold leading-4 text-base-content">SuperAdmin</p>
+        <p class="truncate text-[9px] font-medium uppercase tracking-[0.16em] text-base-content/45">Platform Console</p>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      class="btn btn-ghost btn-sm btn-square mx-2 rounded-lg text-base-content/65 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+      (click)="toggleMainCollapse()"
+      [title]="mainCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+      [attr.aria-label]="mainCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+    >
+      @if (mainCollapsed()) {
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m9 6 6 6-6 6"/>
+        </svg>
+      } @else {
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m15 6-6 6 6 6"/>
+        </svg>
+      }
+    </button>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4" aria-label="SuperAdmin navigation">
+    @if (!mainCollapsed()) {
+      <div class="mb-2 px-2">
+        <span class="text-[9px] font-semibold uppercase tracking-[0.16em] text-base-content/40">Platform</span>
+      </div>
+    }
+
+    <ul class="menu w-full gap-1 p-0">
+      <!-- Dashboard -->
+      <li class="w-full">
+        <a
+          routerLink="/superadmin"
+          routerLinkActive="bg-base-200 text-base-content shadow-sm"
+          [routerLinkActiveOptions]="{exact:true}"
+          (click)="close()"
+          class="group flex min-h-10 items-center rounded-lg px-2.5 text-sm font-medium text-base-content/75 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+          [class.lg:justify-center]="mainCollapsed()"
+          [class.lg:px-0]="mainCollapsed()"
+          [title]="mainCollapsed() ? 'Dashboard' : ''"
+        >
+          <span
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/65 transition-colors duration-200 group-hover:bg-base-300 group-hover:text-base-content"
+            [class.bg-primary]="!mainCollapsed()"
+            [class.text-primary-content]="!mainCollapsed()"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="4" y="4" width="6" height="6" rx="1"/>
+              <rect x="14" y="4" width="6" height="6" rx="1"/>
+              <rect x="4" y="14" width="6" height="6" rx="1"/>
+              <rect x="14" y="14" width="6" height="6" rx="1"/>
+            </svg>
+          </span>
+          <span
+            class="ml-2.5 min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-200"
+            [class.lg:w-0]="mainCollapsed()"
+            [class.lg:max-w-0]="mainCollapsed()"
+            [class.lg:opacity-0]="mainCollapsed()"
+            [class.lg:ml-0]="mainCollapsed()"
+            [class.lg:w-auto]="!mainCollapsed()"
+            [class.lg:max-w-xs]="!mainCollapsed()"
+            [class.lg:opacity-100]="!mainCollapsed()"
+          >Dashboard</span>
+        </a>
+      </li>
+
+      <!-- Organizations -->
+      <li class="w-full">
+        <a
+          routerLink="/superadmin/organizations"
+          routerLinkActive="bg-base-200 text-base-content shadow-sm"
+          (click)="close()"
+          class="group flex min-h-10 items-center rounded-lg px-2.5 text-sm font-medium text-base-content/75 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+          [class.lg:justify-center]="mainCollapsed()"
+          [class.lg:px-0]="mainCollapsed()"
+          [title]="mainCollapsed() ? 'Organizations' : ''"
+        >
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/65 transition-colors duration-200 group-hover:bg-base-300 group-hover:text-base-content">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 9h8M8 13h3M14 13h2M8 16h8"/>
+            </svg>
+          </span>
+          <span
+            class="ml-2.5 min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-200"
+            [class.lg:w-0]="mainCollapsed()"
+            [class.lg:max-w-0]="mainCollapsed()"
+            [class.lg:opacity-0]="mainCollapsed()"
+            [class.lg:ml-0]="mainCollapsed()"
+            [class.lg:w-auto]="!mainCollapsed()"
+            [class.lg:max-w-xs]="!mainCollapsed()"
+            [class.lg:opacity-100]="!mainCollapsed()"
+          >Organizations</span>
+        </a>
+      </li>
+
+      <!-- Users -->
+      <li class="w-full">
+        <a
+          routerLink="/superadmin/users"
+          routerLinkActive="bg-base-200 text-base-content shadow-sm"
+          (click)="close()"
+          class="group flex min-h-10 items-center rounded-lg px-2.5 text-sm font-medium text-base-content/75 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+          [class.lg:justify-center]="mainCollapsed()"
+          [class.lg:px-0]="mainCollapsed()"
+          [title]="mainCollapsed() ? 'Users' : ''"
+        >
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/65 transition-colors duration-200 group-hover:bg-base-300 group-hover:text-base-content">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="9" cy="8" r="3"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.5 19a5.5 5.5 0 0111 0"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16 5.5a3 3 0 010 5.5M17 14a5 5 0 014 5"/>
+            </svg>
+          </span>
+          <span
+            class="ml-2.5 min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-200"
+            [class.lg:w-0]="mainCollapsed()"
+            [class.lg:max-w-0]="mainCollapsed()"
+            [class.lg:opacity-0]="mainCollapsed()"
+            [class.lg:ml-0]="mainCollapsed()"
+            [class.lg:w-auto]="!mainCollapsed()"
+            [class.lg:max-w-xs]="!mainCollapsed()"
+            [class.lg:opacity-100]="!mainCollapsed()"
+          >Users</span>
+        </a>
+      </li>
+
+      <!-- Subscriptions -->
+      <li class="w-full">
+        <a
+          routerLink="/superadmin/subscriptions"
+          routerLinkActive="bg-base-200 text-base-content shadow-sm"
+          (click)="close()"
+          class="group flex min-h-10 items-center rounded-lg px-2.5 text-sm font-medium text-base-content/75 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+          [class.lg:justify-center]="mainCollapsed()"
+          [class.lg:px-0]="mainCollapsed()"
+          [title]="mainCollapsed() ? 'Subscriptions' : ''"
+        >
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/65 transition-colors duration-200 group-hover:bg-base-300 group-hover:text-base-content">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 15h3"/>
+            </svg>
+          </span>
+          <span
+            class="ml-2.5 min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-200"
+            [class.lg:w-0]="mainCollapsed()"
+            [class.lg:max-w-0]="mainCollapsed()"
+            [class.lg:opacity-0]="mainCollapsed()"
+            [class.lg:ml-0]="mainCollapsed()"
+            [class.lg:w-auto]="!mainCollapsed()"
+            [class.lg:max-w-xs]="!mainCollapsed()"
+            [class.lg:opacity-100]="!mainCollapsed()"
+          >Subscriptions</span>
+        </a>
+      </li>
+
+      <!-- Divider -->
+      <li class="my-3 border-t border-base-300/60"></li>
+
+      @if (!mainCollapsed()) {
+        <li class="mb-1">
+          <div class="px-2">
+            <span class="text-[9px] font-semibold uppercase tracking-[0.16em] text-base-content/40">Operations</span>
           </div>
-        </div>
-      </div>
-    </aside>
+        </li>
+      }
+
+      <!-- Platform Activity -->
+      <li class="w-full">
+        <a
+          routerLink="/superadmin/activity"
+          routerLinkActive="bg-base-200 text-base-content shadow-sm"
+          (click)="close()"
+          class="group flex min-h-10 items-center rounded-lg px-2.5 text-sm font-medium text-base-content/75 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+          [class.lg:justify-center]="mainCollapsed()"
+          [class.lg:px-0]="mainCollapsed()"
+          [title]="mainCollapsed() ? 'Platform Activity' : ''"
+        >
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/65 transition-colors duration-200 group-hover:bg-base-300 group-hover:text-base-content">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 17V9M9 17V5M14 17v-4M19 17V7"/>
+            </svg>
+          </span>
+          <span
+            class="ml-2.5 min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-200"
+            [class.lg:w-0]="mainCollapsed()"
+            [class.lg:max-w-0]="mainCollapsed()"
+            [class.lg:opacity-0]="mainCollapsed()"
+            [class.lg:ml-0]="mainCollapsed()"
+            [class.lg:w-auto]="!mainCollapsed()"
+            [class.lg:max-w-xs]="!mainCollapsed()"
+            [class.lg:opacity-100]="!mainCollapsed()"
+          >Platform Activity</span>
+        </a>
+      </li>
+
+      <!-- System -->
+      <li class="w-full">
+        <a
+          routerLink="/superadmin/system"
+          routerLinkActive="bg-base-200 text-base-content shadow-sm"
+          (click)="close()"
+          class="group flex min-h-10 items-center rounded-lg px-2.5 text-sm font-medium text-base-content/75 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+          [class.lg:justify-center]="mainCollapsed()"
+          [class.lg:px-0]="mainCollapsed()"
+          [title]="mainCollapsed() ? 'System' : ''"
+        >
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/65 transition-colors duration-200 group-hover:bg-base-300 group-hover:text-base-content">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>
+              <circle cx="12" cy="12" r="4"/>
+            </svg>
+          </span>
+          <span
+            class="ml-2.5 min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-200"
+            [class.lg:w-0]="mainCollapsed()"
+            [class.lg:max-w-0]="mainCollapsed()"
+            [class.lg:opacity-0]="mainCollapsed()"
+            [class.lg:ml-0]="mainCollapsed()"
+            [class.lg:w-auto]="!mainCollapsed()"
+            [class.lg:max-w-xs]="!mainCollapsed()"
+            [class.lg:opacity-100]="!mainCollapsed()"
+          >System</span>
+        </a>
+      </li>
+
+      <!-- Support -->
+      <li class="w-full">
+        <a
+          routerLink="/superadmin/support"
+          routerLinkActive="bg-base-200 text-base-content shadow-sm"
+          (click)="close()"
+          class="group flex min-h-10 items-center rounded-lg px-2.5 text-sm font-medium text-base-content/75 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+          [class.lg:justify-center]="mainCollapsed()"
+          [class.lg:px-0]="mainCollapsed()"
+          [title]="mainCollapsed() ? 'Support' : ''"
+        >
+          <span class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/65 transition-colors duration-200 group-hover:bg-base-300 group-hover:text-base-content">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 6.5A2.5 2.5 0 017.5 4h9A2.5 2.5 0 0119 6.5v7A2.5 2.5 0 0116.5 16H12l-4.5 4v-4h0A2.5 2.5 0 015 13.5v-7Z"/>
+              <path stroke-linecap="round" d="M9 9h6M9 12h4"/>
+            </svg>
+            @if (!mainCollapsed()) {
+              <span class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-error ring-2 ring-base-100"></span>
+            }
+          </span>
+          <span
+            class="ml-2.5 min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-200"
+            [class.lg:w-0]="mainCollapsed()"
+            [class.lg:max-w-0]="mainCollapsed()"
+            [class.lg:opacity-0]="mainCollapsed()"
+            [class.lg:ml-0]="mainCollapsed()"
+            [class.lg:w-auto]="!mainCollapsed()"
+            [class.lg:max-w-xs]="!mainCollapsed()"
+            [class.lg:opacity-100]="!mainCollapsed()"
+          >Support</span>
+        </a>
+      </li>
+
+      <!-- Feature Flags -->
+      <li class="w-full">
+        <a
+          routerLink="/superadmin/flags"
+          routerLinkActive="bg-base-200 text-base-content shadow-sm"
+          (click)="close()"
+          class="group flex min-h-10 items-center rounded-lg px-2.5 text-sm font-medium text-base-content/75 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+          [class.lg:justify-center]="mainCollapsed()"
+          [class.lg:px-0]="mainCollapsed()"
+          [title]="mainCollapsed() ? 'Feature Flags' : ''"
+        >
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/65 transition-colors duration-200 group-hover:bg-base-300 group-hover:text-base-content">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 21V4"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 5c3-2 5 2 8 0s5 2 5 0v8c-3 2-5-2-8 0s-5-2-5 0"/>
+            </svg>
+          </span>
+          <span
+            class="ml-2.5 min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-200"
+            [class.lg:w-0]="mainCollapsed()"
+            [class.lg:max-w-0]="mainCollapsed()"
+            [class.lg:opacity-0]="mainCollapsed()"
+            [class.lg:ml-0]="mainCollapsed()"
+            [class.lg:w-auto]="!mainCollapsed()"
+            [class.lg:max-w-xs]="!mainCollapsed()"
+            [class.lg:opacity-100]="!mainCollapsed()"
+          >Feature Flags</span>
+        </a>
+      </li>
+
+      <!-- AI Usage -->
+      <li class="w-full">
+        <a
+          routerLink="/superadmin/ai-usage"
+          routerLinkActive="bg-base-200 text-base-content shadow-sm"
+          (click)="close()"
+          class="group flex min-h-10 items-center rounded-lg px-2.5 text-sm font-medium text-base-content/75 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+          [class.lg:justify-center]="mainCollapsed()"
+          [class.lg:px-0]="mainCollapsed()"
+          [title]="mainCollapsed() ? 'AI Usage' : ''"
+        >
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/65 transition-colors duration-200 group-hover:bg-base-300 group-hover:text-base-content">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3l1.2 4.3L17 9l-3.8 1.7L12 15l-1.2-4.3L7 9l3.8-1.7L12 3Z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="m19 15 .6 2.1L22 18l-2.4.9L19 21l-.6-2.1L16 18l2.4-.9L19 15Z"/>
+            </svg>
+          </span>
+          <span
+            class="ml-2.5 min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-200"
+            [class.lg:w-0]="mainCollapsed()"
+            [class.lg:max-w-0]="mainCollapsed()"
+            [class.lg:opacity-0]="mainCollapsed()"
+            [class.lg:ml-0]="mainCollapsed()"
+            [class.lg:w-auto]="!mainCollapsed()"
+            [class.lg:max-w-xs]="!mainCollapsed()"
+            [class.lg:opacity-100]="!mainCollapsed()"
+          >AI Usage</span>
+        </a>
+      </li>
+
+      <!-- Settings -->
+      <li class="w-full">
+        <a
+          routerLink="/superadmin/settings"
+          routerLinkActive="bg-base-200 text-base-content shadow-sm"
+          (click)="close()"
+          class="group flex min-h-10 items-center rounded-lg px-2.5 text-sm font-medium text-base-content/75 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+          [class.lg:justify-center]="mainCollapsed()"
+          [class.lg:px-0]="mainCollapsed()"
+          [title]="mainCollapsed() ? 'Settings' : ''"
+        >
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/65 transition-colors duration-200 group-hover:bg-base-300 group-hover:text-base-content">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7Z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="m19.4 15 .1.1a1.8 1.8 0 01-2.5 2.5l-.1-.1a1.8 1.8 0 00-3.1 1.3v.2a1.8 1.8 0 01-3.6 0v-.2a1.8 1.8 0 00-3.1-1.3l-.1.1a1.8 1.8 0 01-2.5-2.5l.1-.1a1.8 1.8 0 00-1.3-3.1h-.2a1.8 1.8 0 010-3.6h.2a1.8 1.8 0 001.3-3.1l-.1-.1a1.8 1.8 0 012.5-2.5l.1.1a1.8 1.8 0 003.1-1.3v-.2a1.8 1.8 0 013.6 0v.2a1.8 1.8 0 003.1 1.3l.1-.1a1.8 1.8 0 012.5 2.5l-.1.1a1.8 1.8 0 003.1 3.1h.2a1.8 1.8 0 010 3.6h-.2a1.8 1.8 0 00-1.3 3.1Z"/>
+            </svg>
+          </span>
+          <span
+            class="ml-2.5 min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-200"
+            [class.lg:w-0]="mainCollapsed()"
+            [class.lg:max-w-0]="mainCollapsed()"
+            [class.lg:opacity-0]="mainCollapsed()"
+            [class.lg:ml-0]="mainCollapsed()"
+            [class.lg:w-auto]="!mainCollapsed()"
+            [class.lg:max-w-xs]="!mainCollapsed()"
+            [class.lg:opacity-100]="!mainCollapsed()"
+          >Settings</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Sidebar Footer -->
+  <div class="shrink-0 border-t border-base-300/70 p-3">
+    <a
+      routerLink="/"
+      (click)="close()"
+      class="group flex min-h-10 items-center rounded-lg px-2.5 text-sm font-medium text-base-content/65 transition-all duration-200 hover:bg-base-200 hover:text-base-content"
+      [class.lg:justify-center]="mainCollapsed()"
+      [class.lg:px-0]="mainCollapsed()"
+      [title]="mainCollapsed() ? 'Back to FlowBoard' : ''"
+    >
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/60 transition-colors duration-200 group-hover:text-base-content">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10 6 4 12l6 6"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 12h16"/>
+        </svg>
+      </span>
+      <span
+        class="ml-2.5 min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-200"
+        [class.lg:w-0]="mainCollapsed()"
+        [class.lg:max-w-0]="mainCollapsed()"
+        [class.lg:opacity-0]="mainCollapsed()"
+        [class.lg:ml-0]="mainCollapsed()"
+        [class.lg:w-auto]="!mainCollapsed()"
+        [class.lg:max-w-xs]="!mainCollapsed()"
+        [class.lg:opacity-100]="!mainCollapsed()"
+      >Back to FlowBoard</span>
+    </a>
   </div>
+</aside>
+
+<!-- Application Content -->
+<div
+  [ngClass]="mainCollapsed() ? 'lg:ml-[76px]' : 'lg:ml-72'"
+  class="min-h-[100dvh] bg-base-200 pt-16 transition-[margin-left] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+>
+  <main class="min-h-[calc(100dvh-4rem)] w-full min-w-0">
+    <router-outlet />
+  </main>
 </div>
