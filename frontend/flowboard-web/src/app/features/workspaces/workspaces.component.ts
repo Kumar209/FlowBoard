@@ -106,18 +106,18 @@ export class WorkspacesComponent {
       this.createError.set(null);
       this.toast.success('Workspace created');
 
-      this.auth.refresh().subscribe({
-        next: res => {
-          this.auth.accessToken.set(res.accessToken);
-          this.auth.me().subscribe({
-            next: m => this.auth.hydrateFromMe(m as any),
-            error: () => {}
-          });
-        },
+      // Single shared session refresh - use deduped me, fallback to deduped refresh only if me 401
+      this.auth.meDeduped().subscribe({
+        next: m => this.auth.hydrateFromMe(m as any),
         error: () => {
-          this.auth.me().subscribe({
-            next: m => this.auth.hydrateFromMe(m as any),
-            error: () => {}
+          this.auth.refreshDeduped().subscribe({
+            next: res => {
+              this.auth.accessToken.set(res.accessToken);
+              this.auth.meDeduped().subscribe({ next: mm => this.auth.hydrateFromMe(mm as any), error: () => {} });
+            },
+            error: () => {
+              this.auth.meDeduped().subscribe({ next: mm => this.auth.hydrateFromMe(mm as any), error: () => {} });
+            }
           });
         }
       });

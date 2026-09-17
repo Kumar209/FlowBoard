@@ -114,22 +114,15 @@ public class AuthController : ControllerBase
         });
     }
 
-    // POST /api/auth/logout - revoke refresh cookie (delete both Path=/ and old Path=/api/auth with all SameSite combos)
+    // POST /api/auth/logout - clean single cookie
     [HttpPost("logout")]
     [Authorize]
     public IActionResult Logout()
     {
         var isHttps = Request.IsHttps || Request.Headers["X-Forwarded-Proto"] == "https";
         var secure = isHttps && Request.Host.Host != "localhost";
-        // Delete new Path=/ Lax
-        Response.Cookies.Delete("refreshToken", new CookieOptions { Path = "/", SameSite = SameSiteMode.Lax, Secure = secure, HttpOnly = true });
-        // Delete old Path=/api/auth Strict (original) and Lax (after fix)
-        Response.Cookies.Delete("refreshToken", new CookieOptions { Path = "/api/auth", SameSite = SameSiteMode.Strict, Secure = false, HttpOnly = true });
-        Response.Cookies.Delete("refreshToken", new CookieOptions { Path = "/api/auth", SameSite = SameSiteMode.Lax, Secure = secure, HttpOnly = true });
-        Response.Cookies.Delete("refreshToken", new CookieOptions { Path = "/api/auth", SameSite = SameSiteMode.Strict, Secure = secure, HttpOnly = true });
-        Response.Cookies.Append("refreshToken", "", new CookieOptions { Path = "/", Expires = DateTimeOffset.UnixEpoch, HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = secure });
-        Response.Cookies.Append("refreshToken", "", new CookieOptions { Path = "/api/auth", Expires = DateTimeOffset.UnixEpoch, HttpOnly = true, SameSite = SameSiteMode.Strict, Secure = false });
-        Response.Cookies.Append("refreshToken", "", new CookieOptions { Path = "/api/auth", Expires = DateTimeOffset.UnixEpoch, HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = secure });
+        var sameSite = secure ? SameSiteMode.None : SameSiteMode.Lax;
+        Response.Cookies.Delete("refreshToken", new CookieOptions { Path = "/", SameSite = sameSite, Secure = secure, HttpOnly = true });
         return Ok(new { message = "Logged out" });
     }
 
@@ -137,22 +130,14 @@ public class AuthController : ControllerBase
     {
         var isHttps = Request.IsHttps || Request.Headers["X-Forwarded-Proto"] == "https";
         var secure = isHttps && Request.Host.Host != "localhost";
-        var options = new CookieOptions
+        var sameSite = secure ? SameSiteMode.None : SameSiteMode.Lax;
+        Response.Cookies.Append("refreshToken", token, new CookieOptions
         {
             HttpOnly = true,
             Secure = secure,
-            SameSite = SameSiteMode.Lax,
+            SameSite = sameSite,
             Expires = expiresAt,
             Path = "/"
-        };
-        Response.Cookies.Append("refreshToken", token, options);
-        // Clear stale cookie with old Path=/api/auth (was Strict, Secure false) to avoid duplicate Cookie header with revoked token
-        try
-        {
-            Response.Cookies.Delete("refreshToken", new CookieOptions { Path = "/api/auth", SameSite = SameSiteMode.Strict, Secure = false, HttpOnly = true });
-            Response.Cookies.Delete("refreshToken", new CookieOptions { Path = "/api/auth", SameSite = SameSiteMode.Lax, Secure = secure, HttpOnly = true });
-            Response.Cookies.Append("refreshToken", "", new CookieOptions { Path = "/api/auth", Expires = DateTimeOffset.UnixEpoch, HttpOnly = true, SameSite = SameSiteMode.Strict, Secure = false });
-            Response.Cookies.Append("refreshToken", "", new CookieOptions { Path = "/api/auth", Expires = DateTimeOffset.UnixEpoch, HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = secure });
-        } catch { }
+        });
     }
 }
