@@ -32,6 +32,12 @@ jobs:
             echo "No logs folder to delete"
           fi
 
+      - name: Put app_offline.htm to unlock DLL
+        run: |
+          echo "<html><body>Deploying FlowBoard - site will restart shortly</body></html>" > app_offline.htm
+          curl --ftp-create-dirs -T app_offline.htm "ftp://${{ secrets.FTP_HOST_IDENTITY }}/wwwroot/app_offline.htm" --user "${{ secrets.FTP_USER_IDENTITY }}:${{ secrets.FTP_PASS_IDENTITY }}" || echo "app_offline put failed, continue"
+          sleep 6
+
       - name: FTP Deploy to MonsterASP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -45,3 +51,8 @@ jobs:
           dangerous-clean-slate: false
           exclude: |
             **/.well-known/**
+
+      - name: Remove app_offline.htm
+        if: always()
+        run: |
+          curl "ftp://${{ secrets.FTP_HOST_IDENTITY }}/" --user "${{ secrets.FTP_USER_IDENTITY }}:${{ secrets.FTP_PASS_IDENTITY }}" -Q "DELE wwwroot/app_offline.htm" || echo "app_offline delete failed, continue"
