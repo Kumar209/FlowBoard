@@ -297,6 +297,8 @@ export class MembersComponent {
     onSuccess: () => {
       this.qc.invalidateQueries({ queryKey: ['org-members'] });
       this.qc.invalidateQueries({ queryKey: ['agg-members'] });
+      this.qc.invalidateQueries({ queryKey: ['me'] });
+      this.qc.invalidateQueries({ queryKey: ['organizations'] });
       this.editTarget.set(null);
       this.toast.success('Member updated');
     },

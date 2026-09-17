@@ -85,13 +85,17 @@ export class RegisterComponent {
         );
 
         this.auth.me().subscribe({
-          next: me => this.auth.hydrateFromMe(me as any),
-          error: () => {}
+          next: me => {
+            this.auth.hydrateFromMe(me as any);
+            this.success.set(true);
+            this.loading.set(false);
+            setTimeout(() => this.router.navigate(['/']), 400);
+          },
+          error: () => {
+            this.loading.set(false);
+            this.error.set('Registration succeeded but session refresh failed — please sign in');
+          }
         });
-
-        this.success.set(true);
-        this.loading.set(false);
-        setTimeout(() => this.router.navigate(['/']), 800);
       },
       error: (err: any) => {
         this.error.set(

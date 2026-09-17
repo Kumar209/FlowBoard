@@ -38,6 +38,7 @@ export class DashboardComponent implements OnInit {
   orgsQuery = injectQuery(() => ({
     queryKey: ['organizations'] as const,
     queryFn: () => firstValueFrom(this.wsService.getMyOrganizations()),
+    enabled: this.auth.isAuthenticated(),
   }));
 
   org = computed(() => this.orgsQuery.data()?.[0] as any);
@@ -49,13 +50,13 @@ export class DashboardComponent implements OnInit {
   orgStatsQuery = injectQuery(() => ({
     queryKey: ['org-stats', this.orgId()] as const,
     queryFn: () => firstValueFrom(this.stats.getOrgStats(this.orgId()!)),
-    enabled: !!this.orgId(),
+    enabled: !!this.orgId() && this.auth.isAuthenticated(),
   }));
 
   orgChartQuery = injectQuery(() => ({
     queryKey: ['org-chart', this.orgId()] as const,
     queryFn: () => firstValueFrom(this.stats.getOrgChartData(this.orgId()!)),
-    enabled: !!this.orgId(),
+    enabled: !!this.orgId() && this.auth.isAuthenticated(),
   }));
 
   updateOrgMutation = injectMutation(() => ({

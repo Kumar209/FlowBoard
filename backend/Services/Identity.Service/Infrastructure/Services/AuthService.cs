@@ -44,13 +44,11 @@ public class AuthService : IAuthService
         var org = new Organization(companyName, orgSlug, user.Id, companyDescription, planId);
         _db.Organizations.Add(org);
         await _db.SaveChangesAsync(ct);
-        var orgMember = new OrganizationMember(org.Id, user.Id, 2); // OrgAdmin
+        var orgMember = new OrganizationMember(org.Id, user.Id, 2); // OrgAdmin - org-authoritative with zero WorkspaceMembers
         _db.OrganizationMembers.Add(orgMember);
         var workspace = new Workspace(org.Id, "General", "general-" + Guid.NewGuid().ToString()[..4]);
         _db.Workspaces.Add(workspace);
         await _db.SaveChangesAsync(ct);
-        var member = new WorkspaceMember(workspace.Id, user.Id, Roles.OrgAdminValue);
-        _db.WorkspaceMembers.Add(member);
         var memberships = new[] { (workspace.Id, Roles.GetLabel(Roles.OrgAdminValue)) };
         var (accessToken, accessExpires) = _jwt.GenerateAccessToken(user, memberships);
         var (rawRefresh, hashRefresh, refreshExpires) = _refreshService.GenerateRawToken();
