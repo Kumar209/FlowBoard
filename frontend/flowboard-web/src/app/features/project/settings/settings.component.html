@@ -73,14 +73,16 @@
           </label>
 
           <div class="mt-4 flex justify-end">
-            <button
-              class="btn btn-primary btn-sm rounded-lg px-5"
-              (click)="updateMut.mutate()"
-              [disabled]="!name().trim() || updateMut.isPending()"
-              [class.loading]="updateMut.isPending()"
-            >
-              Save changes
-            </button>
+            @if (canUpdate()) {
+              <button
+                class="btn btn-primary btn-sm rounded-lg px-5"
+                (click)="updateMut.mutate()"
+                [disabled]="!name().trim() || updateMut.isPending()"
+                [class.loading]="updateMut.isPending()"
+              >
+                Save changes
+              </button>
+            }
           </div>
         </div>
       </section>
@@ -116,12 +118,14 @@
             </p>
           </div>
 
-          <button
-            class="btn btn-error btn-sm rounded-lg shrink-0"
-            (click)="showDeleteConfirm.set(true)"
-          >
-            Delete project
-          </button>
+          @if (canDelete()) {
+            <button
+              class="btn btn-error btn-sm rounded-lg shrink-0"
+              (click)="showDeleteConfirm.set(true)"
+            >
+              Delete project
+            </button>
+          }
         </div>
       </section>
 

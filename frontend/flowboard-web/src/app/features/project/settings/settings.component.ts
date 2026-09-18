@@ -1,8 +1,10 @@
-import { Component, ChangeDetectionStrategy, inject, signal, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, effect, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
+import { PermissionService } from '../../../core/services/permission.service';
+import { PermissionKeys } from '../../../shared/constants/permissions';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
@@ -15,11 +17,17 @@ import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-quer
 export class SettingsComponent {
   private route = inject(ActivatedRoute);
   private ps = inject(ProjectService);
+  private perm = inject(PermissionService);
   private qc = inject(QueryClient);
 
   projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || '');
+  workspaceId = signal(this.route.parent?.snapshot.paramMap.get('wid') || this.route.snapshot.paramMap.get('wid') || '');
   name = signal('');
   showDeleteConfirm = signal(false);
+  PermissionKeys = PermissionKeys;
+  canView = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.ProjectView));
+  canUpdate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.ProjectUpdate));
+  canDelete = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.ProjectDelete));
 
   boardQuery = injectQuery(() => ({
     queryKey: ['board', this.projectId()] as const,
