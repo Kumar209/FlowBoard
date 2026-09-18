@@ -52,16 +52,20 @@
             </div>
           }
 
-          <button
-            type="button"
-            class="btn btn-primary btn-sm h-9 min-h-9 rounded-lg px-3.5 shadow-sm"
-            (click)="openCreate()"
-          >
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
-            </svg>
-            <span>Create Issue</span>
-          </button>
+          @if (canCreate()) {
+            <button
+              type="button"
+              class="btn btn-primary btn-sm h-9 min-h-9 rounded-lg px-3.5 shadow-sm"
+              (click)="openCreate()"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
+              </svg>
+              <span>Create Issue</span>
+            </button>
+          } @else {
+            <span class="badge badge-ghost badge-sm" title="You do not have permission">View only — missing {{ PermissionKeys.TaskCreate }}</span>
+          }
         </div>
       </div>
 
@@ -134,7 +138,12 @@
       </div>
     </div>
 
-    @if (boardQuery.isPending() && !boardQuery.data()) {
+    @if (!canView()) {
+      <div class="rounded-xl border border-dashed border-base-300 bg-base-100 px-6 py-16 text-center" title="You do not have permission">
+        <p class="font-semibold">View only — missing {{ PermissionKeys.TaskView }}</p>
+        <p class="text-sm opacity-60 mt-1">You do not have permission to view issues in this workspace.</p>
+      </div>
+    } @else if (boardQuery.isPending() && !boardQuery.data()) {
       <div class="overflow-hidden rounded-xl border border-base-300 bg-base-100">
         @for (i of [1,2,3,4,5,6]; track i) {
           <div class="flex items-center gap-4 border-b border-base-200 px-4 py-4 last:border-b-0 animate-pulse">

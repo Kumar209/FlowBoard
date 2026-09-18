@@ -6,6 +6,8 @@ import { ProjectService } from '../../../core/services/project.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { WorkspaceService } from '../../../core/services/workspace.service';
 import { FeatureFlagService } from '../../../core/services/feature-flag.service';
+import { PermissionService } from '../../../core/services/permission.service';
+import { PermissionKeys } from '../../../shared/constants/permissions';
 import { TaskDetailModalComponent } from '../../../shared/components/modals/task-detail-modal/task-detail-modal.component';
 import { TaskCreateModalComponent } from '../../../shared/components/modals/task-create-modal/task-create-modal.component';
 import { AiDraftModalComponent } from '../../../shared/components/modals/ai-draft-modal/ai-draft-modal.component';
@@ -32,9 +34,15 @@ export class IssuesComponent {
   private qc = inject(QueryClient);
   private flagService = inject(FeatureFlagService);
   private ws = inject(WorkspaceService);
+  private perm = inject(PermissionService);
 
   projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || '');
   workspaceId = signal(this.route.parent?.snapshot.paramMap.get('wid') || '');
+  PermissionKeys = PermissionKeys;
+  canView = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskView));
+  canCreate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskCreate));
+  canUpdate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskUpdate));
+  canDelete = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskDelete));
 
   aiDraftEnabled = signal(true);
   orgFlags = signal<Map<string, boolean>>(new Map());
