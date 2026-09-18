@@ -10,6 +10,7 @@ import { WorkspaceModalComponent } from '../../shared/components/modals/workspac
 import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { getRoleLabel } from '../../shared/constants/roles';
+import { PermissionKeys } from '../../shared/constants/permissions';
 
 @Component({
   selector: 'app-workspaces',
@@ -51,9 +52,14 @@ export class WorkspacesComponent {
     queryFn: () => firstValueFrom(this.workspaceService.getMyOrganizations())
   }));
 
+  PermissionKeys = PermissionKeys;
   canCreateWorkspace = computed(() => this.auth.canCreateWorkspace());
   hasCustomCreate = signal(false);
   canCreateWorkspaceEffective = computed(() => this.canCreateWorkspace() || this.hasCustomCreate());
+  // 13.3 single helper per workspace — uses PermissionKeys, OrgAdmin bypass inside hasPermissionSync (5m dedup)
+  canView = (wsId: string) => this.perm.hasPermissionSync(wsId, PermissionKeys.WorkspaceView);
+  canUpdate = (wsId: string) => this.perm.hasPermissionSync(wsId, PermissionKeys.WorkspaceUpdate);
+  canDeleteWs = (wsId: string) => this.perm.hasPermissionSync(wsId, PermissionKeys.WorkspaceDelete);
 
   total = computed(() => this.workspacesQuery.data()?.total || 0);
 
@@ -82,7 +88,7 @@ export class WorkspacesComponent {
 
       for (const org of orgs) {
         try {
-          if (await this.perm.hasOrgPermission(org.id, 'workspace:create')) {
+          if (await this.perm.hasOrgPermission(org.id, PermissionKeys.WorkspaceCreate)) {
             this.hasCustomCreate.set(true);
             break;
           }

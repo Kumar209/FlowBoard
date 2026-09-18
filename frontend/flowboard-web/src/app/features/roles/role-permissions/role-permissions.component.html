@@ -48,7 +48,7 @@
           <div class="card bg-base-100 rounded-2xl shadow border overflow-hidden">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4 border-b border-base-200 bg-base-200/30">
               <div class="flex items-center gap-2 min-w-0">
-                <input type="checkbox" class="checkbox checkbox-sm checkbox-primary shrink-0" [checked]="isGroupAllChecked(g.permissions)" [indeterminate]="isGroupSomeChecked(g.permissions)" (change)="toggleGroup(g.permissions, $any($event.target).checked)" />
+                <input type="checkbox" class="checkbox checkbox-sm checkbox-primary shrink-0" [checked]="isGroupAllChecked(g.permissions)" [indeterminate]="isGroupSomeChecked(g.permissions)" (change)="toggleGroup(g.permissions, $any($event.target).checked)" [disabled]="!canManage()" [title]="!canManage() ? 'You do not have permission' : ''" />
                 <span class="font-semibold text-sm">{{ g.label }}</span>
                 <span class="badge badge-ghost badge-xs rounded-full">{{ g.permissions.length }}</span>
                 <span class="text-xs opacity-40">{{ g.permissions.filter(p => isChecked(p.id)).length }}/{{ g.permissions.length }} selected</span>
@@ -58,8 +58,8 @@
 
             <div class="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               @for (p of g.permissions; track p.id) {
-                <label class="flex items-start gap-2 p-2 rounded-xl hover:bg-base-200 cursor-pointer border border-transparent hover:border-base-200 transition-colors min-w-0">
-                  <input type="checkbox" class="checkbox checkbox-sm checkbox-primary mt-0.5 shrink-0" [checked]="isChecked(p.id)" (change)="toggle(p.id, $any($event.target).checked)" />
+                <label class="flex items-start gap-2 p-2 rounded-xl hover:bg-base-200 cursor-pointer border border-transparent hover:border-base-200 transition-colors min-w-0" [class.opacity-40]="!canManage()" [title]="!canManage() ? 'You do not have permission' : ''">
+                  <input type="checkbox" class="checkbox checkbox-sm checkbox-primary mt-0.5 shrink-0" [checked]="isChecked(p.id)" (change)="toggle(p.id, $any($event.target).checked)" [disabled]="!canManage()" />
                   <span class="flex-1 min-w-0">
                     <span class="text-sm font-medium block truncate" [title]="p.key">{{ p.name }}</span>
                     <span class="text-xs opacity-60 block truncate font-mono" [title]="p.key">{{ p.key }}</span>
@@ -84,7 +84,11 @@
 
           <div class="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
             <a routerLink="/roles" class="btn btn-ghost btn-sm rounded-xl w-full sm:w-auto">Cancel</a>
-            <button class="btn btn-primary btn-sm rounded-xl w-full sm:w-auto" (click)="doSave()" [class.loading]="saveMutation.isPending()" [disabled]="saveMutation.isPending()">Save Permissions</button>
+            @if (canManage()) {
+              <button class="btn btn-primary btn-sm rounded-xl w-full sm:w-auto" (click)="doSave()" [class.loading]="saveMutation.isPending()" [disabled]="saveMutation.isPending()">Save Permissions</button>
+            } @else {
+              <button class="btn btn-primary btn-sm rounded-xl w-full sm:w-auto opacity-40" disabled title="You do not have permission">Save Permissions</button>
+            }
           </div>
         </div>
       </div>

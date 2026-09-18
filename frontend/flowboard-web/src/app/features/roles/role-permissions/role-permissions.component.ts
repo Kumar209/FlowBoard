@@ -4,6 +4,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { WorkspaceService } from '../../../core/services/workspace.service';
 import { OrganizationRoleService, PermissionDto } from '../../../core/services/organization-role.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { PermissionService } from '../../../core/services/permission.service';
+import { PermissionKeys } from '../../../shared/constants/permissions';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 
@@ -19,6 +22,8 @@ export class RolePermissionsComponent {
   private route = inject(ActivatedRoute);
   private ws = inject(WorkspaceService);
   private roleService = inject(OrganizationRoleService);
+  private auth = inject(AuthService);
+  private perm = inject(PermissionService);
   private toast = inject(ToastService);
   private qc = inject(QueryClient);
 
@@ -34,6 +39,10 @@ export class RolePermissionsComponent {
     const ws = this.workspacesQuery.data() || [];
     return (ws[0] as any)?.organizationId || (ws[0] as any)?.OrganizationId || '';
   });
+  private firstWsId = computed(() => (this.workspacesQuery.data() as any[])?.[0]?.id || '');
+  PermissionKeys = PermissionKeys;
+  canView = computed(() => this.perm.hasPermissionSync(this.firstWsId(), PermissionKeys.RoleView) || this.perm.hasPermissionSync(this.firstWsId(), PermissionKeys.RoleManage));
+  canManage = computed(() => this.perm.hasPermissionSync(this.firstWsId(), PermissionKeys.RoleManage));
 
   rolePermissionsQuery = injectQuery(() => ({
     queryKey: ['role-permissions', this.orgId(), this.roleId()] as const,
@@ -97,6 +106,7 @@ export class RolePermissionsComponent {
     onSuccess: (res:any) => {
       this.qc.invalidateQueries({queryKey:['role-permissions']});
       this.qc.invalidateQueries({queryKey:['org-roles']});
+      this.perm.invalidateAll();
       const ids: string[] = res.permissionIds || res.PermissionIds || Array.from(this.selected());
       this.selected.set(new Set(ids));
       this.toast.success('Permissions updated');

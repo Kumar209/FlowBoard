@@ -5,6 +5,8 @@ import { WorkspaceService } from '../../core/services/workspace.service';
 import { OrganizationRoleService } from '../../core/services/organization-role.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
+import { PermissionService } from '../../core/services/permission.service';
+import { PermissionKeys } from '../../shared/constants/permissions';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 
@@ -20,6 +22,7 @@ export class RolesComponent {
   private ws = inject(WorkspaceService);
   private roleService = inject(OrganizationRoleService);
   auth = inject(AuthService);
+  private perm = inject(PermissionService);
   private toast = inject(ToastService);
   private qc = inject(QueryClient);
 
@@ -48,7 +51,10 @@ export class RolesComponent {
     enabled: !!this.orgId(),
   }));
 
-  canManage = computed(() => this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
+  PermissionKeys = PermissionKeys;
+  private firstWsId = computed(() => (this.workspacesQuery.data() as any[])?.[0]?.id || (this.workspacesQuery.data() as any[])?.[0]?.Id || '');
+  canView = computed(() => this.perm.hasPermissionSync(this.firstWsId(), PermissionKeys.RoleView) || this.perm.hasPermissionSync(this.firstWsId(), PermissionKeys.RoleManage));
+  canManage = computed(() => this.perm.hasPermissionSync(this.firstWsId(), PermissionKeys.RoleManage));
 
   filtered = computed(() => {
     const q = this.search().toLowerCase().trim();
