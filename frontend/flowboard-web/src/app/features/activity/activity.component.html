@@ -26,7 +26,12 @@
       </div>
     </div>
 
-    @if (orgActivitiesQuery.isPending() && !orgActivitiesQuery.data()) {
+    @if (!canViewOrg()) {
+      <div class="rounded-xl border border-dashed border-base-300 bg-base-100 px-6 py-16 text-center" title="You do not have permission">
+        <p class="font-semibold">View only — missing {{ PermissionKeys.ActivityViewOrg }}</p>
+        <p class="text-sm opacity-60 mt-1">You do not have permission to view organization activity.</p>
+      </div>
+    } @else if (orgActivitiesQuery.isPending() && !orgActivitiesQuery.data()) {
       <div class="overflow-hidden rounded-xl border border-base-300 bg-base-100">
         @for (i of [1,2,3,4,5,6]; track i) {
           <div class="flex items-center gap-4 border-b border-base-200 px-4 py-4 last:border-b-0 animate-pulse">

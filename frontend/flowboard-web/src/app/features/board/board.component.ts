@@ -12,6 +12,8 @@ import { ProjectService } from '../../core/services/project.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { BoardRealtimeService } from '../../core/services/board-realtime.service';
+import { PermissionService } from '../../core/services/permission.service';
+import { PermissionKeys } from '../../shared/constants/permissions';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 /**
@@ -32,12 +34,23 @@ export class BoardComponent {
   private toast = inject(ToastService);
   private queryClient = inject(QueryClient);
   private realtime = inject(BoardRealtimeService);
+  private perm = inject(PermissionService);
 
   projectId = signal<string>(this.route.snapshot.paramMap.get('pid') || this.route.parent?.snapshot.paramMap.get('pid') || '');
   workspaceId = signal<string>(this.route.snapshot.paramMap.get('wid') || this.route.parent?.snapshot.paramMap.get('wid') || '');
 
-  canCreateTask = computed(() => this.auth.canCreateTask());
-  canComment = computed(() => this.auth.canComment());
+  PermissionKeys = PermissionKeys;
+  canViewTask = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskView));
+  canCreateTask = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskCreate));
+  canUpdateTask = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskUpdate));
+  canDeleteTask = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskDelete));
+  canMoveTask = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskMove));
+  canAssignTask = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskAssign));
+  canViewComment = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.CommentView));
+  canCreateComment = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.CommentCreate));
+  canViewAttachment = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.AttachmentView));
+  canCreateAttachment = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.AttachmentCreate));
+  canComment = computed(() => this.canCreateComment());
   roleLabel = computed(() => {
     const wid = this.workspaceId();
     const m = this.auth.memberships().find(x => x.workspaceId === wid);

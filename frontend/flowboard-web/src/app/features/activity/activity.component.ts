@@ -4,6 +4,8 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ProjectService } from '../../core/services/project.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
+import { PermissionService } from '../../core/services/permission.service';
+import { PermissionKeys } from '../../shared/constants/permissions';
 import { injectQuery } from '@tanstack/angular-query-experimental';
 
 @Component({
@@ -15,6 +17,7 @@ import { injectQuery } from '@tanstack/angular-query-experimental';
 })
 export class ActivityComponent {
   auth = inject(AuthService);
+  private perm = inject(PermissionService);
   private projectService = inject(ProjectService);
   private workspaceService = inject(WorkspaceService);
 
@@ -31,6 +34,9 @@ export class ActivityComponent {
     const ws = this.workspacesQuery.data() || [];
     return (ws[0] as any)?.organizationId || (ws[0] as any)?.OrganizationId || '';
   });
+  private firstWsId = computed(() => (this.workspacesQuery.data() as any[])?.[0]?.id || '');
+  PermissionKeys = PermissionKeys;
+  canViewOrg = computed(() => this.perm.hasPermissionSync(this.firstWsId(), PermissionKeys.ActivityViewOrg));
 
   orgMembersQuery = injectQuery(() => ({
     queryKey: ['org-members', this.orgId()] as const,
