@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Project.Service.Application.Caching;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
+using Project.Service.Infrastructure.Helpers;
 using SharedKernel;
 using System.Text.Json;
 
@@ -17,6 +18,9 @@ public class CommentService : ICommentService
     {
         var task = await _db.Tasks.FindAsync(new object[] { taskId }, ct);
         if (task == null) return Result<CommentDto>.Failure("Task not found");
+        var wsForComment = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        if (wsForComment != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForComment, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForComment, callerId, PermissionKeys.CommentCreate, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result<CommentDto>.Failure("Forbidden - Need comment:create");
         var comment = new Domain.Entities.Comment(taskId, callerId, content);
         _db.Comments.Add(comment);
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == task.ProjectId, ct);
@@ -42,7 +46,9 @@ public class CommentService : ICommentService
     {
         var comment = await _db.Comments.FindAsync(new object[] { commentId }, ct);
         if (comment == null) return Result<CommentDto>.Failure("Comment not found");
-        var isAdmin = callerRoles.Contains(Roles.OrgAdmin) || callerRoles.Contains(Roles.SuperAdmin);
+        var taskForUpd = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == comment.TaskId, ct);
+        var wsForUpd = taskForUpd != null ? await _db.Projects.Where(p => p.Id == taskForUpd.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct) : Guid.Empty;
+        var isAdmin = callerRoles.Contains(Roles.OrgAdmin) || callerRoles.Contains(Roles.SuperAdmin) || (wsForUpd != Guid.Empty && await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForUpd, callerId, callerRoles, ct));
         if (comment.AuthorId != callerId && !isAdmin) return Result<CommentDto>.Failure("Forbidden - only author or OrgAdmin can edit");
         comment.Edit(content);
         var task = await _db.Tasks.FindAsync(new object[] { comment.TaskId }, ct);
@@ -56,7 +62,9 @@ public class CommentService : ICommentService
     {
         var comment = await _db.Comments.FindAsync(new object[] { commentId }, ct);
         if (comment == null) return Result<bool>.Failure("Comment not found");
-        var isAdmin = callerRoles.Contains(Roles.OrgAdmin) || callerRoles.Contains(Roles.SuperAdmin);
+        var taskForDel = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == comment.TaskId, ct);
+        var wsForDel = taskForDel != null ? await _db.Projects.Where(p => p.Id == taskForDel.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct) : Guid.Empty;
+        var isAdmin = callerRoles.Contains(Roles.OrgAdmin) || callerRoles.Contains(Roles.SuperAdmin) || (wsForDel != Guid.Empty && await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForDel, callerId, callerRoles, ct));
         if (comment.AuthorId != callerId && !isAdmin) return Result<bool>.Failure("Forbidden - only author or OrgAdmin can delete");
         var task = await _db.Tasks.FindAsync(new object[] { comment.TaskId }, ct);
         _db.Comments.Remove(comment);

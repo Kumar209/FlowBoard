@@ -18,7 +18,7 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withInterceptors([correlationInterceptor, maintenanceInterceptor, rateLimitInterceptor, loadingInterceptor, errorToastInterceptor, authInterceptor])),
     provideTanStackQuery(new QueryClient({
       defaultOptions: {
-        queries: { retry: 1, staleTime: 1000 * 60 * 2 } // 2m cache for board — matches Redis 5m board cache
+        queries: { retry: 1, staleTime: 1000 * 60 * 2, refetchOnWindowFocus: false, refetchOnReconnect: false, gcTime: 1000 * 60 * 10 } // 2m board, no window focus refetch per 13.2; me/flags use 5m dedup in auth.service
       }
     }))
   ]

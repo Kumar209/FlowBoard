@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
 using Project.Service.Domain.Entities;
+using Project.Service.Infrastructure.Helpers;
 using SharedKernel;
 
 namespace Project.Service.Infrastructure.Services;
@@ -74,10 +75,10 @@ public class ProjectMemberService : IProjectMemberService
 
     public async Task<Result<ProjectMemberDto>> AddMemberAsync(Guid projectId, Guid userId, string role, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (!Roles.IsPrivilegedForManage(callerRoles))
-            return Result<ProjectMemberDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin");
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return Result<ProjectMemberDto>.Failure("Project not found");
+        if (!Roles.IsPrivilegedForManage(callerRoles) && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, project.WorkspaceId, callerId, callerRoles, ct))
+            return Result<ProjectMemberDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin");
         // Validate workspace membership
         var wsId = project.WorkspaceId;
         var isWsMember = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1}", wsId, userId).FirstOrDefaultAsync(ct) > 0;
@@ -116,7 +117,9 @@ public class ProjectMemberService : IProjectMemberService
 
     public async Task<Result<bool>> RemoveMemberAsync(Guid projectId, Guid userId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (!Roles.IsPrivilegedForManage(callerRoles))
+        var projForRem = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
+        var wsForRem = projForRem?.WorkspaceId ?? Guid.Empty;
+        if (!Roles.IsPrivilegedForManage(callerRoles) && wsForRem != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForRem, callerId, callerRoles, ct))
             return Result<bool>.Failure("Forbidden - Need OrgAdmin/SuperAdmin");
         var pm = await _db.ProjectMembers.FirstOrDefaultAsync(x => x.ProjectId == projectId && x.UserId == userId, ct);
         if (pm == null) return Result<bool>.Failure("Project member not found");

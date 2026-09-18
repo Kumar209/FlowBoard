@@ -2,7 +2,8 @@ import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { ROLE_VALUE_MAP as SharedRoleMap, ROLE_LABEL_MAP, OrgRoleValues } from '../../shared/constants/roles';
-import { Observable, shareReplay, finalize } from 'rxjs';
+import { PermissionKeys } from '../../shared/constants/permissions';
+import { Observable, shareReplay, finalize, of, tap } from 'rxjs';
 
 export interface User {
   id: string;
@@ -101,17 +102,26 @@ export class AuthService {
   clearRefreshDedup() { this.refreshInFlight = null; }
 
   private meInFlight: Observable<MeResponse> | null = null;
+  // 5m stale single shared me — singleflight + TTL cache, no window focus refetch, silent (loadingInterceptor silents /api/auth/me)
+  private meCache: { data: MeResponse | null; at: number } = { data: null, at: 0 };
+  private meCacheTtl = 5 * 60 * 1000; // 5m per Task 13.2 — matches backend isOrgAdmin bypass, invalidate only after role save/promotion
   me() {
-    return this.http.get<MeResponse>(`${environment.apiUrl}/api/auth/me`, { withCredentials: true });
+    return this.http.get<MeResponse>(`${environment.apiUrl}/api/auth/me`, { withCredentials: true, headers: { 'X-Silent': 'true' } as any });
   }
   meDeduped(): Observable<MeResponse> {
+    const now = Date.now();
+    if (this.meCache.data && now - this.meCache.at < this.meCacheTtl) {
+      return of(this.meCache.data);
+    }
     if (this.meInFlight) return this.meInFlight;
-    this.meInFlight = this.http.get<MeResponse>(`${environment.apiUrl}/api/auth/me`, { withCredentials: true }).pipe(
+    this.meInFlight = this.http.get<MeResponse>(`${environment.apiUrl}/api/auth/me`, { withCredentials: true, headers: { 'X-Silent': 'true' } as any }).pipe(
+      tap(res => { this.meCache = { data: res, at: Date.now() }; }),
       shareReplay({ bufferSize: 1, refCount: true }),
       finalize(() => setTimeout(() => (this.meInFlight = null), 2000))
     );
     return this.meInFlight;
   }
+  invalidateMeCache() { this.meCache = { data: null, at: 0 }; this.meInFlight = null; }
 
   hydrateFromMe(res: MeResponse) {
     if (res.user) this.currentUser.set(res.user);
@@ -137,14 +147,19 @@ export class AuthService {
   }
 
   hasPermission(workspaceId: string, permKey: string): boolean {
+    // Single source: isSuperAdmin/isOrgAdmin first (OrgAdmin with zero WorkspaceMembers has no membership row for that workspace but backend bypass allows — frontend mirrors)
+    if (this.isSuperAdmin() || this.isOrgAdmin()) return true;
+    if (workspaceId && this.isOrgAdminFor(workspaceId)) return true;
     const m = this.memberships().find(x => x.workspaceId === workspaceId);
     if (!m) return false;
     if (m.permissions && m.permissions.length) return m.permissions.includes(permKey);
-    // Fallback to fixed role implicit: OrgAdmin/SuperAdmin have all
+    // Fallback to fixed role implicit: OrgAdmin/SuperAdmin have all (already handled globally above, kept for per-workspace role)
     if (Number(m.role) === OrgRoleValues.SuperAdmin || Number(m.role) === OrgRoleValues.OrgAdmin || m.roleName === ROLE_LABEL_MAP[String(OrgRoleValues.OrgAdmin)]) return true;
-    // Member/Client fallback handled via backend my-permissions, but for me cache we already have perms
     return false;
   }
+
+  // Single helper for all 35 keys — use PermissionKeys constants (no hardcoding)
+  can(workspaceId: string, permKey: string): boolean { return this.hasPermission(workspaceId, permKey); }
 
   logout() {
     return this.http.post(`${environment.apiUrl}/api/auth/logout`, {}, { withCredentials: true });
@@ -160,6 +175,7 @@ export class AuthService {
     this.currentUser.set(null);
     this.accessToken.set(null);
     this.memberships.set([]);
+    this.invalidateMeCache();
   }
 
   // In-memory restore: try HttpOnly refresh -> me

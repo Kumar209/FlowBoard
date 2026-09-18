@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using File.Service.Application.DTOs;
 using File.Service.Application.Interfaces;
 using File.Service.Domain.Entities;
+using File.Service.Infrastructure.Helpers;
 using SharedKernel;
 
 namespace File.Service.Infrastructure.Services;
@@ -34,7 +35,7 @@ public class FileService : IFileService
         if (fileStream.Length == 0) return Result<AttachmentDto>.Failure("Empty file");
 
         // 2. Resolve task -> project -> workspace -> org with permission checks
-        var resolve = await ResolveAndAuthorizeAsync(taskId, callerId, callerRoles, "attachment:create", ct);
+        var resolve = await ResolveAndAuthorizeAsync(taskId, callerId, callerRoles, PermissionKeys.AttachmentCreate, ct);
         if (!resolve.IsSuccess) return Result<AttachmentDto>.Failure(resolve.Error!);
         var (projectId, workspaceId, orgId) = resolve.Value;
 
@@ -98,7 +99,7 @@ public class FileService : IFileService
         if (attachment == null) return Result<bool>.Failure("Attachment not found");
 
         // Resolve task auth for this attachment's task
-        var resolve = await ResolveAndAuthorizeAsync(attachment.TaskId, callerId, callerRoles, "attachment:delete", ct);
+        var resolve = await ResolveAndAuthorizeAsync(attachment.TaskId, callerId, callerRoles, PermissionKeys.AttachmentDelete, ct);
         if (!resolve.IsSuccess) return Result<bool>.Failure(resolve.Error!);
 
         // Only uploader or OrgAdmin/SuperAdmin can delete
@@ -131,7 +132,7 @@ public class FileService : IFileService
 
     public async Task<List<AttachmentDto>> GetByTaskAsync(Guid taskId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        var resolve = await ResolveAndAuthorizeAsync(taskId, callerId, callerRoles, "attachment:view", ct);
+        var resolve = await ResolveAndAuthorizeAsync(taskId, callerId, callerRoles, PermissionKeys.AttachmentView, ct);
         if (!resolve.IsSuccess) throw new UnauthorizedAccessException(resolve.Error!);
 
         var list = await _db.Attachments.Where(a => a.TaskId == taskId).OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
@@ -140,7 +141,7 @@ public class FileService : IFileService
 
     public async Task<bool> IsTaskAccessibleAsync(Guid taskId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        var r = await ResolveAndAuthorizeAsync(taskId, callerId, callerRoles, "attachment:view", ct);
+        var r = await ResolveAndAuthorizeAsync(taskId, callerId, callerRoles, PermissionKeys.AttachmentView, ct);
         return r.IsSuccess;
     }
 
@@ -166,14 +167,9 @@ public class FileService : IFileService
             return Result<(Guid, Guid, Guid)>.Failure($"Resolve failed: {ex.Message}");
         }
 
-        // 2. SuperAdmin bypass via IsSuperAdmin
-        try
-        {
-            var isSuperClaim = callerRoles.Contains(Roles.SuperAdmin);
-            if (isSuperClaim) return Result<(Guid, Guid, Guid)>.Success((projectId, workspaceId, orgId));
-            var isSuperDb = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[WorkspaceMembers] WHERE UserId = {0} AND Role = {1}", callerId, Roles.SuperAdminValue).FirstOrDefaultAsync(ct) > 0;
-            if (isSuperDb) return Result<(Guid, Guid, Guid)>.Success((projectId, workspaceId, orgId));
-        } catch { }
+        // 2. SuperAdmin bypass via IsSuperAdmin (Users.IsSuperAdmin)
+        if (await PermissionHelper.IsSuperAdminAsync(_db, callerId, callerRoles, ct))
+            return Result<(Guid, Guid, Guid)>.Success((projectId, workspaceId, orgId));
 
         // 3. Org membership check (OrganizationMembers 0/2/3 + OwnerId)
         bool isOrgMember = false;
@@ -189,10 +185,17 @@ public class FileService : IFileService
         } catch { }
         if (!isOrgMember) return Result<(Guid, Guid, Guid)>.Failure("Forbidden - Not an organization member");
 
-        // 4. Workspace membership check
+        // 4. Workspace membership check — OrgAdmin with zero WorkspaceMembers bypasses
         bool isWsMember = false;
         try { isWsMember = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1}", workspaceId, callerId).FirstOrDefaultAsync(ct) > 0; } catch { }
-        if (!isWsMember) return Result<(Guid, Guid, Guid)>.Failure("Forbidden - Not a workspace member");
+        if (!isWsMember)
+        {
+            // OrgAdmin (OrganizationMembers Role=2 or Owner or SuperAdmin) can act on any workspace
+            if (await PermissionHelper.IsOrgAdminAsync(_db, orgId, callerId, callerRoles, ct))
+                isWsMember = true;
+            else
+                return Result<(Guid, Guid, Guid)>.Failure("Forbidden - Not a workspace member");
+        }
 
         // 5. Project membership — OrgAdmin/SuperAdmin bypass
         bool isProjMember = false;
@@ -214,7 +217,7 @@ public class FileService : IFileService
 
         // 6. Permission check via RolePermissions (if custom role exists)
         // For attachment:view we allow all project members; for create/delete check RolePermissions if custom role assigned
-        if (permKey != "attachment:view")
+        if (permKey != PermissionKeys.AttachmentView)
         {
             try
             {

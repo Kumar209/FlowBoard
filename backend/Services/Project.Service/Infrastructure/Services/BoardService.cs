@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
 using Project.Service.Domain.Entities;
+using Project.Service.Infrastructure.Helpers;
 using SharedKernel;
 
 namespace Project.Service.Infrastructure.Services;
@@ -15,9 +16,10 @@ public class BoardService : IBoardService
 
     public async Task<Result<BoardInfoDto>> CreateBoardAsync(Guid projectId, string name, string type, string? description, string? filterJson, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (Roles.CanUpload(callerRoles) == false) return Result<BoardInfoDto>.Failure("Forbidden - Client cannot create boards");
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return Result<BoardInfoDto>.Failure("Project not found");
+        if (!await PermissionHelper.IsOrgAdminInOrgAsync(_db, project.WorkspaceId, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, project.WorkspaceId, callerId, PermissionKeys.BoardCreate, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result<BoardInfoDto>.Failure("Forbidden - Client cannot create boards");
         var maxPos = await _db.Boards.Where(b => b.ProjectId == projectId).MaxAsync(b => (int?)b.Position, ct) ?? -1;
         var board = new Board(projectId, name, type ?? "Kanban", description, maxPos + 1, filterJson);
         _db.Boards.Add(board);
@@ -30,9 +32,13 @@ public class BoardService : IBoardService
 
     public async Task<Result<BoardInfoDto>> UpdateBoardAsync(Guid boardId, string name, string type, string? filterJson, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (Roles.CanUpload(callerRoles) == false) return Result<BoardInfoDto>.Failure("Forbidden - Client cannot update boards");
         var board = await _db.Boards.FindAsync(new object[] { boardId }, ct);
         if (board == null) return Result<BoardInfoDto>.Failure("Board not found");
+        var projForUpd = await _db.Projects.FirstOrDefaultAsync(p => p.Id == board.ProjectId, ct);
+        var wsForUpd = projForUpd?.WorkspaceId ?? Guid.Empty;
+        if (!await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForUpd, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForUpd, callerId, PermissionKeys.BoardUpdate, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result<BoardInfoDto>.Failure("Forbidden - Client cannot update boards");
+        // board already loaded
         board.Rename(name);
         if (!string.IsNullOrEmpty(type)) board.UpdateType(type);
         board.SetFilter(filterJson);
@@ -42,8 +48,13 @@ public class BoardService : IBoardService
 
     public async Task<Result<bool>> DeleteBoardAsync(Guid boardId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (Roles.CanUpload(callerRoles) == false) return Result<bool>.Failure("Forbidden - Client cannot delete boards");
         var board = await _db.Boards.FindAsync(new object[] { boardId }, ct);
+        if (board == null) return Result<bool>.Failure("Board not found");
+        var projForDel = await _db.Projects.FirstOrDefaultAsync(p => p.Id == board.ProjectId, ct);
+        var wsForDel = projForDel?.WorkspaceId ?? Guid.Empty;
+        if (!await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForDel, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForDel, callerId, PermissionKeys.BoardDelete, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result<bool>.Failure("Forbidden - Client cannot delete boards");
+        // board already loaded
         if (board == null) return Result<bool>.Failure("Board not found");
         var hasSprints = await _db.Sprints.AnyAsync(s => s.BoardId == boardId, ct);
         if (hasSprints) return Result<bool>.Failure("Cannot delete board with sprints - delete sprints first");
@@ -91,6 +102,8 @@ public class BoardService : IBoardService
     {
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return Result<BoardListDto>.Failure("Project not found");
+        if (!await PermissionHelper.IsOrgAdminInOrgAsync(_db, project.WorkspaceId, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, project.WorkspaceId, callerId, PermissionKeys.BoardCreate, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result<BoardListDto>.Failure("Forbidden - Client cannot create lists");
         Guid? targetBoardId = boardId;
         if (targetBoardId == null)
         {
@@ -160,7 +173,10 @@ public class BoardService : IBoardService
 
     public async Task<Result<BoardListDto>> UpdateBoardListAsync(Guid projectId, Guid listId, string name, int? position, Guid callerId, List<string> callerRoles, CancellationToken ct = default, List<Guid>? statusIds = null)
     {
-        if (Roles.CanUpload(callerRoles) == false) return Result<BoardListDto>.Failure("Forbidden - Client cannot rename lists");
+        var projectForListUpd = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
+        var wsForListUpd = projectForListUpd?.WorkspaceId ?? Guid.Empty;
+        if (!await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForListUpd, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForListUpd, callerId, PermissionKeys.BoardUpdate, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result<BoardListDto>.Failure("Forbidden - Client cannot rename lists");
         var list = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == listId && b.ProjectId == projectId, ct);
         if (list == null) return Result<BoardListDto>.Failure("List not found");
         if (position.HasValue && position.Value != list.Position)
@@ -220,7 +236,10 @@ public class BoardService : IBoardService
 
     public async Task<Result<bool>> DeleteBoardListAsync(Guid projectId, Guid listId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (Roles.CanUpload(callerRoles) == false) return Result<bool>.Failure("Forbidden - Client cannot delete lists");
+        var projectForListDel = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
+        var wsForListDel = projectForListDel?.WorkspaceId ?? Guid.Empty;
+        if (!await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForListDel, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForListDel, callerId, PermissionKeys.BoardDelete, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result<bool>.Failure("Forbidden - Client cannot delete lists");
         var list = await _db.BoardLists.FirstOrDefaultAsync(b => b.Id == listId && b.ProjectId == projectId, ct);
         if (list == null) return Result<bool>.Failure("List not found");
         var hasTasks = await _db.Tasks.AnyAsync(t => t.ListId == listId, ct);

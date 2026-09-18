@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Project.Service.Application.Caching;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
+using Project.Service.Infrastructure.Helpers;
 using SharedKernel;
 
 namespace Project.Service.Infrastructure.Services;
@@ -14,10 +15,11 @@ public class SubTaskService : ISubTaskService
 
     public async Task<Result<SubTaskDto>> CreateSubTaskAsync(Guid taskId, string title, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (Roles.CanUpload(callerRoles) == false)
-            return Result<SubTaskDto>.Failure("Forbidden - Client cannot manage subtasks");
         var task = await _db.Tasks.FindAsync(new object[] { taskId }, ct);
         if (task == null) return Result<SubTaskDto>.Failure("Task not found");
+        var wsForSub = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        if (wsForSub != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForSub, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForSub, callerId, PermissionKeys.TaskCreate, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result<SubTaskDto>.Failure("Forbidden - Client cannot manage subtasks");
         var sub = new Domain.Entities.SubTask(taskId, title);
         _db.SubTasks.Add(sub);
         var wsSub = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);

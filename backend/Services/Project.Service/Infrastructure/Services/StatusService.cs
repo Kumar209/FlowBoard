@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
 using Project.Service.Domain.Entities;
+using Project.Service.Infrastructure.Helpers;
 using SharedKernel;
 using System.Text.RegularExpressions;
 
@@ -33,15 +34,19 @@ public class StatusService : IStatusService
         var wsId = await _db.Projects.Where(p => p.Id == projectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
         if (wsId != Guid.Empty)
         {
+            // OrgAdmin bypass via Identity OrganizationMembers/Owner/Users.IsSuperAdmin + custom role permission
             try
             {
-                var isSuper = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[WorkspaceMembers] WHERE UserId = {0} AND Role = {1}", callerId, Roles.SuperAdminValue).FirstOrDefaultAsync(ct) > 0;
-                if (isSuper) return true;
-                var isOrgAdmin = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(1) as Value FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1} AND Role = {2}", wsId, callerId, Roles.OrgAdminValue).FirstOrDefaultAsync(ct) > 0;
-                if (isOrgAdmin) return true;
+                // Use shared helper for OrgAdmin/SuperAdmin first
+                var dummyRoles = new List<string>();
+                var isOrgAdminBypass = await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsId, callerId, dummyRoles, ct);
+                if (isOrgAdminBypass) return true;
+                if (permKey == PermissionKeys.StatusView) return true;
+                var hasCustom = await PermissionHelper.HasCustomPermissionAsync(_db, wsId, callerId, permKey, ct);
+                if (hasCustom) return true;
             } catch { }
         }
-        if (permKey == "status:view") return true;
+        if (permKey == PermissionKeys.StatusView) return true;
         return false;
     }
 
@@ -60,7 +65,8 @@ public class StatusService : IStatusService
         var existing = await _db.Statuses.Where(s => s.ProjectId == projectId).ToListAsync(ct);
         if (existing.Any(s => NormalizedKey(s.Name) == key))
             return Result<StatusDto>.Failure($"Status '{display}' already exists (maybe as '{existing.First(s => NormalizedKey(s.Name)==key).Name}')");
-        var allowed = Roles.IsPrivilegedForManage(callerRoles);
+        var wsForCreate = await _db.Projects.Where(p => p.Id == projectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        var allowed = Roles.IsPrivilegedForManage(callerRoles) || await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForCreate, callerId, callerRoles, ct) || await PermissionHelper.HasCustomPermissionAsync(_db, wsForCreate, callerId, PermissionKeys.StatusCreate, ct);
         if (!allowed) return Result<StatusDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin for status:create");
         var status = new Status(projectId, display);
         _db.Statuses.Add(status);
@@ -73,7 +79,8 @@ public class StatusService : IStatusService
         if (string.IsNullOrWhiteSpace(name)) return Result<StatusDto>.Failure("Name required");
         var status = await _db.Statuses.FirstOrDefaultAsync(s => s.Id == statusId, ct);
         if (status == null) return Result<StatusDto>.Failure("Status not found");
-        var allowed = Roles.IsPrivilegedForManage(callerRoles);
+        var wsForUpd = await _db.Projects.Where(p => p.Id == status.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        var allowed = Roles.IsPrivilegedForManage(callerRoles) || await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForUpd, callerId, callerRoles, ct) || await PermissionHelper.HasCustomPermissionAsync(_db, wsForUpd, callerId, PermissionKeys.StatusUpdate, ct);
         if (!allowed) return Result<StatusDto>.Failure("Forbidden - Need OrgAdmin/SuperAdmin");
         var normalized = Normalize(name);
         var display = DisplayName(normalized);
@@ -90,7 +97,8 @@ public class StatusService : IStatusService
     {
         var status = await _db.Statuses.FirstOrDefaultAsync(s => s.Id == statusId, ct);
         if (status == null) return Result<bool>.Failure("Status not found");
-        var allowed = Roles.IsPrivilegedForManage(callerRoles);
+        var wsForDel = await _db.Projects.Where(p => p.Id == status.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        var allowed = Roles.IsPrivilegedForManage(callerRoles) || await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForDel, callerId, callerRoles, ct) || await PermissionHelper.HasCustomPermissionAsync(_db, wsForDel, callerId, PermissionKeys.StatusDelete, ct);
         if (!allowed) return Result<bool>.Failure("Forbidden - Need OrgAdmin/SuperAdmin");
         var taskCount = await _db.Tasks.CountAsync(t => t.StatusId == statusId, ct);
         if (taskCount > 0) return Result<bool>.Failure($"Cannot delete status '{status.Name}' — {taskCount} issue(s) still use it. Reassign them to another status first.");

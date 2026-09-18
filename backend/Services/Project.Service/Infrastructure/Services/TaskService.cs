@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Project.Service.Application.DTOs;
 using Project.Service.Application.Interfaces;
+using Project.Service.Infrastructure.Helpers;
 using SharedKernel;
 using System.Text.Json;
 
@@ -14,9 +15,15 @@ public class TaskService : ITaskService
 
     public async Task<Result<TaskDto>> CreateTaskAsync(Guid projectId, Guid? listId, string title, string? description, string priority, string? labelsJson, Guid? assigneeId, DateTime? dueDate, string? issueType, string? epic, int? storyPoints, DateTime? startDate, string? environment, Guid? parentIssueId, Guid? sprintId, Guid? teamId, Guid callerId, List<string> callerRoles, CancellationToken ct = default, Guid? statusId = null)
     {
-        if (Roles.CanUpload(callerRoles) == false) return Result<TaskDto>.Failure("Forbidden - Client cannot create tasks");
+        var projForCreate = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
+        var wsForCreate = projForCreate?.WorkspaceId ?? Guid.Empty;
+        if (wsForCreate != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForCreate, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForCreate, callerId, PermissionKeys.TaskCreate, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result<TaskDto>.Failure("Forbidden - Client cannot create tasks");
         if (assigneeId.HasValue && assigneeId.Value != Guid.Empty)
         {
+            // assignee requires task:assign unless OrgAdmin
+            if (wsForCreate != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForCreate, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForCreate, callerId, PermissionKeys.TaskAssign, ct) && Roles.CanUpload(callerRoles) == false)
+                return Result<TaskDto>.Failure("Forbidden - Need task:assign");
             if (!await IsAssigneeValidAsync(projectId, assigneeId.Value, ct)) return Result<TaskDto>.Failure("Assignee must be member of organization ∩ workspace ∩ project");
         }
         string status = "To Do";
@@ -73,11 +80,16 @@ public class TaskService : ITaskService
 
     public async Task<Result<TaskDto>> UpdateTaskAsync(Guid taskId, string title, string? description, string priority, string? labelsJson, Guid? assigneeId, DateTime? dueDate, string? issueType, string? epic, int? storyPoints, DateTime? startDate, string? environment, Guid? parentIssueId, Guid? sprintId, string? watchersJson, string? linkedIssuesJson, int? timeEstimated, int? timeSpent, int? timeRemaining, Guid? teamId, Guid? listId, string? status, Guid callerId, List<string> callerRoles, CancellationToken ct = default, Guid? statusId = null, string? acceptanceCriteriaJson = null)
     {
-        if (Roles.CanUpload(callerRoles) == false) return Result<TaskDto>.Failure("Forbidden - Client cannot update tasks");
         var task = await _db.Tasks.FindAsync(new object[] { taskId }, ct);
         if (task == null) return Result<TaskDto>.Failure("Task not found");
+        var wsForUpd = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        if (wsForUpd != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForUpd, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForUpd, callerId, PermissionKeys.TaskUpdate, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result<TaskDto>.Failure("Forbidden - Client cannot update tasks");
+        // task:assign check when changing assignee
         if (assigneeId.HasValue && assigneeId.Value != Guid.Empty && assigneeId.Value != task.AssigneeId)
         {
+            if (wsForUpd != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForUpd, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForUpd, callerId, PermissionKeys.TaskAssign, ct) && Roles.CanUpload(callerRoles) == false)
+                return Result<TaskDto>.Failure("Forbidden - Need task:assign");
             if (!await IsAssigneeValidAsync(task.ProjectId, assigneeId.Value, ct)) return Result<TaskDto>.Failure("Assignee must be member of organization ∩ workspace ∩ project");
         }
         var prio = Enum.TryParse<Domain.Enums.TaskPriority>(priority, true, out var p) ? p : Domain.Enums.TaskPriority.Medium;
@@ -127,7 +139,10 @@ public class TaskService : ITaskService
 
     public async Task<Result> MoveTaskAsync(Guid taskId, Guid toListId, int newPosition, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (Roles.CanUpload(callerRoles) == false) return Result.Failure("Forbidden - Client cannot move tasks");
+        var taskForMove = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == taskId, ct);
+        var wsForMove = taskForMove != null ? await _db.Projects.Where(p => p.Id == taskForMove.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct) : Guid.Empty;
+        if (wsForMove != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForMove, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForMove, callerId, PermissionKeys.TaskMove, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result.Failure("Forbidden - Client cannot move tasks");
         // Distributed lock SET NX PX 5000 — prevents concurrent drag of same task
         var lockKey = $"lock:task:{taskId}";
         var lockVal = Guid.NewGuid().ToString();
@@ -216,9 +231,11 @@ public class TaskService : ITaskService
 
     public async Task<Result> DeleteTaskAsync(Guid taskId, Guid callerId, List<string> callerRoles, CancellationToken ct = default)
     {
-        if (Roles.CanUpload(callerRoles) == false) return Result.Failure("Forbidden - Client cannot delete tasks");
         var task = await _db.Tasks.FindAsync(new object[] { taskId }, ct);
         if (task == null) return Result.Failure("Task not found");
+        var wsForDel = await _db.Projects.Where(p => p.Id == task.ProjectId).Select(p => p.WorkspaceId).FirstOrDefaultAsync(ct);
+        if (wsForDel != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForDel, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForDel, callerId, PermissionKeys.TaskDelete, ct) && Roles.CanUpload(callerRoles) == false)
+            return Result.Failure("Forbidden - Client cannot delete tasks");
         var projectId = task.ProjectId;
         var taskTitle = task.Title;
         var taskIdForLog = task.Id;
