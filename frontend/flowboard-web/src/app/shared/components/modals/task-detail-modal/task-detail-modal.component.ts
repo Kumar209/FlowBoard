@@ -20,6 +20,8 @@ import { ConfirmDeleteComponent } from '../confirm-delete/confirm-delete.compone
 import { FeatureDisabledModalComponent } from '../../feature-disabled-modal/feature-disabled-modal.component';
 import { FeatureFlagService } from '../../../../core/services/feature-flag.service';
 import { WorkspaceService } from '../../../../core/services/workspace.service';
+import { PermissionService } from '../../../../core/services/permission.service';
+import { PermissionKeys } from '../../../../shared/constants/permissions';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../../environments/environment';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
@@ -74,6 +76,7 @@ export class TaskDetailModalComponent {
   auth = inject(AuthService);
   private toast = inject(ToastService);
   attachmentService = inject(AttachmentService);
+  private perm = inject(PermissionService);
   private aiService = inject(AiService);
   private flagService = inject(FeatureFlagService);
   private workspaceService = inject(WorkspaceService);
@@ -395,11 +398,15 @@ export class TaskDetailModalComponent {
     // Don't block on ancillary lookups — teams/sprints/members/status can load async and show fallback selects
     return true;
   });
-  canCommentHere = computed(() => {
-    const wid = this.workspaceId() || (this.boardForTaskQuery.data() as any)?.project?.workspaceId || '';
-    if (!wid) return this.auth.canComment();
-    return this.auth.canCommentFor(wid);
-  });
+  effectiveWsId = computed(() => this.workspaceId() || (this.boardForTaskQuery.data() as any)?.project?.workspaceId || '');
+  PermissionKeys = PermissionKeys;
+  canViewComment = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.CommentView));
+  canCreateComment = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.CommentCreate));
+  canViewAttachment = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.AttachmentView));
+  canCreateAttachment = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.AttachmentCreate));
+  canUpdateAttachment = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.AttachmentUpdate));
+  canDeleteAttachment = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.AttachmentDelete));
+  canCommentHere = computed(() => this.canCreateComment());
   isScrumBoard = computed(() => {
     const boardId = this.task()?.boardId || '';
     const boards = (this.boardForTaskQuery.data() as any)?.project ? [] : []; // fallback
