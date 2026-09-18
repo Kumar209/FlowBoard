@@ -617,7 +617,7 @@
 
           <div class="flex gap-2 pt-2">
             <button class="btn btn-ghost btn-sm rounded-xl flex-1" (click)="closed.emit()" [disabled]="uploadAttachmentMut.isPending()">Close</button>
-            @if (!readOnly()) {
+            @if (!readOnly() && canUpdateTask()) {
               <button class="btn btn-primary btn-sm rounded-xl flex-1" (click)="save()" [disabled]="!title().trim() || !isDirty() || uploadAttachmentMut.isPending()" [attr.aria-busy]="loading()">
                 @if (loading()) {
                   <span class="loading loading-spinner loading-xs"></span>

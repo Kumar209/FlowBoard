@@ -406,6 +406,11 @@ export class TaskDetailModalComponent {
   canCreateAttachment = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.AttachmentCreate));
   canUpdateAttachment = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.AttachmentUpdate));
   canDeleteAttachment = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.AttachmentDelete));
+  canViewTask = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.TaskView));
+  canUpdateTask = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.TaskUpdate));
+  canDeleteTask = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.TaskDelete));
+  canMoveTask = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.TaskMove));
+  canAssignTask = computed(() => this.perm.hasPermissionSync(this.effectiveWsId(), PermissionKeys.TaskAssign));
   canCommentHere = computed(() => this.canCreateComment());
   isScrumBoard = computed(() => {
     const boardId = this.task()?.boardId || '';
