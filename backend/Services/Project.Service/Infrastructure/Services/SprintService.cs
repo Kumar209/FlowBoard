@@ -15,7 +15,7 @@ public class SprintService : ISprintService
     {
         var projForSprint = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         var wsForSprint = projForSprint?.WorkspaceId ?? Guid.Empty;
-        if (wsForSprint != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForSprint, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForSprint, callerId, PermissionKeys.BoardCreate, ct) && Roles.CanUpload(callerRoles) == false)
+        if (wsForSprint != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForSprint, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForSprint, callerId, PermissionKeys.SprintCreate, ct) && Roles.CanUpload(callerRoles) == false)
             return Result<SprintDto>.Failure("Forbidden - Client cannot create sprints");
         if (boardId != null && boardId != Guid.Empty)
         {
@@ -38,7 +38,7 @@ public class SprintService : ISprintService
         if (sprint == null) return Result<SprintDto>.Failure("Sprint not found");
         var projForSprintUpd = await _db.Projects.FirstOrDefaultAsync(p => p.Id == sprint.ProjectId, ct);
         var wsForSprintUpd = projForSprintUpd?.WorkspaceId ?? Guid.Empty;
-        if (wsForSprintUpd != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForSprintUpd, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForSprintUpd, callerId, PermissionKeys.BoardUpdate, ct) && Roles.CanUpload(callerRoles) == false)
+        if (wsForSprintUpd != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForSprintUpd, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForSprintUpd, callerId, PermissionKeys.SprintUpdate, ct) && Roles.CanUpload(callerRoles) == false)
             return Result<SprintDto>.Failure("Forbidden - Client cannot update sprints");
         sprint.Update(name, startDate, endDate);
         await _db.SaveChangesAsync(ct);
@@ -51,7 +51,7 @@ public class SprintService : ISprintService
         if (sprint == null) return Result<bool>.Failure("Sprint not found");
         var projForSprintDel = await _db.Projects.FirstOrDefaultAsync(p => p.Id == sprint.ProjectId, ct);
         var wsForSprintDel = projForSprintDel?.WorkspaceId ?? Guid.Empty;
-        if (wsForSprintDel != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForSprintDel, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForSprintDel, callerId, PermissionKeys.BoardDelete, ct) && Roles.CanUpload(callerRoles) == false)
+        if (wsForSprintDel != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForSprintDel, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForSprintDel, callerId, PermissionKeys.SprintDelete, ct) && Roles.CanUpload(callerRoles) == false)
             return Result<bool>.Failure("Forbidden - Client cannot delete sprints");
         // sprint already loaded
         if (sprint == null) return Result<bool>.Failure("Sprint not found");
@@ -77,6 +77,10 @@ public class TeamService : ITeamService
     {
         var proj = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         if (proj == null) return Result<TeamDto>.Failure("Project not found");
+        // Team create requires team:create or OrgAdmin/SuperAdmin
+        var wsForTeam = proj.WorkspaceId;
+        if (wsForTeam != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForTeam, callerId, new List<string>(), ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForTeam, callerId, PermissionKeys.TeamCreate, ct))
+            return Result<TeamDto>.Failure("Forbidden - Need team:create");
         var exists = await _db.Teams.AnyAsync(t => t.ProjectId == projectId && t.Name == name, ct);
         if (exists) return Result<TeamDto>.Failure("Team name already exists in this project");
         var team = new Domain.Entities.Team(projectId, name, description);
@@ -89,6 +93,10 @@ public class TeamService : ITeamService
     {
         var team = await _db.Teams.FirstOrDefaultAsync(t => t.Id == teamId, ct);
         if (team == null) return Result<TeamDto>.Failure("Team not found");
+        var projForUpd = await _db.Projects.FirstOrDefaultAsync(p => p.Id == team.ProjectId, ct);
+        var wsForUpd = projForUpd?.WorkspaceId ?? Guid.Empty;
+        if (wsForUpd != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForUpd, callerId, new List<string>(), ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForUpd, callerId, PermissionKeys.TeamUpdate, ct))
+            return Result<TeamDto>.Failure("Forbidden - Need team:update");
         team.Update(name, description);
         await _db.SaveChangesAsync(ct);
         var count = await _db.TeamMembers.CountAsync(m => m.TeamId == team.Id, ct);
@@ -99,6 +107,10 @@ public class TeamService : ITeamService
     {
         var team = await _db.Teams.FirstOrDefaultAsync(t => t.Id == teamId, ct);
         if (team == null) return Result.Failure("Team not found");
+        var projForDel = await _db.Projects.FirstOrDefaultAsync(p => p.Id == team.ProjectId, ct);
+        var wsForDel = projForDel?.WorkspaceId ?? Guid.Empty;
+        if (wsForDel != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForDel, callerId, new List<string>(), ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForDel, callerId, PermissionKeys.TeamDelete, ct))
+            return Result.Failure("Forbidden - Need team:delete");
         _db.Teams.Remove(team);
         await _db.SaveChangesAsync(ct);
         return Result.Success();
@@ -150,7 +162,7 @@ public class EnvironmentService : IEnvironmentService
     {
         var projForEnv = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
         var wsForEnv = projForEnv?.WorkspaceId ?? Guid.Empty;
-        if (wsForEnv != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForEnv, callerId, callerRoles, ct) && Roles.CanUpload(callerRoles) == false)
+        if (wsForEnv != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForEnv, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForEnv, callerId, PermissionKeys.EnvironmentCreate, ct) && Roles.CanUpload(callerRoles) == false)
             return Result<ProjectEnvironmentDto>.Failure("Forbidden - Client cannot create environments");
         var exists = await _db.Environments.AnyAsync(e => e.ProjectId == projectId && e.Name == name, ct);
         if (exists) return Result<ProjectEnvironmentDto>.Failure("Environment with same name already exists");
@@ -166,7 +178,7 @@ public class EnvironmentService : IEnvironmentService
         if (env == null) return Result<ProjectEnvironmentDto>.Failure("Environment not found");
         var projForEnvUpd = await _db.Projects.FirstOrDefaultAsync(p => p.Id == env.ProjectId, ct);
         var wsForEnvUpd = projForEnvUpd?.WorkspaceId ?? Guid.Empty;
-        if (wsForEnvUpd != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForEnvUpd, callerId, callerRoles, ct) && Roles.CanUpload(callerRoles) == false)
+        if (wsForEnvUpd != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForEnvUpd, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForEnvUpd, callerId, PermissionKeys.EnvironmentUpdate, ct) && Roles.CanUpload(callerRoles) == false)
             return Result<ProjectEnvironmentDto>.Failure("Forbidden - Client cannot update environments");
         env.Update(name, url, description, status ?? "Active");
         await _db.SaveChangesAsync(ct);
@@ -179,7 +191,7 @@ public class EnvironmentService : IEnvironmentService
         if (env == null) return Result<bool>.Failure("Environment not found");
         var projForEnvDel = await _db.Projects.FirstOrDefaultAsync(p => p.Id == env.ProjectId, ct);
         var wsForEnvDel = projForEnvDel?.WorkspaceId ?? Guid.Empty;
-        if (wsForEnvDel != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForEnvDel, callerId, callerRoles, ct) && Roles.CanUpload(callerRoles) == false)
+        if (wsForEnvDel != Guid.Empty && !await PermissionHelper.IsOrgAdminInOrgAsync(_db, wsForEnvDel, callerId, callerRoles, ct) && !await PermissionHelper.HasCustomPermissionAsync(_db, wsForEnvDel, callerId, PermissionKeys.EnvironmentDelete, ct) && Roles.CanUpload(callerRoles) == false)
             return Result<bool>.Failure("Forbidden - Client cannot delete environments");
         _db.Environments.Remove(env);
         await _db.SaveChangesAsync(ct);

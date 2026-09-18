@@ -1,6 +1,6 @@
 /**
  * Shared permission keys - Single source of truth for frontend.
- * 35 keys seeded in [identity].[Permissions] via IdentitySeeder.
+ * 47 keys seeded in [identity].[Permissions] via IdentitySeeder.
  * Keep in sync with backend BuildingBlocks/SharedKernel/PermissionKeys.cs
  * Use these constants everywhere instead of hardcoding "board:create" strings.
  */
@@ -51,6 +51,21 @@ export const PermissionKeys = {
   // Role (2)
   RoleView: 'role:view',
   RoleManage: 'role:manage',
+  // Sprint (4)
+  SprintView: 'sprint:view',
+  SprintCreate: 'sprint:create',
+  SprintUpdate: 'sprint:update',
+  SprintDelete: 'sprint:delete',
+  // Team (4)
+  TeamView: 'team:view',
+  TeamCreate: 'team:create',
+  TeamUpdate: 'team:update',
+  TeamDelete: 'team:delete',
+  // Environment (4)
+  EnvironmentView: 'environment:view',
+  EnvironmentCreate: 'environment:create',
+  EnvironmentUpdate: 'environment:update',
+  EnvironmentDelete: 'environment:delete',
 } as const;
 
 export type PermissionKey = (typeof PermissionKeys)[keyof typeof PermissionKeys];

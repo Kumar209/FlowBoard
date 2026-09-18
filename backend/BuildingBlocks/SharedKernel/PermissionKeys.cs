@@ -1,7 +1,7 @@
 namespace SharedKernel;
 
 /// <summary>
-/// Single source for 35 permission keys — seeded in [identity].[Permissions] via IdentitySeeder.
+/// Single source for 47 permission keys — seeded in [identity].[Permissions] via IdentitySeeder.
 /// Use these constants everywhere (services, controllers, helpers, frontend) instead of hardcoding "board:create" strings.
 /// </summary>
 public static class PermissionKeys
@@ -61,6 +61,24 @@ public static class PermissionKeys
     public const string RoleView = "role:view";
     public const string RoleManage = "role:manage";
 
+    // Sprint (4)
+    public const string SprintView = "sprint:view";
+    public const string SprintCreate = "sprint:create";
+    public const string SprintUpdate = "sprint:update";
+    public const string SprintDelete = "sprint:delete";
+
+    // Team (4)
+    public const string TeamView = "team:view";
+    public const string TeamCreate = "team:create";
+    public const string TeamUpdate = "team:update";
+    public const string TeamDelete = "team:delete";
+
+    // Environment (4)
+    public const string EnvironmentView = "environment:view";
+    public const string EnvironmentCreate = "environment:create";
+    public const string EnvironmentUpdate = "environment:update";
+    public const string EnvironmentDelete = "environment:delete";
+
     public static readonly string[] All = new[]
     {
         OrgView, OrgUpdate, OrgDelete,
@@ -72,6 +90,9 @@ public static class PermissionKeys
         CommentView, CommentCreate,
         AttachmentView, AttachmentCreate, AttachmentUpdate, AttachmentDelete,
         ActivityViewOrg, ActivityViewProject,
-        RoleView, RoleManage
+        RoleView, RoleManage,
+        SprintView, SprintCreate, SprintUpdate, SprintDelete,
+        TeamView, TeamCreate, TeamUpdate, TeamDelete,
+        EnvironmentView, EnvironmentCreate, EnvironmentUpdate, EnvironmentDelete
     };
 }

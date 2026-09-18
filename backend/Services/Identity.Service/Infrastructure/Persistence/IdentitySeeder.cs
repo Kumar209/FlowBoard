@@ -113,6 +113,18 @@ public static class IdentitySeeder
             ("attachment:create", "Create Attachment", "Attachment", "Upload attachments via Cloudinary"),
             ("attachment:update", "Update Attachment", "Attachment", "Update attachment metadata"),
             ("attachment:delete", "Delete Attachment", "Attachment", "Delete attachments from Cloudinary + DB"),
+            ("sprint:view", "View Sprint", "Sprint", "See sprints"),
+            ("sprint:create", "Create Sprint", "Sprint", "Create sprints"),
+            ("sprint:update", "Update Sprint", "Sprint", "Edit sprint"),
+            ("sprint:delete", "Delete Sprint", "Sprint", "Delete sprint"),
+            ("team:view", "View Team", "Team", "See teams"),
+            ("team:create", "Create Team", "Team", "Create teams"),
+            ("team:update", "Update Team", "Team", "Edit team"),
+            ("team:delete", "Delete Team", "Team", "Delete team"),
+            ("environment:view", "View Environment", "Environment", "See environments"),
+            ("environment:create", "Create Environment", "Environment", "Create environments"),
+            ("environment:update", "Update Environment", "Environment", "Edit environment"),
+            ("environment:delete", "Delete Environment", "Environment", "Delete environment"),
         };
         var existingKeys = await db.Permissions.Select(p => p.Key).ToListAsync();
         var toAdd = allKeys.Where(k => !existingKeys.Contains(k.Item1)).Select(k => new Permission(k.Item1, k.Item2, k.Item3, k.Item4)).ToList();
