@@ -16,12 +16,14 @@
 
       <div class="flex items-center gap-3 shrink-0">
         <span class="text-xs text-base-content/65">{{ filteredTeams().length }} {{ filteredTeams().length === 1 ? 'team' : 'teams' }}</span>
-        <button class="btn btn-primary btn-sm rounded-lg" (click)="openCreate()">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
-          </svg>
-          New Team
-        </button>
+        @if (canCreate()) {
+          <button class="btn btn-primary btn-sm rounded-lg" (click)="openCreate()">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
+            </svg>
+            New Team
+          </button>
+        }
       </div>
     </div>
 
@@ -51,12 +53,14 @@
         </div>
         <p class="mt-3 text-sm font-medium text-base-content">No teams found</p>
         <p class="mt-1 text-xs text-base-content/60">Create a team to organize members within this project.</p>
-        <button class="btn btn-primary btn-sm rounded-lg mt-4" (click)="openCreate()">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
-          </svg>
-          New Team
-        </button>
+        @if (canCreate()) {
+          <button class="btn btn-primary btn-sm rounded-lg mt-4" (click)="openCreate()">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
+            </svg>
+            New Team
+          </button>
+        }
       </div>
     } @else {
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
@@ -87,29 +91,34 @@
               </div>
 
               <div class="mt-4 border-t border-base-200 pt-3">
-                <button class="btn btn-primary btn-sm rounded-lg w-full" (click)="selectTeam(team)">
-                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 8 21 12l-4 4"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18"></path>
-                  </svg>
-                  View members
-                </button>
+                @if (canView()) {
+                  <button class="btn btn-primary btn-sm rounded-lg w-full" (click)="selectTeam(team)">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M17 8 21 12l-4 4"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18"></path>
+                    </svg>
+                    View members
+                  </button>
+                }
 
                 <div class="mt-2 grid grid-cols-2 gap-2">
-                  <button class="btn btn-ghost btn-sm rounded-lg border border-base-content/15 text-base-content" (click)="openEdit(team)" title="Edit team">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m12 20 9-9-3-3-9 9-1 4 4-1Z"></path>
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m15 5 3 3"></path>
-                    </svg>
-                    Edit
-                  </button>
-
-                  <button class="btn btn-ghost btn-sm rounded-lg border border-error/20 text-error hover:bg-error/10" (click)="confirmDelete(team)" title="Delete team">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"></path>
-                    </svg>
-                    Delete
-                  </button>
+                  @if (canUpdate()) {
+                    <button class="btn btn-ghost btn-sm rounded-lg border border-base-content/15 text-base-content" (click)="openEdit(team)" title="Edit team">
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m12 20 9-9-3-3-9 9-1 4 4-1Z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m15 5 3 3"></path>
+                      </svg>
+                      Edit
+                    </button>
+                  }
+                  @if (canDelete()) {
+                    <button class="btn btn-ghost btn-sm rounded-lg border border-error/20 text-error hover:bg-error/10" (click)="confirmDelete(team)" title="Delete team">
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"></path>
+                      </svg>
+                      Delete
+                    </button>
+                  }
                 </div>
               </div>
             </div>

@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
+import { PermissionService } from '../../../core/services/permission.service';
+import { PermissionKeys } from '../../../shared/constants/permissions';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
@@ -16,6 +18,7 @@ export class TeamComponent {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private ps = inject(ProjectService);
+  private perm = inject(PermissionService);
   private qc = inject(QueryClient);
 
   projectId = signal(
@@ -29,6 +32,11 @@ export class TeamComponent {
     this.route.snapshot.paramMap.get('wid') ||
     ''
   );
+  PermissionKeys = PermissionKeys;
+  canView = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TeamView));
+  canCreate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TeamCreate));
+  canUpdate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TeamUpdate));
+  canDelete = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TeamDelete));
 
   search = signal('');
   newTeamName = signal('');
