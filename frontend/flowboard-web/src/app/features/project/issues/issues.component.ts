@@ -43,6 +43,8 @@ export class IssuesComponent {
   canCreate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskCreate));
   canUpdate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskUpdate));
   canDelete = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskDelete));
+  canMove = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskMove));
+  canAssign = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.TaskAssign));
 
   aiDraftEnabled = signal(true);
   orgFlags = signal<Map<string, boolean>>(new Map());

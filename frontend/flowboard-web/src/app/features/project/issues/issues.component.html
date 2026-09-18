@@ -308,33 +308,35 @@
 
                   <td class="px-4 py-3 align-middle">
                     <div class="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        class="flex h-8 w-8 items-center justify-center rounded-lg text-base-content/75 hover:bg-base-200 hover:text-base-content transition-colors"
-                        (click)="$event.stopPropagation(); openDetail(t)"
-                        aria-label="View issue"
-                        title="View issue"
-                      >
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
-                          <circle cx="12" cy="12" r="2.5"></circle>
-                        </svg>
-                      </button>
-
-                      <button
+                      @if (canView()) {
+                        <button
                           type="button"
                           class="flex h-8 w-8 items-center justify-center rounded-lg text-base-content/75 hover:bg-base-200 hover:text-base-content transition-colors"
                           (click)="$event.stopPropagation(); openDetail(t)"
-                          aria-label="Edit issue"
-                          title="Edit issue"
+                          aria-label="View issue"
+                          title="View issue"
                         >
                           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m4 20 4.2-1 9.8-9.8a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m13.5 7.5 3 3"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                            <circle cx="12" cy="12" r="2.5"></circle>
                           </svg>
                         </button>
-
-                      @if (!detailReadOnly()) {
+                      }
+                      @if (canUpdate()) {
+                        <button
+                            type="button"
+                            class="flex h-8 w-8 items-center justify-center rounded-lg text-base-content/75 hover:bg-base-200 hover:text-base-content transition-colors"
+                            (click)="$event.stopPropagation(); openDetail(t)"
+                            aria-label="Edit issue"
+                            title="Edit issue"
+                          >
+                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="m4 20 4.2-1 9.8-9.8a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"></path>
+                              <path stroke-linecap="round" stroke-linejoin="round" d="m13.5 7.5 3 3"></path>
+                            </svg>
+                          </button>
+                      }
+                      @if (canDelete()) {
                         <button
                           type="button"
                           class="flex h-8 w-8 items-center justify-center rounded-lg text-base-content/70 hover:bg-error/10 hover:text-error transition-colors"
@@ -382,33 +384,35 @@
                     </div>
 
                     <div class="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        class="flex h-8 w-8 items-center justify-center rounded-lg text-base-content/75 hover:bg-base-200 hover:text-base-content"
-                        (click)="$event.stopPropagation(); openDetail(t)"
-                        aria-label="View issue"
-                        title="View issue"
-                      >
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
-                          <circle cx="12" cy="12" r="2.5"></circle>
-                        </svg>
-                      </button>
-
+                      @if (canView()) {
                         <button
                           type="button"
-                          class="flex h-8 w-8 items-center justify-center rounded-lg text-base-content/75 hover:bg-base-200 hover:text-base-content transition-colors"
+                          class="flex h-8 w-8 items-center justify-center rounded-lg text-base-content/75 hover:bg-base-200 hover:text-base-content"
                           (click)="$event.stopPropagation(); openDetail(t)"
-                          aria-label="Edit issue"
-                          title="Edit issue"
+                          aria-label="View issue"
+                          title="View issue"
                         >
                           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m4 20 4.2-1 9.8-9.8a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m13.5 7.5 3 3"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                            <circle cx="12" cy="12" r="2.5"></circle>
                           </svg>
                         </button>
-
-                      @if (!detailReadOnly()) {
+                      }
+                      @if (canUpdate()) {
+                          <button
+                            type="button"
+                            class="flex h-8 w-8 items-center justify-center rounded-lg text-base-content/75 hover:bg-base-200 hover:text-base-content transition-colors"
+                            (click)="$event.stopPropagation(); openDetail(t)"
+                            aria-label="Edit issue"
+                            title="Edit issue"
+                          >
+                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="m4 20 4.2-1 9.8-9.8a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"></path>
+                              <path stroke-linecap="round" stroke-linejoin="round" d="m13.5 7.5 3 3"></path>
+                            </svg>
+                          </button>
+                      }
+                      @if (canDelete()) {
                         <button
                           type="button"
                           class="flex h-8 w-8 items-center justify-center rounded-lg text-base-content/70 hover:bg-error/10 hover:text-error"
