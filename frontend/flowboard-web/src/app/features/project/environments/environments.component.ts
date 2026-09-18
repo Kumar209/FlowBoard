@@ -1,9 +1,11 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { PermissionService } from '../../../core/services/permission.service';
+import { PermissionKeys } from '../../../shared/constants/permissions';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
@@ -17,6 +19,7 @@ export class EnvironmentsComponent {
   private route = inject(ActivatedRoute);
   private ps = inject(ProjectService);
   private toast = inject(ToastService);
+  private perm = inject(PermissionService);
   private qc = inject(QueryClient);
 
   projectId = signal(
@@ -24,6 +27,16 @@ export class EnvironmentsComponent {
     this.route.snapshot.paramMap.get('pid') ||
     ''
   );
+  workspaceId = signal(
+    this.route.parent?.snapshot.paramMap.get('wid') ||
+    this.route.snapshot.paramMap.get('wid') ||
+    ''
+  );
+  PermissionKeys = PermissionKeys;
+  canView = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.EnvironmentView));
+  canCreate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.EnvironmentCreate));
+  canUpdate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.EnvironmentUpdate));
+  canDelete = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.EnvironmentDelete));
 
   envsQuery = injectQuery(() => ({
     queryKey: ['environments', this.projectId()] as const,

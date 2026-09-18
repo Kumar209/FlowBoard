@@ -24,13 +24,15 @@
             }
           </select>
         }
-        <button class="btn btn-primary btn-sm rounded-lg shrink-0" (click)="openCreate()">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 5v14M5 12h14"></path>
-          </svg>
-          <span class="hidden xs:inline">New Sprint</span>
-          <span class="xs:hidden">New</span>
-        </button>
+        @if (canCreate()) {
+          <button class="btn btn-primary btn-sm rounded-lg shrink-0" (click)="openCreate()">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+            <span class="hidden xs:inline">New Sprint</span>
+            <span class="xs:hidden">New</span>
+          </button>
+        }
       </div>
     </header>
 
@@ -245,8 +247,12 @@
                         <span class="btn btn-ghost btn-xs rounded-lg text-base-content/50 cursor-not-allowed" title="Create a Scrum board in Boards first">View Board</span>
                       }
                       <a [routerLink]="['../backlog']" class="btn btn-ghost btn-xs rounded-lg">Backlog</a>
-                      <button class="btn btn-ghost btn-xs rounded-lg" (click)="openEdit(s)">Edit</button>
-                      <button class="btn btn-ghost btn-xs rounded-lg text-error" (click)="confirmDelete(s)">Delete</button>
+                      @if (canUpdate()) {
+                        <button class="btn btn-ghost btn-xs rounded-lg" (click)="openEdit(s)">Edit</button>
+                      }
+                      @if (canDelete()) {
+                        <button class="btn btn-ghost btn-xs rounded-lg text-error" (click)="confirmDelete(s)">Delete</button>
+                      }
                     </div>
                     @if (!scrumBoardId()) {
                       <div class="text-[10px] text-base-content/60 mt-1">Scrum board missing — <a routerLink="../boards" class="link link-primary">Go to Boards</a></div>
@@ -369,8 +375,12 @@
                   <span class="btn btn-ghost btn-xs rounded-lg text-base-content/50 cursor-not-allowed">View Board</span>
                 }
                 <a [routerLink]="['../backlog']" class="btn btn-ghost btn-xs rounded-lg">Backlog</a>
-                <button class="btn btn-ghost btn-xs rounded-lg" (click)="openEdit(s)">Edit</button>
-                <button class="btn btn-ghost btn-xs rounded-lg text-error" (click)="confirmDelete(s)">Delete</button>
+                @if (canUpdate()) {
+                  <button class="btn btn-ghost btn-xs rounded-lg" (click)="openEdit(s)">Edit</button>
+                }
+                @if (canDelete()) {
+                  <button class="btn btn-ghost btn-xs rounded-lg text-error" (click)="confirmDelete(s)">Delete</button>
+                }
               </div>
             </div>
           </div>

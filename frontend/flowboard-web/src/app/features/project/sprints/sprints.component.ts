@@ -6,6 +6,8 @@ import { ProjectService } from '../../../core/services/project.service';
 import { StatsService } from '../../../core/services/stats.service';
 import { BurndownComponent } from '../../../shared/charts/burndown/burndown.component';
 import { ToastService } from '../../../core/services/toast.service';
+import { PermissionService } from '../../../core/services/permission.service';
+import { PermissionKeys } from '../../../shared/constants/permissions';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
@@ -20,9 +22,16 @@ export class SprintsComponent {
   private ps = inject(ProjectService);
   private stats = inject(StatsService);
   private toast = inject(ToastService);
+  private perm = inject(PermissionService);
   private qc = inject(QueryClient);
 
   projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || this.route.snapshot.paramMap.get('pid') || '');
+  workspaceId = signal(this.route.parent?.snapshot.paramMap.get('wid') || this.route.snapshot.paramMap.get('wid') || '');
+  PermissionKeys = PermissionKeys;
+  canView = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.SprintView));
+  canCreate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.SprintCreate));
+  canUpdate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.SprintUpdate));
+  canDelete = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.SprintDelete));
   selectedSprintId = signal('');
   search = signal('');
   page = signal(1);

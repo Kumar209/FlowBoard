@@ -25,12 +25,14 @@
           {{ environments().length === 1 ? 'environment' : 'environments' }}
         </span>
 
-        <button class="btn btn-primary btn-sm rounded-lg" (click)="openCreate()">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
-          </svg>
-          New environment
-        </button>
+        @if (canCreate()) {
+          <button class="btn btn-primary btn-sm rounded-lg" (click)="openCreate()">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
+            </svg>
+            New environment
+          </button>
+        }
       </div>
     </div>
 
@@ -57,12 +59,14 @@
           Create an environment to represent a project deployment target.
         </p>
 
-        <button class="btn btn-primary btn-sm rounded-lg mt-4" (click)="openCreate()">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
-          </svg>
-          Create environment
-        </button>
+        @if (canCreate()) {
+          <button class="btn btn-primary btn-sm rounded-lg mt-4" (click)="openCreate()">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"></path>
+            </svg>
+            Create environment
+          </button>
+        }
       </div>
     } @else {
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
@@ -101,20 +105,23 @@
               </div>
 
               <div class="mt-4 flex items-center gap-2 border-t border-base-200 pt-3">
-                <button class="btn btn-ghost btn-sm rounded-lg border border-base-content/15 text-base-content flex-1" (click)="openEdit(env)">
-                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m12 20 9-9-3-3-9 9-1 4 4-1Z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m15 5 3 3"></path>
-                  </svg>
-                  Edit
-                </button>
-
-                <button class="btn btn-ghost btn-sm rounded-lg border border-error/20 text-error hover:bg-error/10 flex-1" (click)="confirmDelete(env)">
-                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"></path>
-                  </svg>
-                  Delete
-                </button>
+                @if (canUpdate()) {
+                  <button class="btn btn-ghost btn-sm rounded-lg border border-base-content/15 text-base-content flex-1" (click)="openEdit(env)">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m12 20 9-9-3-3-9 9-1 4 4-1Z"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m15 5 3 3"></path>
+                    </svg>
+                    Edit
+                  </button>
+                }
+                @if (canDelete()) {
+                  <button class="btn btn-ghost btn-sm rounded-lg border border-error/20 text-error hover:bg-error/10 flex-1" (click)="confirmDelete(env)">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"></path>
+                    </svg>
+                    Delete
+                  </button>
+                }
               </div>
             </div>
           </div>
