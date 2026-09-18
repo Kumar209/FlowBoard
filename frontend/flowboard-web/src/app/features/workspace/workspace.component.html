@@ -34,7 +34,7 @@
             New Project
           </button>
         } @else {
-          <span class="badge badge-ghost badge-sm rounded-lg border border-base-content/15 text-base-content/60">View only</span>
+          <span class="badge badge-ghost badge-sm rounded-lg border border-base-content/15 text-base-content/60" title="You do not have permission">View only — missing {{ PermissionKeys.ProjectCreate }}</span>
         }
       </div>
     </div>
@@ -104,6 +104,11 @@
           </div>
         }
       </div>
+    } @else if (!canViewProject()) {
+      <div class="text-center py-16 bg-base-100 rounded-2xl border border-dashed mt-6" title="You do not have permission">
+        <p class="font-semibold">View only — missing {{ PermissionKeys.ProjectView }}</p>
+        <p class="text-sm opacity-60 mt-1">You do not have permission to view projects in this workspace.</p>
+      </div>
     } @else {
       <div class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 md:gap-6">
         @for (project of paginatedProjects(); track project.id) {
@@ -112,14 +117,22 @@
               <div class="flex justify-between items-start gap-2">
                 <span class="badge badge-primary badge-sm rounded-full">{{ project.key }}</span>
                 <div class="flex gap-1 items-center">
-                  @if (canCreateProject()) {
+                  @if (canUpdateProject() || canDeleteProject()) {
                     <div class="dropdown dropdown-end">
                       <div tabindex="0" role="button" class="btn btn-ghost btn-xs rounded-full">⋮</div>
                       <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-xl z-10 w-36 p-2 shadow border">
-                        <li><a (click)="openEdit(project)">Edit</a></li>
-                        <li><a class="text-error" (click)="openDelete(project)">Delete</a></li>
+                        @if (canUpdateProject()) {
+                          <li><a (click)="openEdit(project)">Edit</a></li>
+                        } @else {
+                          <li><a class="opacity-40 cursor-not-allowed" title="You do not have permission">Edit</a></li>
+                        }
+                        @if (canDeleteProject()) {
+                          <li><a class="text-error" (click)="openDelete(project)">Delete</a></li>
+                        }
                       </ul>
                     </div>
+                  } @else {
+                    <span class="badge badge-ghost badge-xs opacity-40" title="You do not have permission">View only</span>
                   }
                   <span class="badge badge-ghost badge-xs">{{ project.createdAt | date:'shortDate' }}</span>
                 </div>

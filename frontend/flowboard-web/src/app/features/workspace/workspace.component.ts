@@ -10,6 +10,8 @@ import { ProjectModalComponent } from '../../shared/components/modals/project-mo
 import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { ROLE_LABEL_MAP, OrgRoleValues } from '../../shared/constants/roles';
+import { PermissionService } from '../../core/services/permission.service';
+import { PermissionKeys } from '../../shared/constants/permissions';
 
 @Component({
   selector: 'app-workspace',
@@ -24,6 +26,7 @@ export class WorkspaceComponent {
   auth = inject(AuthService);
   private toast = inject(ToastService);
   private workspaceService = inject(WorkspaceService);
+  private perm = inject(PermissionService);
   private queryClient = inject(QueryClient);
 
   workspaceId = signal<string>(
@@ -49,16 +52,11 @@ export class WorkspaceComponent {
     return ws?.name || 'Workspace';
   });
 
-  canCreateProject = computed(() => {
-    const wid = this.workspaceId();
-    return (
-      this.auth.isSuperAdmin() ||
-      this.auth.isOrgAdmin() ||
-      this.auth.isManagerFor(wid) ||
-      this.auth.isOrgAdminFor(wid) ||
-      this.auth.canCreateProject()
-    );
-  });
+  PermissionKeys = PermissionKeys;
+  canViewProject = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.ProjectView));
+  canCreateProject = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.ProjectCreate));
+  canUpdateProject = (project?: any) => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.ProjectUpdate);
+  canDeleteProject = (project?: any) => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.ProjectDelete);
 
   roleLabel = computed(() => {
     const wid = this.workspaceId();

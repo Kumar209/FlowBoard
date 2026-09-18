@@ -6,6 +6,7 @@ import { ProjectService } from '../../../core/services/project.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { PermissionKeys } from '../../../shared/constants/permissions';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 
 @Component({
@@ -25,40 +26,11 @@ export class BoardsComponent {
 
   workspaceId = signal(this.route.parent?.snapshot.paramMap.get('wid') || this.route.snapshot.paramMap.get('wid') || '');
   projectId = signal(this.route.parent?.snapshot.paramMap.get('pid') || '');
-  canCreate = signal(false);
-  canUpdate = signal(false);
-  canDelete = signal(false);
-
-  constructor() {
-    effect(async () => {
-      const wid = this.workspaceId();
-      if (!wid) return;
-
-      const hasCreate = this.auth.hasPermission(wid, 'board:create');
-      const hasUpdate = this.auth.hasPermission(wid, 'board:update');
-      const hasDelete = this.auth.hasPermission(wid, 'board:delete');
-
-      if (hasCreate || hasUpdate || hasDelete) {
-        this.canCreate.set(hasCreate || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
-        this.canUpdate.set(hasUpdate || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
-        this.canDelete.set(hasDelete || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
-        return;
-      }
-
-      try {
-        const c = await this.perm.hasPermission(wid, 'board:create');
-        const u = await this.perm.hasPermission(wid, 'board:update');
-        const d = await this.perm.hasPermission(wid, 'board:delete');
-        this.canCreate.set(c || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
-        this.canUpdate.set(u || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
-        this.canDelete.set(d || this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
-      } catch {
-        this.canCreate.set(this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
-        this.canUpdate.set(this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
-        this.canDelete.set(this.auth.isOrgAdmin() || this.auth.isSuperAdmin());
-      }
-    }, { allowSignalWrites: true });
-  }
+  PermissionKeys = PermissionKeys;
+  canView = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.BoardView));
+  canCreate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.BoardCreate));
+  canUpdate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.BoardUpdate));
+  canDelete = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.BoardDelete));
 
   boardsQuery = injectQuery(() => ({
     queryKey: ['boards', this.projectId()] as const,

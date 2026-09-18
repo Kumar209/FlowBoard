@@ -5,6 +5,7 @@ import { ProjectService } from '../../../core/services/project.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { PermissionKeys } from '../../../shared/constants/permissions';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
 import { firstValueFrom } from 'rxjs';
 
@@ -38,9 +39,11 @@ export class StatusesComponent {
   search = signal('');
   showCreate = signal(false);
 
-  canCreate = signal(false);
-  canUpdate = signal(false);
-  canDelete = signal(false);
+  PermissionKeys = PermissionKeys;
+  canView = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.StatusView));
+  canCreate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.StatusCreate));
+  canUpdate = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.StatusUpdate));
+  canDelete = computed(() => this.perm.hasPermissionSync(this.workspaceId(), PermissionKeys.StatusDelete));
 
   constructor() {
     this.route.parent?.paramMap.subscribe(m => {
@@ -50,38 +53,6 @@ export class StatusesComponent {
       const wid = m.get('wid');
       if (wid) this.workspaceId.set(wid);
     });
-
-    const check = async () => {
-      const wid = this.workspaceId();
-
-      if (!wid) return;
-
-      const c =
-        this.auth.hasPermission(wid, 'status:create') ||
-        await this.perm.hasPermission(wid, 'status:create').catch(() => false);
-
-      const u =
-        this.auth.hasPermission(wid, 'status:update') ||
-        await this.perm.hasPermission(wid, 'status:update').catch(() => false);
-
-      const d =
-        this.auth.hasPermission(wid, 'status:delete') ||
-        await this.perm.hasPermission(wid, 'status:delete').catch(() => false);
-
-      this.canCreate.set(
-        c || this.auth.isOrgAdmin() || this.auth.isSuperAdmin()
-      );
-
-      this.canUpdate.set(
-        u || this.auth.isOrgAdmin() || this.auth.isSuperAdmin()
-      );
-
-      this.canDelete.set(
-        d || this.auth.isOrgAdmin() || this.auth.isSuperAdmin()
-      );
-    };
-
-    setTimeout(check, 400);
   }
 
   newName = signal('');
