@@ -77,7 +77,23 @@ export class ProjectsComponent {
     }, { allowSignalWrites: true });
   }
 
-  visiblePages = computed(() => {
+    effect(async () => {
+      const items: any[] = this.projectsQuery.data()?.items || [];
+      if (!items.length) { this.projectMemberMap.set(new Map()); return; }
+      if (this.auth.isOrgAdmin() || this.auth.isSuperAdmin()) { this.projectMemberMap.set(new Map()); return; }
+      const map = new Map<string, boolean>();
+      for (const pr of items as any[]) {
+        try {
+          const res: any = await firstValueFrom(this.projectService.getProjectMembers(pr.id, 1, 100));
+          const members = res?.items || res?.Items || (Array.isArray(res) ? res : []);
+          const isMember = members.some((m: any) => m.userId === this.auth.currentUser()?.id || m.UserId === this.auth.currentUser()?.id);
+          map.set(pr.id, isMember || pr.ownerId === this.auth.currentUser()?.id);
+        } catch { map.set(pr.id, false); }
+      }
+      this.projectMemberMap.set(map);
+    }, { allowSignalWrites: true });
+
+  visiblePages(() => {
     const total = this.totalPages();
     const current = this.page();
 
@@ -101,6 +117,8 @@ export class ProjectsComponent {
     const ws = this.workspacesQuery.data() || [];
     return s ? ws.filter(w => w.name.toLowerCase().includes(s)) : ws;
   });
+
+  projectMemberMap = signal<Map<string, boolean>>(new Map());
 
   projectsQuery = injectQuery(() => ({
     queryKey: ['projects-global', this.selectedWorkspaceId()] as const,
@@ -126,8 +144,11 @@ export class ProjectsComponent {
 
   filtered = computed(() => {
     const s = this.projectSearch().toLowerCase().trim();
-    const items = this.projectsQuery.data()?.items || [];
-
+    let items: any[] = this.projectsQuery.data()?.items || [];
+    if (!this.auth.isOrgAdmin() && !this.auth.isSuperAdmin()) {
+      const map = this.projectMemberMap();
+      if (map.size > 0) items = items.filter((p: any) => map.get(p.id) === true);
+    }
     return s
       ? items.filter((p: any) =>
           p.name.toLowerCase().includes(s) ||

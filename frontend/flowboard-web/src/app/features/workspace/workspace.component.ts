@@ -1,4 +1,4 @@
-import { Component, inject, signal, ChangeDetectionStrategy, computed } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -81,9 +81,35 @@ export class WorkspaceComponent {
     queryFn: () => firstValueFrom(this.projectService.getProjects(this.workspaceId())),
   }));
 
+  projectMemberMap = signal<Map<string, boolean>>(new Map());
+
+  constructor() {
+    effect(async () => {
+      const items: any[] = this.projectsQuery.data()?.items || [];
+      if (!items.length) { this.projectMemberMap.set(new Map()); return; }
+      if (this.auth.isOrgAdmin() || this.auth.isSuperAdmin()) { this.projectMemberMap.set(new Map()); return; }
+      const map = new Map<string, boolean>();
+      for (const p of items as any[]) {
+        try {
+          const res: any = await firstValueFrom(this.projectService.getProjectMembers(p.id, 1, 100));
+          const members = res?.items || res?.Items || (Array.isArray(res) ? res : []);
+          const isMember = members.some((m: any) => m.userId === this.auth.currentUser()?.id || m.UserId === this.auth.currentUser()?.id);
+          map.set(p.id, isMember || p.ownerId === this.auth.currentUser()?.id);
+        } catch { map.set(p.id, false); }
+      }
+      this.projectMemberMap.set(map);
+    }, { allowSignalWrites: true });
+  }
+
   filteredProjects = computed(() => {
     const s = this.search().toLowerCase().trim();
-    const items = this.projectsQuery.data()?.items || [];
+    let items: any[] = this.projectsQuery.data()?.items || [];
+    // MNC grade: only show projects where user is member unless OrgAdmin/SuperAdmin — private projects
+    if (!this.auth.isOrgAdmin() && !this.auth.isSuperAdmin()) {
+      const map = this.projectMemberMap();
+      // If map empty (still loading), show all to avoid flicker, else filter
+      if (map.size > 0) items = items.filter((p: any) => map.get(p.id) === true);
+    }
 
     return s
       ? items.filter(
