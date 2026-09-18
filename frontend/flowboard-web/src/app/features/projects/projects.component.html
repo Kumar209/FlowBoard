@@ -16,8 +16,8 @@
         <p class="mt-1 text-sm text-base-content/60">All projects across your assigned workspaces and teams.</p>
 
         @if (!canCreateProjectEffective()) {
-          <span class="badge badge-ghost badge-sm mt-2 rounded-lg border border-base-content/15 text-base-content/65">
-            View only — missing project:create
+          <span class="badge badge-ghost badge-sm mt-2 rounded-lg border border-base-content/15 text-base-content/65" title="You do not have permission">
+            View only — missing {{ PermissionKeys.ProjectCreate }}
           </span>
         }
       </div>
@@ -155,14 +155,22 @@
                 <span class="badge badge-primary badge-sm rounded-full">{{ project.key }}</span>
 
                 <div class="flex gap-1 items-center">
-                  @if (canCreateProjectEffective()) {
+                  @if (canUpdateProject(project.workspaceId) || canDeleteProject(project.workspaceId)) {
                     <div class="dropdown dropdown-end">
                       <div tabindex="0" role="button" class="btn btn-ghost btn-xs rounded-full">⋮</div>
                       <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-xl z-10 w-36 p-2 shadow border">
-                        <li><a (click)="openEdit(project)">Edit</a></li>
-                        <li><a class="text-error" (click)="openDelete(project)">Delete</a></li>
+                        @if (canUpdateProject(project.workspaceId)) {
+                          <li><a (click)="openEdit(project)">Edit</a></li>
+                        } @else {
+                          <li><a class="opacity-40 cursor-not-allowed" title="You do not have permission">Edit</a></li>
+                        }
+                        @if (canDeleteProject(project.workspaceId)) {
+                          <li><a class="text-error" (click)="openDelete(project)">Delete</a></li>
+                        }
                       </ul>
                     </div>
+                  } @else {
+                    <span class="badge badge-ghost badge-xs opacity-40" title="You do not have permission">View only</span>
                   }
 
                   <span class="badge badge-ghost badge-xs">{{ project.workspaceId.slice(0,4) }}</span>
@@ -173,12 +181,16 @@
               <p class="text-sm opacity-60 line-clamp-2">{{ project.description || 'No description' }}</p>
 
               <div class="card-actions justify-end mt-4">
-                <a
-                  [routerLink]="['/w', project.workspaceId, 'p', project.id, 'boards']"
-                  class="btn btn-primary btn-sm rounded-full px-4"
-                >
-                  Open Boards →
-                </a>
+                @if (canViewProject(project.workspaceId)) {
+                  <a
+                    [routerLink]="['/w', project.workspaceId, 'p', project.id, 'boards']"
+                    class="btn btn-primary btn-sm rounded-full px-4"
+                  >
+                    Open Boards →
+                  </a>
+                } @else {
+                  <span class="badge badge-ghost badge-xs" title="You do not have permission">View only — missing {{ PermissionKeys.ProjectView }}</span>
+                }
               </div>
             </div>
           </div>

@@ -10,6 +10,7 @@ import { PermissionService } from '../../core/services/permission.service';
 import { ProjectModalComponent } from '../../shared/components/modals/project-modal/project-modal.component';
 import { ConfirmDeleteComponent } from '../../shared/components/modals/confirm-delete/confirm-delete.component';
 import { injectQuery, injectMutation, QueryClient } from '@tanstack/angular-query-experimental';
+import { PermissionKeys } from '../../shared/constants/permissions';
 
 @Component({
   selector: 'app-projects',
@@ -33,9 +34,19 @@ export class ProjectsComponent {
   page = signal(1);
   pageSize = signal(10);
 
-  canCreateProject = computed(() => this.auth.canCreateProject());
+  PermissionKeys = PermissionKeys;
+  // single 5m helper — global OrgAdmin/SuperAdmin bypass inside hasPermissionSync, no hardcoded "project:create"
+  canCreateProject = computed(() => this.perm.hasPermissionSync(this.selectedWorkspaceId() === 'all' ? (this.workspacesQuery.data()?.[0]?.id || '') : this.selectedWorkspaceId(), PermissionKeys.ProjectCreate));
   hasCustomProjectCreate = signal(false);
-  canCreateProjectEffective = computed(() => this.canCreateProject() || this.hasCustomProjectCreate());
+  canCreateProjectEffective = computed(() => {
+    if (this.auth.isSuperAdmin() || this.auth.isOrgAdmin()) return true;
+    const wss: any[] = this.workspacesQuery.data() || [];
+    const ids = this.selectedWorkspaceId() === 'all' ? wss.map(w => w.id) : [this.selectedWorkspaceId()];
+    return ids.some(id => this.perm.hasPermissionSync(id, PermissionKeys.ProjectCreate));
+  });
+  canViewProject = (workspaceId: string) => this.perm.hasPermissionSync(workspaceId, PermissionKeys.ProjectView);
+  canUpdateProject = (workspaceId: string) => this.perm.hasPermissionSync(workspaceId, PermissionKeys.ProjectUpdate);
+  canDeleteProject = (workspaceId: string) => this.perm.hasPermissionSync(workspaceId, PermissionKeys.ProjectDelete);
 
   selectedWorkspaceName = computed(() => {
     if (this.selectedWorkspaceId() === 'all') {
@@ -56,26 +67,13 @@ export class ProjectsComponent {
   }));
 
   constructor() {
-    effect(async () => {
+    effect(() => {
       const wsId = this.selectedWorkspaceId();
       const wss: any = this.workspacesQuery.data();
-
       if (!wss) return;
-
-      const ids = wsId === 'all'
-        ? (wss as any[]).map(w => w.id)
-        : [wsId];
-
-      for (const id of ids) {
-        try {
-          if (await this.perm.hasPermission(id, 'project:create')) {
-            this.hasCustomProjectCreate.set(true);
-            return;
-          }
-        } catch {}
-      }
-
-      this.hasCustomProjectCreate.set(false);
+      const ids = wsId === 'all' ? (wss as any[]).map(w => w.id) : [wsId];
+      const hasAny = ids.some(id => this.perm.hasPermissionSync(id, PermissionKeys.ProjectCreate));
+      this.hasCustomProjectCreate.set(hasAny);
     }, { allowSignalWrites: true });
   }
 
