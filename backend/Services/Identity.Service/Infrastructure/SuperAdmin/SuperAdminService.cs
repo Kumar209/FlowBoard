@@ -310,21 +310,70 @@ public class SuperAdminService : ISuperAdminService
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == orgId, ct);
         if (org == null) throw new InvalidOperationException("Organization not found");
 
-        // Check no pending suspensions blocking?
         var wsIds = await _db.Workspaces.Where(w => w.OrganizationId == orgId).Select(w => w.Id).ToListAsync(ct);
-        // Delete cross-schema project data
+
+        // Collect all userIds tied to this org for exclusive hard delete (owner + org members + workspace members)
+        var orgMemberUserIds = await _db.OrganizationMembers.Where(m => m.OrganizationId == orgId).Select(m => m.UserId).ToListAsync(ct);
+        var wsMemberUserIds = wsIds.Any() ? await _db.WorkspaceMembers.Where(m => wsIds.Contains(m.WorkspaceId)).Select(m => m.UserId).Distinct().ToListAsync(ct) : new List<Guid>();
+        var allOrgUserIds = orgMemberUserIds.Union(wsMemberUserIds).Union(new[] { org.OwnerId }).Distinct().ToList();
+        var exclusiveUserIds = new List<Guid>();
+        foreach (var uid in allOrgUserIds)
+        {
+            if (await _db.Users.AnyAsync(u => u.Id == uid && u.IsSuperAdmin, ct)) continue;
+            var hasOtherOrgMember = await _db.OrganizationMembers.AnyAsync(m => m.UserId == uid && m.OrganizationId != orgId, ct);
+            var hasOtherOwnedOrg = await _db.Organizations.AnyAsync(o => o.OwnerId == uid && o.Id != orgId, ct);
+            if (!hasOtherOrgMember && !hasOtherOwnedOrg) exclusiveUserIds.Add(uid);
+        }
+
+        // Cross-schema hard delete: [project] -> [file] -> [notification] (best-effort raw SQL, same DB flowboard)
         if (wsIds.Any())
         {
             try
             {
                 var conn = _db.Database.GetDbConnection();
                 if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync(ct);
-                // Delete project-related data via cascading project deletes: first delete projects, which cascades tasks etc via FK
                 var wsList = string.Join(",", wsIds.Select(id => $"'{id}'"));
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = $"DELETE FROM [project].[Projects] WHERE WorkspaceId IN ({wsList})";
-                await cmd.ExecuteNonQueryAsync(ct);
-                _logger.LogInformation("Deleted projects for org {OrgId}", orgId);
+                var projectIds = new List<Guid>();
+                try
+                {
+                    using var projCmd = conn.CreateCommand();
+                    projCmd.CommandText = $"SELECT Id FROM [project].[Projects] WHERE WorkspaceId IN ({wsList})";
+                    using var reader = await projCmd.ExecuteReaderAsync(ct);
+                    while (await reader.ReadAsync(ct)) projectIds.Add(reader.GetGuid(0));
+                }
+                catch (Exception ex) { _logger.LogWarning(ex, "Fetch projectIds for org {OrgId} failed", orgId); }
+                var projList = projectIds.Any() ? string.Join(",", projectIds.Select(id => $"'{id}'")) : null;
+                async Task Exec(string sql)
+                {
+                    try { using var c = conn.CreateCommand(); c.CommandText = sql; await c.ExecuteNonQueryAsync(ct); } catch (Exception ex) { _logger.LogWarning(ex, "Cross-schema exec failed: {Sql}", sql[..Math.Min(80, sql.Length)]); }
+                }
+                if (projList != null)
+                {
+                    await Exec($"DELETE FROM [project].[Comments] WHERE TaskId IN (SELECT Id FROM [project].[Tasks] WHERE ProjectId IN ({projList}))");
+                    await Exec($"DELETE FROM [project].[SubTasks] WHERE TaskId IN (SELECT Id FROM [project].[Tasks] WHERE ProjectId IN ({projList}))");
+                    await Exec($"DELETE FROM [file].[Attachments] WHERE ProjectId IN ({projList}) OR WorkspaceId IN ({wsList})");
+                    await Exec($"DELETE FROM [notification].[Notifications] WHERE ProjectId IN ({projList}) OR WorkspaceId IN ({wsList})");
+                    await Exec($"DELETE FROM [project].[ActivityLogs] WHERE ProjectId IN ({projList})");
+                    await Exec($"DELETE FROM [project].[AiUsageLogs] WHERE ProjectId IN ({projList})");
+                    await Exec($"DELETE FROM [project].[BoardColumnStatuses] WHERE BoardId IN (SELECT Id FROM [project].[Boards] WHERE ProjectId IN ({projList}))");
+                    await Exec($"DELETE FROM [project].[BoardLists] WHERE ProjectId IN ({projList}) OR BoardId IN (SELECT Id FROM [project].[Boards] WHERE ProjectId IN ({projList}))");
+                    await Exec($"DELETE FROM [project].[Sprints] WHERE ProjectId IN ({projList})");
+                    await Exec($"DELETE FROM [project].[TeamMembers] WHERE TeamId IN (SELECT Id FROM [project].[Teams] WHERE ProjectId IN ({projList}))");
+                    await Exec($"DELETE FROM [project].[Teams] WHERE ProjectId IN ({projList})");
+                    await Exec($"DELETE FROM [project].[Tasks] WHERE ProjectId IN ({projList})");
+                    await Exec($"DELETE FROM [project].[Statuses] WHERE ProjectId IN ({projList})");
+                    await Exec($"DELETE FROM [project].[Environments] WHERE ProjectId IN ({projList})");
+                    await Exec($"DELETE FROM [project].[ProjectMembers] WHERE ProjectId IN ({projList})");
+                    await Exec($"DELETE FROM [project].[Boards] WHERE ProjectId IN ({projList})");
+                    await Exec($"DELETE FROM [project].[Projects] WHERE WorkspaceId IN ({wsList})");
+                    _logger.LogInformation("Deleted cross-schema project/file/notification data for org {OrgId} ({Count} projects)", orgId, projectIds.Count);
+                }
+                else
+                {
+                    await Exec($"DELETE FROM [file].[Attachments] WHERE WorkspaceId IN ({wsList})");
+                    await Exec($"DELETE FROM [notification].[Notifications] WHERE WorkspaceId IN ({wsList})");
+                    await Exec($"DELETE FROM [project].[Projects] WHERE WorkspaceId IN ({wsList})");
+                }
             }
             catch (Exception ex)
             {
@@ -333,7 +382,7 @@ public class SuperAdminService : ISuperAdminService
             var wm = await _db.WorkspaceMembers.Where(m => wsIds.Contains(m.WorkspaceId)).ToListAsync(ct);
             if (wm.Any()) _db.WorkspaceMembers.RemoveRange(wm);
             var workspaces = await _db.Workspaces.Where(w => wsIds.Contains(w.Id)).ToListAsync(ct);
-            _db.Workspaces.RemoveRange(workspaces);
+            if (workspaces.Any()) _db.Workspaces.RemoveRange(workspaces);
         }
 
         var orgMembers = await _db.OrganizationMembers.Where(m => m.OrganizationId == orgId).ToListAsync(ct);
@@ -354,10 +403,42 @@ public class SuperAdminService : ISuperAdminService
             if (replies.Any()) _db.ComplaintReplies.RemoveRange(replies);
             _db.Complaints.RemoveRange(complaints);
         }
+        var flags = await _db.OrganizationFeatureFlags.Where(f => f.OrganizationId == orgId).ToListAsync(ct);
+        if (flags.Any()) _db.OrganizationFeatureFlags.RemoveRange(flags);
 
         _db.Organizations.Remove(org);
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Org {OrgId} deleted cascade by {Actor}", orgId, actorId);
+
+        // Hard delete exclusive users so they cannot login after org deleted (email reusable)
+        if (exclusiveUserIds.Any())
+        {
+            var tokens = await _db.RefreshTokens.Where(t => exclusiveUserIds.Contains(t.UserId)).ToListAsync(ct);
+            if (tokens.Any()) _db.RefreshTokens.RemoveRange(tokens);
+            var leftoverWsMems = await _db.WorkspaceMembers.Where(m => exclusiveUserIds.Contains(m.UserId)).ToListAsync(ct);
+            if (leftoverWsMems.Any()) _db.WorkspaceMembers.RemoveRange(leftoverWsMems);
+            var leftoverOrgMems = await _db.OrganizationMembers.Where(m => exclusiveUserIds.Contains(m.UserId)).ToListAsync(ct);
+            if (leftoverOrgMems.Any()) _db.OrganizationMembers.RemoveRange(leftoverOrgMems);
+            var leftoverPendings = await _db.PendingUserSuspensions.Where(p => exclusiveUserIds.Contains(p.UserId)).ToListAsync(ct);
+            if (leftoverPendings.Any()) _db.PendingUserSuspensions.RemoveRange(leftoverPendings);
+            try
+            {
+                var conn2 = _db.Database.GetDbConnection();
+                if (conn2.State != System.Data.ConnectionState.Open) await conn2.OpenAsync(ct);
+                var uidList = string.Join(",", exclusiveUserIds.Select(id => $"'{id}'"));
+                async Task Exec2(string sql) { try { using var c = conn2.CreateCommand(); c.CommandText = sql; await c.ExecuteNonQueryAsync(ct); } catch (Exception ex) { _logger.LogWarning(ex, "Exclusive user cross-schema clean failed"); } }
+                await Exec2($"DELETE FROM [project].[ProjectMembers] WHERE UserId IN ({uidList})");
+                await Exec2($"UPDATE [project].[Tasks] SET AssigneeId = NULL WHERE AssigneeId IN ({uidList})");
+                await Exec2($"DELETE FROM [project].[TeamMembers] WHERE UserId IN ({uidList})");
+                await Exec2($"DELETE FROM [file].[Attachments] WHERE UploaderId IN ({uidList})");
+                await Exec2($"DELETE FROM [notification].[Notifications] WHERE RecipientUserId IN ({uidList}) OR ActorUserId IN ({uidList})");
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "Exclusive user cross-schema delete failed for org {OrgId}", orgId); }
+            var usersToDelete = await _db.Users.Where(u => exclusiveUserIds.Contains(u.Id)).ToListAsync(ct);
+            if (usersToDelete.Any()) _db.Users.RemoveRange(usersToDelete);
+            await _db.SaveChangesAsync(ct);
+            _logger.LogInformation("Hard deleted {Count} exclusive users for org {OrgId}", exclusiveUserIds.Count, orgId);
+        }
     }
 
     public async Task SuspendUserWithGraceAsync(Guid userId, Guid organizationId, string reason, string message, DateTime deadlineAt, Guid actorId, CancellationToken ct = default)
