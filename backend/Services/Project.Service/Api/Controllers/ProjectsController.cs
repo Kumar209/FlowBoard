@@ -147,12 +147,12 @@ public class ProjectsController : ControllerBase
     {
         try
         {
-            // Global SuperAdmin via IsSuperAdmin
+            // 1. Global SuperAdmin bypass - must be first
             try { var isSuper = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(*) as Value FROM [identity].[Users] WHERE Id = {0} AND IsSuperAdmin = 1", userId).FirstOrDefaultAsync(); if (isSuper > 0) return Roles.SuperAdmin; } catch { }
-            // Org-level OrgAdmin via OrganizationMembers or Owner
+            // 2. Org-level OrgAdmin via Owner or OrganizationMembers Role=2 (org authoritative, zero WorkspaceMembers for OrgAdmin)
             try
             {
-                var orgId = await _db.Database.SqlQueryRaw<Guid>("SELECT OrganizationId FROM [identity].[Workspaces] WHERE Id = {0}", workspaceId).FirstOrDefaultAsync();
+                var orgId = await _db.Database.SqlQueryRaw<Guid>("SELECT OrganizationId as Value FROM [identity].[Workspaces] WHERE Id = {0}", workspaceId).FirstOrDefaultAsync();
                 if (orgId != Guid.Empty)
                 {
                     var isOwner = await _db.Database.SqlQueryRaw<int>("SELECT COUNT(*) as Value FROM [identity].[Organizations] WHERE Id = {0} AND OwnerId = {1}", orgId, userId).FirstOrDefaultAsync();
@@ -161,8 +161,8 @@ public class ProjectsController : ControllerBase
                     if (isOrgAdmin > 0) return Roles.OrgAdmin;
                 }
             } catch { }
-            // Fallback to workspace membership
-            var roleInt = await _db.Database.SqlQueryRaw<int?>("SELECT Role FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1}", workspaceId, userId).FirstOrDefaultAsync();
+            // 3. Fallback to workspace membership (int Role) - convert via single Roles label source
+            var roleInt = await _db.Database.SqlQueryRaw<int?>("SELECT Role as Value FROM [identity].[WorkspaceMembers] WHERE WorkspaceId = {0} AND UserId = {1}", workspaceId, userId).FirstOrDefaultAsync();
             if (roleInt == null) return null;
             return roleInt.Value switch { 0 => Roles.SuperAdmin, 1 => Roles.Member, 2 => Roles.OrgAdmin, 3 => Roles.Client, _ => Roles.GetLabel(roleInt.Value) };
         }

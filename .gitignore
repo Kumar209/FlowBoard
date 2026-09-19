@@ -46,6 +46,13 @@ Desktop.ini
 
 # Build
 publish/
+publish_*/
+publish_*/logs/
+publish_gateway/
+publish_identity/
+publish_project/
+publish_file/
+publish_notify/
 out/
 
 # Session / Temp
