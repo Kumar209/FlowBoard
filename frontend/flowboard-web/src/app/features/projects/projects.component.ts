@@ -61,9 +61,33 @@ export class ProjectsComponent {
   editing = signal<any>(null);
   createError = signal<string | null>(null);
 
+  projectMemberMap = signal<Map<string, boolean>>(new Map());
+
   workspacesQuery = injectQuery(() => ({
     queryKey: ['workspaces'] as const,
     queryFn: () => firstValueFrom(this.workspaceService.getMyWorkspaces())
+  }));
+
+  projectsQuery = injectQuery(() => ({
+    queryKey: ['projects-global', this.selectedWorkspaceId()] as const,
+    queryFn: async () => {
+      const workspaces = this.workspacesQuery.data() ??
+        await firstValueFrom(this.workspaceService.getMyWorkspaces());
+
+      const ids = this.selectedWorkspaceId() === 'all'
+        ? (workspaces as any[]).map(w => w.id)
+        : [this.selectedWorkspaceId()];
+
+      const results = await Promise.all(
+        ids.map(id =>
+          firstValueFrom(this.projectService.getProjects(id))
+            .catch(() => ({ items: [], total: 0 } as any))
+        )
+      );
+
+      const all = results.flatMap(r => r.items);
+      return { items: all, total: all.length };
+    }
   }));
 
   constructor() {
@@ -75,25 +99,27 @@ export class ProjectsComponent {
       const hasAny = ids.some(id => this.perm.hasPermissionSync(id, PermissionKeys.ProjectCreate));
       this.hasCustomProjectCreate.set(hasAny);
     }, { allowSignalWrites: true });
-  }
 
-    effect(async () => {
+    effect(() => {
       const items: any[] = this.projectsQuery.data()?.items || [];
       if (!items.length) { this.projectMemberMap.set(new Map()); return; }
       if (this.auth.isOrgAdmin() || this.auth.isSuperAdmin()) { this.projectMemberMap.set(new Map()); return; }
-      const map = new Map<string, boolean>();
-      for (const pr of items as any[]) {
-        try {
-          const res: any = await firstValueFrom(this.projectService.getProjectMembers(pr.id, 1, 100));
-          const members = res?.items || res?.Items || (Array.isArray(res) ? res : []);
-          const isMember = members.some((m: any) => m.userId === this.auth.currentUser()?.id || m.UserId === this.auth.currentUser()?.id);
-          map.set(pr.id, isMember || pr.ownerId === this.auth.currentUser()?.id);
-        } catch { map.set(pr.id, false); }
-      }
-      this.projectMemberMap.set(map);
+      void (async () => {
+        const map = new Map<string, boolean>();
+        for (const pr of items as any[]) {
+          try {
+            const res: any = await firstValueFrom(this.projectService.getProjectMembers(pr.id, 1, 100));
+            const members = res?.items || res?.Items || (Array.isArray(res) ? res : []);
+            const isMember = members.some((m: any) => m.userId === this.auth.currentUser()?.id || m.UserId === this.auth.currentUser()?.id);
+            map.set(pr.id, isMember || pr.ownerId === this.auth.currentUser()?.id);
+          } catch { map.set(pr.id, false); }
+        }
+        this.projectMemberMap.set(map);
+      })();
     }, { allowSignalWrites: true });
+  }
 
-  visiblePages(() => {
+  visiblePages = computed(() => {
     const total = this.totalPages();
     const current = this.page();
 
@@ -117,30 +143,6 @@ export class ProjectsComponent {
     const ws = this.workspacesQuery.data() || [];
     return s ? ws.filter(w => w.name.toLowerCase().includes(s)) : ws;
   });
-
-  projectMemberMap = signal<Map<string, boolean>>(new Map());
-
-  projectsQuery = injectQuery(() => ({
-    queryKey: ['projects-global', this.selectedWorkspaceId()] as const,
-    queryFn: async () => {
-      const workspaces = this.workspacesQuery.data() ??
-        await firstValueFrom(this.workspaceService.getMyWorkspaces());
-
-      const ids = this.selectedWorkspaceId() === 'all'
-        ? (workspaces as any[]).map(w => w.id)
-        : [this.selectedWorkspaceId()];
-
-      const results = await Promise.all(
-        ids.map(id =>
-          firstValueFrom(this.projectService.getProjects(id))
-            .catch(() => ({ items: [], total: 0 } as any))
-        )
-      );
-
-      const all = results.flatMap(r => r.items);
-      return { items: all, total: all.length };
-    }
-  }));
 
   filtered = computed(() => {
     const s = this.projectSearch().toLowerCase().trim();
@@ -274,14 +276,18 @@ export class ProjectsComponent {
   }
 
   onEditSubmit(e: { name: string; description: string }) {
+    const ed = this.editing();
+    if (!ed) return;
     this.updateMutation.mutate({
-      id: this.editing().id,
+      id: ed.id,
       name: e.name,
       description: e.description
     });
   }
 
   onDeleteConfirm() {
-    this.deleteMutation.mutate(this.editing().id);
+    const ed = this.editing();
+    if (!ed) return;
+    this.deleteMutation.mutate(ed.id);
   }
 }
