@@ -326,4 +326,7 @@ export class SuperAdminService {
   assignPlan(orgId: string, planId: string) {
     return this.http.put(`${environment.apiUrl}/api/superadmin/subscriptions/organizations/${orgId}`, { planId }, { withCredentials: true });
   }
+  purgeAll() {
+    return this.http.post<{ deletedOrganizations: number; deletedUsers: number; deletedProjects: number; deletedWorkspaces: number }>(`${environment.apiUrl}/api/superadmin/system/purge`, {}, { withCredentials: true });
+  }
 }

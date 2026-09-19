@@ -131,6 +131,23 @@ export class SettingsComponent {
     onError: (e: any) => this.toast.error(e.error?.error || 'Upload failed')
   }));
 
+  purgeConfirm = signal('');
+  purgeDialogOpen = signal(false);
+
+  purgeMut = injectMutation(() => ({
+    mutationFn: () => firstValueFrom(this.sa.purgeAll()),
+    onSuccess: (res: any) => {
+      this.toast.success(`Purged ${res.deletedOrganizations} orgs, ${res.deletedUsers} users, ${res.deletedProjects} projects`);
+      this.purgeDialogOpen.set(false);
+      this.purgeConfirm.set('');
+      this.qc.invalidateQueries({ queryKey: ['superadmin-settings'] });
+      this.qc.invalidateQueries({ queryKey: ['superadmin-dashboard'] });
+      this.qc.invalidateQueries({ queryKey: ['superadmin-organizations'] });
+      this.qc.invalidateQueries({ queryKey: ['superadmin-users'] });
+    },
+    onError: (e: any) => this.toast.error(e.error?.error || 'Purge failed')
+  }));
+
   onLogoSelected(e: Event) {
     const input = e.target as HTMLInputElement;
     if (input.files?.[0]) this.logoFile.set(input.files[0]);

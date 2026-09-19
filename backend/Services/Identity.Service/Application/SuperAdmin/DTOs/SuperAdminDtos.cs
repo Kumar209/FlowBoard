@@ -361,3 +361,10 @@ public record PlatformSettingsResponse(
     MaintenanceSettingsDto Maintenance,
     TenantDefaultsDto TenantDefaults
 );
+
+public record PurgeResultDto(
+    int DeletedOrganizations,
+    int DeletedUsers,
+    int DeletedProjects,
+    int DeletedWorkspaces
+);

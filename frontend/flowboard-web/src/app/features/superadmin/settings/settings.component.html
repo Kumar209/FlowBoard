@@ -639,8 +639,47 @@
               {{ s.email.senderEmail }}
             </p>
           </div>
+          </div>
+        </section>
+
+        <!-- Danger Zone - Truncate All Data Except Seeding -->
+        <section class="overflow-hidden rounded-2xl border border-error/30 bg-error/5 shadow-sm xl:col-span-2">
+          <div class="flex items-center gap-3 border-b border-error/20 bg-error/10 px-5 py-4">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-error/15 text-error">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4M12 17h.01M10.3 4.7 7 12a2 2 0 0 0 1.7 3h14a2 2 0 0 0 1.7-3l-7-12a2 2 0 0 0-3.4 0Z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="text-sm font-semibold text-error">Danger Zone</h2>
+              <p class="mt-0.5 text-xs text-base-content/60">Irreversible action - truncate all customer data while keeping seeding data (permissions, plans, flags, platform settings and superadmin accounts).</p>
+            </div>
+          </div>
+          <div class="p-5">
+            <div class="rounded-xl border border-error/20 bg-base-100 p-4">
+              <h3 class="text-sm font-semibold text-base-content">Truncate All Data Except Seeding</h3>
+              <p class="mt-1 text-xs text-base-content/60">This will permanently delete all organizations, workspaces, projects, boards, tasks, comments, teams, attachments, notifications and non-superadmin users. Seeding data will remain.</p>
+              <button type="button" class="btn btn-error btn-sm mt-4 h-9 rounded-lg text-xs text-white" (click)="purgeDialogOpen.set(true)">Truncate All Data</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Purge Confirm Dialog -->
+      @if (purgeDialogOpen()) {
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div class="w-full max-w-md rounded-2xl border border-base-300 bg-base-100 p-5 shadow-xl">
+            <h3 class="text-sm font-semibold text-error">Confirm Truncate</h3>
+            <p class="mt-2 text-xs text-base-content/60">This action cannot be undone. Type <span class="font-mono font-semibold text-error">TRUNCATE</span> to confirm.</p>
+            <input class="input input-bordered input-sm mt-3 h-10 w-full rounded-lg border-error/30 text-sm focus:border-error focus:outline-none" placeholder="Type TRUNCATE" [ngModel]="purgeConfirm()" (ngModelChange)="purgeConfirm.set($event)" />
+            <div class="mt-4 flex justify-end gap-2">
+              <button type="button" class="btn btn-ghost btn-sm h-9 rounded-lg text-xs" (click)="purgeDialogOpen.set(false); purgeConfirm.set('')" [disabled]="purgeMut.isPending()">Cancel</button>
+              <button type="button" class="btn btn-error btn-sm h-9 rounded-lg text-xs text-white" (click)="purgeMut.mutate()" [disabled]="purgeConfirm() !== 'TRUNCATE' || purgeMut.isPending()">
+                @if (purgeMut.isPending()) { <span class="loading loading-spinner loading-xs"></span> } Confirm Truncate
+              </button>
+            </div>
+          </div>
         </div>
-      </section>
-    </div>
-  }
-</div>
+      }
+    }
+  </div>

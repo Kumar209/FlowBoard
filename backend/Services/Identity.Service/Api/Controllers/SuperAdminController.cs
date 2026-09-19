@@ -193,6 +193,20 @@ public class SuperAdminController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("system/purge")]
+    public async Task<IActionResult> PurgeAll()
+    {
+        if (!Roles.IsSuperAdmin(GetRoles())) return StatusCode(403, new { error = "Forbidden - SuperAdmin only" });
+        var actor = GetUserId(); if (actor == null) return Unauthorized(new { error = "Unauthorized" });
+        try
+        {
+            var result = await _superAdminService.PurgeAllAsync(actor.Value);
+            return Ok(result);
+        }
+        catch (Exception ex) when (ex.Message.Contains("Forbidden")) { return StatusCode(403, new { error = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
     [HttpGet("flags")]
     public async Task<IActionResult> GetFlags()
     {

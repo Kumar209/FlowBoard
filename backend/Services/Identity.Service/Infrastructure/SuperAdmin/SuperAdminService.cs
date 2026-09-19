@@ -441,6 +441,88 @@ public class SuperAdminService : ISuperAdminService
         }
     }
 
+    public async Task<PurgeResultDto> PurgeAllAsync(Guid actorId, CancellationToken ct = default)
+    {
+        var actor = await _db.Users.FirstOrDefaultAsync(u => u.Id == actorId, ct);
+        if (actor == null || !actor.IsSuperAdmin) throw new InvalidOperationException("Forbidden - SuperAdmin only");
+
+        var orgCount = await _db.Organizations.CountAsync(ct);
+        var wsCount = await _db.Workspaces.CountAsync(ct);
+        var userCount = await _db.Users.CountAsync(u => !u.IsSuperAdmin, ct);
+        int projCount = 0;
+        try
+        {
+            var c = _db.Database.GetDbConnection();
+            if (c.State != System.Data.ConnectionState.Open) await c.OpenAsync(ct);
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM [project].[Projects]";
+            var r = await cmd.ExecuteScalarAsync(ct);
+            projCount = Convert.ToInt32(r);
+        }
+        catch { projCount = 0; }
+
+        var conn = _db.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync(ct);
+        async Task Exec(string sql)
+        {
+            try { using var cmd = conn.CreateCommand(); cmd.CommandText = sql; await cmd.ExecuteNonQueryAsync(ct); } catch (Exception ex) { _logger.LogWarning(ex, "Purge exec failed: {Sql}", sql[..Math.Min(60, sql.Length)]); }
+        }
+
+        // [project] ordered deletes
+        await Exec("DELETE FROM [project].[Comments] WHERE 1=1");
+        await Exec("DELETE FROM [project].[SubTasks] WHERE 1=1");
+        await Exec("DELETE FROM [project].[ActivityLogs] WHERE 1=1");
+        await Exec("DELETE FROM [project].[AiUsageLogs] WHERE 1=1");
+        await Exec("DELETE FROM [project].[BoardColumnStatuses] WHERE 1=1");
+        await Exec("DELETE FROM [project].[BoardLists] WHERE 1=1");
+        await Exec("DELETE FROM [project].[Sprints] WHERE 1=1");
+        await Exec("DELETE FROM [project].[TeamMembers] WHERE 1=1");
+        await Exec("DELETE FROM [project].[Teams] WHERE 1=1");
+        await Exec("DELETE FROM [project].[Tasks] WHERE 1=1");
+        await Exec("DELETE FROM [project].[Statuses] WHERE 1=1");
+        await Exec("DELETE FROM [project].[Environments] WHERE 1=1");
+        await Exec("DELETE FROM [project].[ProjectMembers] WHERE 1=1");
+        await Exec("DELETE FROM [project].[Boards] WHERE 1=1");
+        await Exec("DELETE FROM [project].[Projects] WHERE 1=1");
+        await Exec("DELETE FROM [project].[OutboxMessages] WHERE 1=1");
+
+        // [file] and [notification]
+        await Exec("DELETE FROM [file].[Attachments] WHERE 1=1");
+        await Exec("DELETE FROM [file].[OutboxMessages] WHERE 1=1");
+        await Exec("DELETE FROM [notification].[Notifications] WHERE 1=1");
+
+        // [identity] leaf to parent - keep seeding: Permissions, SubscriptionPlans, FeatureFlags, PlatformSettings, Users where IsSuperAdmin, Migrations
+        await Exec("DELETE FROM [identity].[WorkspaceMembers] WHERE 1=1");
+        await Exec("DELETE FROM [identity].[OrganizationMembers] WHERE 1=1");
+        await Exec("DELETE FROM [identity].[RolePermissions] WHERE 1=1");
+        await Exec("DELETE FROM [identity].[OrganizationActivities] WHERE 1=1");
+        await Exec("DELETE FROM [identity].[PendingUserSuspensions] WHERE 1=1");
+        await Exec("DELETE FROM [identity].[PlatformNotices] WHERE 1=1");
+        await Exec("DELETE FROM [identity].[ComplaintReplies] WHERE 1=1");
+        await Exec("DELETE FROM [identity].[Complaints] WHERE 1=1");
+        await Exec("DELETE FROM [identity].[OrganizationFeatureFlags] WHERE 1=1");
+        await Exec("DELETE FROM [identity].[RefreshTokens] WHERE UserId IN (SELECT Id FROM [identity].[Users] WHERE IsSuperAdmin = 0)");
+        await Exec("DELETE FROM [identity].[OutboxMessages] WHERE 1=1");
+        // Delete workspaces before organizations (FK)
+        await Exec("DELETE FROM [identity].[Workspaces] WHERE 1=1");
+        // Delete custom roles after members
+        await Exec("DELETE FROM [identity].[OrganizationWorkspaceRoles] WHERE 1=1");
+        // Delete organizations (keep FlowBoard System if exists? we delete all customer orgs - keep none, seed will recreate if needed)
+        await Exec("DELETE FROM [identity].[Organizations] WHERE 1=1");
+        // Delete non-superadmin users last
+        await Exec("DELETE FROM [identity].[Users] WHERE IsSuperAdmin = 0");
+
+        _logger.LogInformation("Purge all by {Actor}: orgs {Org} ws {Ws} users {Users} projects {Projs}", actorId, orgCount, wsCount, userCount, projCount);
+        try
+        {
+            _db.OrganizationActivities.Add(new OrganizationActivity(Guid.Empty, actorId, "SystemPurged", $"{{\"orgs\":{orgCount},\"users\":{userCount},\"projects\":{projCount},\"workspaces\":{wsCount}}}"));
+            await _db.SaveChangesAsync(ct);
+        }
+        catch { }
+
+        return new PurgeResultDto(orgCount, userCount, projCount, wsCount);
+    }
+
     public async Task SuspendUserWithGraceAsync(Guid userId, Guid organizationId, string reason, string message, DateTime deadlineAt, Guid actorId, CancellationToken ct = default)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
